@@ -256,7 +256,7 @@ const PR_CHECKS_EAGER_PREFETCH_LIMIT = 20
 const GITHUB_TASK_GRID_CLASS =
   'min-w-[790px] grid-cols-[72px_minmax(320px,1fr)_84px_100px_92px_122px]'
 const GITHUB_PR_TASK_GRID_CLASS =
-  'min-w-[1170px] grid-cols-[72px_minmax(260px,2fr)_minmax(130px,0.8fr)_132px_128px_132px_92px_158px]'
+  'min-w-[1020px] grid-cols-[72px_minmax(360px,2fr)_132px_128px_132px_92px_158px]'
 const GITHUB_TASK_ROW_SURFACE_CLASS =
   '[background:color-mix(in_srgb,var(--muted)_50%,var(--background))]'
 const GITHUB_TASK_ROW_HOVER_SURFACE_CLASS =
@@ -4799,7 +4799,7 @@ export default function TaskPage(): React.JSX.Element {
                 >
                   <span className={GITHUB_TASK_STICKY_ID_HEADER_CLASS}>ID</span>
                   <span className={GITHUB_TASK_STICKY_TITLE_HEADER_CLASS}>Title / Context</span>
-                  <span>{activeGithubTaskKind === 'issues' ? 'Assignees' : 'Branch'}</span>
+                  {activeGithubTaskKind === 'issues' ? <span>Assignees</span> : null}
                   {showPRManagementColumns ? (
                     <>
                       <span>Reviewers</span>
@@ -4889,9 +4889,11 @@ export default function TaskPage(): React.JSX.Element {
                           <div className="h-4 w-3/5 animate-pulse rounded bg-muted/70" />
                           <div className="mt-2 h-3 w-2/5 animate-pulse rounded bg-muted/60" />
                         </div>
-                        <div className="flex items-center">
-                          <div className="h-3 w-24 animate-pulse rounded bg-muted/60" />
-                        </div>
+                        {!showPRManagementColumns ? (
+                          <div className="flex items-center">
+                            <div className="h-3 w-24 animate-pulse rounded bg-muted/60" />
+                          </div>
+                        ) : null}
                         {showPRManagementColumns ? (
                           <>
                             <div className="flex items-center">
@@ -5036,20 +5038,11 @@ export default function TaskPage(): React.JSX.Element {
                             </div>
                           </div>
 
-                          <div className="min-w-0 flex items-center text-xs text-muted-foreground">
-                            {item.type === 'pr' ? (
-                              <div className="min-w-0">
-                                <div className="truncate text-foreground">
-                                  {item.branchName || 'unknown head'}
-                                </div>
-                                <div className="truncate text-[10px] text-muted-foreground">
-                                  into {item.baseRefName || 'base'}
-                                </div>
-                              </div>
-                            ) : (
+                          {!showPRManagementColumns ? (
+                            <div className="min-w-0 flex items-center text-xs text-muted-foreground">
                               <GHAssigneesCell item={item} repo={itemRepo ?? null} />
-                            )}
-                          </div>
+                            </div>
+                          ) : null}
 
                           {showPRManagementColumns ? (
                             <>
