@@ -157,7 +157,11 @@ function ThemedRootLayout() {
             headerTitleStyle: { fontSize: 16, fontWeight: '600' },
             contentStyle: { backgroundColor: colors.bgBase },
             headerShadowVisible: false,
-            orientation: 'all'
+            // Why: no per-screen orientation override — 'all' maps to Android
+            // FULL_SENSOR, which rotates even when the user's auto-rotate lock
+            // is on. The manifest's "unspecified" already allows landscape
+            // while respecting the lock.
+            orientation: 'default'
           }}
         >
           <Stack.Screen
