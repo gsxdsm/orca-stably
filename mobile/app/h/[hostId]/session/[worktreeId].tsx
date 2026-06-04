@@ -66,6 +66,10 @@ import {
 } from '../../../../src/terminal/TerminalWebView'
 import { useTerminalViewportRefit } from '../../../../src/terminal/terminal-viewport-refit'
 import {
+  DEFAULT_TERMINAL_FONT_SIZE,
+  loadTerminalFontSize
+} from '../../../../src/terminal/terminal-font-size'
+import {
   getDefaultTerminalAccessoryBuiltInIds,
   getVisibleTerminalAccessoryKeys,
   loadTerminalAccessoryLayout
@@ -115,7 +119,9 @@ import {
   getTerminalRecordsFromSessionTabs,
   mergeTerminalListWithKnownRecords,
   mergeTerminalRecordsByCurrentOrder,
+  resolveTerminalThemeForScheme,
   terminalRecordsEqual,
+  type MobileTerminalThemeVariants,
   type TerminalRecord
 } from '../../../../src/session/mobile-terminal-records'
 import {
@@ -128,7 +134,8 @@ import {
   dismissMobileSessionCreateWarningState,
   reconcileMobileSessionCreateWarningState
 } from '../../../../src/session/mobile-session-create-warning-state'
-import { colors, spacing, radii, typography } from '../../../../src/theme/mobile-theme'
+import { spacing, radii, typography, type ThemeColors } from '../../../../src/theme/mobile-theme'
+import { useTheme, useThemedStyles } from '../../../../src/theme/theme-context'
 import type { DiffComment } from '../../../../../src/shared/types'
 
 type Terminal = TerminalRecord
@@ -145,6 +152,7 @@ type MobileSessionTab =
       status?: 'pending-handle' | 'ready'
       terminal: string | null
       terminalTheme?: MobileTerminalTheme
+      terminalThemeVariants?: MobileTerminalThemeVariants
       isActive: boolean
     }
   | {
@@ -264,7 +272,9 @@ function mobileSessionTabEqual(a: MobileSessionTab, b: MobileSessionTab | undefi
         a.leafId === b.leafId &&
         a.status === b.status &&
         a.terminal === b.terminal &&
-        JSON.stringify(a.terminalTheme ?? null) === JSON.stringify(b.terminalTheme ?? null)
+        JSON.stringify(a.terminalTheme ?? null) === JSON.stringify(b.terminalTheme ?? null) &&
+        JSON.stringify(a.terminalThemeVariants ?? null) ===
+          JSON.stringify(b.terminalThemeVariants ?? null)
       )
     case 'markdown':
       return (
@@ -395,6 +405,7 @@ function TerminalPaneView({
   active,
   keyboardLift,
   terminalTheme,
+  fontSize,
   onRef,
   onWebReady,
   onSelectionMode,
@@ -410,6 +421,7 @@ function TerminalPaneView({
   active: boolean
   keyboardLift: number
   terminalTheme?: MobileTerminalTheme
+  fontSize: number
   onRef: (handle: string, ref: TerminalWebViewHandle | null) => void
   onWebReady: (handle: string) => void
   onSelectionMode: (handle: string, active: boolean) => void
@@ -421,6 +433,7 @@ function TerminalPaneView({
   onTerminalInput: (handle: string, bytes: string) => void
   onTerminalTap: (handle: string) => void
 }) {
+  const styles = useThemedStyles(createStyles)
   const setRef = useCallback(
     (ref: TerminalWebViewHandle | null) => {
       onRef(handle, ref)
@@ -441,6 +454,7 @@ function TerminalPaneView({
         ref={setRef}
         style={styles.terminalWebView}
         terminalTheme={terminalTheme}
+        fontSize={fontSize}
         onWebReady={() => onWebReady(handle)}
         onSelectionMode={(a) => onSelectionMode(handle, a)}
         onSelectionCopy={(t) => onSelectionCopy(handle, t)}
@@ -472,6 +486,8 @@ function MarkdownReader({
   onCopy: () => void
   onDiscard: () => void
 }) {
+  const { colors } = useTheme()
+  const styles = useThemedStyles(createStyles)
   if (!doc || doc.status === 'loading') {
     return (
       <View style={styles.markdownState}>
@@ -563,6 +579,7 @@ function MarkdownReader({
 }
 
 function SyntaxSegments({ segments }: { segments: MobileSyntaxSegment[] }) {
+  const syntaxTokenStyles = useThemedStyles(createSyntaxTokenStyles)
   return (
     <>
       {segments.map((segment, index) => (
@@ -601,6 +618,8 @@ function DiffLineRow({
   onSubmitComment: (lineNumber: number) => void
   onDeleteComment: (commentId: string) => void
 }) {
+  const { colors } = useTheme()
+  const styles = useThemedStyles(createStyles)
   const commentLine = line.newLineNumber
   const isCommenting = commentLine !== undefined && activeCommentLine === commentLine
   const canComment = commentLine !== undefined
@@ -728,6 +747,8 @@ function FileReader({
   language?: string
   diffCommentActions?: DiffCommentActions
 }) {
+  const { colors } = useTheme()
+  const styles = useThemedStyles(createStyles)
   const syntaxLanguage = useMemo(
     () => resolveMobileSyntaxLanguage(relativePath || title, language),
     [language, relativePath, title]
@@ -967,6 +988,8 @@ export default function SessionScreen() {
   }>()
   const router = useRouter()
   const insets = useSafeAreaInsets()
+  const { colors, scheme } = useTheme()
+  const styles = useThemedStyles(createStyles)
   // Why: shared client per host owned by RpcClientProvider. See
   // docs/mobile-shared-client-per-host.md.
   const { client, state: connState } = useHostClient(hostId)
@@ -1024,6 +1047,7 @@ export default function SessionScreen() {
   const [leaveDrafts, setLeaveDrafts] = useState<DirtyMarkdownDraft[] | null>(null)
   const [renameTarget, setRenameTarget] = useState<Terminal | null>(null)
   const [customKeys, setCustomKeys] = useState<CustomKey[]>([])
+  const [terminalFontSize, setTerminalFontSize] = useState(DEFAULT_TERMINAL_FONT_SIZE)
   const [visibleBuiltInIds, setVisibleBuiltInIds] = useState<string[]>(
     getDefaultTerminalAccessoryBuiltInIds
   )
@@ -2271,6 +2295,13 @@ export default function SessionScreen() {
           setVisibleBuiltInIds(layout.visibleBuiltInIds)
         }
       })
+      // Why: re-read on focus so a font-size change made in Settings →
+      // Terminal applies as soon as the user returns to the session.
+      void loadTerminalFontSize().then((size) => {
+        if (!stale) {
+          setTerminalFontSize(size)
+        }
+      })
       return () => {
         stale = true
       }
@@ -2310,6 +2341,7 @@ export default function SessionScreen() {
     deviceTokenRef,
     initializedHandlesRef,
     tabStripVisible: terminals.length > 1,
+    fontSize: terminalFontSize,
     unsubscribeTerminal,
     subscribeToTerminal
   })
@@ -3382,6 +3414,8 @@ export default function SessionScreen() {
               handle: createdHandle,
               title: created.title || existing?.title || 'Terminal',
               terminalTheme: created.terminalTheme ?? existing?.terminalTheme,
+              terminalThemeVariants:
+                created.terminalThemeVariants ?? existing?.terminalThemeVariants,
               isActive: true
             }
             if (existing) {
@@ -4080,7 +4114,8 @@ export default function SessionScreen() {
                 handle={terminal.handle}
                 active={terminal.handle === activeHandle}
                 keyboardLift={terminal.handle === activeHandle ? activeTerminalKeyboardLift : 0}
-                terminalTheme={terminal.terminalTheme}
+                terminalTheme={resolveTerminalThemeForScheme(terminal, scheme)}
+                fontSize={terminalFontSize}
                 onRef={setTerminalWebViewRef}
                 onWebReady={handleTerminalWebReady}
                 onSelectionMode={handleSelectionMode}
@@ -4712,661 +4747,663 @@ export default function SessionScreen() {
   )
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bgBase
-  },
-  kavInner: {
-    flex: 1
-  },
-  sessionChrome: {
-    backgroundColor: colors.bgPanel,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle
-  },
-  sessionTopBar: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.xs
-  },
-  backButtonPressed: {
-    backgroundColor: colors.bgRaised
-  },
-  filesButton: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.button,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: spacing.xs
-  },
-  filesButtonPressed: {
-    backgroundColor: colors.bgRaised
-  },
-  sessionTitleBlock: {
-    flex: 1,
-    minWidth: 0
-  },
-  sessionTitle: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '600'
-  },
-  sessionMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2
-  },
-  sessionMetaText: {
-    flexShrink: 1,
-    color: colors.textSecondary,
-    fontSize: typography.metaSize
-  },
-  tabBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle
-  },
-  tabScroll: {
-    flex: 1,
-    maxHeight: 36
-  },
-  tabContent: {
-    paddingLeft: spacing.sm,
-    paddingRight: spacing.sm
-  },
-  tab: {
-    width: 128,
-    maxWidth: 128,
-    minHeight: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent'
-  },
-  tabActive: {
-    borderBottomColor: colors.accentBlue
-  },
-  tabLabelRow: {
-    maxWidth: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs
-  },
-  tabText: {
-    flexShrink: 1,
-    color: colors.textSecondary,
-    fontSize: 13
-  },
-  tabTextActive: {
-    color: colors.textPrimary
-  },
-  newTerminalButton: {
-    width: 40,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent'
-  },
-  newTerminalButtonPressed: {
-    backgroundColor: colors.bgRaised
-  },
-  newTerminalButtonDisabled: {
-    opacity: 0.45
-  },
-  terminalFrame: {
-    flex: 1,
-    minHeight: 0,
-    position: 'relative',
-    overflow: 'hidden'
-  },
-  terminalPane: {
-    ...StyleSheet.absoluteFillObject
-  },
-  terminalPaneHidden: {
-    opacity: 0
-  },
-  terminalWebView: {
-    flex: 1
-  },
-  markdownFrame: {
-    flex: 1,
-    minHeight: 0,
-    backgroundColor: colors.bgBase
-  },
-  browserFrame: {
-    flex: 1,
-    minHeight: 0,
-    backgroundColor: colors.bgBase
-  },
-  markdownEditor: {
-    flex: 1,
-    position: 'relative'
-  },
-  markdownState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
-    gap: spacing.md
-  },
-  markdownError: {
-    color: colors.statusRed,
-    fontSize: typography.bodySize
-  },
-  markdownTextInput: {
-    flex: 1,
-    minHeight: 0,
-    color: colors.textPrimary,
-    backgroundColor: colors.bgBase,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl * 3,
-    fontSize: typography.bodySize,
-    lineHeight: 22,
-    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' })
-  },
-  filePreviewScroll: {
-    flex: 1,
-    minHeight: 0,
-    backgroundColor: colors.editorSurface
-  },
-  filePreviewContent: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl
-  },
-  filePreviewText: {
-    color: colors.textPrimary,
-    fontSize: typography.bodySize,
-    lineHeight: 22,
-    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' })
-  },
-  diffNotesToolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderSubtle,
-    backgroundColor: colors.bgPanel
-  },
-  diffNotesTitleRow: {
-    minWidth: 0,
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs
-  },
-  diffNotesTitle: {
-    color: colors.textSecondary,
-    fontSize: typography.metaSize,
-    fontWeight: '600'
-  },
-  diffNotesActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs
-  },
-  diffNotesActionButton: {
-    minHeight: 30,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    borderRadius: radii.button,
-    paddingHorizontal: spacing.sm,
-    backgroundColor: colors.bgRaised
-  },
-  diffNotesActionText: {
-    color: colors.textSecondary,
-    fontSize: typography.metaSize,
-    fontWeight: '600'
-  },
-  diffLineBlock: {
-    marginBottom: spacing.xs
-  },
-  diffLine: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    borderLeftWidth: 2,
-    borderLeftColor: colors.editorSurface,
-    paddingRight: spacing.sm
-  },
-  diffLineAdded: {
-    backgroundColor: colors.diffAddedBg,
-    borderLeftColor: colors.gitDecorationAdded
-  },
-  diffLineDeleted: {
-    backgroundColor: colors.diffDeletedBg,
-    borderLeftColor: colors.gitDecorationDeleted
-  },
-  diffGutter: {
-    width: 42,
-    paddingRight: spacing.sm,
-    textAlign: 'right',
-    color: colors.textMuted,
-    fontSize: typography.metaSize,
-    lineHeight: 22,
-    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' })
-  },
-  diffText: {
-    flex: 1,
-    color: colors.textPrimary,
-    fontSize: typography.bodySize,
-    lineHeight: 22,
-    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' })
-  },
-  diffPrefix: {
-    color: colors.textMuted
-  },
-  diffPrefixAdded: {
-    color: colors.gitDecorationAdded
-  },
-  diffPrefixDeleted: {
-    color: colors.gitDecorationDeleted
-  },
-  diffCommentAddButton: {
-    width: 26,
-    height: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.button
-  },
-  diffCommentAddButtonPressed: {
-    backgroundColor: colors.bgPanel
-  },
-  diffCommentButtonDisabled: {
-    opacity: 0.45
-  },
-  diffCommentList: {
-    gap: spacing.xs,
-    marginLeft: 44,
-    marginRight: spacing.sm,
-    marginTop: spacing.xs
-  },
-  diffCommentCard: {
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    borderRadius: radii.button,
-    backgroundColor: colors.bgPanel,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs
-  },
-  diffCommentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: 2
-  },
-  diffCommentMeta: {
-    flex: 1,
-    color: colors.textMuted,
-    fontSize: typography.metaSize,
-    fontWeight: '600'
-  },
-  diffCommentDeleteButton: {
-    width: 22,
-    height: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 11
-  },
-  diffCommentBody: {
-    color: colors.textPrimary,
-    fontSize: typography.metaSize,
-    lineHeight: 17
-  },
-  diffCommentComposer: {
-    gap: spacing.xs,
-    marginLeft: 44,
-    marginRight: spacing.sm,
-    marginTop: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    borderRadius: radii.button,
-    backgroundColor: colors.bgPanel,
-    padding: spacing.sm
-  },
-  diffCommentInput: {
-    minHeight: 70,
-    height: 70,
-    marginRight: 0,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm
-  },
-  diffCommentComposerActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.xs
-  },
-  diffCommentSecondaryAction: {
-    minHeight: 30,
-    justifyContent: 'center',
-    borderRadius: radii.button,
-    paddingHorizontal: spacing.md
-  },
-  diffCommentSecondaryText: {
-    color: colors.textSecondary,
-    fontSize: typography.metaSize,
-    fontWeight: '600'
-  },
-  diffCommentPrimaryAction: {
-    minHeight: 30,
-    justifyContent: 'center',
-    borderRadius: radii.button,
-    backgroundColor: colors.bgRaised,
-    paddingHorizontal: spacing.md
-  },
-  diffCommentPrimaryText: {
-    color: colors.textPrimary,
-    fontSize: typography.metaSize,
-    fontWeight: '700'
-  },
-  markdownRefreshButton: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.bgRaised,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    borderRadius: radii.button,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs
-  },
-  markdownButtonDisabled: {
-    opacity: 0.45
-  },
-  markdownRefreshText: {
-    color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '600'
-  },
-  markdownFloatingBar: {
-    position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
-    bottom: spacing.lg,
-    alignItems: 'flex-end',
-    gap: spacing.xs
-  },
-  markdownFloatingStatus: {
-    maxWidth: '100%',
-    alignSelf: 'flex-end',
-    overflow: 'hidden',
-    color: colors.textSecondary,
-    backgroundColor: colors.bgPanel,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    borderRadius: radii.button,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    fontSize: typography.metaSize
-  },
-  markdownFloatingActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-end',
-    gap: spacing.xs
-  },
-  markdownFloatingButton: {
-    minHeight: 34,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.bgPanel,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    borderRadius: radii.button,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs
-  },
-  markdownSaveButton: {
-    backgroundColor: colors.bgRaised
-  },
-  markdownFloatingButtonText: {
-    color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '600'
-  },
-  toast: {
-    position: 'absolute',
-    bottom: spacing.lg,
-    alignSelf: 'center',
-    left: 0,
-    right: 0,
-    alignItems: 'center'
-  },
-  toastText: {
-    backgroundColor: colors.bgRaised,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSubtle,
-    color: colors.textPrimary,
-    fontSize: 13,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.button,
-    overflow: 'hidden'
-  },
-  createWarningBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    backgroundColor: colors.bgPanel,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderSubtle,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm
-  },
-  createWarningText: {
-    flex: 1,
-    color: colors.textPrimary,
-    fontSize: 12,
-    lineHeight: 16
-  },
-  createWarningDismiss: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -4
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl
-  },
-  emptyText: {
-    color: colors.textSecondary,
-    fontSize: typography.bodySize,
-    marginBottom: spacing.lg
-  },
-  createError: {
-    color: colors.statusRed,
-    fontSize: 13,
-    marginBottom: spacing.sm
-  },
-  emptyActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: spacing.sm
-  },
-  createButton: {
-    backgroundColor: colors.bgRaised,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: radii.button
-  },
-  createButtonDisabled: {
-    opacity: 0.5
-  },
-  createButtonText: {
-    color: colors.textPrimary,
-    fontSize: typography.bodySize,
-    fontWeight: '600'
-  },
-  commandDock: {
-    zIndex: 20
-  },
-  accessoryBar: {
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle,
-    backgroundColor: colors.bgPanel
-  },
-  accessoryContent: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    gap: spacing.xs
-  },
-  accessoryKey: {
-    backgroundColor: colors.bgRaised,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs,
-    borderRadius: radii.button,
-    minWidth: 36,
-    alignItems: 'center'
-  },
-  accessoryKeyPressed: {
-    backgroundColor: colors.borderSubtle
-  },
-  accessoryKeyActive: {
-    backgroundColor: colors.textPrimary
-  },
-  customAccessoryKey: {
-    borderWidth: 1,
-    borderColor: colors.borderSubtle
-  },
-  accessoryKeyDisabled: {
-    opacity: 0.35
-  },
-  accessoryKeyText: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontFamily: typography.monoFamily
-  },
-  accessoryKeyTextActive: {
-    color: colors.bgBase,
-    fontWeight: '700'
-  },
-  accessoryKeyTextDisabled: {
-    color: colors.textMuted
-  },
-  inputBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 46,
-    paddingVertical: spacing.xs + 2,
-    paddingHorizontal: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle,
-    backgroundColor: colors.bgPanel
-  },
-  textInput: {
-    flex: 1,
-    height: 34,
-    backgroundColor: colors.bgRaised,
-    color: colors.textPrimary,
-    borderRadius: radii.input,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 0,
-    fontSize: 14,
-    fontFamily: typography.monoFamily,
-    marginRight: spacing.sm
-  },
-  liveInputBar: {
-    gap: spacing.sm
-  },
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bgBase
+    },
+    kavInner: {
+      flex: 1
+    },
+    sessionChrome: {
+      backgroundColor: colors.bgPanel,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderSubtle
+    },
+    sessionTopBar: {
+      minHeight: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs
+    },
+    backButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: spacing.xs
+    },
+    backButtonPressed: {
+      backgroundColor: colors.bgRaised
+    },
+    filesButton: {
+      width: 36,
+      height: 36,
+      borderRadius: radii.button,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: spacing.xs
+    },
+    filesButtonPressed: {
+      backgroundColor: colors.bgRaised
+    },
+    sessionTitleBlock: {
+      flex: 1,
+      minWidth: 0
+    },
+    sessionTitle: {
+      color: colors.textPrimary,
+      fontSize: 14,
+      fontWeight: '600'
+    },
+    sessionMetaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 2
+    },
+    sessionMetaText: {
+      flexShrink: 1,
+      color: colors.textSecondary,
+      fontSize: typography.metaSize
+    },
+    tabBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderTopWidth: 1,
+      borderTopColor: colors.borderSubtle
+    },
+    tabScroll: {
+      flex: 1,
+      maxHeight: 36
+    },
+    tabContent: {
+      paddingLeft: spacing.sm,
+      paddingRight: spacing.sm
+    },
+    tab: {
+      width: 128,
+      maxWidth: 128,
+      minHeight: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.sm,
+      borderBottomWidth: 2,
+      borderBottomColor: 'transparent'
+    },
+    tabActive: {
+      borderBottomColor: colors.accentBlue
+    },
+    tabLabelRow: {
+      maxWidth: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs
+    },
+    tabText: {
+      flexShrink: 1,
+      color: colors.textSecondary,
+      fontSize: 13
+    },
+    tabTextActive: {
+      color: colors.textPrimary
+    },
+    newTerminalButton: {
+      width: 40,
+      height: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderBottomWidth: 2,
+      borderBottomColor: 'transparent'
+    },
+    newTerminalButtonPressed: {
+      backgroundColor: colors.bgRaised
+    },
+    newTerminalButtonDisabled: {
+      opacity: 0.45
+    },
+    terminalFrame: {
+      flex: 1,
+      minHeight: 0,
+      position: 'relative',
+      overflow: 'hidden'
+    },
+    terminalPane: {
+      ...StyleSheet.absoluteFillObject
+    },
+    terminalPaneHidden: {
+      opacity: 0
+    },
+    terminalWebView: {
+      flex: 1
+    },
+    markdownFrame: {
+      flex: 1,
+      minHeight: 0,
+      backgroundColor: colors.bgBase
+    },
+    browserFrame: {
+      flex: 1,
+      minHeight: 0,
+      backgroundColor: colors.bgBase
+    },
+    markdownEditor: {
+      flex: 1,
+      position: 'relative'
+    },
+    markdownState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: spacing.xl,
+      gap: spacing.md
+    },
+    markdownError: {
+      color: colors.statusRed,
+      fontSize: typography.bodySize
+    },
+    markdownTextInput: {
+      flex: 1,
+      minHeight: 0,
+      color: colors.textPrimary,
+      backgroundColor: colors.bgBase,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.xl * 3,
+      fontSize: typography.bodySize,
+      lineHeight: 22,
+      fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' })
+    },
+    filePreviewScroll: {
+      flex: 1,
+      minHeight: 0,
+      backgroundColor: colors.editorSurface
+    },
+    filePreviewContent: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.xl
+    },
+    filePreviewText: {
+      color: colors.textPrimary,
+      fontSize: typography.bodySize,
+      lineHeight: 22,
+      fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' })
+    },
+    diffNotesToolbar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.borderSubtle,
+      backgroundColor: colors.bgPanel
+    },
+    diffNotesTitleRow: {
+      minWidth: 0,
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs
+    },
+    diffNotesTitle: {
+      color: colors.textSecondary,
+      fontSize: typography.metaSize,
+      fontWeight: '600'
+    },
+    diffNotesActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs
+    },
+    diffNotesActionButton: {
+      minHeight: 30,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.borderSubtle,
+      borderRadius: radii.button,
+      paddingHorizontal: spacing.sm,
+      backgroundColor: colors.bgRaised
+    },
+    diffNotesActionText: {
+      color: colors.textSecondary,
+      fontSize: typography.metaSize,
+      fontWeight: '600'
+    },
+    diffLineBlock: {
+      marginBottom: spacing.xs
+    },
+    diffLine: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      borderLeftWidth: 2,
+      borderLeftColor: colors.editorSurface,
+      paddingRight: spacing.sm
+    },
+    diffLineAdded: {
+      backgroundColor: colors.diffAddedBg,
+      borderLeftColor: colors.gitDecorationAdded
+    },
+    diffLineDeleted: {
+      backgroundColor: colors.diffDeletedBg,
+      borderLeftColor: colors.gitDecorationDeleted
+    },
+    diffGutter: {
+      width: 42,
+      paddingRight: spacing.sm,
+      textAlign: 'right',
+      color: colors.textMuted,
+      fontSize: typography.metaSize,
+      lineHeight: 22,
+      fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' })
+    },
+    diffText: {
+      flex: 1,
+      color: colors.textPrimary,
+      fontSize: typography.bodySize,
+      lineHeight: 22,
+      fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' })
+    },
+    diffPrefix: {
+      color: colors.textMuted
+    },
+    diffPrefixAdded: {
+      color: colors.gitDecorationAdded
+    },
+    diffPrefixDeleted: {
+      color: colors.gitDecorationDeleted
+    },
+    diffCommentAddButton: {
+      width: 26,
+      height: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: radii.button
+    },
+    diffCommentAddButtonPressed: {
+      backgroundColor: colors.bgPanel
+    },
+    diffCommentButtonDisabled: {
+      opacity: 0.45
+    },
+    diffCommentList: {
+      gap: spacing.xs,
+      marginLeft: 44,
+      marginRight: spacing.sm,
+      marginTop: spacing.xs
+    },
+    diffCommentCard: {
+      borderWidth: 1,
+      borderColor: colors.borderSubtle,
+      borderRadius: radii.button,
+      backgroundColor: colors.bgPanel,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs
+    },
+    diffCommentHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      marginBottom: 2
+    },
+    diffCommentMeta: {
+      flex: 1,
+      color: colors.textMuted,
+      fontSize: typography.metaSize,
+      fontWeight: '600'
+    },
+    diffCommentDeleteButton: {
+      width: 22,
+      height: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 11
+    },
+    diffCommentBody: {
+      color: colors.textPrimary,
+      fontSize: typography.metaSize,
+      lineHeight: 17
+    },
+    diffCommentComposer: {
+      gap: spacing.xs,
+      marginLeft: 44,
+      marginRight: spacing.sm,
+      marginTop: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.borderSubtle,
+      borderRadius: radii.button,
+      backgroundColor: colors.bgPanel,
+      padding: spacing.sm
+    },
+    diffCommentInput: {
+      minHeight: 70,
+      height: 70,
+      marginRight: 0,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.sm
+    },
+    diffCommentComposerActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: spacing.xs
+    },
+    diffCommentSecondaryAction: {
+      minHeight: 30,
+      justifyContent: 'center',
+      borderRadius: radii.button,
+      paddingHorizontal: spacing.md
+    },
+    diffCommentSecondaryText: {
+      color: colors.textSecondary,
+      fontSize: typography.metaSize,
+      fontWeight: '600'
+    },
+    diffCommentPrimaryAction: {
+      minHeight: 30,
+      justifyContent: 'center',
+      borderRadius: radii.button,
+      backgroundColor: colors.bgRaised,
+      paddingHorizontal: spacing.md
+    },
+    diffCommentPrimaryText: {
+      color: colors.textPrimary,
+      fontSize: typography.metaSize,
+      fontWeight: '700'
+    },
+    markdownRefreshButton: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      backgroundColor: colors.bgRaised,
+      borderWidth: 1,
+      borderColor: colors.borderSubtle,
+      borderRadius: radii.button,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs
+    },
+    markdownButtonDisabled: {
+      opacity: 0.45
+    },
+    markdownRefreshText: {
+      color: colors.textPrimary,
+      fontSize: 13,
+      fontWeight: '600'
+    },
+    markdownFloatingBar: {
+      position: 'absolute',
+      left: spacing.md,
+      right: spacing.md,
+      bottom: spacing.lg,
+      alignItems: 'flex-end',
+      gap: spacing.xs
+    },
+    markdownFloatingStatus: {
+      maxWidth: '100%',
+      alignSelf: 'flex-end',
+      overflow: 'hidden',
+      color: colors.textSecondary,
+      backgroundColor: colors.bgPanel,
+      borderWidth: 1,
+      borderColor: colors.borderSubtle,
+      borderRadius: radii.button,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      fontSize: typography.metaSize
+    },
+    markdownFloatingActions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'flex-end',
+      gap: spacing.xs
+    },
+    markdownFloatingButton: {
+      minHeight: 34,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      backgroundColor: colors.bgPanel,
+      borderWidth: 1,
+      borderColor: colors.borderSubtle,
+      borderRadius: radii.button,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs
+    },
+    markdownSaveButton: {
+      backgroundColor: colors.bgRaised
+    },
+    markdownFloatingButtonText: {
+      color: colors.textPrimary,
+      fontSize: 13,
+      fontWeight: '600'
+    },
+    toast: {
+      position: 'absolute',
+      bottom: spacing.lg,
+      alignSelf: 'center',
+      left: 0,
+      right: 0,
+      alignItems: 'center'
+    },
+    toastText: {
+      backgroundColor: colors.bgRaised,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.borderSubtle,
+      color: colors.textPrimary,
+      fontSize: 13,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      borderRadius: radii.button,
+      overflow: 'hidden'
+    },
+    createWarningBanner: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+      backgroundColor: colors.bgPanel,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.borderSubtle,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm
+    },
+    createWarningText: {
+      flex: 1,
+      color: colors.textPrimary,
+      fontSize: 12,
+      lineHeight: 16
+    },
+    createWarningDismiss: {
+      width: 24,
+      height: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: -4
+    },
+    emptyState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: spacing.xl
+    },
+    emptyText: {
+      color: colors.textSecondary,
+      fontSize: typography.bodySize,
+      marginBottom: spacing.lg
+    },
+    createError: {
+      color: colors.statusRed,
+      fontSize: 13,
+      marginBottom: spacing.sm
+    },
+    emptyActions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      gap: spacing.sm
+    },
+    createButton: {
+      backgroundColor: colors.bgRaised,
+      borderWidth: 1,
+      borderColor: colors.borderSubtle,
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing.sm + 2,
+      borderRadius: radii.button
+    },
+    createButtonDisabled: {
+      opacity: 0.5
+    },
+    createButtonText: {
+      color: colors.textPrimary,
+      fontSize: typography.bodySize,
+      fontWeight: '600'
+    },
+    commandDock: {
+      zIndex: 20
+    },
+    accessoryBar: {
+      borderTopWidth: 1,
+      borderTopColor: colors.borderSubtle,
+      backgroundColor: colors.bgPanel
+    },
+    accessoryContent: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      gap: spacing.xs
+    },
+    accessoryKey: {
+      backgroundColor: colors.bgRaised,
+      paddingHorizontal: spacing.sm + 2,
+      paddingVertical: spacing.xs,
+      borderRadius: radii.button,
+      minWidth: 36,
+      alignItems: 'center'
+    },
+    accessoryKeyPressed: {
+      backgroundColor: colors.borderSubtle
+    },
+    accessoryKeyActive: {
+      backgroundColor: colors.textPrimary
+    },
+    customAccessoryKey: {
+      borderWidth: 1,
+      borderColor: colors.borderSubtle
+    },
+    accessoryKeyDisabled: {
+      opacity: 0.35
+    },
+    accessoryKeyText: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      fontFamily: typography.monoFamily
+    },
+    accessoryKeyTextActive: {
+      color: colors.bgBase,
+      fontWeight: '700'
+    },
+    accessoryKeyTextDisabled: {
+      color: colors.textMuted
+    },
+    inputBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      minHeight: 46,
+      paddingVertical: spacing.xs + 2,
+      paddingHorizontal: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderSubtle,
+      backgroundColor: colors.bgPanel
+    },
+    textInput: {
+      flex: 1,
+      height: 34,
+      backgroundColor: colors.bgRaised,
+      color: colors.textPrimary,
+      borderRadius: radii.input,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 0,
+      fontSize: 14,
+      fontFamily: typography.monoFamily,
+      marginRight: spacing.sm
+    },
+    liveInputBar: {
+      gap: spacing.sm
+    },
 
-  liveInputHint: {
-    flex: 1,
-    color: colors.textSecondary,
-    fontSize: typography.metaSize,
-    fontFamily: typography.monoFamily
-  },
-  liveInputCapture: {
-    position: 'absolute',
-    opacity: 0,
-    width: 1,
-    height: 1,
-    color: colors.textPrimary
-  },
-  sendButton: {
-    backgroundColor: colors.bgRaised,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  dictationButton: {
-    backgroundColor: colors.bgRaised,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm
-  },
-  dictationButtonActive: {
-    backgroundColor: colors.bgPanel,
-    borderColor: colors.textSecondary
-  },
-  sendButtonDisabled: {
-    opacity: 0.35
-  }
-})
+    liveInputHint: {
+      flex: 1,
+      color: colors.textSecondary,
+      fontSize: typography.metaSize,
+      fontFamily: typography.monoFamily
+    },
+    liveInputCapture: {
+      position: 'absolute',
+      opacity: 0,
+      width: 1,
+      height: 1,
+      color: colors.textPrimary
+    },
+    sendButton: {
+      backgroundColor: colors.bgRaised,
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    dictationButton: {
+      backgroundColor: colors.bgRaised,
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      borderWidth: 1,
+      borderColor: 'transparent',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: spacing.sm
+    },
+    dictationButtonActive: {
+      backgroundColor: colors.bgPanel,
+      borderColor: colors.textSecondary
+    },
+    sendButtonDisabled: {
+      opacity: 0.35
+    }
+  })
 
-const syntaxTokenStyles: Record<MobileSyntaxTokenKind, TextStyle> = StyleSheet.create({
-  plain: {
-    color: colors.textPrimary
-  },
-  comment: {
-    color: colors.syntaxComment
-  },
-  keyword: {
-    color: colors.syntaxKeyword
-  },
-  string: {
-    color: colors.syntaxString
-  },
-  number: {
-    color: colors.syntaxNumber
-  },
-  type: {
-    color: colors.syntaxType
-  },
-  function: {
-    color: colors.syntaxFunction
-  },
-  variable: {
-    color: colors.syntaxVariable
-  },
-  meta: {
-    color: colors.syntaxMeta
-  }
-})
+const createSyntaxTokenStyles = (colors: ThemeColors): Record<MobileSyntaxTokenKind, TextStyle> =>
+  StyleSheet.create({
+    plain: {
+      color: colors.textPrimary
+    },
+    comment: {
+      color: colors.syntaxComment
+    },
+    keyword: {
+      color: colors.syntaxKeyword
+    },
+    string: {
+      color: colors.syntaxString
+    },
+    number: {
+      color: colors.syntaxNumber
+    },
+    type: {
+      color: colors.syntaxType
+    },
+    function: {
+      color: colors.syntaxFunction
+    },
+    variable: {
+      color: colors.syntaxVariable
+    },
+    meta: {
+      color: colors.syntaxMeta
+    }
+  })

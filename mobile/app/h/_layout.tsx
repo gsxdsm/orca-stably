@@ -1,7 +1,8 @@
 import { Stack } from 'expo-router'
-import { colors } from '../../src/theme/mobile-theme'
+import { useTheme } from '../../src/theme/theme-context'
 
 export default function HostGroupLayout() {
+  const { colors } = useTheme()
   return (
     <Stack
       screenOptions={{

@@ -19,6 +19,7 @@ type TerminalViewportRefitOptions = {
   deviceTokenRef: RefObject<string | null>
   initializedHandlesRef: RefObject<Set<string>>
   tabStripVisible: boolean
+  fontSize: number
   unsubscribeTerminal: (handle: string) => void
   subscribeToTerminal: (handle: string) => void
 }
@@ -40,6 +41,7 @@ export function useTerminalViewportRefit(options: TerminalViewportRefitOptions):
     deviceTokenRef,
     initializedHandlesRef,
     tabStripVisible,
+    fontSize,
     unsubscribeTerminal,
     subscribeToTerminal
   } = options
@@ -146,6 +148,20 @@ export function useTerminalViewportRefit(options: TerminalViewportRefitOptions):
     viewportMeasuredRef.current = false
     scheduleViewportRefit()
   }, [tabStripVisible, viewportMeasuredRef, scheduleViewportRefit])
+
+  // Why: a font-size change resizes every terminal cell, so the same frame
+  // fits a different grid. The WebView applies the new font via its own
+  // set-font-size message; this debounced refit then re-measures and pushes
+  // the new cols/rows to the host PTY.
+  const prevFontSizeRef = useRef(fontSize)
+  useEffect(() => {
+    if (prevFontSizeRef.current === fontSize) {
+      return
+    }
+    prevFontSizeRef.current = fontSize
+    viewportMeasuredRef.current = false
+    scheduleViewportRefit()
+  }, [fontSize, viewportMeasuredRef, scheduleViewportRefit])
 
   // Why: fold/unfold and rotation change the window dimensions without any
   // subscribe or tab-strip transition. The PTY must be re-fitted to the new

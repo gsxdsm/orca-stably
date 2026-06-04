@@ -18,6 +18,7 @@ import type {
   RuntimeMobileSessionTabGroup,
   RuntimeMobileSessionSnapshotTab,
   RuntimeMobileTerminalTheme,
+  RuntimeMobileTerminalThemeVariants,
   RuntimeMobileSessionTabsSnapshot,
   RuntimeSyncWindowGraph
 } from '../../../shared/runtime-types'
@@ -290,7 +291,12 @@ export function getRuntimeMobileSessionSyncKey(
       state.settings === previousState.settings &&
       previousKey.systemPrefersDark === terminalThemeSystemPrefersDark
         ? previousKey.terminalThemeProjection
-        : JSON.stringify(resolveMobileTerminalTheme(state, systemPrefersDark) ?? null),
+        : // Why: variants are part of the projection so a light-theme settings
+          // change still publishes while the desktop itself is in dark mode.
+          JSON.stringify({
+            theme: resolveMobileTerminalTheme(state, systemPrefersDark) ?? null,
+            variants: resolveMobileTerminalThemeVariants(state) ?? null
+          }),
     // Why: background agent title ticks can change runtimePaneTitlesByTabId
     // many times per second while the user types elsewhere. Reuse unchanged
     // projections so those ticks do not rescan all tabs, files, and drafts.
@@ -903,7 +909,39 @@ function resolveMobileTerminalTheme(
   if (!settings) {
     return undefined
   }
-  const appearance = resolveEffectiveTerminalAppearance(settings, systemPrefersDark)
+  return buildMobileTerminalTheme(
+    settings,
+    resolveEffectiveTerminalAppearance(settings, systemPrefersDark)
+  )
+}
+
+// Why: the resolved theme above tracks the desktop's appearance; the variants
+// force each mode so the phone can follow its own light/dark scheme.
+function resolveMobileTerminalThemeVariants(
+  state: AppState
+): RuntimeMobileTerminalThemeVariants | undefined {
+  const settings = state.settings
+  if (!settings) {
+    return undefined
+  }
+  const dark = buildMobileTerminalTheme(
+    settings,
+    resolveEffectiveTerminalAppearance({ ...settings, theme: 'dark' }, true)
+  )
+  const light = buildMobileTerminalTheme(
+    settings,
+    resolveEffectiveTerminalAppearance({ ...settings, theme: 'light' }, false)
+  )
+  if (!dark || !light) {
+    return undefined
+  }
+  return { dark, light }
+}
+
+function buildMobileTerminalTheme(
+  settings: NonNullable<AppState['settings']>,
+  appearance: ReturnType<typeof resolveEffectiveTerminalAppearance>
+): RuntimeMobileTerminalTheme | undefined {
   const resolvedTheme = appearance.theme
     ? { ...appearance.theme, ...settings.terminalColorOverrides }
     : undefined
@@ -995,6 +1033,7 @@ function buildMobileTerminalSurfaceTabs(
     : undefined
   const savedPtyIdsByLeafId = sanitizedSavedLayout?.ptyIdsByLeafId ?? {}
   const terminalTheme = resolveMobileTerminalTheme(state, systemPrefersDark)
+  const terminalThemeVariants = resolveMobileTerminalThemeVariants(state)
   const container = registered?.getContainer()
   const firstChild = container?.firstElementChild
   const liveLayoutRoot = serializePaneTree(
@@ -1036,6 +1075,7 @@ function buildMobileTerminalSurfaceTabs(
       leafId,
       ptyId,
       ...(terminalTheme ? { terminalTheme } : {}),
+      ...(terminalThemeVariants ? { terminalThemeVariants } : {}),
       ...(agentStatus ? { agentStatus } : {}),
       ...(terminal.launchAgent ? { launchAgent: terminal.launchAgent } : {}),
       parentLayout,

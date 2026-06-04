@@ -1,9 +1,15 @@
 import type { MobileTerminalTheme } from '../terminal/TerminalWebView'
 
+export type MobileTerminalThemeVariants = {
+  dark: MobileTerminalTheme
+  light: MobileTerminalTheme
+}
+
 export type TerminalRecord = {
   handle: string
   title: string
   terminalTheme?: MobileTerminalTheme
+  terminalThemeVariants?: MobileTerminalThemeVariants
   isActive: boolean
 }
 
@@ -16,6 +22,7 @@ export type MobileTerminalSessionTab = {
   status?: 'pending-handle' | 'ready'
   terminal: string | null
   terminalTheme?: MobileTerminalTheme
+  terminalThemeVariants?: MobileTerminalThemeVariants
   isActive: boolean
 }
 
@@ -26,8 +33,19 @@ type MobileSessionTabLike =
       title?: string
       terminal?: unknown
       terminalTheme?: MobileTerminalTheme
+      terminalThemeVariants?: MobileTerminalThemeVariants
       isActive?: boolean
     }
+
+// Why: the host's resolved terminalTheme follows the DESKTOP appearance; when
+// the host also sends forced-mode variants, prefer the one matching the
+// phone's scheme so the terminal follows the phone. Older hosts omit variants.
+export function resolveTerminalThemeForScheme(
+  record: Pick<TerminalRecord, 'terminalTheme' | 'terminalThemeVariants'>,
+  scheme: 'light' | 'dark'
+): MobileTerminalTheme | undefined {
+  return record.terminalThemeVariants?.[scheme] ?? record.terminalTheme
+}
 
 export function mergeTerminalRecordsByCurrentOrder(
   terminalTabs: TerminalRecord[],
@@ -56,6 +74,7 @@ export function getTerminalRecordsFromSessionTabs(
         handle: tab.terminal,
         title: tab.title || 'Terminal',
         terminalTheme: tab.terminalTheme,
+        terminalThemeVariants: tab.terminalThemeVariants,
         isActive: tab.isActive === true
       }
     ]
@@ -81,7 +100,11 @@ export function mergeTerminalListWithKnownRecords(
     return {
       ...terminal,
       terminalTheme:
-        sessionTerminal?.terminalTheme ?? currentTerminal?.terminalTheme ?? terminal.terminalTheme
+        sessionTerminal?.terminalTheme ?? currentTerminal?.terminalTheme ?? terminal.terminalTheme,
+      terminalThemeVariants:
+        sessionTerminal?.terminalThemeVariants ??
+        currentTerminal?.terminalThemeVariants ??
+        terminal.terminalThemeVariants
     }
   })
 }
@@ -98,6 +121,8 @@ export function terminalRecordsEqual(
         terminal.title === b[index]?.title &&
         JSON.stringify(terminal.terminalTheme ?? null) ===
           JSON.stringify(b[index]?.terminalTheme ?? null) &&
+        JSON.stringify(terminal.terminalThemeVariants ?? null) ===
+          JSON.stringify(b[index]?.terminalThemeVariants ?? null) &&
         terminal.isActive === b[index]?.isActive
     )
   )

@@ -115,6 +115,10 @@ export type RuntimeMobileSessionTerminalTab = {
   leafId: string
   ptyId?: string | null
   terminalTheme?: RuntimeMobileTerminalTheme
+  // Why: the resolved terminalTheme follows the DESKTOP's appearance; these
+  // forced-mode variants let the phone pick a theme matching its own
+  // light/dark scheme. Optional so older hosts keep working.
+  terminalThemeVariants?: RuntimeMobileTerminalThemeVariants
   agentStatus?: AgentStatusEntry | null
   launchAgent?: TuiAgent
   parentLayout?: TerminalLayoutSnapshot
@@ -124,6 +128,11 @@ export type RuntimeMobileSessionTerminalTab = {
 export type RuntimeMobileTerminalTheme = {
   mode: 'dark' | 'light'
   theme: TerminalColorOverrides
+}
+
+export type RuntimeMobileTerminalThemeVariants = {
+  dark: RuntimeMobileTerminalTheme
+  light: RuntimeMobileTerminalTheme
 }
 
 export type RuntimeMobileSessionMarkdownTab = {

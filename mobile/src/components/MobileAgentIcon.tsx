@@ -1,7 +1,7 @@
 import { Image, StyleSheet, Text, View } from 'react-native'
 import { Terminal } from 'lucide-react-native'
 import Svg, { Defs, G, LinearGradient, Path, Stop } from 'react-native-svg'
-import { colors } from '../theme/mobile-theme'
+import { useTheme } from '../theme/theme-context'
 import { MOBILE_AGENT_CATALOG } from '../tasks/mobile-agent-catalog'
 import { ClaudeIcon, OpenAIIcon } from './AgentIcons'
 
@@ -9,6 +9,7 @@ import { ClaudeIcon, OpenAIIcon } from './AgentIcons'
 // mobile lets users choose the agent that will own a workspace.
 
 function PiIcon({ size = 16 }: { size?: number }) {
+  const { colors } = useTheme()
   return (
     <Svg width={size} height={size} viewBox="0 0 800 800">
       <Path
@@ -39,6 +40,7 @@ function OmpIcon({ size = 16 }: { size?: number }) {
 }
 
 function AiderIcon({ size = 16 }: { size?: number }) {
+  const { colors } = useTheme()
   return (
     <Svg width={size} height={size} viewBox="0 0 436 436">
       <G transform="translate(0,436) scale(0.1,-0.1)" fill={colors.textPrimary} stroke="none">
@@ -59,6 +61,7 @@ function FaviconIcon({ domain, size = 16 }: { domain: string; size?: number }) {
 }
 
 function AgentLetterIcon({ letter, size = 16 }: { letter: string; size?: number }) {
+  const { colors } = useTheme()
   return (
     <View
       style={[
@@ -79,6 +82,7 @@ function AgentLetterIcon({ letter, size = 16 }: { letter: string; size?: number 
 }
 
 export function MobileAgentIcon({ agentId, size = 16 }: { agentId: string; size?: number }) {
+  const { colors } = useTheme()
   if (agentId === 'claude') {
     return <ClaudeIcon size={size} />
   }

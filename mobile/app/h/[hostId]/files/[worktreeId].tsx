@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
-  StyleSheet,
   Text,
   View,
   type ListRenderItem
@@ -14,7 +13,9 @@ import { ChevronDown, ChevronLeft, ChevronRight, File, FileText, Folder } from '
 import { useHostClient } from '../../../../src/transport/client-context'
 import type { RpcSuccess } from '../../../../src/transport/types'
 import { triggerError, triggerSelection } from '../../../../src/platform/haptics'
-import { colors, radii, spacing, typography } from '../../../../src/theme/mobile-theme'
+import { spacing } from '../../../../src/theme/mobile-theme'
+import { useTheme, useThemedStyles } from '../../../../src/theme/theme-context'
+import { createStyles } from '../../../../src/screen-styles/files-screen-styles'
 
 type MobileFileEntry = {
   relativePath: string
@@ -122,6 +123,8 @@ export default function MobileFileExplorerScreen() {
     name?: string
   }>()
   const router = useRouter()
+  const { colors } = useTheme()
+  const styles = useThemedStyles(createStyles)
   const { client, state: connState } = useHostClient(hostId)
   const [files, setFiles] = useState<MobileFileEntry[]>([])
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
@@ -307,114 +310,3 @@ export default function MobileFileExplorerScreen() {
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bgBase
-  },
-  header: {
-    backgroundColor: colors.bgPanel,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderSubtle
-  },
-  topBar: {
-    minHeight: 58,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.md
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.button
-  },
-  backButtonPressed: {
-    backgroundColor: colors.bgRaised
-  },
-  titleBlock: {
-    flex: 1,
-    minWidth: 0
-  },
-  title: {
-    color: colors.textPrimary,
-    fontSize: typography.titleSize,
-    fontWeight: '600'
-  },
-  meta: {
-    marginTop: 2,
-    color: colors.textSecondary,
-    fontSize: typography.metaSize
-  },
-  list: {
-    flex: 1
-  },
-  listContent: {
-    paddingVertical: spacing.sm
-  },
-  row: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingRight: spacing.md
-  },
-  rowPressed: {
-    backgroundColor: colors.bgRaised
-  },
-  rowDisabled: {
-    opacity: 0.58
-  },
-  chevronSpacer: {
-    width: 16
-  },
-  rowTextBlock: {
-    flex: 1,
-    minWidth: 0
-  },
-  rowTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.bodySize
-  },
-  rowTitleDisabled: {
-    color: colors.textMuted
-  },
-  rowMeta: {
-    marginTop: 1,
-    color: colors.textMuted,
-    fontSize: 11
-  },
-  state: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-    padding: spacing.xl
-  },
-  emptyText: {
-    color: colors.textSecondary,
-    fontSize: typography.bodySize
-  },
-  errorText: {
-    color: colors.statusRed,
-    fontSize: typography.bodySize,
-    textAlign: 'center'
-  },
-  retryButton: {
-    minHeight: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.button,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSubtle,
-    paddingHorizontal: spacing.lg
-  },
-  retryText: {
-    color: colors.textPrimary,
-    fontSize: typography.bodySize,
-    fontWeight: '600'
-  }
-})

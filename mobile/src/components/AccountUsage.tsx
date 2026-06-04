@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native'
-import { colors, spacing, typography } from '../theme/mobile-theme'
+import { spacing, typography, type ThemeColors } from '../theme/mobile-theme'
+import { useTheme, useThemedStyles } from '../theme/theme-context'
 
 // Why: keep these shapes in lockstep with src/shared/types.ts and
 // src/shared/rate-limit-types.ts. We don't import from desktop here because
@@ -86,6 +87,8 @@ export function UsageBar({
   unavailable: boolean
   loading?: boolean
 }) {
+  const { colors } = useTheme()
+  const styles = useThemedStyles(createStyles)
   const remaining = usedPercent == null ? null : Math.max(0, Math.min(100, 100 - usedPercent))
   const barColor =
     remaining == null
@@ -120,36 +123,37 @@ export function UsageBar({
   )
 }
 
-const styles = StyleSheet.create({
-  usageBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flex: 1
-  },
-  usageLabel: {
-    fontSize: typography.metaSize,
-    color: colors.textMuted,
-    width: 22
-  },
-  usageTrack: {
-    flex: 1,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.bgRaised,
-    overflow: 'hidden'
-  },
-  usageFill: {
-    height: '100%',
-    borderRadius: 3
-  },
-  usageValue: {
-    fontSize: typography.metaSize,
-    color: colors.textSecondary,
-    width: 36,
-    textAlign: 'right'
-  },
-  usageSpinner: {
-    width: 36
-  }
-})
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    usageBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      flex: 1
+    },
+    usageLabel: {
+      fontSize: typography.metaSize,
+      color: colors.textMuted,
+      width: 22
+    },
+    usageTrack: {
+      flex: 1,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.bgRaised,
+      overflow: 'hidden'
+    },
+    usageFill: {
+      height: '100%',
+      borderRadius: 3
+    },
+    usageValue: {
+      fontSize: typography.metaSize,
+      color: colors.textSecondary,
+      width: 36,
+      textAlign: 'right'
+    },
+    usageSpinner: {
+      width: 36
+    }
+  })

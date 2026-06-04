@@ -3,7 +3,9 @@ import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
 import { WebView } from 'react-native-webview'
 import type { WebViewMessageEvent } from 'react-native-webview'
 import type { RuntimeMobileTerminalTheme } from '../../../src/shared/runtime-types'
-import { colors } from '../theme/mobile-theme'
+// Why: the terminal surface (background + scroll thumb) stays dark in both app
+// themes, so it reads the dark palette directly rather than through useTheme().
+import { darkColors as colors } from '../theme/mobile-theme'
 
 type TerminalMouseTrackingMode = 'none' | 'x10' | 'vt200' | 'drag' | 'any'
 
@@ -53,6 +55,7 @@ export type TerminalWebViewHandle = {
 type Props = {
   style?: StyleProp<ViewStyle>
   terminalTheme?: MobileTerminalTheme
+  fontSize?: number
   onWebReady?: () => void
 } & TerminalSelectionEvents
 
@@ -65,6 +68,7 @@ type TerminalMessage =
       rows: number
       initialData?: string
       terminalTheme?: MobileTerminalTheme
+      fontSize?: number
     }
   | { type: 'resize'; id?: number; cols: number; rows: number }
   | { type: 'clear'; id?: number }
@@ -73,6 +77,7 @@ type TerminalMessage =
   | { type: 'cancel-select'; id?: number }
   | { type: 'do-select-all'; id?: number }
   | { type: 'set-theme'; id?: number; terminalTheme?: MobileTerminalTheme }
+  | { type: 'set-font-size'; id?: number; fontSize: number }
 
 const MAX_PENDING_WEB_WRITE_BYTES = 1_000_000
 const MAX_PENDING_WEB_WRITE_MESSAGES = 4096
@@ -288,6 +293,7 @@ const XTERM_HTML = `<!DOCTYPE html>
   var terminalGeneration = 0;
   var defaultTheme = ${JSON.stringify(DEFAULT_TERMINAL_THEME)};
   var terminalTheme = defaultTheme;
+  var terminalFontSize = 13;
   var activeAltScreenSnapshot = false;
   var trackedMouseTrackingMode = 'none';
   var sgrMouseMode = false;
@@ -667,7 +673,22 @@ const XTERM_HTML = `<!DOCTYPE html>
     pumpWrites(terminalGeneration);
   }
 
-  function init(cols, rows, initialData, nextTheme) {
+  function applyTerminalFontSize(input) {
+    var next = typeof input === 'number' && isFinite(input)
+      ? Math.min(24, Math.max(10, Math.round(input)))
+      : terminalFontSize;
+    if (next === terminalFontSize) return false;
+    terminalFontSize = next;
+    if (term) {
+      term.options.fontSize = terminalFontSize;
+      // Why: a font-size change resizes every cell, so the previous fit
+      // scale is stale; re-fit before React Native re-measures the grid.
+      applyFitScale('font-size');
+    }
+    return true;
+  }
+
+  function init(cols, rows, initialData, nextTheme, nextFontSize) {
     terminalGeneration++;
     var gen = terminalGeneration;
     ready = false;
@@ -711,12 +732,15 @@ const XTERM_HTML = `<!DOCTYPE html>
     }
 
     applyTerminalTheme(nextTheme);
+    if (typeof nextFontSize === 'number' && isFinite(nextFontSize)) {
+      terminalFontSize = Math.min(24, Math.max(10, Math.round(nextFontSize)));
+    }
     term = new Terminal({
       cols: cols || 80,
       rows: rows || 24,
       theme: terminalTheme,
       fontFamily: '"Menlo", "Consolas", "DejaVu Sans Mono", monospace',
-      fontSize: 13,
+      fontSize: terminalFontSize,
       scrollback: 5000,
       disableStdin: true,
       cursorBlink: false,
@@ -847,7 +871,7 @@ const XTERM_HTML = `<!DOCTYPE html>
       if (handledMessageIds.length > 256) handledMessageIds.shift();
     }
     if (msg.type === 'init') {
-      init(msg.cols, msg.rows, msg.initialData, msg.terminalTheme);
+      init(msg.cols, msg.rows, msg.initialData, msg.terminalTheme, msg.fontSize);
     } else if (msg.type === 'resize') {
       resize(msg.cols, msg.rows);
     } else if (msg.type === 'write') {
@@ -874,6 +898,8 @@ const XTERM_HTML = `<!DOCTYPE html>
       applyFitScale('reset-zoom-msg');
     } else if (msg.type === 'set-theme') {
       applyTerminalTheme(msg.terminalTheme);
+    } else if (msg.type === 'set-font-size') {
+      applyTerminalFontSize(msg.fontSize);
     } else if (msg.type === 'cancel-select') {
       if (selMode === 'select') cancelSelect();
     } else if (msg.type === 'do-select-all') {
@@ -1908,6 +1934,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
   {
     style,
     terminalTheme,
+    fontSize,
     onWebReady,
     onSelectionMode,
     onSelectionCopy,
@@ -2111,6 +2138,12 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     postMessage({ type: 'set-theme', terminalTheme })
   }, [postMessage, terminalThemeKey, terminalTheme])
 
+  useEffect(() => {
+    if (typeof fontSize === 'number') {
+      postMessage({ type: 'set-font-size', fontSize })
+    }
+  }, [postMessage, fontSize])
+
   useImperativeHandle(
     ref,
     () => ({
@@ -2134,7 +2167,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
         readyPromiseRef.current = new Promise<void>((resolve) => {
           readyResolveRef.current = resolve
         })
-        postMessage({ type: 'init', cols, rows, initialData, terminalTheme })
+        postMessage({ type: 'init', cols, rows, initialData, terminalTheme, fontSize })
       },
       resize(cols: number, rows: number) {
         postMessage({ type: 'resize', cols, rows })
@@ -2206,7 +2239,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
         })
       }
     }),
-    [postMessage, sendToWebView, terminalTheme]
+    [postMessage, sendToWebView, terminalTheme, fontSize]
   )
 
   return (

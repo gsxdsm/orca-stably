@@ -16,115 +16,261 @@
     {
       "files": ["app/h/*/tasks.tsx"],
       "rules": {
-        "max-lines": ["error", { "max": 14682, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          {
+            "max": 13298,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
       }
     },
     {
       "files": ["app/h/*/session/*.tsx"],
       "rules": {
-        "max-lines": ["error", { "max": 4988, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          {
+            "max": 4978,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
       }
     },
     {
       "files": ["src/terminal/TerminalWebView.tsx"],
       "rules": {
-        "max-lines": ["error", { "max": 2054, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          {
+            "max": 2083,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
       }
     },
     {
       "files": ["app/h/*/source-control/*.tsx"],
       "rules": {
-        "max-lines": ["error", { "max": 2004, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          {
+            "max": 1583,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
       }
     },
     {
-      "files": ["app/h/*/index.tsx"],
+      "files": ["src/screen-styles/tasks-screen-styles.ts"],
       "rules": {
-        "max-lines": ["error", { "max": 1603, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          {
+            "max": 1395,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
       }
     },
     {
       "files": ["src/browser/MobileBrowserPane.tsx"],
       "rules": {
-        "max-lines": ["error", { "max": 1594, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          {
+            "max": 1385,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
       }
     },
     {
-      "files": ["app/index.tsx"],
+      "files": ["app/h/*/index.tsx"],
       "rules": {
-        "max-lines": ["error", { "max": 1419, "skipBlankLines": true, "skipComments": true }]
-      }
-    },
-    {
-      "files": ["src/components/NewWorktreeModal.tsx"],
-      "rules": {
-        "max-lines": ["error", { "max": 1263, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          {
+            "max": 1227,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
       }
     },
     {
       "files": ["src/transport/rpc-client.ts"],
       "rules": {
-        "max-lines": ["error", { "max": 1070, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          {
+            "max": 1070,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
+      }
+    },
+    {
+      "files": ["app/index.tsx"],
+      "rules": {
+        "max-lines": [
+          "error",
+          {
+            "max": 1010,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/components/NewWorktreeModal.tsx"],
+      "rules": {
+        "max-lines": [
+          "error",
+          {
+            "max": 932,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
       }
     },
     {
       "files": ["src/components/mobile-rich-markdown-editor-html.ts"],
       "rules": {
-        "max-lines": ["error", { "max": 648, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          {
+            "max": 462,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
       }
     },
     {
-      "files": ["src/components/CustomKeyModal.tsx"],
+      "files": ["src/screen-styles/source-control-screen-styles.ts"],
       "rules": {
-        "max-lines": ["error", { "max": 645, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          {
+            "max": 429,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
       }
     },
     {
-      "files": ["app/pair-scan.tsx"],
+      "files": ["src/screen-styles/home-screen-styles.ts"],
       "rules": {
-        "max-lines": ["error", { "max": 531, "skipBlankLines": true, "skipComments": true }]
-      }
-    },
-    {
-      "files": ["app/terminal-settings.tsx"],
-      "rules": {
-        "max-lines": ["error", { "max": 514, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          {
+            "max": 417,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
       }
     },
     {
       "files": ["scripts/mock-server.ts"],
       "rules": {
-        "max-lines": ["error", { "max": 407, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          {
+            "max": 407,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
+      }
+    },
+    {
+      "files": ["app/terminal-settings.tsx"],
+      "rules": {
+        "max-lines": [
+          "error",
+          {
+            "max": 468,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
       }
     },
     {
       "files": ["src/terminal/terminal-accessory-keys.ts"],
       "rules": {
-        "max-lines": ["error", { "max": 388, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          {
+            "max": 388,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
       }
     },
     {
-      "files": ["app/troubleshoot.tsx"],
+      "files": ["src/screen-styles/host-screen-styles.ts"],
       "rules": {
-        "max-lines": ["error", { "max": 436, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          {
+            "max": 383,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/components/new-worktree-modal-styles.ts"],
+      "rules": {
+        "max-lines": [
+          "error",
+          {
+            "max": 330,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
       }
     },
     {
       "files": ["scripts/repro-worktree-startup-stream.ts"],
       "rules": {
-        "max-lines": ["error", { "max": 326, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          {
+            "max": 326,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
       }
     },
     {
       "files": ["scripts/repro-terminal-colors.ts"],
       "rules": {
-        "max-lines": ["error", { "max": 319, "skipBlankLines": true, "skipComments": true }]
-      }
-    },
-    {
-      "files": ["app/h/*/files/*.tsx"],
-      "rules": {
-        "max-lines": ["error", { "max": 402, "skipBlankLines": true, "skipComments": true }]
+        "max-lines": [
+          "error",
+          {
+            "max": 319,
+            "skipBlankLines": true,
+            "skipComments": true
+          }
+        ]
       }
     }
   ]

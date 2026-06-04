@@ -3,7 +3,6 @@ import {
   AppState,
   View,
   Text,
-  StyleSheet,
   Pressable,
   ScrollView,
   Switch,
@@ -11,14 +10,16 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { ChevronLeft, ChevronRight, Smartphone, X } from 'lucide-react-native'
+import { ChevronLeft, ChevronRight, Minus, Plus, Smartphone, X } from 'lucide-react-native'
 import {
   CustomKeyModal,
   loadCustomKeys,
   saveCustomKeys,
   type CustomKey
 } from '../src/components/CustomKeyModal'
-import { colors, radii, spacing, typography } from '../src/theme/mobile-theme'
+import { spacing } from '../src/theme/mobile-theme'
+import { useTheme, useThemedStyles } from '../src/theme/theme-context'
+import { createStyles } from '../src/screen-styles/terminal-settings-screen-styles'
 import { loadHosts } from '../src/transport/host-store'
 import type { HostProfile } from '../src/transport/types'
 import { useAllHostClients } from '../src/transport/client-context'
@@ -36,6 +37,14 @@ import {
   setTerminalAccessoryBuiltInVisible
 } from '../src/terminal/terminal-accessory-layout'
 import { setTerminalAutoRestoreFitMsForHost } from '../src/terminal/terminal-auto-restore-fit-state'
+import {
+  clampTerminalFontSize,
+  DEFAULT_TERMINAL_FONT_SIZE,
+  loadTerminalFontSize,
+  MAX_TERMINAL_FONT_SIZE,
+  MIN_TERMINAL_FONT_SIZE,
+  saveTerminalFontSize
+} from '../src/terminal/terminal-font-size'
 
 type RestoreValue = 'indefinite' | '60s' | '5m' | '30m'
 
@@ -95,6 +104,8 @@ function HostFitRow({
   ms: number | null | undefined
   onPress: () => void
 }): React.JSX.Element {
+  const { colors } = useTheme()
+  const styles = useThemedStyles(createStyles)
   return (
     <Pressable
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
@@ -120,6 +131,8 @@ function ShortcutBarRow({
   visible: boolean
   onToggle: (visible: boolean) => void
 }): React.JSX.Element {
+  const { colors } = useTheme()
+  const styles = useThemedStyles(createStyles)
   return (
     <View style={styles.row}>
       <View style={styles.keycap}>
@@ -141,6 +154,8 @@ function ShortcutBarRow({
 export default function TerminalSettingsScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
+  const { colors } = useTheme()
+  const styles = useThemedStyles(createStyles)
   const [hosts, setHosts] = useState<HostProfile[]>([])
   useEffect(() => {
     void loadHosts().then(setHosts)
@@ -237,6 +252,27 @@ export default function TerminalSettingsScreen() {
     setVisibleBuiltInIds(next)
     persistLayout(next)
   }, [persistLayout])
+
+  const [fontSize, setFontSize] = useState(DEFAULT_TERMINAL_FONT_SIZE)
+  useEffect(() => {
+    let cancelled = false
+    void loadTerminalFontSize().then((size) => {
+      if (!cancelled) {
+        setFontSize(size)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const adjustFontSize = useCallback((delta: number) => {
+    setFontSize((current) => {
+      const next = clampTerminalFontSize(current + delta)
+      void saveTerminalFontSize(next)
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -340,6 +376,44 @@ export default function TerminalSettingsScreen() {
           </View>
         )}
 
+        <Text style={[styles.groupHeading, styles.groupTopGap]}>TEXT</Text>
+        <View style={[styles.section, styles.sectionTopGap]}>
+          <View style={styles.row}>
+            <View style={styles.rowContent}>
+              <Text style={styles.rowLabel}>Font size</Text>
+            </View>
+            <View style={styles.stepperGroup}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.stepperButton,
+                  pressed && styles.stepperButtonPressed,
+                  fontSize <= MIN_TERMINAL_FONT_SIZE && styles.stepperButtonDisabled
+                ]}
+                disabled={fontSize <= MIN_TERMINAL_FONT_SIZE}
+                onPress={() => adjustFontSize(-1)}
+                accessibilityRole="button"
+                accessibilityLabel="Decrease terminal font size"
+              >
+                <Minus size={16} color={colors.textSecondary} />
+              </Pressable>
+              <Text style={styles.stepperValue}>{fontSize}px</Text>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.stepperButton,
+                  pressed && styles.stepperButtonPressed,
+                  fontSize >= MAX_TERMINAL_FONT_SIZE && styles.stepperButtonDisabled
+                ]}
+                disabled={fontSize >= MAX_TERMINAL_FONT_SIZE}
+                onPress={() => adjustFontSize(1)}
+                accessibilityRole="button"
+                accessibilityLabel="Increase terminal font size"
+              >
+                <Plus size={16} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
         <Text style={[styles.groupHeading, styles.groupTopGap]}>SHORTCUT BAR</Text>
         <View style={[styles.section, styles.sectionTopGap]}>
           {TERMINAL_ACCESSORY_KEYS.map((shortcutKey, idx) => (
@@ -434,121 +508,3 @@ export default function TerminalSettingsScreen() {
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bgBase,
-    paddingHorizontal: spacing.lg,
-    paddingTop: 0
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-    marginBottom: spacing.lg
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm
-  },
-  heading: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.textPrimary
-  },
-  scrollContent: {
-    paddingBottom: spacing.xl
-  },
-  groupHeading: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textMuted,
-    letterSpacing: 0.5,
-    marginBottom: spacing.xs,
-    paddingHorizontal: spacing.xs
-  },
-  groupTopGap: {
-    marginTop: spacing.xl
-  },
-  groupDescription: {
-    fontSize: typography.bodySize - 1,
-    color: colors.textSecondary,
-    lineHeight: 20,
-    paddingHorizontal: spacing.xs
-  },
-  section: {
-    backgroundColor: colors.bgPanel,
-    borderRadius: radii.card,
-    overflow: 'hidden'
-  },
-  sectionTopGap: {
-    marginTop: spacing.sm
-  },
-  emptyText: {
-    fontSize: typography.bodySize,
-    color: colors.textSecondary,
-    padding: spacing.md
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm + 2,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md + 2
-  },
-  rowPressed: {
-    backgroundColor: colors.bgRaised
-  },
-  rowContent: {
-    flex: 1
-  },
-  rowLabel: {
-    fontSize: typography.bodySize,
-    fontWeight: '500',
-    color: colors.textPrimary
-  },
-  rowSublabel: {
-    fontSize: typography.bodySize - 2,
-    color: colors.textSecondary,
-    marginTop: 2
-  },
-  keycap: {
-    minWidth: 62,
-    alignItems: 'center',
-    backgroundColor: colors.bgRaised,
-    borderRadius: radii.button,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs
-  },
-  keycapText: {
-    color: colors.textSecondary,
-    fontSize: typography.metaSize,
-    fontFamily: typography.monoFamily
-  },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.borderSubtle,
-    marginHorizontal: spacing.md
-  },
-  emptyContainer: {
-    padding: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  deleteButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)'
-  },
-  deleteButtonPressed: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)'
-  }
-})

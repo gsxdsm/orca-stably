@@ -5,7 +5,8 @@ import { StatusBar } from 'expo-status-bar'
 import * as SplashScreen from 'expo-splash-screen'
 import * as Notifications from 'expo-notifications'
 import * as Linking from 'expo-linking'
-import { colors } from '../src/theme/mobile-theme'
+import { type ThemeColors } from '../src/theme/mobile-theme'
+import { ThemeProvider, useTheme, useThemedStyles } from '../src/theme/theme-context'
 import { OrcaLogo } from '../src/components/OrcaLogo'
 import { RpcClientProvider } from '../src/transport/client-context'
 import { getNotificationNavigationPath } from '../src/notifications/notification-routing'
@@ -32,7 +33,17 @@ Notifications.setNotificationHandler({
 })
 
 export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <ThemedRootLayout />
+    </ThemeProvider>
+  )
+}
+
+function ThemedRootLayout() {
   const router = useRouter()
+  const { colors, scheme } = useTheme()
+  const styles = useThemedStyles(createStyles)
   const handledNotificationIdsRef = useRef<Set<string>>(new Set())
 
   // Why: route `orca://pair?...` deep links to the confirm screen so
@@ -138,7 +149,7 @@ export default function RootLayout() {
   return (
     <RpcClientProvider>
       <View style={styles.root} onLayout={onNavigatorLayout}>
-        <StatusBar style="light" />
+        <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
         <Stack
           screenOptions={{
             headerStyle: { backgroundColor: colors.bgPanel },
@@ -171,9 +182,10 @@ export default function RootLayout() {
   )
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.bgBase
-  }
-})
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: colors.bgBase
+    }
+  })
