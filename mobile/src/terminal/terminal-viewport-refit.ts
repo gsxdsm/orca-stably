@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, type RefObject } from 'react'
 import { useWindowDimensions } from 'react-native'
 import type { RpcClient } from '../transport/rpc-client'
 import type { TerminalWebViewHandle } from './TerminalWebView'
+import {
+  isTerminalUpdateViewportApplied,
+  isTerminalViewportRefitTargetCurrent
+} from './terminal-viewport-refit-state'
 
 export type TerminalViewportDims = { cols: number; rows: number }
 
@@ -41,11 +45,16 @@ export function useTerminalViewportRefit(options: TerminalViewportRefitOptions):
   } = options
 
   const refitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const refitRunSeqRef = useRef(0)
+  const disposedRef = useRef(false)
   const scheduleViewportRefit = useCallback(() => {
     if (refitTimerRef.current) {
       clearTimeout(refitTimerRef.current)
     }
     refitTimerRef.current = setTimeout(() => {
+      refitTimerRef.current = null
+      const runSeq = refitRunSeqRef.current + 1
+      refitRunSeqRef.current = runSeq
       const handle = activeHandleRef.current
       if (!handle) {
         return
@@ -54,8 +63,21 @@ export function useTerminalViewportRefit(options: TerminalViewportRefitOptions):
       if (!ref) {
         return
       }
+      const isCurrentTarget = () =>
+        isTerminalViewportRefitTargetCurrent({
+          activeHandle: activeHandleRef.current,
+          expectedHandle: handle,
+          currentRef: terminalRefs.current.get(handle),
+          expectedRef: ref,
+          disposed: disposedRef.current,
+          runSeq,
+          currentRunSeq: refitRunSeqRef.current
+        })
       void (async () => {
         const dims = await ref.measureFitDimensions(terminalFrameHeightRef.current || undefined)
+        if (!isCurrentTarget()) {
+          return
+        }
         if (!dims) {
           return
         }
@@ -79,12 +101,15 @@ export function useTerminalViewportRefit(options: TerminalViewportRefitOptions):
               client: { id: deviceToken, type: 'mobile' as const },
               viewport: dims
             })
-            if (response.ok) {
+            if (isTerminalUpdateViewportApplied(response)) {
               return
             }
           } catch {
             // Fall through to legacy resubscribe.
           }
+        }
+        if (!isCurrentTarget()) {
+          return
         }
         unsubscribeTerminal(handle)
         initializedHandlesRef.current.delete(handle)
@@ -139,7 +164,10 @@ export function useTerminalViewportRefit(options: TerminalViewportRefitOptions):
   }, [windowWidth, windowHeight, viewportMeasuredRef, scheduleViewportRefit])
 
   useEffect(() => {
+    disposedRef.current = false
     return () => {
+      disposedRef.current = true
+      refitRunSeqRef.current += 1
       if (refitTimerRef.current) {
         clearTimeout(refitTimerRef.current)
       }
