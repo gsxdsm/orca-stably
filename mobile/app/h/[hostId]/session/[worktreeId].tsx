@@ -785,6 +785,9 @@ export default function SessionScreen() {
   const [createTabAgentOptions, setCreateTabAgentOptions] = useState<MobileNewTabAgentOption[]>([])
   const [showCreateBrowserModal, setShowCreateBrowserModal] = useState(false)
   const [actionTarget, setActionTarget] = useState<Terminal | null>(null)
+  // Why: orphan terminal tabs (dead/pending handle) have no Terminal record, so
+  // they get their own long-press sheet whose only action is force-removal.
+  const [orphanActionTarget, setOrphanActionTarget] = useState<MobileSessionTab | null>(null)
   const [markdownActionTarget, setMarkdownActionTarget] = useState<Extract<
     MobileSessionTab,
     { type: 'markdown' }
@@ -3875,6 +3878,9 @@ export default function SessionScreen() {
                       triggerMediumImpact()
                       if (t.type === 'terminal') {
                         if (typeof t.terminal !== 'string') {
+                          // Why: no live handle means an orphan/pending tab — offer
+                          // force-removal instead of silently doing nothing.
+                          setOrphanActionTarget(t)
                           return
                         }
                         setActionTarget({
@@ -4289,6 +4295,9 @@ export default function SessionScreen() {
             ) : (
               <View style={styles.inputBar}>
                 <TextInput
+                  // Why: Android caches the IME inputType at mount, so toggling
+                  // autocomplete must remount the field for suggestions to switch on/off.
+                  key={autocompleteEnabled ? 'cmd-input-ac-on' : 'cmd-input-ac-off'}
                   style={styles.textInput}
                   value={input}
                   onChangeText={(text) =>
@@ -4488,29 +4497,30 @@ export default function SessionScreen() {
                 void handleCloseTerminal(target)
               }
             }
-          },
+          }
+        ]}
+        onClose={() => setActionTarget(null)}
+      />
+      <ActionSheetModal
+        visible={orphanActionTarget != null}
+        title={orphanActionTarget?.title || 'Orphaned Tab'}
+        actions={[
           {
-            // Why: escape hatch for orphan tabs whose terminal is already dead —
-            // a normal Close hangs on the missing handle. Force-removes locally
-            // and tombstones the tab so the desktop's stale copy can't bring it back.
+            // Why: orphan tabs have a dead/pending handle, so a normal Close hangs.
+            // Force-remove locally and tombstone so the desktop's stale copy can't
+            // bring it back on the next poll.
             label: 'Remove Orphaned Tab',
             destructive: true,
             onPress: () => {
-              const target = actionTarget
-              setActionTarget(null)
-              const tab = target
-                ? sessionTabsRef.current.find(
-                    (candidate) =>
-                      candidate.type === 'terminal' && candidate.terminal === target.handle
-                  )
-                : undefined
-              if (tab) {
-                forceRemoveSessionTab(tab)
+              const target = orphanActionTarget
+              setOrphanActionTarget(null)
+              if (target) {
+                forceRemoveSessionTab(target)
               }
             }
           }
         ]}
-        onClose={() => setActionTarget(null)}
+        onClose={() => setOrphanActionTarget(null)}
       />
       <ActionSheetModal
         visible={markdownActionTarget != null}
