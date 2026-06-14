@@ -3,6 +3,48 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 const PINS_PREFIX = 'orca:pins:'
 const PREFS_PREFIX = 'orca:prefs:'
 const NOTIF_KEY = 'orca:pushNotificationsEnabled'
+const AUTOCOMPLETE_KEY = 'orca:terminalAutocompleteEnabled'
+
+// Why: terminal command inputs default to autocorrect/suggestions OFF so the
+// keyboard never mangles commands, flags, or paths. Users who want phone-style
+// typing opt in via Settings → Terminal; the choice persists locally per device.
+export async function loadTerminalAutocompleteEnabled(): Promise<boolean> {
+  try {
+    const raw = await AsyncStorage.getItem(AUTOCOMPLETE_KEY)
+    return raw === 'true'
+  } catch {
+    return false
+  }
+}
+
+export async function saveTerminalAutocompleteEnabled(enabled: boolean): Promise<void> {
+  await AsyncStorage.setItem(AUTOCOMPLETE_KEY, String(enabled))
+}
+
+const REMOVED_TABS_PREFIX = 'orca:removedTabs:'
+
+// Why: orphaned tabs (a dead terminal the desktop never pruned) persist
+// server-side, so a local "remove" must survive app restarts and keep the tab
+// hidden until the desktop stops sending it. We tombstone the tab ids per
+// worktree and drop the tombstone once the server no longer returns the id.
+export async function loadRemovedSessionTabIds(worktreeId: string): Promise<Set<string>> {
+  try {
+    const raw = await AsyncStorage.getItem(REMOVED_TABS_PREFIX + worktreeId)
+    if (!raw) {
+      return new Set()
+    }
+    return new Set(stringArray(JSON.parse(raw)))
+  } catch {
+    return new Set()
+  }
+}
+
+export async function saveRemovedSessionTabIds(
+  worktreeId: string,
+  ids: Set<string>
+): Promise<void> {
+  await AsyncStorage.setItem(REMOVED_TABS_PREFIX + worktreeId, JSON.stringify([...ids]))
+}
 
 // Why: default-off so the iOS notification permission prompt never
 // fires until the user explicitly opts in via Settings → Notifications.

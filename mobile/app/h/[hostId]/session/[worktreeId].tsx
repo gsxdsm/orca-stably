@@ -46,6 +46,11 @@ import {
 import type { RpcClient } from '../../../../src/transport/rpc-client'
 import { loadHosts } from '../../../../src/transport/host-store'
 import {
+  loadTerminalAutocompleteEnabled,
+  loadRemovedSessionTabIds,
+  saveRemovedSessionTabIds
+} from '../../../../src/storage/preferences'
+import {
   useHostClient,
   useForceReconnect,
   useReconnectAttempt,
@@ -736,8 +741,15 @@ export default function SessionScreen() {
   const terminalsRef = useRef<Terminal[]>([])
   const [sessionTabs, setSessionTabs] = useState<MobileSessionTab[]>([])
   const sessionTabsRef = useRef<MobileSessionTab[]>([])
+  // Why: tab ids the user force-removed (orphans the desktop never pruned);
+  // filtered out of the rendered list and dropped once the server stops sending them.
+  const removedTabIdsRef = useRef<Set<string>>(new Set())
+  const [removedTabsVersion, setRemovedTabsVersion] = useState(0)
   const [terminalsLoaded, setTerminalsLoaded] = useState(false)
   const [input, setInput] = useState('')
+  // Why: local opt-in for keyboard autocomplete/autocorrect on the terminal
+  // inputs; reloaded on focus so a Settings → Terminal toggle takes effect on return.
+  const [autocompleteEnabled, setAutocompleteEnabled] = useState(false)
   const [liveInputCapture, setLiveInputCapture] = useState('')
   const [liveInputTerminalHandles, setLiveInputTerminalHandles] = useState<Set<string>>(
     () => new Set()
@@ -1375,6 +1387,22 @@ export default function SessionScreen() {
   const applySessionTabs = useCallback(
     (result: SessionTabsResult) => {
       let nextTabs = result.tabs
+      // Why: hide force-removed orphan tabs, and drop a tombstone once the
+      // desktop stops sending its id (the tab was finally pruned server-side).
+      if (removedTabIdsRef.current.size > 0) {
+        const serverIds = new Set(result.tabs.map((tab) => tab.id))
+        let changed = false
+        for (const id of removedTabIdsRef.current) {
+          if (!serverIds.has(id)) {
+            removedTabIdsRef.current.delete(id)
+            changed = true
+          }
+        }
+        if (changed) {
+          void saveRemovedSessionTabIds(worktreeId, removedTabIdsRef.current)
+        }
+        nextTabs = nextTabs.filter((tab) => !removedTabIdsRef.current.has(tab.id))
+      }
       const presentTabIds = new Set(nextTabs.map((tab) => tab.id))
       const orphanedDraftTabs: MobileSessionTab[] = []
       const currentMarkdownDocs = markdownDocsRef.current
@@ -1495,7 +1523,7 @@ export default function SessionScreen() {
         setActiveHandle(null)
       }
     },
-    [subscribeToTerminal, unsubscribeTerminal]
+    [worktreeId, subscribeToTerminal, unsubscribeTerminal]
   )
 
   const readMarkdownTab = useCallback(
@@ -2301,6 +2329,27 @@ export default function SessionScreen() {
       return () => clearInterval(interval)
     }, [connState, fetchSessionTabs, fetchTerminals])
   )
+
+  // Why: pick up the Settings → Terminal autocomplete toggle when returning here.
+  useFocusEffect(
+    useCallback(() => {
+      void loadTerminalAutocompleteEnabled().then(setAutocompleteEnabled)
+    }, [])
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    void loadRemovedSessionTabIds(worktreeId).then((ids) => {
+      if (cancelled) {
+        return
+      }
+      removedTabIdsRef.current = ids
+      setRemovedTabsVersion((v) => v + 1)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [worktreeId])
 
   // Why: unsubscribe the old terminal so the server restores its desktop dims
   // (clearing the phone-fit banner), then subscribe the new terminal with the
@@ -3481,6 +3530,11 @@ export default function SessionScreen() {
           unsubscribeTerminal(tab.terminal)
           terminalRefs.current.delete(tab.terminal)
           initializedHandlesRef.current.delete(tab.terminal)
+          // Why: drop the closed handle from terminalsRef too, else the next
+          // applySessionTabs merge resurrects its dead record and the tab hangs.
+          const next = terminalsRef.current.filter((terminal) => terminal.handle !== tab.terminal)
+          terminalsRef.current = next
+          setTerminals(next)
         }
         setSessionTabs((prev) => prev.filter((candidate) => candidate.id !== tab.id))
         if (activeSessionTabId === tab.id) {
@@ -3496,6 +3550,37 @@ export default function SessionScreen() {
     }
   }
 
+  // Why: removing an orphan (a dead terminal the desktop never pruned) must work
+  // even when the normal close hangs on the dead handle. Tombstone the id so it
+  // stays hidden across restarts, drop it locally now, and fire close best-effort
+  // without awaiting so a wedged RPC can never block the removal.
+  function forceRemoveSessionTab(tab: MobileSessionTab) {
+    removedTabIdsRef.current.add(tab.id)
+    void saveRemovedSessionTabIds(worktreeId, removedTabIdsRef.current)
+    setRemovedTabsVersion((v) => v + 1)
+    if (tab.type === 'terminal' && typeof tab.terminal === 'string') {
+      unsubscribeTerminal(tab.terminal)
+      terminalRefs.current.delete(tab.terminal)
+      initializedHandlesRef.current.delete(tab.terminal)
+      const nextTerminals = terminalsRef.current.filter(
+        (terminal) => terminal.handle !== tab.terminal
+      )
+      terminalsRef.current = nextTerminals
+      setTerminals(nextTerminals)
+    }
+    setSessionTabs((prev) => prev.filter((candidate) => candidate.id !== tab.id))
+    if (activeSessionTabId === tab.id) {
+      activeSessionTabTypeRef.current = null
+      setActiveSessionTabId(null)
+      activeHandleRef.current = null
+      setActiveHandle(null)
+    }
+    void client?.sendRequest('session.tabs.close', {
+      worktree: `id:${worktreeId}`,
+      tabId: tab.id
+    })
+  }
+
   const isPhoneMode = (handle: string | null): boolean => {
     if (!handle) {
       return false
@@ -3504,7 +3589,13 @@ export default function SessionScreen() {
     return mode === 'auto' || mode === 'phone' || mode === undefined
   }
 
-  const visibleTabs: MobileSessionTab[] = sessionTabs
+  // Why: keep force-removed orphans hidden between server polls; removedTabsVersion
+  // re-runs this when a tombstone is added or loaded from storage.
+  const visibleTabs: MobileSessionTab[] = useMemo(
+    () => sessionTabs.filter((tab) => !removedTabIdsRef.current.has(tab.id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sessionTabs, removedTabsVersion]
+  )
   const activeMarkdownTab = activeSessionTab?.type === 'markdown' ? activeSessionTab : null
   const activeFileTab = activeSessionTab?.type === 'file' ? activeSessionTab : null
   const activeBrowserTab = activeSessionTab?.type === 'browser' ? activeSessionTab : null
@@ -4182,6 +4273,8 @@ export default function SessionScreen() {
                   onSubmitEditing={handleLiveInputSubmit}
                   placeholder=""
                   autoCapitalize="none"
+                  // Why: the direct-entry field streams each keystroke straight to
+                  // the PTY, so suggestions/autocorrect can't apply — keep it raw.
                   autoCorrect={false}
                   spellCheck={false}
                   smartInsertDelete={false}
@@ -4204,10 +4297,18 @@ export default function SessionScreen() {
                   placeholder="Type a command…"
                   placeholderTextColor={colors.textMuted}
                   autoCapitalize="none"
-                  autoCorrect={false}
-                  spellCheck={false}
+                  autoCorrect={autocompleteEnabled}
+                  spellCheck={autocompleteEnabled}
                   smartInsertDelete={false}
-                  keyboardType={Platform.OS === 'ios' ? 'ascii-capable' : 'visible-password'}
+                  // Why: the default keyboard exposes autocomplete/autocorrect;
+                  // ascii-capable (iOS) / visible-password (Android) suppress it.
+                  keyboardType={
+                    autocompleteEnabled
+                      ? 'default'
+                      : Platform.OS === 'ios'
+                        ? 'ascii-capable'
+                        : 'visible-password'
+                  }
                   returnKeyType="send"
                   editable={canSend}
                   onSubmitEditing={() => void handleSend()}
@@ -4385,6 +4486,26 @@ export default function SessionScreen() {
               setActionTarget(null)
               if (target) {
                 void handleCloseTerminal(target)
+              }
+            }
+          },
+          {
+            // Why: escape hatch for orphan tabs whose terminal is already dead —
+            // a normal Close hangs on the missing handle. Force-removes locally
+            // and tombstones the tab so the desktop's stale copy can't bring it back.
+            label: 'Remove Orphaned Tab',
+            destructive: true,
+            onPress: () => {
+              const target = actionTarget
+              setActionTarget(null)
+              const tab = target
+                ? sessionTabsRef.current.find(
+                    (candidate) =>
+                      candidate.type === 'terminal' && candidate.terminal === target.handle
+                  )
+                : undefined
+              if (tab) {
+                forceRemoveSessionTab(tab)
               }
             }
           }

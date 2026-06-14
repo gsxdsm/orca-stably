@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { View, Text, StyleSheet, Pressable } from 'react-native'
+import { View, Text, StyleSheet, Pressable, Switch } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import Animated, {
@@ -17,6 +17,10 @@ import type { RpcClient } from '../src/transport/rpc-client'
 import { PickerModal, type PickerOption } from '../src/components/PickerModal'
 import { TerminalShortcutSettings } from '../src/components/TerminalShortcutSettings'
 import { setTerminalAutoRestoreFitMsForHost } from '../src/terminal/terminal-auto-restore-fit-state'
+import {
+  loadTerminalAutocompleteEnabled,
+  saveTerminalAutocompleteEnabled
+} from '../src/storage/preferences'
 
 type RestoreValue = 'indefinite' | '60s' | '5m' | '30m'
 
@@ -113,6 +117,15 @@ export default function TerminalSettingsScreen() {
   // drawer appear cut-off.
   const [hostMs, setHostMs] = useState<Record<string, number | null | undefined>>({})
   const [pickerHostId, setPickerHostId] = useState<string | null>(null)
+
+  const [autocompleteEnabled, setAutocompleteEnabled] = useState(false)
+  useEffect(() => {
+    void loadTerminalAutocompleteEnabled().then(setAutocompleteEnabled)
+  }, [])
+  const toggleAutocomplete = useCallback((next: boolean) => {
+    setAutocompleteEnabled(next)
+    void saveTerminalAutocompleteEnabled(next)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -243,6 +256,28 @@ export default function TerminalSettingsScreen() {
           </View>
         )}
 
+        <Text style={[styles.groupHeading, styles.inputGroupGap]}>KEYBOARD INPUT</Text>
+        <Text style={styles.groupDescription}>
+          Enable phone-style autocomplete, autocorrect, and spelling suggestions in the terminal
+          command bar. Off by default so the keyboard never rewrites commands, flags, or paths.
+          Direct keyboard input (when keys go straight to the terminal) always sends raw keystrokes,
+          so suggestions don&apos;t apply there.
+        </Text>
+        <View style={[styles.section, styles.sectionTopGap]}>
+          <View style={styles.row}>
+            <View style={styles.rowContent}>
+              <Text style={styles.rowLabel}>Autocomplete &amp; autocorrect</Text>
+              <Text style={styles.rowSublabel}>{autocompleteEnabled ? 'On' : 'Off'}</Text>
+            </View>
+            <Switch
+              value={autocompleteEnabled}
+              onValueChange={toggleAutocomplete}
+              trackColor={{ false: colors.bgRaised, true: colors.textSecondary }}
+              thumbColor={colors.textPrimary}
+            />
+          </View>
+        </View>
+
         <TerminalShortcutSettings
           scrollRef={scrollRef}
           scrollOffsetY={scrollOffsetY}
@@ -317,6 +352,9 @@ const styles = StyleSheet.create({
   },
   sectionTopGap: {
     marginTop: spacing.sm
+  },
+  inputGroupGap: {
+    marginTop: spacing.xl
   },
   emptyText: {
     fontSize: typography.bodySize,
