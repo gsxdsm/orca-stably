@@ -25,6 +25,24 @@ export async function savePushNotificationsEnabled(enabled: boolean): Promise<vo
   await AsyncStorage.setItem(NOTIF_KEY, String(enabled))
 }
 
+const AUTOCOMPLETE_KEY = 'orca:terminalAutocompleteEnabled'
+
+// Why: terminal command inputs default to autocorrect/suggestions OFF so the
+// keyboard never mangles commands, flags, or paths. Users who want phone-style
+// typing opt in via Settings → Terminal; the choice persists locally per device.
+export async function loadTerminalAutocompleteEnabled(): Promise<boolean> {
+  try {
+    const raw = await AsyncStorage.getItem(AUTOCOMPLETE_KEY)
+    return raw === 'true'
+  } catch {
+    return false
+  }
+}
+
+export async function saveTerminalAutocompleteEnabled(enabled: boolean): Promise<void> {
+  await AsyncStorage.setItem(AUTOCOMPLETE_KEY, String(enabled))
+}
+
 export type HostPreferences = {
   sortMode: string
   filterMode: string
