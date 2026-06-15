@@ -206,13 +206,16 @@ export const XTERM_HTML = `<!DOCTYPE html>
   var termObserverDisposables = [];
   var ready = false;
   var currentScale = 1;
-  // Why: baseScale is the persisted "text size" — a baseline zoom on top of the
-  // fit. userScale equals it except mid-pinch; resets return to baseScale so the
-  // chosen size sticks. A finished pinch snaps to the nearest preset and becomes
-  // the new baseScale (reported to RN to persist), so the terminal itself is a
-  // way to set the text size.
-  var baseScale = 1;
+  // Why: userScale is transient pinch zoom (CSS) for smooth feedback DURING a
+  // gesture only; it resets to 1 on release. The persistent "text size" is the
+  // real xterm fontSize (currentTextScale × BASE_FONT_PX), so changing it
+  // reflows the grid: a bigger cell means fewer columns fit, and RN re-measures
+  // and resizes the PTY (terminal.updateViewport) so the shell rewraps to the
+  // new width. A finished pinch snaps to the nearest preset and reports it to RN.
   var userScale = 1;
+  var BASE_FONT_PX = 13;
+  var MIN_FONT_PX = 6;
+  var currentTextScale = 1;
   var TEXT_SCALE_PRESETS = ${JSON.stringify([...TERMINAL_TEXT_SCALES])};
   var MIN_TEXT_SCALE = TEXT_SCALE_PRESETS[0];
   var MAX_TEXT_SCALE = TEXT_SCALE_PRESETS[TEXT_SCALE_PRESETS.length - 1];
@@ -224,11 +227,31 @@ export const XTERM_HTML = `<!DOCTYPE html>
     }
     return best;
   }
-  // Why: when scaled content is wider than the viewport (text bigger than fit),
-  // a one-finger horizontal drag pans instead of being ignored.
-  function contentWiderThanViewport() {
-    if (!term || !term.element) return false;
-    return term.element.scrollWidth * getTotalScale() > window.innerWidth + 1;
+  function fontPxForScale(scale) {
+    return Math.max(MIN_FONT_PX, Math.round(BASE_FONT_PX * scale));
+  }
+  // Why: change the real font size, then resize the grid to fit the viewport at
+  // the new cell metrics so the text shows at its true size immediately. RN's
+  // refit (measure → updateViewport) then makes the server reflow the PTY to the
+  // same column count so the shell rewraps. cell metrics update on the frame
+  // after fontSize changes, so the resize/fit is deferred one rAF.
+  function applyTextScale(scale) {
+    currentTextScale = scale;
+    if (!term) return;
+    var px = fontPxForScale(scale);
+    if (term.options.fontSize === px) return;
+    term.options.fontSize = px;
+    requestAnimationFrame(function() {
+      if (!term) return;
+      var cellW = getCellWidth();
+      var cellH = getCellHeight();
+      if (cellW > 0 && cellH > 0) {
+        var cols = Math.max(1, Math.floor(window.innerWidth / cellW));
+        var rows = Math.max(8, Math.floor(window.innerHeight / cellH));
+        term.resize(cols, rows);
+      }
+      applyFitScale('text-scale');
+    });
   }
   var panX = 0, panY = 0;
   var smoothScrollOffsetY = 0;
@@ -462,7 +485,7 @@ export const XTERM_HTML = `<!DOCTYPE html>
     // sub-pixels) snap to 1 to avoid imperceptible shrinkage that prevents
     // a second applyFitScale from observing a "no-op needed" state.
     if (currentScale >= 0.95) currentScale = 1;
-    userScale = baseScale;
+    userScale = 1;
     panX = 0;
     panY = 0;
     smoothScrollOffsetY = 0;
@@ -618,7 +641,7 @@ export const XTERM_HTML = `<!DOCTYPE html>
   }
 
   function init(cols, rows, initialData, nextTheme, nextFontScale) {
-    if (typeof nextFontScale === 'number' && nextFontScale > 0) baseScale = nextFontScale;
+    if (typeof nextFontScale === 'number' && nextFontScale > 0) currentTextScale = nextFontScale;
     terminalGeneration++;
     var gen = terminalGeneration;
     ready = false;
@@ -667,7 +690,7 @@ export const XTERM_HTML = `<!DOCTYPE html>
       rows: rows || 24,
       theme: terminalTheme,
       fontFamily: '"Menlo", "Consolas", "DejaVu Sans Mono", monospace',
-      fontSize: 13,
+      fontSize: fontPxForScale(currentTextScale),
       scrollback: 5000,
       disableStdin: true,
       cursorBlink: false,
@@ -801,13 +824,12 @@ export const XTERM_HTML = `<!DOCTYPE html>
       init(msg.cols, msg.rows, msg.initialData, msg.terminalTheme, msg.fontScale);
     } else if (msg.type === 'set-font-scale') {
       // Why: ignore RN echoing back the value a pinch just set (msg.fontScale ===
-      // baseScale) so the post-pinch state isn't reset; only apply real changes.
-      if (typeof msg.fontScale === 'number' && msg.fontScale > 0 && msg.fontScale !== baseScale) {
-        baseScale = msg.fontScale;
-        userScale = baseScale;
+      // currentTextScale) so the post-pinch state isn't reset; only apply changes.
+      if (typeof msg.fontScale === 'number' && msg.fontScale > 0 && msg.fontScale !== currentTextScale) {
+        userScale = 1;
         panX = 0;
         panY = 0;
-        if (term) { clampPan(); updateTransform(); }
+        applyTextScale(msg.fontScale);
       }
     } else if (msg.type === 'resize') {
       resize(msg.cols, msg.rows);
@@ -1731,7 +1753,12 @@ export const XTERM_HTML = `<!DOCTYPE html>
         var my = (e.touches[0].clientY + e.touches[1].clientY) / 2;
 
         var ratio = dist / ts.pinchDist;
-        userScale = Math.max(MIN_TEXT_SCALE, Math.min(MAX_TEXT_SCALE, ts.pinchScale * ratio));
+        // Why: userScale is a CSS multiplier on the current font size; bound it so
+        // the resulting apparent size (currentTextScale × userScale) stays within
+        // the preset range, since release snaps to one of those presets.
+        var loScale = MIN_TEXT_SCALE / currentTextScale;
+        var hiScale = MAX_TEXT_SCALE / currentTextScale;
+        userScale = Math.max(loScale, Math.min(hiScale, ts.pinchScale * ratio));
 
         var total = getTotalScale();
         panX = mx - ts.pinchSurfX * total;
@@ -1784,16 +1811,17 @@ export const XTERM_HTML = `<!DOCTYPE html>
 
       if (ts.isPinching && e.touches.length < 2) {
         ts.isPinching = false;
-        // Why: a finished pinch snaps to the nearest preset and persists as the
-        // new text size, so pinch-to-zoom IS the in-terminal way to set it.
-        var snapped = snapToTextScalePreset(userScale);
-        var changed = snapped !== baseScale;
-        baseScale = snapped;
-        userScale = baseScale;
+        // Why: a finished pinch snaps to the nearest preset and becomes the new
+        // font size (reflowing the grid), so pinch-to-zoom IS the in-terminal way
+        // to set the text size. The CSS pinch zoom (userScale) is reset; the real
+        // size change reflows columns and RN persists + resizes the PTY to match.
+        var target = snapToTextScalePreset(currentTextScale * userScale);
+        var changed = target !== currentTextScale;
+        userScale = 1;
         panX = 0; panY = 0;
-        clampPan();
+        applyTextScale(target);
         updateTransform();
-        notify({ type: 'font-scale-changed', fontScale: baseScale });
+        notify({ type: 'font-scale-changed', fontScale: target });
         if (changed) notify({ type: 'haptic', kind: 'selection' });
         if (e.touches.length === 1) {
           ts.lastX = e.touches[0].clientX;

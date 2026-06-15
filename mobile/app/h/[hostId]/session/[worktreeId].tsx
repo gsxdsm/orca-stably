@@ -45,10 +45,7 @@ import {
 } from 'lucide-react-native'
 import type { RpcClient } from '../../../../src/transport/rpc-client'
 import { loadHosts } from '../../../../src/transport/host-store'
-import {
-  loadTerminalTextScale,
-  saveTerminalTextScale
-} from '../../../../src/storage/preferences'
+import { loadTerminalTextScale, saveTerminalTextScale } from '../../../../src/storage/preferences'
 import {
   useHostClient,
   useForceReconnect,
@@ -2085,6 +2082,7 @@ export default function SessionScreen() {
     deviceTokenRef,
     initializedHandlesRef,
     tabStripVisible: terminals.length > 1,
+    textScale: terminalTextScale,
     unsubscribeTerminal,
     subscribeToTerminal
   })
