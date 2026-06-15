@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, StyleSheet, Pressable, Switch } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
@@ -119,10 +119,22 @@ export default function TerminalSettingsScreen() {
   const [pickerHostId, setPickerHostId] = useState<string | null>(null)
 
   const [autocompleteEnabled, setAutocompleteEnabled] = useState(false)
+  // Why: a fast toggle before the initial load resolves must win — otherwise the
+  // delayed read would clobber the user's choice with the stored (stale) value.
+  const userToggledAutocompleteRef = useRef(false)
   useEffect(() => {
-    void loadTerminalAutocompleteEnabled().then(setAutocompleteEnabled)
+    let stale = false
+    void loadTerminalAutocompleteEnabled().then((enabled) => {
+      if (!stale && !userToggledAutocompleteRef.current) {
+        setAutocompleteEnabled(enabled)
+      }
+    })
+    return () => {
+      stale = true
+    }
   }, [])
   const toggleAutocomplete = useCallback((next: boolean) => {
+    userToggledAutocompleteRef.current = true
     setAutocompleteEnabled(next)
     void saveTerminalAutocompleteEnabled(next)
   }, [])

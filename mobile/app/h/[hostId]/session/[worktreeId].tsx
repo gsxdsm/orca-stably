@@ -2309,7 +2309,15 @@ export default function SessionScreen() {
   // Why: pick up the Settings → Terminal autocomplete toggle when returning here.
   useFocusEffect(
     useCallback(() => {
-      void loadTerminalAutocompleteEnabled().then(setAutocompleteEnabled)
+      let active = true
+      void loadTerminalAutocompleteEnabled().then((enabled) => {
+        if (active) {
+          setAutocompleteEnabled(enabled)
+        }
+      })
+      return () => {
+        active = false
+      }
     }, [])
   )
 
