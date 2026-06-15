@@ -46,6 +46,10 @@ import {
 import type { RpcClient } from '../../../../src/transport/rpc-client'
 import { loadHosts } from '../../../../src/transport/host-store'
 import {
+  loadTerminalTextScale,
+  saveTerminalTextScale
+} from '../../../../src/storage/preferences'
+import {
   useHostClient,
   useForceReconnect,
   useReconnectAttempt,
@@ -738,6 +742,9 @@ export default function SessionScreen() {
   const sessionTabsRef = useRef<MobileSessionTab[]>([])
   const [terminalsLoaded, setTerminalsLoaded] = useState(false)
   const [input, setInput] = useState('')
+  // Why: baseline terminal zoom, reloaded on focus so a Settings → Terminal change
+  // applies in place (the terminal panes stay mounted).
+  const [terminalTextScale, setTerminalTextScale] = useState(1)
   const [liveInputCapture, setLiveInputCapture] = useState('')
   const [liveInputTerminalHandles, setLiveInputTerminalHandles] = useState<Set<string>>(
     () => new Set()
@@ -2300,6 +2307,22 @@ export default function SessionScreen() {
       }, 2000)
       return () => clearInterval(interval)
     }, [connState, fetchSessionTabs, fetchTerminals])
+  )
+
+  // Why: pick up the Settings → Terminal text size when returning here — the
+  // terminal panes stay mounted, so they update in place.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true
+      void loadTerminalTextScale().then((scale) => {
+        if (active) {
+          setTerminalTextScale(scale)
+        }
+      })
+      return () => {
+        active = false
+      }
+    }, [])
   )
 
   // Why: unsubscribe the old terminal so the server restores its desktop dims
@@ -3978,6 +4001,13 @@ export default function SessionScreen() {
                 active={terminal.handle === activeHandle}
                 keyboardLift={terminal.handle === activeHandle ? activeTerminalKeyboardLift : 0}
                 terminalTheme={terminal.terminalTheme}
+                textScale={terminalTextScale}
+                onTextScaleChange={(scale) => {
+                  // Why: pinch-to-zoom in the WebView reports a new preset; persist
+                  // it so the size sticks across panes and app launches.
+                  setTerminalTextScale(scale)
+                  void saveTerminalTextScale(scale)
+                }}
                 onRef={setTerminalWebViewRef}
                 onWebReady={handleTerminalWebReady}
                 onSelectionMode={handleSelectionMode}
