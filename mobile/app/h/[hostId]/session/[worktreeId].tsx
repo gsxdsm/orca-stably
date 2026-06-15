@@ -4207,6 +4207,9 @@ export default function SessionScreen() {
             ) : (
               <View style={styles.inputBar}>
                 <TextInput
+                  // Why: Android caches the IME inputType at mount, so toggling
+                  // autocomplete must remount the field for suggestions to switch on/off.
+                  key={autocompleteEnabled ? 'cmd-input-ac-on' : 'cmd-input-ac-off'}
                   style={styles.textInput}
                   value={input}
                   onChangeText={(text) =>
