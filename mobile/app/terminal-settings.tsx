@@ -17,10 +17,7 @@ import type { RpcClient } from '../src/transport/rpc-client'
 import { PickerModal, type PickerOption } from '../src/components/PickerModal'
 import { TerminalShortcutSettings } from '../src/components/TerminalShortcutSettings'
 import { setTerminalAutoRestoreFitMsForHost } from '../src/terminal/terminal-auto-restore-fit-state'
-import {
-  loadTerminalTextScale,
-  saveTerminalTextScale
-} from '../src/storage/preferences'
+import { loadTerminalTextScale, saveTerminalTextScale } from '../src/storage/preferences'
 
 type RestoreValue = 'indefinite' | '60s' | '5m' | '30m'
 
