@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, StyleSheet, Pressable, Switch } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
@@ -8,7 +8,7 @@ import Animated, {
   useSharedValue
 } from 'react-native-reanimated'
 import { useRouter } from 'expo-router'
-import { ChevronLeft, ChevronRight, Smartphone } from 'lucide-react-native'
+import { ChevronLeft, ChevronRight, Smartphone, Type } from 'lucide-react-native'
 import { colors, radii, spacing, typography } from '../src/theme/mobile-theme'
 import { loadHosts } from '../src/transport/host-store'
 import type { HostProfile } from '../src/transport/types'
@@ -19,10 +19,33 @@ import { TerminalShortcutSettings } from '../src/components/TerminalShortcutSett
 import { setTerminalAutoRestoreFitMsForHost } from '../src/terminal/terminal-auto-restore-fit-state'
 import {
   loadTerminalAutocompleteEnabled,
-  saveTerminalAutocompleteEnabled
+  saveTerminalAutocompleteEnabled,
+  loadTerminalTextScale,
+  saveTerminalTextScale
 } from '../src/storage/preferences'
 
 type RestoreValue = 'indefinite' | '60s' | '5m' | '30m'
+
+type TextSizeValue = 'smallest' | 'smaller' | 'default' | 'large' | 'larger' | 'largest'
+
+// scale = baseline zoom the terminal WebView applies on top of fit-to-width.
+// Keep in sync with TERMINAL_TEXT_SCALES; pinch-to-zoom snaps to these values.
+const TEXT_SIZE_OPTIONS: (PickerOption<TextSizeValue> & { scale: number })[] = [
+  { value: 'smallest', label: 'Smallest (50%)', scale: 0.5 },
+  { value: 'smaller', label: 'Smaller (75%)', scale: 0.75 },
+  { value: 'default', label: 'Default (100%)', scale: 1 },
+  { value: 'large', label: 'Large (125%)', scale: 1.25 },
+  { value: 'larger', label: 'Larger (150%)', scale: 1.5 },
+  { value: 'largest', label: 'Largest (200%)', scale: 2 }
+]
+
+function textSizeValueFromScale(scale: number): TextSizeValue {
+  return TEXT_SIZE_OPTIONS.find((o) => o.scale === scale)?.value ?? 'default'
+}
+
+function textSizeSummary(scale: number): string {
+  return (TEXT_SIZE_OPTIONS.find((o) => o.scale === scale) ?? TEXT_SIZE_OPTIONS[0]!).label
+}
 
 const AUTO_RESTORE_FIT_OPTIONS: (PickerOption<RestoreValue> & { ms: number | null })[] = [
   { value: 'indefinite', label: 'Keep at phone size (default)', ms: null },
@@ -119,12 +142,38 @@ export default function TerminalSettingsScreen() {
   const [pickerHostId, setPickerHostId] = useState<string | null>(null)
 
   const [autocompleteEnabled, setAutocompleteEnabled] = useState(false)
+  // Why: a fast toggle before the initial load resolves must win — otherwise the
+  // delayed read would clobber the user's choice with the stored (stale) value.
+  const userToggledAutocompleteRef = useRef(false)
   useEffect(() => {
-    void loadTerminalAutocompleteEnabled().then(setAutocompleteEnabled)
+    let stale = false
+    void loadTerminalAutocompleteEnabled().then((enabled) => {
+      if (!stale && !userToggledAutocompleteRef.current) {
+        setAutocompleteEnabled(enabled)
+      }
+    })
+    return () => {
+      stale = true
+    }
   }, [])
   const toggleAutocomplete = useCallback((next: boolean) => {
+    userToggledAutocompleteRef.current = true
     setAutocompleteEnabled(next)
     void saveTerminalAutocompleteEnabled(next)
+  }, [])
+
+  const [textScale, setTextScale] = useState(1)
+  const [textSizePickerOpen, setTextSizePickerOpen] = useState(false)
+  useEffect(() => {
+    void loadTerminalTextScale().then(setTextScale)
+  }, [])
+  const selectTextSize = useCallback((value: TextSizeValue) => {
+    const opt = TEXT_SIZE_OPTIONS.find((o) => o.value === value)
+    if (!opt) {
+      return
+    }
+    setTextScale(opt.scale)
+    void saveTerminalTextScale(opt.scale)
   }, [])
 
   useEffect(() => {
@@ -278,6 +327,27 @@ export default function TerminalSettingsScreen() {
           </View>
         </View>
 
+        <Text style={[styles.groupHeading, styles.inputGroupGap]}>TEXT SIZE</Text>
+        <Text style={styles.groupDescription}>
+          Scale the terminal text. Smaller sizes fit more columns with side margins; larger sizes
+          show fewer columns — drag sideways to pan. You can also pinch to zoom in the terminal
+          itself, which updates this setting. Per-device display only; doesn&apos;t change the
+          desktop terminal.
+        </Text>
+        <View style={[styles.section, styles.sectionTopGap]}>
+          <Pressable
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            onPress={() => setTextSizePickerOpen(true)}
+          >
+            <Type size={16} color={colors.textSecondary} />
+            <View style={styles.rowContent}>
+              <Text style={styles.rowLabel}>Text size</Text>
+              <Text style={styles.rowSublabel}>{textSizeSummary(textScale)}</Text>
+            </View>
+            <ChevronRight size={16} color={colors.textMuted} />
+          </Pressable>
+        </View>
+
         <TerminalShortcutSettings
           scrollRef={scrollRef}
           scrollOffsetY={scrollOffsetY}
@@ -297,6 +367,15 @@ export default function TerminalSettingsScreen() {
           }
         }}
         onClose={() => setPickerHostId(null)}
+      />
+
+      <PickerModal<TextSizeValue>
+        visible={textSizePickerOpen}
+        title="Terminal text size"
+        options={TEXT_SIZE_OPTIONS}
+        selected={textSizeValueFromScale(textScale)}
+        onSelect={selectTextSize}
+        onClose={() => setTextSizePickerOpen(false)}
       />
     </GestureHandlerRootView>
   )
