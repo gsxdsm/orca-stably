@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { View, Text, StyleSheet, Pressable } from 'react-native'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { View, Text, StyleSheet, Pressable, Switch } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import Animated, {
@@ -17,7 +17,12 @@ import type { RpcClient } from '../src/transport/rpc-client'
 import { PickerModal, type PickerOption } from '../src/components/PickerModal'
 import { TerminalShortcutSettings } from '../src/components/TerminalShortcutSettings'
 import { setTerminalAutoRestoreFitMsForHost } from '../src/terminal/terminal-auto-restore-fit-state'
-import { loadTerminalTextScale, saveTerminalTextScale } from '../src/storage/preferences'
+import {
+  loadTerminalAutocompleteEnabled,
+  loadTerminalTextScale,
+  saveTerminalAutocompleteEnabled,
+  saveTerminalTextScale
+} from '../src/storage/preferences'
 
 type RestoreValue = 'indefinite' | '60s' | '5m' | '30m'
 
@@ -148,6 +153,27 @@ export default function TerminalSettingsScreen() {
     }
     setTextScale(opt.scale)
     void saveTerminalTextScale(opt.scale)
+  }, [])
+
+  const [autocompleteEnabled, setAutocompleteEnabled] = useState(false)
+  // Why: a fast toggle before the initial load resolves must win — otherwise the
+  // delayed read would clobber the user's choice with the stored (stale) value.
+  const userToggledAutocompleteRef = useRef(false)
+  useEffect(() => {
+    let stale = false
+    void loadTerminalAutocompleteEnabled().then((enabled) => {
+      if (!stale && !userToggledAutocompleteRef.current) {
+        setAutocompleteEnabled(enabled)
+      }
+    })
+    return () => {
+      stale = true
+    }
+  }, [])
+  const toggleAutocomplete = useCallback((next: boolean) => {
+    userToggledAutocompleteRef.current = true
+    setAutocompleteEnabled(next)
+    void saveTerminalAutocompleteEnabled(next)
   }, [])
 
   useEffect(() => {
@@ -298,6 +324,28 @@ export default function TerminalSettingsScreen() {
             </View>
             <ChevronRight size={16} color={colors.textMuted} />
           </Pressable>
+        </View>
+
+        <Text style={[styles.groupHeading, styles.inputGroupGap]}>KEYBOARD INPUT</Text>
+        <Text style={styles.groupDescription}>
+          Enable phone-style autocomplete, autocorrect, and spelling suggestions in the terminal
+          command bar. Off by default so the keyboard never rewrites commands, flags, or paths.
+          Direct keyboard input (when keys go straight to the terminal) always sends raw keystrokes,
+          so suggestions don&apos;t apply there.
+        </Text>
+        <View style={[styles.section, styles.sectionTopGap]}>
+          <View style={styles.row}>
+            <View style={styles.rowContent}>
+              <Text style={styles.rowLabel}>Autocomplete &amp; autocorrect</Text>
+              <Text style={styles.rowSublabel}>{autocompleteEnabled ? 'On' : 'Off'}</Text>
+            </View>
+            <Switch
+              value={autocompleteEnabled}
+              onValueChange={toggleAutocomplete}
+              trackColor={{ false: colors.bgRaised, true: colors.textSecondary }}
+              thumbColor={colors.textPrimary}
+            />
+          </View>
         </View>
 
         <TerminalShortcutSettings
