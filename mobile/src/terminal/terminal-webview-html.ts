@@ -1767,15 +1767,15 @@ export const XTERM_HTML = `<!DOCTYPE html>
         updateTransform();
 
       } else if (e.touches.length === 1 && !ts.isPinching) {
-        var x = e.touches[0].clientX;
-        var y = e.touches[0].clientY;
-        var now = Date.now();
-        var dt = now - ts.lastTime;
+        var x = e.touches[0].clientX, y = e.touches[0].clientY;
+        var now = Date.now(), dt = now - ts.lastTime;
 
         // Why: pan horizontally only when content overflows the viewport (larger
-        // than fit). Vertical always drives buffer scroll so scrollback stays
-        // reachable at any text size — the two axes are independent.
-        if (contentWiderThanViewport()) {
+        // than fit) — same check clampPan() uses. Vertical always drives buffer
+        // scroll so scrollback stays reachable at any text size; calling the
+        // never-defined contentWiderThanViewport() here threw and killed all
+        // single-finger scrolling, scrollback included.
+        if (term.element && term.element.scrollWidth * getTotalScale() > window.innerWidth + 1) {
           panX += x - ts.lastX;
           clampPan();
           updateTransform();
