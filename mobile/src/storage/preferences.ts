@@ -25,6 +25,31 @@ export async function savePushNotificationsEnabled(enabled: boolean): Promise<vo
   await AsyncStorage.setItem(NOTIF_KEY, String(enabled))
 }
 
+const REMOVED_TABS_PREFIX = 'orca:removedTabs:'
+
+// Why: orphaned tabs (a dead terminal the desktop never pruned) persist
+// server-side, so a local "remove" must survive app restarts and keep the tab
+// hidden until the desktop stops sending it. We tombstone the tab ids per
+// worktree and drop the tombstone once the server no longer returns the id.
+export async function loadRemovedSessionTabIds(worktreeId: string): Promise<Set<string>> {
+  try {
+    const raw = await AsyncStorage.getItem(REMOVED_TABS_PREFIX + worktreeId)
+    if (!raw) {
+      return new Set()
+    }
+    return new Set(stringArray(JSON.parse(raw)))
+  } catch {
+    return new Set()
+  }
+}
+
+export async function saveRemovedSessionTabIds(
+  worktreeId: string,
+  ids: Set<string>
+): Promise<void> {
+  await AsyncStorage.setItem(REMOVED_TABS_PREFIX + worktreeId, JSON.stringify([...ids]))
+}
+
 export type HostPreferences = {
   sortMode: string
   filterMode: string
