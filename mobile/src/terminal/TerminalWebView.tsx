@@ -35,6 +35,8 @@ export type TerminalSelectionEvents = {
   onTerminalTap?: () => void
   // Tap landed on a detected file path; RN resolves + opens it.
   onFileTap?: (pathText: string, line: number | null, column: number | null) => void
+  // Why: WebView-detected URL tap (no WebLinksAddon on mobile) routes here.
+  onOpenUrl?: (url: string) => void
   // Why: pinch-to-zoom in the terminal snaps to a text-size preset and reports it
   // here so the app persists it and keeps Settings + other panes in sync.
   onTextScaleChange?: (scale: number) => void
@@ -103,6 +105,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     onTerminalInput,
     onTerminalTap,
     onFileTap,
+    onOpenUrl,
     onTextScaleChange
   },
   ref
@@ -257,6 +260,10 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
           const column = typeof msg.column === 'number' ? msg.column : null
           onFileTap?.(pathText, line, column)
         }
+      } else if (msg.type === 'open-url') {
+        if (typeof msg.url === 'string' && msg.url.length > 0) {
+          onOpenUrl?.(msg.url)
+        }
       } else if (msg.type === 'keyboard-avoidance-metrics') {
         const cursorY = typeof msg.cursorY === 'number' ? msg.cursorY : 0
         const rows = typeof msg.rows === 'number' ? msg.rows : 0
@@ -297,6 +304,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
       onTerminalInput,
       onTerminalTap,
       onFileTap,
+      onOpenUrl,
       onTextScaleChange
     ]
   )

@@ -188,11 +188,15 @@ describe('TerminalWebView scroll routing', () => {
       "document.addEventListener('touchend'",
       '}, { capture: true, passive: true });'
     )
-    // Why: mouse-click synthesis must precede the tap/file-path fallback so a
-    // bound mouse mode wins. The fallback now routes through notifyTapOrFilePath
-    // (which emits terminal-file-tap on a path, else terminal-tap).
+    // Why: link/file detection must precede mouse-click synthesis so a tapped
+    // URL/OSC-8 link/file path opens even inside a mouse-tracking TUI (there's
+    // no modifier-click on mobile). Only a non-link tap forwards a mouse click,
+    // and clickInput must still precede the terminal-tap focus fallback.
+    expect(touchEndBlock.indexOf('filePathAtViewportPoint(')).toBeLessThan(
+      touchEndBlock.indexOf('var clickInput = buildMouseClickInput')
+    )
     expect(touchEndBlock.indexOf('var clickInput = buildMouseClickInput')).toBeLessThan(
-      touchEndBlock.indexOf('notifyTapOrFilePath(')
+      touchEndBlock.indexOf("notify({ type: 'terminal-tap' });")
     )
     expect(touchEndBlock).toContain("notify({ type: 'terminal-input', bytes: clickInput });")
     expect(touchEndBlock).toContain(

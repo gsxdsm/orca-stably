@@ -4,6 +4,7 @@ import type { RuntimeMobileTerminalTheme } from '../../../src/shared/runtime-typ
 import { colors } from '../theme/mobile-theme'
 import { TERMINAL_TEXT_SCALES } from '../storage/preferences'
 import { TERMINAL_PATH_TAP_JS } from './terminal-path-tap-injected'
+import { URL_TAP_WEBVIEW_JS } from './terminal-webview-url-tap'
 
 const DEFAULT_TERMINAL_THEME: RuntimeMobileTerminalTheme['theme'] = {
   background: colors.terminalBg,
@@ -1320,6 +1321,11 @@ export const XTERM_HTML = `<!DOCTYPE html>
   // terminal-path-tap-injected.ts; mirrors the unit-tested terminal-path-tap.ts.
   ${TERMINAL_PATH_TAP_JS}
 
+  // Why: mobile xterm has no WebLinksAddon and the touch layer swallows native
+  // clicks, so URL taps are detected here (matcher shared with desktop) and
+  // handed to RN's Linking.openURL.
+  ${URL_TAP_WEBVIEW_JS}
+
   function seedWordSelection(col, absRow) {
     var line = getLineText(absRow);
     if (!line) {
@@ -1637,12 +1643,30 @@ export const XTERM_HTML = `<!DOCTYPE html>
     }
     if (dispatch.mode === 'surface') {
       if (e.touches.length === 0 && longPressOrigin && selMode !== 'select') {
-        var clickInput = buildMouseClickInput(longPressOrigin.x, longPressOrigin.y);
-        if (clickInput) {
-          notify({ type: 'terminal-input', bytes: clickInput });
-        } else if (!isClickMouseTrackingMode(getMouseTrackingMode())) {
-          // Tap on a file path → terminal-file-tap (RN opens it); else focus.
-          notifyTapOrFilePath(longPressOrigin.x, longPressOrigin.y);
+        // Why: a tapped link/file opens even inside a mouse-tracking TUI (Claude
+        // Code, vim, …). Mobile has no modifier-click, so a tap on a link must
+        // win over forwarding the click to the app — mirroring desktop's
+        // Cmd/Ctrl-click. Precedence: OSC 8 hyperlink (PR links) → plain-text
+        // URL → file path → forward mouse click → focus keyboard.
+        var ox = longPressOrigin.x, oy = longPressOrigin.y;
+        var tappedUrl = oscLinkAtViewportPoint(ox, oy) || urlAtViewportPoint(ox, oy);
+        var tappedPath = tappedUrl ? null : filePathAtViewportPoint(ox, oy);
+        if (tappedUrl) {
+          notify({ type: 'open-url', url: tappedUrl });
+        } else if (tappedPath) {
+          notify({
+            type: 'terminal-file-tap',
+            pathText: tappedPath.pathText,
+            line: tappedPath.line,
+            column: tappedPath.column
+          });
+        } else {
+          var clickInput = buildMouseClickInput(ox, oy);
+          if (clickInput) {
+            notify({ type: 'terminal-input', bytes: clickInput });
+          } else if (!isClickMouseTrackingMode(getMouseTrackingMode())) {
+            notify({ type: 'terminal-tap' });
+          }
         }
       }
       clearLongPress();
