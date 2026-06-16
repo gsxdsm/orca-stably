@@ -2301,11 +2301,10 @@ describe('applyWebSessionTabsSnapshot', () => {
       NOW
     ) as Partial<WebSessionTabsSyncState>
 
-    // The locally opened file and its tab survive the host snapshot sync.
-    expect(patch.openFiles?.some((file) => file.id === openFile.id) ?? true).toBe(true)
-    expect(
-      patch.unifiedTabsByWorktree?.[WT]?.some((tab) => tab.entityId === openFile.id) ?? true
-    ).toBe(true)
+    // The locally opened file and its tab survive the host snapshot sync. Nothing
+    // is culled, so the sync produces no openFiles/unifiedTabs change for this worktree.
+    expect(patch.openFiles).toBeUndefined()
+    expect(patch.unifiedTabsByWorktree?.[WT]).toBeUndefined()
   })
 
   it('mirrors pending terminal handles without attaching a stale PTY', () => {
