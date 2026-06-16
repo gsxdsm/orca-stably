@@ -46,6 +46,9 @@ export function WorkspacePortScanner({ enabled = true }: { enabled?: boolean }):
   // Why: debounce transient per-host scan failures so the live-port indicator
   // stays solid across a single dropped poll. Keyed by scan key (per host).
   const portScanDebounceRef = useRef(createPortScanDebounceState())
+  // Why: the poll/event effects call the latest refresh through this ref so they
+  // don't have to depend on the callback identity (which changes on store churn).
+  const refreshRef = useRef<() => Promise<void>>(() => Promise.resolve())
 
   const runtimeTarget = useMemo(() => getActiveRuntimeTarget(settings), [settings])
   const scanKey = workspacePortScanKeyForTarget(runtimeTarget)
@@ -55,6 +58,15 @@ export function WorkspacePortScanner({ enabled = true }: { enabled?: boolean }):
         .map((host) => runtimeTargetForExecutionHostId(host.id))
         .filter((target): target is NonNullable<typeof target> => target !== null),
     [repos, settings]
+  )
+  // Why: `scanTargets`/`refresh` get a fresh identity whenever repos or settings
+  // are replaced (frequent in a busy workspace), but the host set rarely changes.
+  // Drive the reset/poll effect off this stable value-signature instead of the
+  // callback identity so incidental store churn cannot re-init the scan in a
+  // tight loop (which cleared the scan to null and flickered live-port icons).
+  const scanTargetsSignature = useMemo(
+    () => scanTargets.map(workspacePortScanKeyForTarget).join('|'),
+    [scanTargets]
   )
 
   const refresh = useCallback(() => {
@@ -128,6 +140,10 @@ export function WorkspacePortScanner({ enabled = true }: { enabled?: boolean }):
   ])
 
   useEffect(() => {
+    refreshRef.current = refresh
+  }, [refresh])
+
+  useEffect(() => {
     if (!enabled) {
       return
     }
@@ -136,9 +152,11 @@ export function WorkspacePortScanner({ enabled = true }: { enabled?: boolean }):
 
     // Why: workspace port scans can cross runtime IPC or shell out remotely.
     // Keep the timer stopped while no UI can display the result; visibility
-    // changes run one immediate refresh on return.
+    // changes run one immediate refresh on return. Call the latest refresh via
+    // ref so this effect only re-inits on a real enable/host-set change, not on
+    // every incidental refresh identity change.
     const stopVisibleInterval = installWindowVisibilityInterval({
-      run: () => void refresh(),
+      run: () => void refreshRef.current(),
       intervalMs: WORKSPACE_PORT_SCAN_INTERVAL_MS
     })
 
@@ -147,7 +165,7 @@ export function WorkspacePortScanner({ enabled = true }: { enabled?: boolean }):
       inFlightRef.current = null
       stopVisibleInterval()
     }
-  }, [enabled, refresh, setWorkspacePortScan])
+  }, [enabled, scanKey, scanTargetsSignature, setWorkspacePortScan])
 
   useEffect(() => {
     if (!enabled) {
@@ -175,7 +193,7 @@ export function WorkspacePortScanner({ enabled = true }: { enabled?: boolean }):
       if (!isWindowVisible()) {
         return
       }
-      void refresh().finally(() => {
+      void refreshRef.current().finally(() => {
         if (disposed || sequence !== eventSequence || !isWindowVisible()) {
           return
         }
@@ -185,7 +203,7 @@ export function WorkspacePortScanner({ enabled = true }: { enabled?: boolean }):
           if (disposed || sequence !== eventSequence || !isWindowVisible()) {
             return
           }
-          void refresh()
+          void refreshRef.current()
         }, WORKSPACE_PORT_ADVERTISED_URL_SETTLE_MS)
       })
     })
@@ -195,7 +213,7 @@ export function WorkspacePortScanner({ enabled = true }: { enabled?: boolean }):
       clearRetryTimer()
       unsubscribe()
     }
-  }, [enabled, refresh, runtimeTarget])
+  }, [enabled, runtimeTarget.kind])
 
   return null
 }
