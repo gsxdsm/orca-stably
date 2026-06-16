@@ -16,6 +16,16 @@ import { HostScreen } from './[hostId]/index'
 // Keep at least this much room for the detail pane when resizing the sidebar.
 const MIN_DETAIL_WIDTH = 320
 
+// Clamp a sidebar width to the bounds and to the current window, so a width
+// saved on a larger device can't starve the detail pane on a narrower one.
+function clampSidebarToWindow(width: number, windowWidth: number): number {
+  const hardMax = Math.max(
+    HOST_SIDEBAR_MIN_WIDTH,
+    Math.min(HOST_SIDEBAR_MAX_WIDTH, windowWidth - MIN_DETAIL_WIDTH)
+  )
+  return Math.min(hardMax, Math.max(HOST_SIDEBAR_MIN_WIDTH, Math.round(width)))
+}
+
 function HostStack({ animation }: { animation: 'none' | 'default' }) {
   return (
     <Stack
@@ -56,10 +66,24 @@ export default function HostGroupLayout() {
   windowWidthRef.current = windowWidth
   const dragStartRef = useRef(sidebarWidth)
 
-  // Restore the user's last sidebar width.
+  // Restore the user's last sidebar width, clamped to the current window.
   useEffect(() => {
-    void loadHostSidebarWidth().then(setSidebarWidth)
+    let stale = false
+    void loadHostSidebarWidth().then((saved) => {
+      if (!stale) {
+        setSidebarWidth(clampSidebarToWindow(saved, windowWidthRef.current))
+      }
+    })
+    return () => {
+      stale = true
+    }
   }, [])
+
+  // Re-clamp when the window shrinks (fold, rotation, split-screen) so the
+  // detail pane keeps at least MIN_DETAIL_WIDTH.
+  useEffect(() => {
+    setSidebarWidth((current) => clampSidebarToWindow(current, windowWidth))
+  }, [windowWidth])
 
   const hideSidebar = useCallback(() => setSidebarOpen(false), [])
   const showSidebar = isWideLayout && !!hostId
@@ -76,15 +100,7 @@ export default function HostGroupLayout() {
         dragStartRef.current = widthRef.current
       },
       onPanResponderMove: (_evt, g) => {
-        const hardMax = Math.max(
-          HOST_SIDEBAR_MIN_WIDTH,
-          Math.min(HOST_SIDEBAR_MAX_WIDTH, windowWidthRef.current - MIN_DETAIL_WIDTH)
-        )
-        const next = Math.min(
-          hardMax,
-          Math.max(HOST_SIDEBAR_MIN_WIDTH, Math.round(dragStartRef.current + g.dx))
-        )
-        setSidebarWidth(next)
+        setSidebarWidth(clampSidebarToWindow(dragStartRef.current + g.dx, windowWidthRef.current))
       },
       onPanResponderRelease: () => {
         void saveHostSidebarWidth(widthRef.current)
