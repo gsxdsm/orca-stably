@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Pressable, StyleSheet, PanResponder } from 'react-native'
-import { Stack, useGlobalSearchParams } from 'expo-router'
+import { Stack, useGlobalSearchParams, usePathname } from 'expo-router'
 import { PanelLeftOpen } from 'lucide-react-native'
 import { colors, radii } from '../../src/theme/mobile-theme'
 import { useResponsiveLayout } from '../../src/layout/responsive-layout'
@@ -15,6 +15,7 @@ import { HostScreen } from './[hostId]/index'
 
 // Keep at least this much room for the detail pane when resizing the sidebar.
 const MIN_DETAIL_WIDTH = 320
+const RESIZE_EDGE_WIDTH = 24
 
 // Clamp a sidebar width to the bounds and to the current window, so a width
 // saved on a larger device can't starve the detail pane on a narrower one.
@@ -55,6 +56,7 @@ export default function HostGroupLayout() {
   // Wide layout = tablet/foldable canvas (see responsive-layout-metrics).
   const { isWideLayout, width: windowWidth } = useResponsiveLayout()
   const { hostId, action } = useGlobalSearchParams<{ hostId?: string; action?: string }>()
+  const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [sidebarWidth, setSidebarWidth] = useState(HOST_SIDEBAR_DEFAULT_WIDTH)
 
@@ -87,14 +89,26 @@ export default function HostGroupLayout() {
 
   const hideSidebar = useCallback(() => setSidebarOpen(false), [])
   const showSidebar = isWideLayout && !!hostId
+  const detailHasContent = !!hostId && pathname !== `/h/${hostId}`
+  const canCollapseSidebar = showSidebar && detailHasContent
+
+  useEffect(() => {
+    // Why: on the base host route the detail pane is only a placeholder, so
+    // hiding the sidebar removes the only useful navigation surface.
+    if (showSidebar && !detailHasContent) {
+      setSidebarOpen(true)
+    }
+  }, [detailHasContent, showSidebar])
 
   const resizer = useRef(
     PanResponder.create({
-      // Let taps fall through to the list rows/buttons; only claim the gesture
-      // once it's clearly a horizontal drag.
+      // Let row/button taps win; only claim horizontal drags that start near
+      // the sidebar's right edge.
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_evt, g) =>
-        Math.abs(g.dx) > 4 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+        g.x0 >= widthRef.current - RESIZE_EDGE_WIDTH &&
+        Math.abs(g.dx) > 4 &&
+        Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: () => {
         dragStartRef.current = widthRef.current
@@ -117,12 +131,13 @@ export default function HostGroupLayout() {
   return (
     <View style={styles.row}>
       {showSidebar && sidebarOpen ? (
-        <View style={[styles.sidebar, { width: sidebarWidth }]}>
-          <HostScreen embedded hostId={hostId} action={action} onHideSidebar={hideSidebar} />
-          {/* Drag the right edge to resize; the grip marks the affordance. */}
-          <View style={styles.resizeHandle} {...resizer.panHandlers}>
-            <View style={styles.resizeGrip} />
-          </View>
+        <View style={[styles.sidebar, { width: sidebarWidth }]} {...resizer.panHandlers}>
+          <HostScreen
+            embedded
+            hostId={hostId}
+            action={action}
+            onHideSidebar={canCollapseSidebar ? hideSidebar : undefined}
+          />
         </View>
       ) : null}
       <View style={styles.detail}>
@@ -130,7 +145,7 @@ export default function HostGroupLayout() {
       </View>
       {/* Rendered last (and elevated) so the reveal control reliably paints
           above the detail pane on Android when the sidebar is hidden. */}
-      {showSidebar && !sidebarOpen ? (
+      {canCollapseSidebar && !sidebarOpen ? (
         <Pressable
           style={styles.revealTab}
           onPress={() => setSidebarOpen(true)}
@@ -138,7 +153,7 @@ export default function HostGroupLayout() {
           accessibilityLabel="Show sidebar"
           hitSlop={12}
         >
-          <PanelLeftOpen size={20} color={colors.textPrimary} />
+          <PanelLeftOpen size={20} color={colors.textSecondary} />
         </Pressable>
       ) : null}
     </View>
@@ -159,25 +174,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0
   },
-  // Full-height grab strip over the sidebar's right edge. Tap-transparent
-  // (see PanResponder) so it only resizes on a horizontal drag.
-  resizeHandle: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    right: 0,
-    width: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 20,
-    elevation: 16
-  },
-  resizeGrip: {
-    width: 4,
-    height: 48,
-    borderRadius: 2,
-    backgroundColor: colors.borderSubtle
-  },
   // When the sidebar is hidden, a pull tab floats over the detail pane's left
   // edge (mid-height to avoid the screen's own header) to reveal it again.
   revealTab: {
@@ -191,7 +187,7 @@ const styles = StyleSheet.create({
     height: 64,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.bgRaised,
+    backgroundColor: colors.bgPanel,
     borderTopRightRadius: radii.card,
     borderBottomRightRadius: radii.card,
     borderWidth: 1,

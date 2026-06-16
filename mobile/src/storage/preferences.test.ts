@@ -1,6 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadTerminalAutocompleteEnabled, saveTerminalAutocompleteEnabled } from './preferences'
+import {
+  HOST_SIDEBAR_DEFAULT_WIDTH,
+  HOST_SIDEBAR_MAX_WIDTH,
+  HOST_SIDEBAR_MIN_WIDTH,
+  clampHostSidebarWidth,
+  loadHostSidebarWidth,
+  loadTerminalAutocompleteEnabled,
+  saveHostSidebarWidth,
+  saveTerminalAutocompleteEnabled
+} from './preferences'
 
 vi.mock('@react-native-async-storage/async-storage', () => ({
   default: {
@@ -46,5 +55,45 @@ describe('terminal autocomplete preference', () => {
     await saveTerminalAutocompleteEnabled(false)
 
     expect(AsyncStorage.setItem).toHaveBeenCalledWith('orca:terminalAutocompleteEnabled', 'false')
+  })
+})
+
+describe('host sidebar width preference', () => {
+  beforeEach(() => {
+    vi.mocked(AsyncStorage.getItem).mockReset()
+    vi.mocked(AsyncStorage.setItem).mockReset()
+  })
+
+  it('clamps saved widths to the supported sidebar range', () => {
+    expect(clampHostSidebarWidth(HOST_SIDEBAR_MIN_WIDTH - 10)).toBe(HOST_SIDEBAR_MIN_WIDTH)
+    expect(clampHostSidebarWidth(HOST_SIDEBAR_MAX_WIDTH + 10)).toBe(HOST_SIDEBAR_MAX_WIDTH)
+    expect(clampHostSidebarWidth(337.6)).toBe(338)
+  })
+
+  it('falls back to the default width for missing, invalid, or unreadable storage', async () => {
+    vi.mocked(AsyncStorage.getItem).mockResolvedValue(null)
+
+    await expect(loadHostSidebarWidth()).resolves.toBe(HOST_SIDEBAR_DEFAULT_WIDTH)
+
+    vi.mocked(AsyncStorage.getItem).mockResolvedValue('not-a-number')
+
+    await expect(loadHostSidebarWidth()).resolves.toBe(HOST_SIDEBAR_DEFAULT_WIDTH)
+
+    vi.mocked(AsyncStorage.getItem).mockRejectedValue(new Error('storage unavailable'))
+
+    await expect(loadHostSidebarWidth()).resolves.toBe(HOST_SIDEBAR_DEFAULT_WIDTH)
+  })
+
+  it('loads and persists clamped sidebar widths', async () => {
+    vi.mocked(AsyncStorage.getItem).mockResolvedValue(String(HOST_SIDEBAR_MAX_WIDTH + 20))
+
+    await expect(loadHostSidebarWidth()).resolves.toBe(HOST_SIDEBAR_MAX_WIDTH)
+
+    await saveHostSidebarWidth(HOST_SIDEBAR_MIN_WIDTH - 20)
+
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      'orca:hostSidebarWidth',
+      String(HOST_SIDEBAR_MIN_WIDTH)
+    )
   })
 })
