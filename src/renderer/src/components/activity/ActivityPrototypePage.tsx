@@ -1216,14 +1216,13 @@ function ThreadRow({
         {/* Why (Jump-to-workspace lives on the secondary row): the bell slot
             on the title row already holds the unread/Mark-unread state, so
             the navigation action gets its own slot down here aligned with
-            the worktree name. Reserved layout via `invisible` +
-            `pointer-events-none` keeps the worktree-name's flex-1 width
-            stable across hover. */}
+            the worktree name. On hover-capable pointers, the hidden state
+            keeps the worktree-name's flex-1 width stable across hover. */}
         {canJump ? (
           <span
             className={cn(
               'ml-auto inline-flex shrink-0 items-center transition-opacity',
-              'pointer-events-none invisible opacity-0',
+              'can-hover:pointer-events-none can-hover:invisible can-hover:opacity-0',
               'group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100'
             )}
           >
