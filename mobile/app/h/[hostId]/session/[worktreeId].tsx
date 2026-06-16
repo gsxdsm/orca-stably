@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Animated, AppState, type AppStateStatus } from 'react-native'
+import { Animated, AppState, Linking, type AppStateStatus } from 'react-native'
 import * as Clipboard from 'expo-clipboard'
 import {
   BackHandler,
@@ -45,6 +45,11 @@ import {
 } from 'lucide-react-native'
 import type { RpcClient } from '../../../../src/transport/rpc-client'
 import { loadHosts } from '../../../../src/transport/host-store'
+import {
+  loadTerminalAutocompleteEnabled,
+  loadTerminalTextScale,
+  saveTerminalTextScale
+} from '../../../../src/storage/preferences'
 import {
   useHostClient,
   useForceReconnect,
@@ -738,6 +743,10 @@ export default function SessionScreen() {
   const sessionTabsRef = useRef<MobileSessionTab[]>([])
   const [terminalsLoaded, setTerminalsLoaded] = useState(false)
   const [input, setInput] = useState('')
+  // Why: local opt-in for keyboard autocomplete/autocorrect on the terminal
+  // command bar; reloaded on focus so a Settings → Terminal toggle takes effect on return.
+  const [autocompleteEnabled, setAutocompleteEnabled] = useState(false)
+  const [terminalTextScale, setTerminalTextScale] = useState(1)
   const [liveInputCapture, setLiveInputCapture] = useState('')
   const [liveInputTerminalHandles, setLiveInputTerminalHandles] = useState<Set<string>>(
     () => new Set()
@@ -2078,6 +2087,7 @@ export default function SessionScreen() {
     deviceTokenRef,
     initializedHandlesRef,
     tabStripVisible: terminals.length > 1,
+    textScale: terminalTextScale,
     unsubscribeTerminal,
     subscribeToTerminal
   })
@@ -2300,6 +2310,27 @@ export default function SessionScreen() {
       }, 2000)
       return () => clearInterval(interval)
     }, [connState, fetchSessionTabs, fetchTerminals])
+  )
+
+  // Why: pick up the Settings → Terminal autocomplete toggle and text size when
+  // returning here — the terminal panes stay mounted, so they update in place.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true
+      void loadTerminalAutocompleteEnabled().then((enabled) => {
+        if (active) {
+          setAutocompleteEnabled(enabled)
+        }
+      })
+      void loadTerminalTextScale().then((scale) => {
+        if (active) {
+          setTerminalTextScale(scale)
+        }
+      })
+      return () => {
+        active = false
+      }
+    }, [])
   )
 
   // Why: unsubscribe the old terminal so the server restores its desktop dims
@@ -2589,6 +2620,10 @@ export default function SessionScreen() {
     },
     [focusLiveInput]
   )
+
+  const handleTerminalOpenUrl = useCallback((url: string) => {
+    void Linking.openURL(url).catch(() => {})
+  }, [])
 
   const toggleLiveInput = useCallback(() => {
     if (!activeHandle) {
@@ -3978,6 +4013,13 @@ export default function SessionScreen() {
                 active={terminal.handle === activeHandle}
                 keyboardLift={terminal.handle === activeHandle ? activeTerminalKeyboardLift : 0}
                 terminalTheme={terminal.terminalTheme}
+                textScale={terminalTextScale}
+                onTextScaleChange={(scale) => {
+                  // Why: pinch-to-zoom in the WebView reports a new preset; persist
+                  // it so the size sticks across panes and app launches.
+                  setTerminalTextScale(scale)
+                  void saveTerminalTextScale(scale)
+                }}
                 onRef={setTerminalWebViewRef}
                 onWebReady={handleTerminalWebReady}
                 onSelectionMode={handleSelectionMode}
@@ -3988,6 +4030,7 @@ export default function SessionScreen() {
                 onHaptic={handleHaptic}
                 onTerminalInput={handleTerminalInput}
                 onTerminalTap={handleTerminalTap}
+                onOpenUrl={handleTerminalOpenUrl}
               />
             ))}
             {toastMessage && (
@@ -4196,6 +4239,9 @@ export default function SessionScreen() {
             ) : (
               <View style={styles.inputBar}>
                 <TextInput
+                  // Why: Android caches the IME inputType at mount, so toggling
+                  // autocomplete must remount the field for suggestions to switch on/off.
+                  key={autocompleteEnabled ? 'cmd-input-ac-on' : 'cmd-input-ac-off'}
                   style={styles.textInput}
                   value={input}
                   onChangeText={(text) =>
@@ -4204,10 +4250,18 @@ export default function SessionScreen() {
                   placeholder="Type a command…"
                   placeholderTextColor={colors.textMuted}
                   autoCapitalize="none"
-                  autoCorrect={false}
-                  spellCheck={false}
+                  autoCorrect={autocompleteEnabled}
+                  spellCheck={autocompleteEnabled}
                   smartInsertDelete={false}
-                  keyboardType={Platform.OS === 'ios' ? 'ascii-capable' : 'visible-password'}
+                  // Why: the default keyboard exposes autocomplete/autocorrect;
+                  // ascii-capable (iOS) / visible-password (Android) suppress it.
+                  keyboardType={
+                    autocompleteEnabled
+                      ? 'default'
+                      : Platform.OS === 'ios'
+                        ? 'ascii-capable'
+                        : 'visible-password'
+                  }
                   returnKeyType="send"
                   editable={canSend}
                   onSubmitEditing={() => void handleSend()}
