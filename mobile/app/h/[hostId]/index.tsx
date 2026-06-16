@@ -9,7 +9,7 @@ import {
   TextInput
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams, usePathname, useRouter } from 'expo-router'
 import {
   Search,
   X,
@@ -25,7 +25,8 @@ import {
   Moon,
   Filter,
   Check,
-  UserCircle
+  UserCircle,
+  PanelLeftClose
 } from 'lucide-react-native'
 import type { RpcClient } from '../../../src/transport/rpc-client'
 import { loadHosts, updateLastConnected, removeHost } from '../../../src/transport/host-store'
@@ -54,6 +55,7 @@ import { ConfirmModal } from '../../../src/components/ConfirmModal'
 import { BottomDrawer } from '../../../src/components/BottomDrawer'
 import { ProtocolBlockScreen } from '../../../src/components/ProtocolBlockScreen'
 import { AuthFailedBanner } from '../../../src/components/AuthFailedBanner'
+import { WorkspaceDetailPlaceholder } from '../../../src/components/WorkspaceDetailPlaceholder'
 import { getCachedWorktrees } from '../../../src/cache/worktree-cache'
 import { colors, radii, spacing, typography } from '../../../src/theme/mobile-theme'
 import { useResponsiveLayout } from '../../../src/layout/responsive-layout'
@@ -117,12 +119,36 @@ const GROUP_OPTIONS: PickerOption<MobileGroupMode>[] = [
   { value: 'prStatus', label: 'PR Status' }
 ]
 
-export default function HostScreen() {
-  const { hostId, action } = useLocalSearchParams<{ hostId: string; action?: string }>()
+type HostScreenProps = {
+  // Why: when true, this worktree list is rendered as the persistent tablet
+  // sidebar by the host layout rather than as its own routed screen. That
+  // swaps the back button for a hide-sidebar control, drives data fetching
+  // from a plain mount effect (the sidebar is never the "focused" route), and
+  // opens sessions into the detail pane instead of pushing a new full screen.
+  embedded?: boolean
+  // Route params aren't in scope when rendered from the layout, so the caller
+  // passes hostId/action explicitly; falls back to the local route params.
+  hostId?: string
+  action?: string
+  onHideSidebar?: () => void
+}
+
+export function HostScreen({
+  embedded = false,
+  hostId: hostIdProp,
+  action: actionProp,
+  onHideSidebar
+}: HostScreenProps = {}) {
+  const params = useLocalSearchParams<{ hostId: string; action?: string }>()
+  const hostId = hostIdProp ?? params.hostId
+  const action = actionProp ?? params.action
   const router = useRouter()
+  const pathname = usePathname()
   const insets = useSafeAreaInsets()
   // Why: cap and center the worktree list on wide/tablet canvases; on phones
-  // isWideLayout is false so the list stays edge-to-edge as before.
+  // isWideLayout is false so the list stays edge-to-edge as before. When
+  // embedded as the sidebar the list already lives in a narrow pane, so the
+  // cap is skipped (see the SectionList contentContainerStyle below).
   const { isWideLayout, contentMaxWidth } = useResponsiveLayout()
   const [initialCache] = useState(() =>
     hostId ? (getCachedWorktrees(hostId) as Worktree[] | null) : null
@@ -484,7 +510,9 @@ export default function HostScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (connState !== 'connected') {
+      // The embedded sidebar drives its own polling below; focus never fires
+      // for it since it isn't a routed screen.
+      if (embedded || connState !== 'connected') {
         return
       }
       void fetchWorktrees()
@@ -497,8 +525,23 @@ export default function HostScreen() {
         void fetchWorktrees()
       }, 3000)
       return () => clearInterval(interval)
-    }, [connState, fetchWorktrees, syncViewSettingsFromDesktop])
+    }, [embedded, connState, fetchWorktrees, syncViewSettingsFromDesktop])
   )
+
+  // Why: as the persistent tablet sidebar this list is never the focused
+  // route, so useFocusEffect won't fetch/poll. Mirror that behavior from a
+  // plain mount effect while connected instead.
+  useEffect(() => {
+    if (!embedded || connState !== 'connected') {
+      return
+    }
+    void fetchWorktrees()
+    void syncViewSettingsFromDesktop()
+    const interval = setInterval(() => {
+      void fetchWorktrees()
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [embedded, connState, fetchWorktrees, syncViewSettingsFromDesktop])
 
   const updateLocalPins = useCallback(
     (worktreeId: string, pinned: boolean) => {
@@ -600,11 +643,16 @@ export default function HostScreen() {
           })
           .catch(() => null)
       }
-      router.push(
-        `/h/${hostId}/session/${encodeURIComponent(item.worktreeId)}?name=${encodeURIComponent(item.displayName || item.repo)}`
-      )
+      const target = `/h/${hostId}/session/${encodeURIComponent(item.worktreeId)}?name=${encodeURIComponent(item.displayName || item.repo)}`
+      // From the sidebar, swap the detail pane in place when a session is
+      // already open so taps don't stack session screens; otherwise push.
+      if (embedded && pathname?.includes('/session/')) {
+        router.replace(target)
+      } else {
+        router.push(target)
+      }
     },
-    [client, connState, hostId, router]
+    [client, connState, hostId, router, embedded, pathname]
   )
 
   const handleSortChange = useCallback(
@@ -745,9 +793,21 @@ export default function HostScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.topChrome}>
         <View style={styles.statusBar}>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <ChevronLeft size={22} color={colors.textPrimary} />
-          </Pressable>
+          {embedded ? (
+            <Pressable
+              style={styles.backButton}
+              onPress={onHideSidebar}
+              accessibilityRole="button"
+              accessibilityLabel="Hide sidebar"
+              hitSlop={8}
+            >
+              <PanelLeftClose size={20} color={colors.textPrimary} />
+            </Pressable>
+          ) : (
+            <Pressable style={styles.backButton} onPress={() => router.back()}>
+              <ChevronLeft size={22} color={colors.textPrimary} />
+            </Pressable>
+          )}
           {(() => {
             const headerVerdict = classifyConnection({
               state: connState,
@@ -941,7 +1001,8 @@ export default function HostScreen() {
           contentContainerStyle={[
             styles.list,
             { paddingBottom: spacing.lg + insets.bottom },
-            isWideLayout && { maxWidth: contentMaxWidth, width: '100%', alignSelf: 'center' }
+            isWideLayout &&
+              !embedded && { maxWidth: contentMaxWidth, width: '100%', alignSelf: 'center' }
           ]}
           renderSectionHeader={({ section }) => {
             if (!section.title) {
@@ -1188,6 +1249,18 @@ export default function HostScreen() {
       />
     </SafeAreaView>
   )
+}
+
+// Default route export. On wide tablet/foldable canvases the worktree list is
+// rendered as a persistent sidebar by the host layout, so the route itself
+// becomes the empty detail pane until a workspace is opened. On phones it is
+// the full-screen worktree list as before.
+export default function HostWorktreeRoute() {
+  const { isWideLayout } = useResponsiveLayout()
+  if (isWideLayout) {
+    return <WorkspaceDetailPlaceholder />
+  }
+  return <HostScreen />
 }
 
 function ListSeparator() {
