@@ -19,6 +19,8 @@ import {
   type AccountsSnapshot,
   type ProviderKey,
   getActiveProviderRateLimits,
+  hasActiveProviderUsage,
+  hasRenderableUsage,
   UsageBar
 } from '../src/components/AccountUsage'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -609,9 +611,10 @@ export default function HomeScreen() {
       if (!snap) {
         continue
       }
-      const hasClaude = snap.claude.accounts.length > 0
-      const hasCodex = snap.codex.accounts.length > 0
-      if (hasClaude || hasCodex) {
+      // Why: also show hosts whose only usage is the system-default login
+      // (no Orca-managed accounts but live rate-limit data for the active
+      // target), otherwise system-default users see no usage section at all.
+      if (hasRenderableUsage(snap, 'claude') || hasRenderableUsage(snap, 'codex')) {
         items.push({ host, snapshot: snap })
       }
     }
@@ -979,10 +982,14 @@ export default function HomeScreen() {
                             provider === 'claude'
                               ? snapshot.claude.accounts
                               : snapshot.codex.accounts
-                          if (accounts.length === 0) {
+                          const limits = getActiveProviderRateLimits(snapshot, provider)
+                          // Why: with no managed accounts, still render a
+                          // "System default" row when the active target has
+                          // live usage data; the row label already falls back
+                          // to "System default" below.
+                          if (accounts.length === 0 && !hasActiveProviderUsage(limits)) {
                             return null
                           }
-                          const limits = getActiveProviderRateLimits(snapshot, provider)
                           const isFetching =
                             limits?.status === 'fetching' || limits?.status === 'idle'
                           const unavailable =
