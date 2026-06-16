@@ -9,11 +9,21 @@ import {
   workspacePortScanKeyForTarget
 } from '@/lib/workspace-port-actions'
 import { installWindowVisibilityInterval, isWindowVisible } from '@/lib/window-visibility-interval'
+import {
+  createPortScanDebounceState,
+  reconcileTransientPortScanFailures
+} from '@/lib/workspace-port-scan-debounce'
 import type { WorkspacePortScanResult } from '../../../../shared/workspace-ports'
 import { buildExecutionHostRegistry } from '../../../../shared/execution-host-registry'
 
 const WORKSPACE_PORT_SCAN_INTERVAL_MS = 30_000
 const WORKSPACE_PORT_ADVERTISED_URL_SETTLE_MS = 1_000
+// Why: a single dropped scan (e.g. SSH/IPC latency) returns no ports for that
+// host, which would blink its worktree's live-port indicator off for one cycle.
+// Tolerate transient failures by reusing the host's last good scan until this
+// many consecutive failures accumulate; a reachable host reporting zero ports
+// has no unavailableReason, so a genuine port close still clears immediately.
+const WORKSPACE_PORT_SCAN_FAILURE_TOLERANCE = 2
 
 function makeUnavailableScan(reason: string): WorkspacePortScanResult {
   return {
@@ -33,6 +43,9 @@ export function WorkspacePortScanner({ enabled = true }: { enabled?: boolean }):
   const setWorkspacePortScanRefreshing = useAppStore((s) => s.setWorkspacePortScanRefreshing)
   const inFlightRef = useRef<Promise<void> | null>(null)
   const generationRef = useRef(0)
+  // Why: debounce transient per-host scan failures so the live-port indicator
+  // stays solid across a single dropped poll. Keyed by scan key (per host).
+  const portScanDebounceRef = useRef(createPortScanDebounceState())
 
   const runtimeTarget = useMemo(() => getActiveRuntimeTarget(settings), [settings])
   const scanKey = workspacePortScanKeyForTarget(runtimeTarget)
@@ -70,8 +83,15 @@ export function WorkspacePortScanner({ enabled = true }: { enabled?: boolean }):
     )
       .then((results) => {
         if (generation === generationRef.current) {
-          const scansByKey = Object.fromEntries(results.map(({ key, result }) => [key, result]))
-          for (const { key, result } of results) {
+          // Why: reuse a host's last good scan through brief failures so the
+          // worktree's live-port indicator doesn't flicker on a dropped poll.
+          const reconciled = reconcileTransientPortScanFailures(
+            results,
+            portScanDebounceRef.current,
+            WORKSPACE_PORT_SCAN_FAILURE_TOLERANCE
+          )
+          const scansByKey = Object.fromEntries(reconciled.map(({ key, result }) => [key, result]))
+          for (const { key, result } of reconciled) {
             setWorkspacePortScanForKey(key, result)
           }
           const activeScan = scansByKey[scanKey]
