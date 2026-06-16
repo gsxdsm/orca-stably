@@ -65,7 +65,9 @@ export function WorkspacePortScanner({ enabled = true }: { enabled?: boolean }):
   // callback identity so incidental store churn cannot re-init the scan in a
   // tight loop (which cleared the scan to null and flickered live-port icons).
   const scanTargetsSignature = useMemo(
-    () => scanTargets.map(workspacePortScanKeyForTarget).join('|'),
+    // Sort so a reordered-but-unchanged host set yields the same signature and
+    // does not re-init the scan (which would clear state and reintroduce flicker).
+    () => scanTargets.map(workspacePortScanKeyForTarget).sort().join('|'),
     [scanTargets]
   )
 

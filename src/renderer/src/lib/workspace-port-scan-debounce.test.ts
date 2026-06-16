@@ -138,4 +138,15 @@ describe('reconcileTransientPortScanFailures', () => {
     expect(state.lastGood.has('gone:all')).toBe(false)
     expect(state.lastGood.has('other:all')).toBe(true)
   })
+
+  it('prunes the failure counter for a failed-only host that disappears', () => {
+    const state = createPortScanDebounceState()
+    // Host only ever fails -> it has a `failures` entry but never a `lastGood`.
+    reconcileTransientPortScanFailures([{ key: 'flaky:all', result: unavailable() }], state, TOLERANCE)
+    expect(state.failures.has('flaky:all')).toBe(true)
+
+    // It disappears; its counter must not linger (memory leak + stale streak).
+    reconcileTransientPortScanFailures([{ key: 'other:all', result: good(['tcp:4000']) }], state, TOLERANCE)
+    expect(state.failures.has('flaky:all')).toBe(false)
+  })
 })

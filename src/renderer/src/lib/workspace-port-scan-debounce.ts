@@ -31,10 +31,15 @@ export function reconcileTransientPortScanFailures(
 ): KeyedPortScan[] {
   const { lastGood, failures } = state
   const activeKeys = new Set(results.map(({ key }) => key))
-  for (const key of lastGood.keys()) {
-    if (!activeKeys.has(key)) {
-      lastGood.delete(key)
-      failures.delete(key)
+  // Prune state for hosts no longer present. Iterate each map independently — a
+  // host that has only ever failed has a `failures` entry but no `lastGood`, so
+  // walking `lastGood` alone would leak its counter and carry a stale streak if
+  // the host reappears.
+  for (const map of [lastGood, failures]) {
+    for (const key of map.keys()) {
+      if (!activeKeys.has(key)) {
+        map.delete(key)
+      }
     }
   }
 
