@@ -4196,7 +4196,7 @@ function SourceControlInner(): React.JSX.Element {
                               focusing any action reveals all three siblings —
                               otherwise keyboard users tab into an invisible
                               next stop. */}
-                          <div className="flex items-center opacity-0 transition-opacity group-hover/section:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+                          <div className="flex items-center can-hover:opacity-0 transition-opacity group-hover/section:opacity-100 focus-within:opacity-100">
                             {canRevertAll && (
                               <ActionButton
                                 icon={area === 'untracked' ? Trash : Undo2}
@@ -5715,7 +5715,7 @@ function DiffCommentsInlineList({
             </button>
             <button
               type="button"
-              className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover/file:opacity-100"
+              className="shrink-0 rounded p-0.5 text-muted-foreground can-hover:opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover/file:opacity-100"
               onClick={() => onClearFile(filePath)}
               title={translate(
                 'auto.components.right.sidebar.SourceControl.59654650d3',
@@ -5777,7 +5777,7 @@ function DiffCommentsInlineList({
                 </button>
                 <button
                   type="button"
-                  className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                  className="shrink-0 rounded p-0.5 text-muted-foreground can-hover:opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
                   onClick={() => void handleCopyOne(c)}
                   title={translate(
                     'auto.components.right.sidebar.SourceControl.1623bf4e19',
@@ -5793,7 +5793,7 @@ function DiffCommentsInlineList({
                 </button>
                 <button
                   type="button"
-                  className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                  className="shrink-0 rounded p-0.5 text-muted-foreground can-hover:opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
                   onClick={() => onDelete(c.id)}
                   title={translate(
                     'auto.components.right.sidebar.SourceControl.b656381c18',

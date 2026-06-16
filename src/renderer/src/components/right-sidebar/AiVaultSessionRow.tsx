@@ -127,7 +127,7 @@ export function VaultSessionRow({
                     event.stopPropagation()
                     onResume()
                   }}
-                  className="opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+                  className="can-hover:opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
                 >
                   <Play className="size-3.5" />
                 </Button>

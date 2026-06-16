@@ -1193,7 +1193,7 @@ function ThreadRow({
                       'Mark thread unread'
                     )}
                   >
-                    <Bell className="size-3 text-muted-foreground/40 opacity-0 transition-opacity group-hover:opacity-100 group-hover/unread:opacity-100" />
+                    <Bell className="size-3 text-muted-foreground/40 can-hover:opacity-0 transition-opacity group-hover:opacity-100 group-hover/unread:opacity-100" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="left">

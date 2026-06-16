@@ -414,7 +414,7 @@ function SessionRow({
           className={cn(
             'rounded p-0.5 text-muted-foreground transition-opacity hover:bg-destructive/10 hover:text-destructive',
             session.bound &&
-              'opacity-0 group-hover/sessrow:opacity-100 group-focus-within/sessrow:opacity-100 focus-visible:opacity-100'
+              'can-hover:opacity-0 group-hover/sessrow:opacity-100 group-focus-within/sessrow:opacity-100 focus-visible:opacity-100'
           )}
           aria-label={translate(
             'auto.components.status.bar.ResourceUsageStatusSegment.fa6d36758d',
