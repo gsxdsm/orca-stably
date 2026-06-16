@@ -33,6 +33,8 @@ export type TerminalSelectionEvents = {
   onHaptic?: (kind: 'selection' | 'success' | 'error' | 'edge-bump') => void
   onTerminalInput?: (bytes: string) => void
   onTerminalTap?: () => void
+  // Why: WebView-detected URL tap (no WebLinksAddon on mobile) routes here.
+  onOpenUrl?: (url: string) => void
   // Why: pinch-to-zoom in the terminal snaps to a text-size preset and reports it
   // here so the app persists it and keeps Settings + other panes in sync.
   onTextScaleChange?: (scale: number) => void
@@ -100,6 +102,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
     onHaptic,
     onTerminalInput,
     onTerminalTap,
+    onOpenUrl,
     onTextScaleChange
   },
   ref
@@ -247,6 +250,10 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
         }
       } else if (msg.type === 'terminal-tap') {
         onTerminalTap?.()
+      } else if (msg.type === 'open-url') {
+        if (typeof msg.url === 'string' && msg.url.length > 0) {
+          onOpenUrl?.(msg.url)
+        }
       } else if (msg.type === 'keyboard-avoidance-metrics') {
         const cursorY = typeof msg.cursorY === 'number' ? msg.cursorY : 0
         const rows = typeof msg.rows === 'number' ? msg.rows : 0
@@ -286,6 +293,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
       onHaptic,
       onTerminalInput,
       onTerminalTap,
+      onOpenUrl,
       onTextScaleChange
     ]
   )

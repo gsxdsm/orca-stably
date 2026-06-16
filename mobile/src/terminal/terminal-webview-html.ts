@@ -3,6 +3,7 @@
 import type { RuntimeMobileTerminalTheme } from '../../../src/shared/runtime-types'
 import { colors } from '../theme/mobile-theme'
 import { TERMINAL_TEXT_SCALES } from '../storage/preferences'
+import { URL_TAP_WEBVIEW_JS } from './terminal-webview-url-tap'
 
 const DEFAULT_TERMINAL_THEME: RuntimeMobileTerminalTheme['theme'] = {
   background: colors.terminalBg,
@@ -1315,6 +1316,11 @@ export const XTERM_HTML = `<!DOCTYPE html>
     return line.translateToString(false);
   }
 
+  // Why: mobile xterm has no WebLinksAddon and the touch layer swallows native
+  // clicks, so URL taps are detected here (matcher shared with desktop) and
+  // handed to RN's Linking.openURL.
+  ${URL_TAP_WEBVIEW_JS}
+
   function seedWordSelection(col, absRow) {
     var line = getLineText(absRow);
     if (!line) {
@@ -1636,7 +1642,12 @@ export const XTERM_HTML = `<!DOCTYPE html>
         if (clickInput) {
           notify({ type: 'terminal-input', bytes: clickInput });
         } else if (!isClickMouseTrackingMode(getMouseTrackingMode())) {
-          notify({ type: 'terminal-tap' });
+          var tappedUrl = urlAtViewportPoint(longPressOrigin.x, longPressOrigin.y);
+          if (tappedUrl) {
+            notify({ type: 'open-url', url: tappedUrl });
+          } else {
+            notify({ type: 'terminal-tap' });
+          }
         }
       }
       clearLongPress();

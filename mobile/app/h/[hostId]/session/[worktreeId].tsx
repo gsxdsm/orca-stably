@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Animated, AppState, type AppStateStatus } from 'react-native'
+import { Animated, AppState, Linking, type AppStateStatus } from 'react-native'
 import * as Clipboard from 'expo-clipboard'
 import {
   BackHandler,
@@ -2621,6 +2621,10 @@ export default function SessionScreen() {
     [focusLiveInput]
   )
 
+  const handleTerminalOpenUrl = useCallback((url: string) => {
+    void Linking.openURL(url).catch(() => {})
+  }, [])
+
   const toggleLiveInput = useCallback(() => {
     if (!activeHandle) {
       return
@@ -4026,6 +4030,7 @@ export default function SessionScreen() {
                 onHaptic={handleHaptic}
                 onTerminalInput={handleTerminalInput}
                 onTerminalTap={handleTerminalTap}
+                onOpenUrl={handleTerminalOpenUrl}
               />
             ))}
             {toastMessage && (
