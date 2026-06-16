@@ -2196,6 +2196,7 @@ describe('applyWebSessionTabsSnapshot', () => {
       language: 'markdown',
       isDirty: false,
       runtimeEnvironmentId: ENV,
+      mirroredFromRuntimeSession: true,
       mode: 'edit'
     }
     const unifiedTab: Tab = {
@@ -2245,6 +2246,66 @@ describe('applyWebSessionTabsSnapshot', () => {
     expect(patch.activeFileIdByWorktree?.[WT]).toBeNull()
     expect(patch.activeTabType).toBe('terminal')
     expect(patch.activeTabTypeByWorktree?.[WT]).toBe('terminal')
+  })
+
+  it('keeps locally opened editor tabs when the host snapshot omits them', () => {
+    // Why: web file clicks open tabs locally with no host counterpart. A host
+    // snapshot that does not list the file must not cull the user's own tab.
+    const openFile: OpenFile = {
+      id: '/repo/local-notes.md',
+      filePath: '/repo/local-notes.md',
+      relativePath: 'local-notes.md',
+      worktreeId: WT,
+      language: 'markdown',
+      isDirty: false,
+      runtimeEnvironmentId: ENV,
+      mode: 'edit'
+    }
+    const unifiedTab: Tab = {
+      id: 'local-notes-unified',
+      entityId: openFile.id,
+      groupId: 'local-group',
+      worktreeId: WT,
+      contentType: 'editor',
+      label: 'local-notes.md',
+      customLabel: null,
+      color: null,
+      sortOrder: 0,
+      createdAt: NOW - 10,
+      isPreview: false,
+      isPinned: false
+    }
+
+    const patch = applyWebSessionTabsSnapshot(
+      makeState({
+        activeFileId: openFile.id,
+        activeFileIdByWorktree: { [WT]: openFile.id },
+        activeTabType: 'editor',
+        activeTabTypeByWorktree: { [WT]: 'editor' },
+        openFiles: [openFile],
+        unifiedTabsByWorktree: { [WT]: [unifiedTab] },
+        groupsByWorktree: {
+          [WT]: [
+            {
+              id: 'local-group',
+              worktreeId: WT,
+              activeTabId: unifiedTab.id,
+              tabOrder: [unifiedTab.id],
+              recentTabIds: [unifiedTab.id]
+            }
+          ]
+        }
+      }),
+      makeSnapshot([], { activeTabId: null, activeTabType: null }),
+      ENV,
+      NOW
+    ) as Partial<WebSessionTabsSyncState>
+
+    // The locally opened file and its tab survive the host snapshot sync.
+    expect(patch.openFiles?.some((file) => file.id === openFile.id) ?? true).toBe(true)
+    expect(
+      patch.unifiedTabsByWorktree?.[WT]?.some((tab) => tab.entityId === openFile.id) ?? true
+    ).toBe(true)
   })
 
   it('mirrors pending terminal handles without attaching a stale PTY', () => {

@@ -225,6 +225,11 @@ export type OpenFile = {
   /** Why: CI check full-details tabs are virtual editor tabs backed by fetched
    *  PR check-run metadata instead of a file on disk. */
   checkRunDetails?: OpenCheckRunDetailsState
+  /** Why: on the web client an editor tab can either be mirrored from the host
+   *  runtime's session snapshot or opened locally by the web user. Only mirrored
+   *  tabs may be culled when they vanish from a later host snapshot; locally
+   *  opened tabs have no host counterpart and must survive snapshot syncs. */
+  mirroredFromRuntimeSession?: boolean
   mode: 'edit' | 'diff' | 'conflict-review' | 'markdown-preview' | 'check-details'
 }
 

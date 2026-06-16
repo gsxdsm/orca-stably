@@ -1643,26 +1643,54 @@ export default function SessionScreen() {
           worktree: `id:${worktreeId}`,
           tabId: tab.id
         })
-        if (!response.ok) {
+        if (response.ok) {
+          const result = (response as RpcSuccess).result as {
+            content: string
+            version: string
+            isDirty: boolean
+            editable?: boolean
+            readOnlyReason?: string
+          }
+          setMarkdownDocs((prev) =>
+            new Map(prev).set(tab.id, {
+              status: 'ready',
+              content: result.content,
+              localContent: result.content,
+              baseVersion: result.version,
+              isDirty: false,
+              editable: result.editable === true,
+              stale: result.isDirty,
+              readOnlyReason: result.readOnlyReason
+            })
+          )
+          return
+        }
+        // Why: a headless host (no desktop renderer) can't serve the live editor
+        // document and fails markdown.readTab with renderer_unavailable. Fall back
+        // to the on-disk file so markdown still renders read-only, matching how
+        // other file types load via files.read.
+        const fallback = await client.sendRequest('files.read', {
+          worktree: `id:${worktreeId}`,
+          relativePath: tab.relativePath
+        })
+        if (!fallback.ok) {
           throw new Error('Unable to read markdown')
         }
-        const result = (response as RpcSuccess).result as {
+        const fileResult = (fallback as RpcSuccess).result as {
           content: string
-          version: string
-          isDirty: boolean
-          editable?: boolean
-          readOnlyReason?: string
+          truncated: boolean
+          byteLength: number
         }
         setMarkdownDocs((prev) =>
           new Map(prev).set(tab.id, {
             status: 'ready',
-            content: result.content,
-            localContent: result.content,
-            baseVersion: result.version,
+            content: fileResult.content,
+            localContent: fileResult.content,
+            baseVersion: '',
             isDirty: false,
-            editable: result.editable === true,
-            stale: result.isDirty,
-            readOnlyReason: result.readOnlyReason
+            editable: false,
+            stale: false,
+            readOnlyReason: 'Editing needs Orca desktop running.'
           })
         )
       } catch {
