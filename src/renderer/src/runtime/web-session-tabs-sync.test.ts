@@ -2188,52 +2188,44 @@ describe('applyWebSessionTabsSnapshot', () => {
   })
 
   it('removes mirrored editor tabs when the host closes the file', () => {
-    const openFile: OpenFile = {
+    const hydratedPatch = applyWebSessionTabsSnapshot(
+      makeState(),
+      makeSnapshot(
+        [
+          {
+            type: 'markdown',
+            id: 'host-readme-unified',
+            title: 'README.md',
+            filePath: '/repo/README.md',
+            relativePath: 'README.md',
+            language: 'markdown',
+            mode: 'edit',
+            isDirty: false,
+            isActive: true,
+            sourceFileId: '/repo/README.md',
+            sourceFilePath: '/repo/README.md',
+            sourceRelativePath: 'README.md',
+            documentVersion: 'file:/repo/README.md'
+          }
+        ],
+        { activeTabId: 'host-readme-unified', activeTabType: 'markdown' }
+      ),
+      ENV,
+      NOW
+    ) as Partial<WebSessionTabsSyncState>
+    const hydratedState = { ...makeState(), ...hydratedPatch } as WebSessionTabsSyncState
+
+    expect(hydratedState.openFiles[0]).toMatchObject({
       id: '/repo/README.md',
-      filePath: '/repo/README.md',
-      relativePath: 'README.md',
-      worktreeId: WT,
-      language: 'markdown',
-      isDirty: false,
-      runtimeEnvironmentId: ENV,
-      mirroredFromRuntimeSession: true,
-      mode: 'edit'
-    }
-    const unifiedTab: Tab = {
+      mirroredFromRuntimeSession: true
+    })
+    expect(hydratedState.unifiedTabsByWorktree[WT]?.[0]).toMatchObject({
       id: 'host-readme-unified',
-      entityId: openFile.id,
-      groupId: 'host-group-1',
-      worktreeId: WT,
-      contentType: 'editor',
-      label: 'README.md',
-      customLabel: null,
-      color: null,
-      sortOrder: 0,
-      createdAt: NOW - 10,
-      isPreview: false,
-      isPinned: false
-    }
+      entityId: '/repo/README.md'
+    })
 
     const patch = applyWebSessionTabsSnapshot(
-      makeState({
-        activeFileId: openFile.id,
-        activeFileIdByWorktree: { [WT]: openFile.id },
-        activeTabType: 'editor',
-        activeTabTypeByWorktree: { [WT]: 'editor' },
-        openFiles: [openFile],
-        unifiedTabsByWorktree: { [WT]: [unifiedTab] },
-        groupsByWorktree: {
-          [WT]: [
-            {
-              id: 'host-group-1',
-              worktreeId: WT,
-              activeTabId: unifiedTab.id,
-              tabOrder: [unifiedTab.id],
-              recentTabIds: [unifiedTab.id]
-            }
-          ]
-        }
-      }),
+      hydratedState,
       makeSnapshot([], { activeTabId: null, activeTabType: null }),
       ENV,
       NOW
@@ -2302,9 +2294,14 @@ describe('applyWebSessionTabsSnapshot', () => {
     ) as Partial<WebSessionTabsSyncState>
 
     // The locally opened file and its tab survive the host snapshot sync. Nothing
-    // is culled, so the sync produces no openFiles/unifiedTabs change for this worktree.
+    // is culled, so the sync leaves editor ownership and selection state alone.
     expect(patch.openFiles).toBeUndefined()
     expect(patch.unifiedTabsByWorktree?.[WT]).toBeUndefined()
+    expect(patch.groupsByWorktree?.[WT]).toBeUndefined()
+    expect(patch.activeFileId).toBeUndefined()
+    expect(patch.activeFileIdByWorktree).toBeUndefined()
+    expect(patch.activeTabType).toBeUndefined()
+    expect(patch.activeTabTypeByWorktree).toBeUndefined()
   })
 
   it('mirrors pending terminal handles without attaching a stale PTY', () => {

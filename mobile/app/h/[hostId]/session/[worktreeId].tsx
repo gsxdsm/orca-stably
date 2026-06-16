@@ -135,6 +135,10 @@ import {
 } from '../../../../src/session/mobile-clipboard-image'
 import { useMobileImageAttachment } from '../../../../src/session/use-mobile-image-attachment'
 import { classifyMobileArtifact } from '../../../../src/session/mobile-artifact-kind'
+import {
+  buildMarkdownDiskFallbackDoc,
+  shouldReadMarkdownFromDiskAfterReadTabFailure
+} from '../../../../src/session/mobile-markdown-disk-fallback'
 import { MobileHtmlPreview } from '../../../../src/components/MobileHtmlPreview'
 import { MobileDictationSetupSheet } from '../../../../src/components/MobileDictationSetupSheet'
 import {
@@ -1665,6 +1669,9 @@ export default function SessionScreen() {
           )
           return
         }
+        if (!shouldReadMarkdownFromDiskAfterReadTabFailure(response as RpcFailure)) {
+          throw new Error((response as RpcFailure).error.message)
+        }
         // Why: a headless host (no desktop renderer) can't serve the live editor
         // document and fails markdown.readTab with renderer_unavailable. Fall back
         // to the on-disk file so markdown still renders read-only, matching how
@@ -1682,16 +1689,14 @@ export default function SessionScreen() {
           byteLength: number
         }
         setMarkdownDocs((prev) =>
-          new Map(prev).set(tab.id, {
-            status: 'ready',
-            content: fileResult.content,
-            localContent: fileResult.content,
-            baseVersion: '',
-            isDirty: false,
-            editable: false,
-            stale: false,
-            readOnlyReason: 'Editing needs Orca desktop running.'
-          })
+          new Map(prev).set(
+            tab.id,
+            buildMarkdownDiskFallbackDoc({
+              content: fileResult.content,
+              truncated: fileResult.truncated,
+              tabIsDirty: tab.isDirty
+            })
+          )
         )
       } catch {
         setMarkdownDocs((prev) =>
