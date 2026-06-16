@@ -18,6 +18,7 @@ export default function HostGroupLayout() {
         options={{ title: 'Source Control' }}
       />
       <Stack.Screen name="[hostId]/review/[worktreeId]" options={{ title: 'Review Changes' }} />
+      <Stack.Screen name="[hostId]/pr/[worktreeId]" options={{ title: 'Pull Request' }} />
     </Stack>
   )
 }
