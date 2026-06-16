@@ -10,11 +10,13 @@ export type {
   ClaudeAccountSummary,
   CodexAccountSummary,
   AccountsSnapshot,
-  ProviderKey
+  ProviderKey,
+  UsageBarState
 } from './account-usage-state'
 export {
   getActiveProviderRateLimits,
   getInactiveProviderUsage,
+  getUsageBarState,
   hasActiveProviderUsage,
   hasRenderableUsage
 } from './account-usage-state'

@@ -22,6 +22,7 @@ import {
   type ProviderKey,
   getActiveProviderRateLimits,
   getInactiveProviderUsage,
+  getUsageBarState,
   hasActiveProviderUsage,
   UsageBar
 } from '../../../src/components/AccountUsage'
@@ -133,6 +134,8 @@ export default function AccountsScreen() {
     }
     const state = provider === 'claude' ? snapshot.claude : snapshot.codex
     const activeUsage = getActiveProviderRateLimits(snapshot, provider)
+    const activeSessionBar = getUsageBarState(activeUsage, 'session')
+    const activeWeeklyBar = getUsageBarState(activeUsage, 'weekly')
     const Icon = provider === 'claude' ? ClaudeIcon : OpenAIIcon
     return (
       <View style={styles.section}>
@@ -157,15 +160,15 @@ export default function AccountsScreen() {
                 <View style={styles.usageRow}>
                   <UsageBar
                     label="5h"
-                    usedPercent={activeUsage?.session?.usedPercent ?? null}
-                    unavailable={!activeUsage?.session && activeUsage?.status !== 'fetching'}
-                    loading={activeUsage?.status === 'fetching' && !activeUsage?.session}
+                    usedPercent={activeSessionBar.usedPercent}
+                    unavailable={activeSessionBar.unavailable}
+                    loading={activeSessionBar.loading}
                   />
                   <UsageBar
                     label="7d"
-                    usedPercent={activeUsage?.weekly?.usedPercent ?? null}
-                    unavailable={!activeUsage?.weekly && activeUsage?.status !== 'fetching'}
-                    loading={activeUsage?.status === 'fetching' && !activeUsage?.weekly}
+                    usedPercent={activeWeeklyBar.usedPercent}
+                    unavailable={activeWeeklyBar.unavailable}
+                    loading={activeWeeklyBar.loading}
                   />
                 </View>
               ) : null}
@@ -184,12 +187,12 @@ export default function AccountsScreen() {
             const inactiveEntry = !isActive
               ? getInactiveProviderUsage(snapshot, provider, account.id)
               : null
-            const usage = isActive ? activeUsage : (inactiveEntry?.claude ?? null)
+            const usage = isActive ? activeUsage : (inactiveEntry?.rateLimits ?? null)
             const isFetching =
               (isActive && usage?.status === 'fetching') ||
               (!isActive && inactiveEntry?.isFetching === true)
-            const session = usage?.session
-            const weekly = usage?.weekly
+            const sessionBar = getUsageBarState(usage, 'session', isFetching)
+            const weeklyBar = getUsageBarState(usage, 'weekly', isFetching)
             return (
               <View key={account.id}>
                 <View style={styles.separator} />
@@ -205,15 +208,15 @@ export default function AccountsScreen() {
                     <View style={styles.usageRow}>
                       <UsageBar
                         label="5h"
-                        usedPercent={session?.usedPercent ?? null}
-                        unavailable={!session && !isFetching}
-                        loading={isFetching && !session}
+                        usedPercent={sessionBar.usedPercent}
+                        unavailable={sessionBar.unavailable}
+                        loading={sessionBar.loading}
                       />
                       <UsageBar
                         label="7d"
-                        usedPercent={weekly?.usedPercent ?? null}
-                        unavailable={!weekly && !isFetching}
-                        loading={isFetching && !weekly}
+                        usedPercent={weeklyBar.usedPercent}
+                        unavailable={weeklyBar.unavailable}
+                        loading={weeklyBar.loading}
                       />
                     </View>
                     {usage?.error ? (

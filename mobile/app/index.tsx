@@ -19,6 +19,7 @@ import {
   type AccountsSnapshot,
   type ProviderKey,
   getActiveProviderRateLimits,
+  getUsageBarState,
   hasActiveProviderUsage,
   hasRenderableUsage,
   UsageBar
@@ -990,12 +991,8 @@ export default function HomeScreen() {
                           if (accounts.length === 0 && !hasActiveProviderUsage(limits)) {
                             return null
                           }
-                          const isFetching =
-                            limits?.status === 'fetching' || limits?.status === 'idle'
-                          const unavailable =
-                            limits == null ||
-                            limits.status === 'unavailable' ||
-                            limits.status === 'error'
+                          const sessionBar = getUsageBarState(limits, 'session')
+                          const weeklyBar = getUsageBarState(limits, 'weekly')
                           return (
                             <View key={provider} style={styles.accountsRow}>
                               <View style={styles.accountsIcon}>
@@ -1012,15 +1009,15 @@ export default function HomeScreen() {
                                 <View style={styles.accountsBars}>
                                   <UsageBar
                                     label="5h"
-                                    usedPercent={limits?.session?.usedPercent ?? null}
-                                    unavailable={unavailable}
-                                    loading={isFetching && limits?.session == null}
+                                    usedPercent={sessionBar.usedPercent}
+                                    unavailable={sessionBar.unavailable}
+                                    loading={sessionBar.loading}
                                   />
                                   <UsageBar
                                     label="7d"
-                                    usedPercent={limits?.weekly?.usedPercent ?? null}
-                                    unavailable={unavailable}
-                                    loading={isFetching && limits?.weekly == null}
+                                    usedPercent={weeklyBar.usedPercent}
+                                    unavailable={weeklyBar.unavailable}
+                                    loading={weeklyBar.loading}
                                   />
                                 </View>
                               </View>

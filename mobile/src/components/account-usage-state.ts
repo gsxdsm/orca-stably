@@ -13,10 +13,11 @@ export type RateLimitWindow = {
 }
 
 export type ProviderRateLimits = {
-  provider: 'claude' | 'codex' | 'gemini' | 'opencode-go'
+  provider: 'claude' | 'codex' | 'gemini' | 'opencode-go' | 'kimi'
   session: RateLimitWindow | null
   weekly: RateLimitWindow | null
   monthly?: RateLimitWindow | null
+  buckets?: Array<RateLimitWindow & { name: string }>
   updatedAt: number
   error: string | null
   status: 'idle' | 'fetching' | 'ok' | 'error' | 'unavailable'
@@ -24,7 +25,7 @@ export type ProviderRateLimits = {
 
 export type InactiveAccountUsage = {
   accountId: string
-  claude: ProviderRateLimits | null
+  rateLimits: ProviderRateLimits | null
   updatedAt: number
   isFetching: boolean
 }
@@ -54,6 +55,12 @@ export type AccountsSnapshot = {
 
 export type ProviderKey = 'claude' | 'codex'
 
+export type UsageBarState = {
+  usedPercent: number | null
+  unavailable: boolean
+  loading: boolean
+}
+
 export function getActiveProviderRateLimits(
   snapshot: AccountsSnapshot,
   provider: ProviderKey
@@ -82,10 +89,32 @@ export function hasActiveProviderUsage(limits: ProviderRateLimits | null): boole
   if (!limits) {
     return false
   }
-  if (limits.session != null || limits.weekly != null || limits.monthly != null) {
+  if (
+    limits.session != null ||
+    limits.weekly != null ||
+    limits.monthly != null ||
+    (limits.buckets && limits.buckets.length > 0)
+  ) {
     return true
   }
   return limits.status === 'ok'
+}
+
+// Why: transient errors keep the last successful window data, so availability
+// is per window rather than per provider status.
+export function getUsageBarState(
+  limits: ProviderRateLimits | null,
+  windowKey: 'session' | 'weekly',
+  isFetchingOverride?: boolean
+): UsageBarState {
+  const window = limits?.[windowKey] ?? null
+  const fetching =
+    isFetchingOverride ?? (limits?.status === 'fetching' || limits?.status === 'idle')
+  return {
+    usedPercent: window?.usedPercent ?? null,
+    unavailable: window == null && !fetching,
+    loading: fetching && window == null
+  }
 }
 
 // Why: the usage UI must render for the system-default login, not only for

@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  getInactiveProviderUsage,
+  getUsageBarState,
   hasActiveProviderUsage,
   hasRenderableUsage,
   type AccountsSnapshot,
+  type InactiveAccountUsage,
   type ProviderRateLimits
 } from './account-usage-state'
 
@@ -26,6 +29,8 @@ function makeSnapshot(
     codexLimits?: ProviderRateLimits | null
     claudeAccounts?: AccountsSnapshot['claude']['accounts']
     codexAccounts?: AccountsSnapshot['codex']['accounts']
+    inactiveClaudeAccounts?: InactiveAccountUsage[]
+    inactiveCodexAccounts?: InactiveAccountUsage[]
   } = {}
 ): AccountsSnapshot {
   return {
@@ -34,8 +39,8 @@ function makeSnapshot(
     rateLimits: {
       claude: overrides.claudeLimits ?? null,
       codex: overrides.codexLimits ?? null,
-      inactiveClaudeAccounts: [],
-      inactiveCodexAccounts: []
+      inactiveClaudeAccounts: overrides.inactiveClaudeAccounts ?? [],
+      inactiveCodexAccounts: overrides.inactiveCodexAccounts ?? []
     }
   }
 }
@@ -93,5 +98,44 @@ describe('hasRenderableUsage', () => {
     })
     expect(hasRenderableUsage(snapshot, 'claude')).toBe(false)
     expect(hasRenderableUsage(makeSnapshot(), 'claude')).toBe(false)
+  })
+})
+
+describe('getInactiveProviderUsage', () => {
+  it('returns inactive usage using the runtime rateLimits payload shape', () => {
+    const limits = makeLimits({
+      status: 'ok',
+      session: { usedPercent: 52, windowMinutes: 300, resetsAt: null, resetDescription: null }
+    })
+    const snapshot = makeSnapshot({
+      inactiveClaudeAccounts: [
+        { accountId: 'account-1', rateLimits: limits, updatedAt: 123, isFetching: false }
+      ]
+    })
+
+    expect(getInactiveProviderUsage(snapshot, 'claude', 'account-1')?.rateLimits).toBe(limits)
+  })
+})
+
+describe('getUsageBarState', () => {
+  it('keeps stale window data visible during a transient error', () => {
+    const bar = getUsageBarState(
+      makeLimits({
+        status: 'error',
+        error: 'temporarily unavailable',
+        session: { usedPercent: 72, windowMinutes: 300, resetsAt: null, resetDescription: null }
+      }),
+      'session'
+    )
+
+    expect(bar).toEqual({ usedPercent: 72, unavailable: false, loading: false })
+  })
+
+  it('shows loading for a fetching provider without a window', () => {
+    expect(getUsageBarState(makeLimits({ status: 'fetching' }), 'weekly')).toEqual({
+      usedPercent: null,
+      unavailable: false,
+      loading: true
+    })
   })
 })
