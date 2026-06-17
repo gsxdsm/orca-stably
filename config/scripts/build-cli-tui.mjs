@@ -36,7 +36,9 @@ async function main() {
     // Why: Ink/yoga rely on top-level await, so the bundle must stay ESM; the
     // CommonJS handler loads it through dynamic import().
     format: 'esm',
-    jsx: 'automatic',
+    // Classic JSX transform (React.createElement) — matches the tsconfig.tui
+    // typecheck and keeps the explicit React import meaningful across tools.
+    jsx: 'transform',
     // Why: some bundled CJS deps (e.g. signal-exit) call require() for Node
     // built-ins; ESM output has no require, so provide one via createRequire.
     banner: {

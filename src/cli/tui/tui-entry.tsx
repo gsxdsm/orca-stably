@@ -1,3 +1,4 @@
+import React from 'react'
 import { render } from 'ink'
 import { TuiApp } from './tui-app'
 import type { RunTuiOptions } from './tui-runtime-contract'
