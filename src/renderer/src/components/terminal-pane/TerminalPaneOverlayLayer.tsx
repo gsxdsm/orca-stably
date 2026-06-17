@@ -1,7 +1,7 @@
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useShallow } from 'zustand/react/shallow'
-import type { Tab, TabGroup, TerminalTab } from '../../../../shared/types'
+import type { Tab, TabGroup, TerminalTab, TuiAgent } from '../../../../shared/types'
 import { useAppStore } from '../../store'
 import { SYNC_FIT_PANES_EVENT } from '@/constants/terminal'
 import { tabGroupBodyAnchorName } from '../tab-group/tab-group-body-anchor'
@@ -62,6 +62,8 @@ type TerminalOverlaySlotProps = {
   isChatViewMode: boolean
   /** Whether this terminal is eligible for the native chat toggle (agent pane). */
   canToggleChat: boolean
+  /** Launch-time agent hint, forwarded to the native chat view for resolution. */
+  launchAgent: TuiAgent | null | undefined
   onToggleChat: (terminalTabId: string) => void
   activityTerminalPortal: ActivityTerminalPortalTarget | null
   onFocusOwningGroup: ((groupId: string) => void) | undefined
@@ -81,6 +83,7 @@ const TerminalOverlaySlot = memo(function TerminalOverlaySlot({
   isActive,
   isChatViewMode,
   canToggleChat,
+  launchAgent,
   onToggleChat,
   activityTerminalPortal,
   onFocusOwningGroup,
@@ -284,7 +287,7 @@ const TerminalOverlaySlot = memo(function TerminalOverlaySlot({
       {terminalPane}
       {showChatAffordances && isChatViewMode ? (
         <div className="absolute inset-0 z-10 flex min-h-0 min-w-0 bg-background">
-          <NativeChatView />
+          <NativeChatView terminalTabId={terminalTabId} launchAgent={launchAgent} />
         </div>
       ) : null}
       {showChatAffordances && canToggleChat ? (
@@ -419,6 +422,7 @@ const TerminalPaneOverlayLayer = memo(function TerminalPaneOverlayLayer({
             isActive={isActive}
             isChatViewMode={assignment?.viewMode === 'chat'}
             canToggleChat={canToggleChat}
+            launchAgent={terminalTab.launchAgent}
             onToggleChat={() => {
               if (unifiedTabId) {
                 toggleTabViewMode(unifiedTabId)
