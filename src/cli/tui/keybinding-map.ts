@@ -10,6 +10,7 @@ export type TuiAction =
   | 'quit'
   | 'help'
   | 'refresh'
+  | 'activate'
   | 'new-worktree'
   | 'remove-worktree'
   | 'new-terminal'
@@ -48,6 +49,7 @@ const BINDINGS: Binding[] = [
     hint: 'refresh',
     matches: (k) => isChar('r')(k) || (k.type === 'ctrl' && k.value === 'r')
   },
+  { action: 'activate', hint: 'activate', matches: isChar('a') },
   { action: 'new-worktree', hint: 'new worktree', matches: isChar('n') },
   { action: 'new-terminal', hint: 'new terminal', matches: isChar('c') },
   { action: 'remove-worktree', hint: 'remove', matches: isChar('x') },
@@ -63,6 +65,40 @@ const ACTION_HINTS = new Map(BINDINGS.map((b) => [b.action, b.hint]))
 
 export function actionHint(action: TuiAction): string {
   return ACTION_HINTS.get(action) ?? action
+}
+
+export type KeyHelp = { keys: string; hint: string }
+
+/** Display catalog for the status bar and help overlay, sourced here so the two
+ *  never drift from each other. */
+export function keybindingHelp(platform: Platform = currentPlatform()): KeyHelp[] {
+  const quit = platform === 'mac' ? 'q / ⌃C' : 'q / Ctrl+C'
+  return [
+    { keys: '↑/k ↓/j', hint: 'move' },
+    { keys: 'Enter', hint: 'open' },
+    { keys: 'Esc', hint: 'back' },
+    { keys: 'a', hint: 'activate' },
+    { keys: 'n', hint: 'new worktree' },
+    { keys: 'c', hint: 'new terminal' },
+    { keys: 's', hint: 'send input' },
+    { keys: 'x', hint: 'remove' },
+    { keys: 'r', hint: 'refresh' },
+    { keys: '?', hint: 'help' },
+    { keys: quit, hint: 'quit' }
+  ]
+}
+
+/** A compact subset for the always-visible footer. */
+export function statusBarHelp(platform: Platform = currentPlatform()): KeyHelp[] {
+  const quit = platform === 'mac' ? '⌃C' : 'Ctrl+C'
+  return [
+    { keys: '↑↓', hint: 'move' },
+    { keys: '⏎', hint: 'open' },
+    { keys: 'n', hint: 'new' },
+    { keys: 's', hint: 'send' },
+    { keys: '?', hint: 'help' },
+    { keys: `q/${quit}`, hint: 'quit' }
+  ]
 }
 
 /** Human label for a chord, platform-aware per AGENTS.md. Control is rendered

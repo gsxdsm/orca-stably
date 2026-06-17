@@ -1,12 +1,8 @@
 import React from 'react'
 import { Box, Text } from 'ink'
-import {
-  indicatorFor,
-  worktreeIndicatorKind,
-  type StatusIndicatorKind
-} from './agent-state-indicator'
-import { formatBadges } from './worktree-badge-format'
-import type { WorktreeSnapshot, WorktreeRow } from './worktree-snapshot'
+import { indicatorFor, type StatusIndicatorKind } from './agent-state-indicator'
+import type { WorktreeRow, WorktreeSnapshot } from './worktree-snapshot'
+import { buildSidebarLines, type SidebarLine } from './sidebar-lines'
 import { colorProp, type Theme } from './theme'
 
 export type WorktreeSidebarProps = {
@@ -17,26 +13,23 @@ export type WorktreeSidebarProps = {
   indicatorKindFor?: (row: WorktreeRow) => StatusIndicatorKind
 }
 
-function WorktreeRow({
-  row,
+function RowLine({
+  line,
   selected,
-  theme,
-  kind
+  theme
 }: {
-  row: WorktreeRow
+  line: Extract<SidebarLine, { kind: 'row' }>
   selected: boolean
   theme: Theme
-  kind: StatusIndicatorKind
 }): React.JSX.Element {
-  const indicator = indicatorFor(kind)
-  const badges = formatBadges(row.badges)
+  const indicator = indicatorFor(line.indicator)
   return (
     <Box>
       <Text color={colorProp(theme, indicator.color)}>{indicator.glyph} </Text>
       <Text bold={selected} inverse={selected}>
-        {row.displayName}
+        {line.displayName}
       </Text>
-      {badges.length > 0 ? <Text dimColor> {badges}</Text> : null}
+      {line.badges.length > 0 ? <Text dimColor> {line.badges}</Text> : null}
     </Box>
   )
 }
@@ -47,35 +40,39 @@ export function WorktreeSidebar({
   theme,
   indicatorKindFor
 }: WorktreeSidebarProps): React.JSX.Element {
-  const resolveKind =
-    indicatorKindFor ?? ((row: WorktreeRow) => worktreeIndicatorKind(row.status, row.agents))
-
-  if (!snapshot || snapshot.groups.length === 0) {
-    return (
-      <Box flexDirection="column">
-        <Text bold>WORKTREES</Text>
-        <Text dimColor>No worktrees yet.</Text>
-      </Box>
-    )
-  }
+  const lines = buildSidebarLines(snapshot ?? null, indicatorKindFor)
+  const hasRows = lines.some((line) => line.kind === 'row')
 
   return (
     <Box flexDirection="column">
-      <Text bold>WORKTREES</Text>
-      {snapshot.groups.map((group) => (
-        <Box key={group.repoId} flexDirection="column" marginTop={1}>
-          <Text dimColor>{group.repo}</Text>
-          {group.worktrees.map((row) => (
-            <WorktreeRow
-              key={row.worktreeId}
-              row={row}
-              selected={row.worktreeId === selectedWorktreeId}
-              theme={theme}
-              kind={resolveKind(row)}
-            />
-          ))}
-        </Box>
-      ))}
+      {lines.map((line, screenRow) => {
+        if (line.kind === 'header') {
+          return (
+            <Text key="header" bold>
+              WORKTREES
+            </Text>
+          )
+        }
+        if (line.kind === 'spacer') {
+          return <Text key={`spacer-${screenRow}`}> </Text>
+        }
+        if (line.kind === 'group') {
+          return (
+            <Text key={`group-${screenRow}`} dimColor>
+              {line.repo}
+            </Text>
+          )
+        }
+        return (
+          <RowLine
+            key={line.worktreeId}
+            line={line}
+            selected={line.worktreeId === selectedWorktreeId}
+            theme={theme}
+          />
+        )
+      })}
+      {hasRows ? null : <Text dimColor>No worktrees yet.</Text>}
     </Box>
   )
 }
