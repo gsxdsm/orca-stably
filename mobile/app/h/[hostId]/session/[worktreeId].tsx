@@ -32,6 +32,7 @@ import {
   File,
   FileText,
   GitBranch,
+  GitPullRequest,
   Globe,
   ImagePlus,
   Keyboard as KeyboardIcon,
@@ -60,6 +61,14 @@ import {
   useLastConnectedAt
 } from '../../../../src/transport/client-context'
 import { classifyConnection } from '../../../../src/transport/connection-health'
+import { useResponsiveLayout } from '../../../../src/layout/responsive-layout'
+import {
+  type ActivePanel,
+  resolvePanelAction,
+  panelRouteDescriptor
+} from '../../../../src/session/session-panel-host'
+import { useMobilePrBranchContext } from '../../../../src/session/use-mobile-pr-branch-context'
+import { SessionDockColumn } from '../../../../src/session/SessionDockColumn'
 import type { ConnectionState, RpcFailure, RpcSuccess } from '../../../../src/transport/types'
 import { useMobileDictation } from '../../../../src/hooks/use-mobile-dictation'
 import {
@@ -782,6 +791,17 @@ export default function SessionScreen() {
   const reconnectAttempts = useReconnectAttempt(hostId)
   const lastConnectedAt = useLastConnectedAt(hostId)
   const forceReconnectHost = useForceReconnect()
+  // Master-detail host state (U5/KTD2): on wide layouts a tapped panel docks beside the
+  // session content; on narrow it stays null and the icons push full-screen routes.
+  const { isWideLayout } = useResponsiveLayout()
+  const [activePanel, setActivePanel] = useState<ActivePanel>(null)
+  // Session-level PR context: gates the PR header icon (isGithubRepo) and feeds the
+  // docked PR panel — resolved here so the icon can appear before the panel mounts (KTD4).
+  const {
+    branch: prBranch,
+    headSha: prHeadSha,
+    isGithubRepo
+  } = useMobilePrBranchContext({ client, connState, worktreeId })
   const initialCreateWarning = typeof createdWarning === 'string' ? createdWarning.trim() : ''
   const [terminals, setTerminals] = useState<Terminal[]>([])
   const terminalsRef = useRef<Terminal[]>([])
@@ -3975,6 +3995,26 @@ export default function SessionScreen() {
                 ]
               : []
 
+  // Routes a header panel-icon tap through the pure dock-vs-push decision (U1): wide
+  // toggles/swaps the dock, narrow pushes the panel's full-screen route as before.
+  const handlePanelTap = (tapped: Exclude<ActivePanel, null>) => {
+    const action = resolvePanelAction({ isWideLayout, tapped, current: activePanel })
+    if (action.kind === 'dock') {
+      setActivePanel(action.next)
+      return
+    }
+    router.push({
+      pathname: panelRouteDescriptor(action.panel).pathname,
+      params: {
+        hostId,
+        worktreeId,
+        name: worktreeName || '',
+        // Source control's post-diff-open dismissal keys off origin: 'session' (U2).
+        ...(action.panel === 'sourceControl' ? { origin: 'session' } : {})
+      }
+    })
+  }
+
   return (
     <View ref={setMobileSessionRootRef} style={styles.container}>
       <View style={styles.kavInner}>
@@ -4011,31 +4051,45 @@ export default function SessionScreen() {
               </Pressable>
             </View>
             <Pressable
-              style={({ pressed }) => [styles.filesButton, pressed && styles.filesButtonPressed]}
-              onPress={() =>
-                router.push({
-                  pathname: '/h/[hostId]/source-control/[worktreeId]',
-                  params: { hostId, worktreeId, name: worktreeName || '', origin: 'session' }
-                })
-              }
+              style={({ pressed }) => [
+                styles.filesButton,
+                pressed && styles.filesButtonPressed,
+                activePanel === 'sourceControl' && styles.filesButtonActive
+              ]}
+              onPress={() => handlePanelTap('sourceControl')}
               hitSlop={8}
               accessibilityLabel="Open source control"
             >
               <GitBranch size={18} color={colors.textSecondary} strokeWidth={2.1} />
             </Pressable>
             <Pressable
-              style={({ pressed }) => [styles.filesButton, pressed && styles.filesButtonPressed]}
-              onPress={() =>
-                router.push({
-                  pathname: '/h/[hostId]/files/[worktreeId]',
-                  params: { hostId, worktreeId, name: worktreeName || '' }
-                })
-              }
+              style={({ pressed }) => [
+                styles.filesButton,
+                pressed && styles.filesButtonPressed,
+                activePanel === 'files' && styles.filesButtonActive
+              ]}
+              onPress={() => handlePanelTap('files')}
               hitSlop={8}
               accessibilityLabel="Open file explorer"
             >
               <Folder size={18} color={colors.textSecondary} strokeWidth={2.1} />
             </Pressable>
+            {/* PR is a top-level entry only on GitHub repos; gated on the session-level
+                branch-context probe so it appears before the panel ever mounts (R1/KTD4). */}
+            {isGithubRepo && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.filesButton,
+                  pressed && styles.filesButtonPressed,
+                  activePanel === 'pr' && styles.filesButtonActive
+                ]}
+                onPress={() => handlePanelTap('pr')}
+                hitSlop={8}
+                accessibilityLabel="Open pull request"
+              >
+                <GitPullRequest size={18} color={colors.textSecondary} strokeWidth={2.1} />
+              </Pressable>
+            )}
           </View>
 
           {visibleTabs.length > 0 && (
@@ -4145,463 +4199,504 @@ export default function SessionScreen() {
           )}
         </SafeAreaView>
 
-        {createWarning ? (
-          <View style={styles.createWarningBanner}>
-            <AlertTriangle size={16} color={colors.statusAmber} strokeWidth={2.2} />
-            <Text style={styles.createWarningText}>{createWarning}</Text>
-            <Pressable
-              style={styles.createWarningDismiss}
-              onPress={() => setCreateWarningState(dismissMobileSessionCreateWarningState)}
-              accessibilityLabel="Dismiss workspace creation warning"
-              hitSlop={8}
-            >
-              <X size={16} color={colors.textMuted} strokeWidth={2.2} />
-            </Pressable>
-          </View>
-        ) : null}
-
-        {showLoadingState ? (
-          <View style={styles.emptyState}>
-            <ActivityIndicator size="small" color={colors.textSecondary} />
-          </View>
-        ) : showEmptyState ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No tabs in this session</Text>
-            {createError ? <Text style={styles.createError}>{createError}</Text> : null}
-            <View style={styles.emptyActions}>
-              <Pressable
-                style={[
-                  styles.createButton,
-                  (creating || creatingBrowser || creatingMarkdown || connState !== 'connected') &&
-                    styles.createButtonDisabled
-                ]}
-                disabled={
-                  creating || creatingBrowser || creatingMarkdown || connState !== 'connected'
-                }
-                onPress={() => {
-                  setCreateError('')
-                  setShowCreateTabDrawer(true)
-                }}
-              >
-                <Text style={styles.createButtonText}>
-                  {creating || creatingBrowser || creatingMarkdown ? 'Creating...' : 'Create Tab'}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        ) : activeMarkdownTab ? (
-          <View style={styles.markdownFrame}>
-            <MarkdownReader
-              documentId={activeMarkdownTab.id}
-              doc={markdownDocs.get(activeMarkdownTab.id)}
-              onRefresh={() => void readMarkdownTab(activeMarkdownTab)}
-              onChange={(content) => updateMarkdownLocalContent(activeMarkdownTab.id, content)}
-              onSave={() => void saveMarkdownTab(activeMarkdownTab)}
-              onCopy={() => void copyMarkdownLocalContent(activeMarkdownTab.id)}
-              onDiscard={() => discardMarkdownLocalContent(activeMarkdownTab)}
-              keyboardLift={keyboardLift}
-            />
-            {toastMessage && (
-              <Animated.View pointerEvents="none" style={[styles.toast, toastAnimatedStyle]}>
-                <Text style={styles.toastText}>{toastMessage}</Text>
-              </Animated.View>
-            )}
-          </View>
-        ) : activeFileTab ? (
-          <View style={styles.markdownFrame}>
-            <FileReader
-              doc={fileDocs.get(activeFileTab.id)}
-              title={activeFileTab.title || 'File'}
-              relativePath={activeFileTab.relativePath}
-              language={activeFileTab.language}
-              diffCommentActions={
-                activeFileTab.diffSource === 'staged' || activeFileTab.diffSource === 'unstaged'
-                  ? {
-                      comments: diffComments,
-                      busy: diffCommentBusy,
-                      onAdd: addDiffCommentForFile,
-                      onDelete: deleteDiffCommentForFile,
-                      onCopyAll: copyDiffCommentsToClipboard,
-                      onSendAll: sendDiffCommentsToAgent
-                    }
-                  : undefined
-              }
-            />
-            {toastMessage && (
-              <Animated.View pointerEvents="none" style={[styles.toast, toastAnimatedStyle]}>
-                <Text style={styles.toastText}>{toastMessage}</Text>
-              </Animated.View>
-            )}
-          </View>
-        ) : activeBrowserTab ? (
-          <View style={styles.browserFrame}>
-            {/* Why: the pane owns imperative frame refs; browser tabs should
-            never render a stale frame while the old stream effect cleans up. */}
-            <MobileBrowserPane
-              key={activeBrowserTab.browserPageId ?? activeBrowserTab.id}
-              client={client}
-              worktreeId={worktreeId}
-              tab={activeBrowserTab}
-              screencastSupported={browserScreencastSupported}
-              keyboardLift={keyboardLift}
-              bottomInset={insets.bottom}
-              onToast={showToast}
-            />
-            {toastMessage && (
-              <Animated.View pointerEvents="none" style={[styles.toast, toastAnimatedStyle]}>
-                <Text style={styles.toastText}>{toastMessage}</Text>
-              </Animated.View>
-            )}
-          </View>
-        ) : activePendingTerminalTab ? (
-          <View style={styles.emptyState}>
-            <ActivityIndicator size="small" color={colors.textSecondary} />
-            <Text style={styles.emptyText}>
-              {activePendingTerminalTab.title || 'Loading terminal'}
-            </Text>
-          </View>
-        ) : (
-          <View
-            style={styles.terminalFrame}
-            onLayout={(e) => {
-              terminalFrameHeightRef.current = e.nativeEvent.layout.height
-            }}
-          >
-            {terminals.map((terminal) => (
-              <TerminalPaneView
-                key={terminal.handle}
-                handle={terminal.handle}
-                active={terminal.handle === activeHandle}
-                keyboardLift={terminal.handle === activeHandle ? activeTerminalKeyboardLift : 0}
-                terminalTheme={terminal.terminalTheme}
-                textScale={terminalTextScale}
-                onTextScaleChange={(scale) => {
-                  // Why: pinch-to-zoom in the WebView reports a new preset; persist
-                  // it so the size sticks across panes and app launches.
-                  setTerminalTextScale(scale)
-                  void saveTerminalTextScale(scale)
-                }}
-                onRef={setTerminalWebViewRef}
-                onWebReady={handleTerminalWebReady}
-                onSelectionMode={handleSelectionMode}
-                onSelectionCopy={handleSelectionCopy}
-                onSelectionEvicted={handleSelectionEvicted}
-                onModesChanged={handleModesChanged}
-                onKeyboardAvoidanceMetrics={handleKeyboardAvoidanceMetrics}
-                onHaptic={handleHaptic}
-                onTerminalInput={handleTerminalInput}
-                onTerminalTap={handleTerminalTap}
-                onFileTap={handleFileTap}
-              />
-            ))}
-            {toastMessage && (
-              <Animated.View pointerEvents="none" style={[styles.toast, toastAnimatedStyle]}>
-                <Text style={styles.toastText}>{toastMessage}</Text>
-              </Animated.View>
-            )}
-          </View>
-        )}
-
-        {/* Why: translate instead of resizing so keyboard open/close does not
-            trigger a server-side PTY viewport change. */}
-        {!activeMarkdownTab && !activeFileTab && !activeBrowserTab && (
-          <View
-            style={[
-              styles.commandDock,
-              { paddingBottom: insets.bottom, transform: [{ translateY: -keyboardLift }] }
-            ]}
-          >
-            {/* Accessory keys */}
-            <View style={styles.accessoryBar}>
-              {/* Why: with default tap handling the first tap on any accessory
-                  key dismisses the open keyboard and is swallowed, so live
-                  input lost its keyboard on every Esc/Tab press (#5106). */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.accessoryContent}
-                keyboardShouldPersistTaps="always"
-              >
+        {/* Content-row host (KTD2): the header/tab chrome stays a full-width sibling
+            above; on wide the post-chrome content shares this row with the docked panel.
+            There is no single terminal node, so the entire conditional block is the
+            flex-1 left child. On narrow the dock never renders and layout is unchanged. */}
+        <View style={styles.sessionContentRow}>
+          <View style={styles.sessionContentMain}>
+            {createWarning ? (
+              <View style={styles.createWarningBanner}>
+                <AlertTriangle size={16} color={colors.statusAmber} strokeWidth={2.2} />
+                <Text style={styles.createWarningText}>{createWarning}</Text>
                 <Pressable
-                  style={({ pressed }) => [
-                    styles.accessoryKey,
-                    pressed && styles.accessoryKeyPressed,
-                    !canSend && styles.accessoryKeyDisabled
-                  ]}
-                  disabled={!canSend}
-                  onPress={() => {
-                    if (activeHandle) {
-                      void toggleDisplayMode(activeHandle)
-                    }
-                  }}
-                  accessibilityLabel={
-                    isPhoneMode(activeHandle) ? 'Switch to desktop mode' : 'Switch to phone mode'
-                  }
+                  style={styles.createWarningDismiss}
+                  onPress={() => setCreateWarningState(dismissMobileSessionCreateWarningState)}
+                  accessibilityLabel="Dismiss workspace creation warning"
+                  hitSlop={8}
                 >
-                  {isPhoneMode(activeHandle) ? (
-                    <Monitor size={14} color={canSend ? colors.textSecondary : colors.textMuted} />
-                  ) : (
-                    <Smartphone
-                      size={14}
-                      color={canSend ? colors.textSecondary : colors.textMuted}
-                    />
-                  )}
+                  <X size={16} color={colors.textMuted} strokeWidth={2.2} />
                 </Pressable>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.accessoryKey,
-                    liveInputEnabled && styles.accessoryKeyActive,
-                    pressed && styles.accessoryKeyPressed,
-                    !canSend && styles.accessoryKeyDisabled
-                  ]}
-                  disabled={!canSend}
-                  onPress={toggleLiveInput}
-                  accessibilityLabel={
-                    liveInputEnabled
-                      ? 'Switch to buffered command input'
-                      : 'Switch to live terminal input'
-                  }
-                >
-                  <ChevronsRight
-                    size={14}
-                    color={
-                      liveInputEnabled
-                        ? colors.bgBase
-                        : canSend
-                          ? colors.textSecondary
-                          : colors.textMuted
+              </View>
+            ) : null}
+
+            {showLoadingState ? (
+              <View style={styles.emptyState}>
+                <ActivityIndicator size="small" color={colors.textSecondary} />
+              </View>
+            ) : showEmptyState ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>No tabs in this session</Text>
+                {createError ? <Text style={styles.createError}>{createError}</Text> : null}
+                <View style={styles.emptyActions}>
+                  <Pressable
+                    style={[
+                      styles.createButton,
+                      (creating ||
+                        creatingBrowser ||
+                        creatingMarkdown ||
+                        connState !== 'connected') &&
+                        styles.createButtonDisabled
+                    ]}
+                    disabled={
+                      creating || creatingBrowser || creatingMarkdown || connState !== 'connected'
                     }
-                  />
-                </Pressable>
-                {canPaste && (
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.accessoryKey,
-                      pressed && styles.accessoryKeyPressed,
-                      !canSend && styles.accessoryKeyDisabled
-                    ]}
-                    disabled={!canSend}
-                    onPress={() => void handlePaste()}
-                    accessibilityLabel="Paste from clipboard"
-                  >
-                    <Text
-                      style={[styles.accessoryKeyText, !canSend && styles.accessoryKeyTextDisabled]}
-                    >
-                      Paste
-                    </Text>
-                  </Pressable>
-                )}
-                {visibleBuiltInAccessoryKeys.map((key) => (
-                  <Pressable
-                    key={key.id}
-                    style={({ pressed }) => [
-                      styles.accessoryKey,
-                      pressed && styles.accessoryKeyPressed,
-                      !canSend && styles.accessoryKeyDisabled
-                    ]}
-                    disabled={!canSend}
-                    onPressIn={() => {
-                      if (!key.repeatable) {
-                        return
-                      }
-                      void handleAccessoryKey(key.bytes)
-                      startAccessoryRepeat(key.bytes)
-                    }}
-                    onPressOut={() => {
-                      if (key.repeatable) {
-                        stopAccessoryRepeat()
-                      }
-                    }}
                     onPress={() => {
-                      if (key.repeatable) {
-                        return
-                      }
-                      void handleAccessoryKey(key.bytes)
+                      setCreateError('')
+                      setShowCreateTabDrawer(true)
                     }}
-                    accessibilityLabel={key.accessibilityLabel ?? `Send ${key.label}`}
                   >
-                    <Text
-                      style={[styles.accessoryKeyText, !canSend && styles.accessoryKeyTextDisabled]}
-                    >
-                      {key.label}
+                    <Text style={styles.createButtonText}>
+                      {creating || creatingBrowser || creatingMarkdown
+                        ? 'Creating...'
+                        : 'Create Tab'}
                     </Text>
                   </Pressable>
-                ))}
-                {customKeys.map((key) => (
-                  <Pressable
-                    key={key.id}
-                    style={({ pressed }) => [
-                      styles.accessoryKey,
-                      styles.customAccessoryKey,
-                      pressed && styles.accessoryKeyPressed,
-                      !canSend && styles.accessoryKeyDisabled
-                    ]}
-                    disabled={!canSend}
-                    onPress={() => void handleAccessoryKey(key.bytes)}
-                    onLongPress={() => {
-                      triggerMediumImpact()
-                      setDeleteKeyTarget(key)
-                    }}
-                    delayLongPress={400}
-                    accessibilityLabel={`Send ${key.label}`}
-                  >
-                    <Text
-                      style={[styles.accessoryKeyText, !canSend && styles.accessoryKeyTextDisabled]}
-                    >
-                      {key.label}
-                    </Text>
-                  </Pressable>
-                ))}
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.accessoryKey,
-                    pressed && styles.accessoryKeyPressed
-                  ]}
-                  onPress={() => setShowCustomKeyModal(true)}
-                  accessibilityLabel="Add custom shortcut"
-                >
-                  <Plus size={14} color={colors.textSecondary} strokeWidth={2.2} />
-                </Pressable>
-              </ScrollView>
-            </View>
-
-            {/* Input bar */}
-            {liveInputEnabled ? (
-              <Pressable
-                style={[styles.inputBar, styles.liveInputBar]}
-                disabled={!canSend}
-                onPress={focusLiveInput}
-                accessibilityLabel="Focus live terminal input"
-              >
-                <KeyboardIcon size={16} color={colors.textSecondary} strokeWidth={2} />
-                <Text style={styles.liveInputHint} numberOfLines={1}>
-                  Keyboard input directly goes to terminal
-                </Text>
-                <TextInput
-                  ref={liveInputRef}
-                  style={styles.liveInputCapture}
-                  value={liveInputCapture}
-                  onChangeText={handleLiveInputChange}
-                  onKeyPress={handleLiveInputKeyPress}
-                  onSubmitEditing={handleLiveInputSubmit}
-                  placeholder=""
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  spellCheck={false}
-                  smartInsertDelete={false}
-                  keyboardType={Platform.OS === 'ios' ? 'ascii-capable' : 'visible-password'}
-                  returnKeyType="default"
-                  blurOnSubmit={false}
-                  editable={canSend}
-                  importantForAutofill="no"
-                  textContentType="none"
+                </View>
+              </View>
+            ) : activeMarkdownTab ? (
+              <View style={styles.markdownFrame}>
+                <MarkdownReader
+                  documentId={activeMarkdownTab.id}
+                  doc={markdownDocs.get(activeMarkdownTab.id)}
+                  onRefresh={() => void readMarkdownTab(activeMarkdownTab)}
+                  onChange={(content) => updateMarkdownLocalContent(activeMarkdownTab.id, content)}
+                  onSave={() => void saveMarkdownTab(activeMarkdownTab)}
+                  onCopy={() => void copyMarkdownLocalContent(activeMarkdownTab.id)}
+                  onDiscard={() => discardMarkdownLocalContent(activeMarkdownTab)}
+                  keyboardLift={keyboardLift}
                 />
-              </Pressable>
-            ) : (
-              <View style={styles.inputBar}>
-                <TextInput
-                  // Why: Android caches the IME inputType at mount, so toggling
-                  // autocomplete must remount there; iOS can update without a focus-costly remount.
-                  key={
-                    Platform.OS === 'android'
-                      ? autocompleteEnabled
-                        ? 'cmd-input-ac-on'
-                        : 'cmd-input-ac-off'
-                      : 'cmd-input'
-                  }
-                  style={styles.textInput}
-                  value={input}
-                  onChangeText={(text) =>
-                    setInput((previousText) => normalizeTerminalTextInput(text, previousText))
-                  }
-                  placeholder="Type a command…"
-                  placeholderTextColor={colors.textMuted}
-                  autoCapitalize="none"
-                  autoCorrect={autocompleteEnabled}
-                  spellCheck={autocompleteEnabled}
-                  smartInsertDelete={false}
-                  // Why: the default keyboard exposes autocomplete/autocorrect;
-                  // ascii-capable (iOS) / visible-password (Android) suppress it.
-                  keyboardType={
-                    autocompleteEnabled
-                      ? 'default'
-                      : Platform.OS === 'ios'
-                        ? 'ascii-capable'
-                        : 'visible-password'
-                  }
-                  returnKeyType="send"
-                  editable={canSend}
-                  onSubmitEditing={() => void handleSend()}
-                />
-                <Pressable
-                  style={[
-                    styles.dictationButton,
-                    (!canSend || isAttaching) && styles.sendButtonDisabled
-                  ]}
-                  disabled={!canSend || isAttaching}
-                  // Tap opens the photo library straight away (one-tap, like
-                  // Discord); long-press is the escape hatch for picking a file.
-                  onPress={() => void attachImage('library')}
-                  onLongPress={() => void attachImage('files')}
-                  delayLongPress={350}
-                  accessibilityLabel={isAttaching ? 'Sending image' : 'Attach a photo'}
-                  accessibilityHint="Long press to attach a file instead"
-                >
-                  {isAttaching ? (
-                    <ActivityIndicator size="small" color={colors.textSecondary} />
-                  ) : (
-                    <ImagePlus size={17} color={colors.textSecondary} strokeWidth={2.4} />
-                  )}
-                </Pressable>
-                <Pressable
-                  style={[
-                    styles.dictationButton,
-                    (dictation.isStarting || dictation.isRecording) && styles.dictationButtonActive,
-                    !canSend && styles.sendButtonDisabled
-                  ]}
-                  disabled={!canSend}
-                  onPress={dictationMode === 'toggle' ? handleDictationToggle : undefined}
-                  onPressIn={dictationMode === 'hold' ? handleDictationPressIn : undefined}
-                  onPressOut={dictationMode === 'hold' ? handleDictationPressOut : undefined}
-                  onLongPress={
-                    dictationMode === 'toggle'
-                      ? () => {
-                          if (dictation.isRecording || dictation.isProcessing) {
-                            void dictation.cancel()
-                          }
+                {toastMessage && (
+                  <Animated.View pointerEvents="none" style={[styles.toast, toastAnimatedStyle]}>
+                    <Text style={styles.toastText}>{toastMessage}</Text>
+                  </Animated.View>
+                )}
+              </View>
+            ) : activeFileTab ? (
+              <View style={styles.markdownFrame}>
+                <FileReader
+                  doc={fileDocs.get(activeFileTab.id)}
+                  title={activeFileTab.title || 'File'}
+                  relativePath={activeFileTab.relativePath}
+                  language={activeFileTab.language}
+                  diffCommentActions={
+                    activeFileTab.diffSource === 'staged' || activeFileTab.diffSource === 'unstaged'
+                      ? {
+                          comments: diffComments,
+                          busy: diffCommentBusy,
+                          onAdd: addDiffCommentForFile,
+                          onDelete: deleteDiffCommentForFile,
+                          onCopyAll: copyDiffCommentsToClipboard,
+                          onSendAll: sendDiffCommentsToAgent
                         }
                       : undefined
                   }
-                  accessibilityLabel={
-                    dictation.isRecording
-                      ? 'Stop voice dictation'
-                      : dictation.isProcessing
-                        ? 'Cancel voice dictation'
-                        : dictation.isStarting
-                          ? 'Starting voice dictation'
-                          : 'Start voice dictation'
-                  }
-                >
-                  {dictation.isProcessing ? (
-                    <ActivityIndicator size="small" color={colors.textSecondary} />
-                  ) : dictation.isStarting || dictation.isRecording ? (
-                    <Mic size={17} color={colors.textPrimary} strokeWidth={2.4} />
-                  ) : (
-                    <Mic size={17} color={colors.textSecondary} strokeWidth={2.4} />
-                  )}
-                </Pressable>
-                <Pressable
-                  style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
-                  disabled={!canSend}
-                  onPress={() => void handleSend()}
-                  accessibilityLabel="Send command"
-                >
-                  <ArrowUp size={18} color={colors.textSecondary} strokeWidth={2.5} />
-                </Pressable>
+                />
+                {toastMessage && (
+                  <Animated.View pointerEvents="none" style={[styles.toast, toastAnimatedStyle]}>
+                    <Text style={styles.toastText}>{toastMessage}</Text>
+                  </Animated.View>
+                )}
+              </View>
+            ) : activeBrowserTab ? (
+              <View style={styles.browserFrame}>
+                {/* Why: the pane owns imperative frame refs; browser tabs should
+            never render a stale frame while the old stream effect cleans up. */}
+                <MobileBrowserPane
+                  key={activeBrowserTab.browserPageId ?? activeBrowserTab.id}
+                  client={client}
+                  worktreeId={worktreeId}
+                  tab={activeBrowserTab}
+                  screencastSupported={browserScreencastSupported}
+                  keyboardLift={keyboardLift}
+                  bottomInset={insets.bottom}
+                  onToast={showToast}
+                />
+                {toastMessage && (
+                  <Animated.View pointerEvents="none" style={[styles.toast, toastAnimatedStyle]}>
+                    <Text style={styles.toastText}>{toastMessage}</Text>
+                  </Animated.View>
+                )}
+              </View>
+            ) : activePendingTerminalTab ? (
+              <View style={styles.emptyState}>
+                <ActivityIndicator size="small" color={colors.textSecondary} />
+                <Text style={styles.emptyText}>
+                  {activePendingTerminalTab.title || 'Loading terminal'}
+                </Text>
+              </View>
+            ) : (
+              <View
+                style={styles.terminalFrame}
+                onLayout={(e) => {
+                  terminalFrameHeightRef.current = e.nativeEvent.layout.height
+                }}
+              >
+                {terminals.map((terminal) => (
+                  <TerminalPaneView
+                    key={terminal.handle}
+                    handle={terminal.handle}
+                    active={terminal.handle === activeHandle}
+                    keyboardLift={terminal.handle === activeHandle ? activeTerminalKeyboardLift : 0}
+                    terminalTheme={terminal.terminalTheme}
+                    textScale={terminalTextScale}
+                    onTextScaleChange={(scale) => {
+                      // Why: pinch-to-zoom in the WebView reports a new preset; persist
+                      // it so the size sticks across panes and app launches.
+                      setTerminalTextScale(scale)
+                      void saveTerminalTextScale(scale)
+                    }}
+                    onRef={setTerminalWebViewRef}
+                    onWebReady={handleTerminalWebReady}
+                    onSelectionMode={handleSelectionMode}
+                    onSelectionCopy={handleSelectionCopy}
+                    onSelectionEvicted={handleSelectionEvicted}
+                    onModesChanged={handleModesChanged}
+                    onKeyboardAvoidanceMetrics={handleKeyboardAvoidanceMetrics}
+                    onHaptic={handleHaptic}
+                    onTerminalInput={handleTerminalInput}
+                    onTerminalTap={handleTerminalTap}
+                    onFileTap={handleFileTap}
+                  />
+                ))}
+                {toastMessage && (
+                  <Animated.View pointerEvents="none" style={[styles.toast, toastAnimatedStyle]}>
+                    <Text style={styles.toastText}>{toastMessage}</Text>
+                  </Animated.View>
+                )}
+              </View>
+            )}
+
+            {/* Why: translate instead of resizing so keyboard open/close does not
+            trigger a server-side PTY viewport change. */}
+            {!activeMarkdownTab && !activeFileTab && !activeBrowserTab && (
+              <View
+                style={[
+                  styles.commandDock,
+                  { paddingBottom: insets.bottom, transform: [{ translateY: -keyboardLift }] }
+                ]}
+              >
+                {/* Accessory keys */}
+                <View style={styles.accessoryBar}>
+                  {/* Why: with default tap handling the first tap on any accessory
+                  key dismisses the open keyboard and is swallowed, so live
+                  input lost its keyboard on every Esc/Tab press (#5106). */}
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.accessoryContent}
+                    keyboardShouldPersistTaps="always"
+                  >
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.accessoryKey,
+                        pressed && styles.accessoryKeyPressed,
+                        !canSend && styles.accessoryKeyDisabled
+                      ]}
+                      disabled={!canSend}
+                      onPress={() => {
+                        if (activeHandle) {
+                          void toggleDisplayMode(activeHandle)
+                        }
+                      }}
+                      accessibilityLabel={
+                        isPhoneMode(activeHandle)
+                          ? 'Switch to desktop mode'
+                          : 'Switch to phone mode'
+                      }
+                    >
+                      {isPhoneMode(activeHandle) ? (
+                        <Monitor
+                          size={14}
+                          color={canSend ? colors.textSecondary : colors.textMuted}
+                        />
+                      ) : (
+                        <Smartphone
+                          size={14}
+                          color={canSend ? colors.textSecondary : colors.textMuted}
+                        />
+                      )}
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.accessoryKey,
+                        liveInputEnabled && styles.accessoryKeyActive,
+                        pressed && styles.accessoryKeyPressed,
+                        !canSend && styles.accessoryKeyDisabled
+                      ]}
+                      disabled={!canSend}
+                      onPress={toggleLiveInput}
+                      accessibilityLabel={
+                        liveInputEnabled
+                          ? 'Switch to buffered command input'
+                          : 'Switch to live terminal input'
+                      }
+                    >
+                      <ChevronsRight
+                        size={14}
+                        color={
+                          liveInputEnabled
+                            ? colors.bgBase
+                            : canSend
+                              ? colors.textSecondary
+                              : colors.textMuted
+                        }
+                      />
+                    </Pressable>
+                    {canPaste && (
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.accessoryKey,
+                          pressed && styles.accessoryKeyPressed,
+                          !canSend && styles.accessoryKeyDisabled
+                        ]}
+                        disabled={!canSend}
+                        onPress={() => void handlePaste()}
+                        accessibilityLabel="Paste from clipboard"
+                      >
+                        <Text
+                          style={[
+                            styles.accessoryKeyText,
+                            !canSend && styles.accessoryKeyTextDisabled
+                          ]}
+                        >
+                          Paste
+                        </Text>
+                      </Pressable>
+                    )}
+                    {visibleBuiltInAccessoryKeys.map((key) => (
+                      <Pressable
+                        key={key.id}
+                        style={({ pressed }) => [
+                          styles.accessoryKey,
+                          pressed && styles.accessoryKeyPressed,
+                          !canSend && styles.accessoryKeyDisabled
+                        ]}
+                        disabled={!canSend}
+                        onPressIn={() => {
+                          if (!key.repeatable) {
+                            return
+                          }
+                          void handleAccessoryKey(key.bytes)
+                          startAccessoryRepeat(key.bytes)
+                        }}
+                        onPressOut={() => {
+                          if (key.repeatable) {
+                            stopAccessoryRepeat()
+                          }
+                        }}
+                        onPress={() => {
+                          if (key.repeatable) {
+                            return
+                          }
+                          void handleAccessoryKey(key.bytes)
+                        }}
+                        accessibilityLabel={key.accessibilityLabel ?? `Send ${key.label}`}
+                      >
+                        <Text
+                          style={[
+                            styles.accessoryKeyText,
+                            !canSend && styles.accessoryKeyTextDisabled
+                          ]}
+                        >
+                          {key.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                    {customKeys.map((key) => (
+                      <Pressable
+                        key={key.id}
+                        style={({ pressed }) => [
+                          styles.accessoryKey,
+                          styles.customAccessoryKey,
+                          pressed && styles.accessoryKeyPressed,
+                          !canSend && styles.accessoryKeyDisabled
+                        ]}
+                        disabled={!canSend}
+                        onPress={() => void handleAccessoryKey(key.bytes)}
+                        onLongPress={() => {
+                          triggerMediumImpact()
+                          setDeleteKeyTarget(key)
+                        }}
+                        delayLongPress={400}
+                        accessibilityLabel={`Send ${key.label}`}
+                      >
+                        <Text
+                          style={[
+                            styles.accessoryKeyText,
+                            !canSend && styles.accessoryKeyTextDisabled
+                          ]}
+                        >
+                          {key.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.accessoryKey,
+                        pressed && styles.accessoryKeyPressed
+                      ]}
+                      onPress={() => setShowCustomKeyModal(true)}
+                      accessibilityLabel="Add custom shortcut"
+                    >
+                      <Plus size={14} color={colors.textSecondary} strokeWidth={2.2} />
+                    </Pressable>
+                  </ScrollView>
+                </View>
+
+                {/* Input bar */}
+                {liveInputEnabled ? (
+                  <Pressable
+                    style={[styles.inputBar, styles.liveInputBar]}
+                    disabled={!canSend}
+                    onPress={focusLiveInput}
+                    accessibilityLabel="Focus live terminal input"
+                  >
+                    <KeyboardIcon size={16} color={colors.textSecondary} strokeWidth={2} />
+                    <Text style={styles.liveInputHint} numberOfLines={1}>
+                      Keyboard input directly goes to terminal
+                    </Text>
+                    <TextInput
+                      ref={liveInputRef}
+                      style={styles.liveInputCapture}
+                      value={liveInputCapture}
+                      onChangeText={handleLiveInputChange}
+                      onKeyPress={handleLiveInputKeyPress}
+                      onSubmitEditing={handleLiveInputSubmit}
+                      placeholder=""
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      spellCheck={false}
+                      smartInsertDelete={false}
+                      keyboardType={Platform.OS === 'ios' ? 'ascii-capable' : 'visible-password'}
+                      returnKeyType="default"
+                      blurOnSubmit={false}
+                      editable={canSend}
+                      importantForAutofill="no"
+                      textContentType="none"
+                    />
+                  </Pressable>
+                ) : (
+                  <View style={styles.inputBar}>
+                    <TextInput
+                      // Why: Android caches the IME inputType at mount, so toggling
+                      // autocomplete must remount there; iOS can update without a focus-costly remount.
+                      key={
+                        Platform.OS === 'android'
+                          ? autocompleteEnabled
+                            ? 'cmd-input-ac-on'
+                            : 'cmd-input-ac-off'
+                          : 'cmd-input'
+                      }
+                      style={styles.textInput}
+                      value={input}
+                      onChangeText={(text) =>
+                        setInput((previousText) => normalizeTerminalTextInput(text, previousText))
+                      }
+                      placeholder="Type a command…"
+                      placeholderTextColor={colors.textMuted}
+                      autoCapitalize="none"
+                      autoCorrect={autocompleteEnabled}
+                      spellCheck={autocompleteEnabled}
+                      smartInsertDelete={false}
+                      // Why: the default keyboard exposes autocomplete/autocorrect;
+                      // ascii-capable (iOS) / visible-password (Android) suppress it.
+                      keyboardType={
+                        autocompleteEnabled
+                          ? 'default'
+                          : Platform.OS === 'ios'
+                            ? 'ascii-capable'
+                            : 'visible-password'
+                      }
+                      returnKeyType="send"
+                      editable={canSend}
+                      onSubmitEditing={() => void handleSend()}
+                    />
+                    <Pressable
+                      style={[
+                        styles.dictationButton,
+                        (!canSend || isAttaching) && styles.sendButtonDisabled
+                      ]}
+                      disabled={!canSend || isAttaching}
+                      // Tap opens the photo library straight away (one-tap, like
+                      // Discord); long-press is the escape hatch for picking a file.
+                      onPress={() => void attachImage('library')}
+                      onLongPress={() => void attachImage('files')}
+                      delayLongPress={350}
+                      accessibilityLabel={isAttaching ? 'Sending image' : 'Attach a photo'}
+                      accessibilityHint="Long press to attach a file instead"
+                    >
+                      {isAttaching ? (
+                        <ActivityIndicator size="small" color={colors.textSecondary} />
+                      ) : (
+                        <ImagePlus size={17} color={colors.textSecondary} strokeWidth={2.4} />
+                      )}
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.dictationButton,
+                        (dictation.isStarting || dictation.isRecording) &&
+                          styles.dictationButtonActive,
+                        !canSend && styles.sendButtonDisabled
+                      ]}
+                      disabled={!canSend}
+                      onPress={dictationMode === 'toggle' ? handleDictationToggle : undefined}
+                      onPressIn={dictationMode === 'hold' ? handleDictationPressIn : undefined}
+                      onPressOut={dictationMode === 'hold' ? handleDictationPressOut : undefined}
+                      onLongPress={
+                        dictationMode === 'toggle'
+                          ? () => {
+                              if (dictation.isRecording || dictation.isProcessing) {
+                                void dictation.cancel()
+                              }
+                            }
+                          : undefined
+                      }
+                      accessibilityLabel={
+                        dictation.isRecording
+                          ? 'Stop voice dictation'
+                          : dictation.isProcessing
+                            ? 'Cancel voice dictation'
+                            : dictation.isStarting
+                              ? 'Starting voice dictation'
+                              : 'Start voice dictation'
+                      }
+                    >
+                      {dictation.isProcessing ? (
+                        <ActivityIndicator size="small" color={colors.textSecondary} />
+                      ) : dictation.isStarting || dictation.isRecording ? (
+                        <Mic size={17} color={colors.textPrimary} strokeWidth={2.4} />
+                      ) : (
+                        <Mic size={17} color={colors.textSecondary} strokeWidth={2.4} />
+                      )}
+                    </Pressable>
+                    <Pressable
+                      style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
+                      disabled={!canSend}
+                      onPress={() => void handleSend()}
+                      accessibilityLabel="Send command"
+                    >
+                      <ArrowUp size={18} color={colors.textSecondary} strokeWidth={2.5} />
+                    </Pressable>
+                  </View>
+                )}
               </View>
             )}
           </View>
-        )}
+          {isWideLayout && activePanel !== null && (
+            <SessionDockColumn
+              activePanel={activePanel}
+              hostId={hostId}
+              worktreeId={worktreeId}
+              name={worktreeName || ''}
+              client={client}
+              connState={connState}
+              branch={prBranch}
+              headSha={prHeadSha}
+              onRequestClose={() => setActivePanel(null)}
+            />
+          )}
+        </View>
       </View>
 
       <ActionSheetModal
