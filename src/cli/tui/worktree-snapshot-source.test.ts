@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { HerdSnapshotSource, type HerdSnapshotState } from './herd-snapshot-source'
+import { WorktreeSnapshotSource, type WorktreeSnapshotState } from './worktree-snapshot-source'
 import type { TuiRpcClient } from './tui-rpc-client'
-import { makePsResult, makeWorktreeSummary } from './herd-fixtures'
+import { makePsResult, makeWorktreeSummary } from './worktree-snapshot-fixtures'
 
 function asClient(call: ReturnType<typeof vi.fn>): TuiRpcClient {
   return { call } as unknown as TuiRpcClient
@@ -17,10 +17,10 @@ function okClient(worktreeId = 'wt-1'): { client: TuiRpcClient; call: ReturnType
   return { client: asClient(call), call }
 }
 
-describe('HerdSnapshotSource', () => {
-  it('fetches the whole herd in exactly one RPC per tick', async () => {
+describe('WorktreeSnapshotSource', () => {
+  it('fetches the whole worktree in exactly one RPC per tick', async () => {
     const { client, call } = okClient()
-    const source = new HerdSnapshotSource(client)
+    const source = new WorktreeSnapshotSource(client)
     await source.refreshOnce()
     expect(call).toHaveBeenCalledTimes(1)
     expect(call.mock.calls[0][0]).toBe('worktree.ps')
@@ -28,7 +28,7 @@ describe('HerdSnapshotSource', () => {
 
   it('exposes a connected snapshot after a successful fetch', async () => {
     const { client } = okClient('wt-42')
-    const source = new HerdSnapshotSource(client, { now: () => 123 })
+    const source = new WorktreeSnapshotSource(client, { now: () => 123 })
     await source.refreshOnce()
     const state = source.getState()
     expect(state.connected).toBe(true)
@@ -39,8 +39,8 @@ describe('HerdSnapshotSource', () => {
 
   it('notifies subscribers with the latest state', async () => {
     const { client } = okClient()
-    const source = new HerdSnapshotSource(client)
-    const listener = vi.fn<(state: HerdSnapshotState) => void>()
+    const source = new WorktreeSnapshotSource(client)
+    const listener = vi.fn<(state: WorktreeSnapshotState) => void>()
     source.subscribe(listener)
     await source.refreshOnce()
     // subscribers are notified, and the notified state is the connected one
@@ -56,7 +56,7 @@ describe('HerdSnapshotSource', () => {
       }
       return { result: makePsResult([makeWorktreeSummary()]) }
     })
-    const source = new HerdSnapshotSource(asClient(call))
+    const source = new WorktreeSnapshotSource(asClient(call))
     await source.refreshOnce()
     mode = 'fail'
     await source.refreshOnce()
@@ -75,7 +75,7 @@ describe('HerdSnapshotSource', () => {
       }
       return { result: makePsResult([makeWorktreeSummary()]) }
     })
-    const source = new HerdSnapshotSource(asClient(call))
+    const source = new WorktreeSnapshotSource(asClient(call))
     await source.refreshOnce()
     expect(source.getState().connected).toBe(false)
     mode = 'ok'
@@ -87,7 +87,7 @@ describe('HerdSnapshotSource', () => {
   it('drives the poll loop through the injected timer and stops cleanly', async () => {
     const { client, call } = okClient()
     const pending: (() => void)[] = []
-    const source = new HerdSnapshotSource(client, {
+    const source = new WorktreeSnapshotSource(client, {
       intervalMs: 50,
       setTimer: (cb) => {
         pending.push(cb)

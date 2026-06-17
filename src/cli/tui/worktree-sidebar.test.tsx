@@ -1,19 +1,19 @@
 import React from 'react'
 import { render } from 'ink-testing-library'
 import { describe, expect, it } from 'vitest'
-import { HerdSidebar } from './herd-sidebar'
-import { buildHerdSnapshot } from './herd-view-model'
+import { WorktreeSidebar } from './worktree-sidebar'
+import { buildWorktreeSnapshot } from './worktree-snapshot'
 import { indicatorFor } from './agent-state-indicator'
 import { resolveTheme } from './theme'
-import { makeAgentRow, makePsResult, makeWorktreeSummary } from './herd-fixtures'
+import { makeAgentRow, makePsResult, makeWorktreeSummary } from './worktree-snapshot-fixtures'
 
 const theme = resolveTheme({})
 
-describe('HerdSidebar', () => {
+describe('WorktreeSidebar', () => {
   it('renders an empty state when there are no worktrees', () => {
     const { lastFrame } = render(
-      <HerdSidebar
-        snapshot={buildHerdSnapshot(makePsResult([]))}
+      <WorktreeSidebar
+        snapshot={buildWorktreeSnapshot(makePsResult([]))}
         selectedWorktreeId={null}
         theme={theme}
       />
@@ -22,7 +22,7 @@ describe('HerdSidebar', () => {
   })
 
   it('renders repo groups and worktree rows with their indicators', () => {
-    const snapshot = buildHerdSnapshot(
+    const snapshot = buildWorktreeSnapshot(
       makePsResult([
         makeWorktreeSummary({
           worktreeId: 'wt-1',
@@ -34,7 +34,7 @@ describe('HerdSidebar', () => {
       ])
     )
     const { lastFrame } = render(
-      <HerdSidebar snapshot={snapshot} selectedWorktreeId={null} theme={theme} />
+      <WorktreeSidebar snapshot={snapshot} selectedWorktreeId={null} theme={theme} />
     )
     const frame = lastFrame() ?? ''
     expect(frame).toContain('web-app')
@@ -43,19 +43,19 @@ describe('HerdSidebar', () => {
   })
 
   it('shows the blocked glyph for a worktree needing attention', () => {
-    const snapshot = buildHerdSnapshot(
+    const snapshot = buildWorktreeSnapshot(
       makePsResult([makeWorktreeSummary({ status: 'permission' })])
     )
     const { lastFrame } = render(
-      <HerdSidebar snapshot={snapshot} selectedWorktreeId={null} theme={theme} />
+      <WorktreeSidebar snapshot={snapshot} selectedWorktreeId={null} theme={theme} />
     )
     expect(lastFrame()).toContain(indicatorFor('blocked').glyph)
   })
 
   it('renders glyphs even with color disabled (NO_COLOR)', () => {
-    const snapshot = buildHerdSnapshot(makePsResult([makeWorktreeSummary({ status: 'done' })]))
+    const snapshot = buildWorktreeSnapshot(makePsResult([makeWorktreeSummary({ status: 'done' })]))
     const { lastFrame } = render(
-      <HerdSidebar
+      <WorktreeSidebar
         snapshot={snapshot}
         selectedWorktreeId={null}
         theme={resolveTheme({ NO_COLOR: '1' })}
@@ -65,9 +65,11 @@ describe('HerdSidebar', () => {
   })
 
   it('lets the app override the indicator kind (debounced state)', () => {
-    const snapshot = buildHerdSnapshot(makePsResult([makeWorktreeSummary({ status: 'inactive' })]))
+    const snapshot = buildWorktreeSnapshot(
+      makePsResult([makeWorktreeSummary({ status: 'inactive' })])
+    )
     const { lastFrame } = render(
-      <HerdSidebar
+      <WorktreeSidebar
         snapshot={snapshot}
         selectedWorktreeId={null}
         theme={theme}

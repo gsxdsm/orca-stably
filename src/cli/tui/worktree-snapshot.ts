@@ -8,7 +8,7 @@ import type {
 /** Provider-agnostic links surfaced as sidebar badges. Only one issue/PR field
  *  is typically set per worktree, but all providers are carried so the view
  *  never hard-codes GitHub. */
-export type HerdBadges = {
+export type WorktreeBadges = {
   unread: boolean
   liveTerminalCount: number
   issue: number | null
@@ -18,7 +18,7 @@ export type HerdBadges = {
   linearIssue: string | null
 }
 
-export type HerdWorktreeRow = {
+export type WorktreeRow = {
   worktreeId: string
   repoId: string
   displayName: string
@@ -31,22 +31,22 @@ export type HerdWorktreeRow = {
   lastOutputAt: number | null
   preview: string
   parentWorktreeId: string | null
-  badges: HerdBadges
+  badges: WorktreeBadges
 }
 
-export type HerdRepoGroup = {
+export type WorktreeRepoGroup = {
   repoId: string
   repo: string
-  worktrees: HerdWorktreeRow[]
+  worktrees: WorktreeRow[]
 }
 
-export type HerdSnapshot = {
-  groups: HerdRepoGroup[]
+export type WorktreeSnapshot = {
+  groups: WorktreeRepoGroup[]
   totalCount: number
   truncated: boolean
 }
 
-function toRow(summary: RuntimeWorktreePsSummary): HerdWorktreeRow {
+function toRow(summary: RuntimeWorktreePsSummary): WorktreeRow {
   return {
     worktreeId: summary.worktreeId,
     repoId: summary.repoId,
@@ -75,9 +75,9 @@ function toRow(summary: RuntimeWorktreePsSummary): HerdWorktreeRow {
 /** Normalize a worktree.ps result into a stable, repo-grouped view model.
  *  Repo order follows first appearance; worktree order within a repo follows
  *  the runtime's order (newest-state-first), so the sidebar can diff stably. */
-export function buildHerdSnapshot(result: RuntimeWorktreePsResult): HerdSnapshot {
-  const groups: HerdRepoGroup[] = []
-  const byRepoId = new Map<string, HerdRepoGroup>()
+export function buildWorktreeSnapshot(result: RuntimeWorktreePsResult): WorktreeSnapshot {
+  const groups: WorktreeRepoGroup[] = []
+  const byRepoId = new Map<string, WorktreeRepoGroup>()
 
   for (const summary of result.worktrees) {
     let group = byRepoId.get(summary.repoId)
@@ -94,6 +94,6 @@ export function buildHerdSnapshot(result: RuntimeWorktreePsResult): HerdSnapshot
 
 /** Flatten the grouped snapshot into a single ordered list of selectable rows,
  *  matching the top-to-bottom order the sidebar renders. */
-export function flattenHerdRows(snapshot: HerdSnapshot): HerdWorktreeRow[] {
+export function flattenWorktreeRows(snapshot: WorktreeSnapshot): WorktreeRow[] {
   return snapshot.groups.flatMap((group) => group.worktrees)
 }

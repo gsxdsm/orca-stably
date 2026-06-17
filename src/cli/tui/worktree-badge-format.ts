@@ -1,9 +1,9 @@
-import type { HerdBadges } from './herd-view-model'
+import type { WorktreeBadges } from './worktree-snapshot'
 
 /** Render the provider-agnostic badges as a compact, color-free string.
  *  Order: issue link, then terminal count, then unread marker. Only the first
  *  present issue/PR/MR/Linear link is shown to keep rows scannable. */
-export function formatBadges(badges: HerdBadges): string {
+export function formatBadges(badges: WorktreeBadges): string {
   const parts: string[] = []
 
   if (badges.pr) {

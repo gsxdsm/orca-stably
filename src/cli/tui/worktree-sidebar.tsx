@@ -3,18 +3,18 @@ import { Box, Text } from 'ink'
 import {
   indicatorFor,
   worktreeIndicatorKind,
-  type HerdIndicatorKind
+  type StatusIndicatorKind
 } from './agent-state-indicator'
-import { formatBadges } from './herd-badge-format'
-import type { HerdSnapshot, HerdWorktreeRow } from './herd-view-model'
+import { formatBadges } from './worktree-badge-format'
+import type { WorktreeSnapshot, WorktreeRow } from './worktree-snapshot'
 import { colorProp, type Theme } from './theme'
 
-export type HerdSidebarProps = {
-  snapshot: HerdSnapshot | null
+export type WorktreeSidebarProps = {
+  snapshot: WorktreeSnapshot | null
   selectedWorktreeId: string | null
   theme: Theme
   /** Lets the app feed debounced indicator kinds; defaults to the raw kind. */
-  indicatorKindFor?: (row: HerdWorktreeRow) => HerdIndicatorKind
+  indicatorKindFor?: (row: WorktreeRow) => StatusIndicatorKind
 }
 
 function WorktreeRow({
@@ -23,10 +23,10 @@ function WorktreeRow({
   theme,
   kind
 }: {
-  row: HerdWorktreeRow
+  row: WorktreeRow
   selected: boolean
   theme: Theme
-  kind: HerdIndicatorKind
+  kind: StatusIndicatorKind
 }): React.JSX.Element {
   const indicator = indicatorFor(kind)
   const badges = formatBadges(row.badges)
@@ -41,19 +41,19 @@ function WorktreeRow({
   )
 }
 
-export function HerdSidebar({
+export function WorktreeSidebar({
   snapshot,
   selectedWorktreeId,
   theme,
   indicatorKindFor
-}: HerdSidebarProps): React.JSX.Element {
+}: WorktreeSidebarProps): React.JSX.Element {
   const resolveKind =
-    indicatorKindFor ?? ((row: HerdWorktreeRow) => worktreeIndicatorKind(row.status, row.agents))
+    indicatorKindFor ?? ((row: WorktreeRow) => worktreeIndicatorKind(row.status, row.agents))
 
   if (!snapshot || snapshot.groups.length === 0) {
     return (
       <Box flexDirection="column">
-        <Text bold>HERD</Text>
+        <Text bold>WORKTREES</Text>
         <Text dimColor>No worktrees yet.</Text>
       </Box>
     )
@@ -61,7 +61,7 @@ export function HerdSidebar({
 
   return (
     <Box flexDirection="column">
-      <Text bold>HERD</Text>
+      <Text bold>WORKTREES</Text>
       {snapshot.groups.map((group) => (
         <Box key={group.repoId} flexDirection="column" marginTop={1}>
           <Text dimColor>{group.repo}</Text>

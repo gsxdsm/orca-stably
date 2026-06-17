@@ -3,12 +3,14 @@ import { render } from 'ink-testing-library'
 import { describe, expect, it } from 'vitest'
 import { WorktreeDetailPane } from './worktree-detail-pane'
 import { TerminalTailView } from './terminal-tail-view'
-import { buildHerdSnapshot, flattenHerdRows } from './herd-view-model'
+import { buildWorktreeSnapshot, flattenWorktreeRows } from './worktree-snapshot'
 import { emptyTerminalTailState, type TerminalTailState } from './terminal-stream'
-import { makeAgentRow, makePsResult, makeWorktreeSummary } from './herd-fixtures'
+import { makeAgentRow, makePsResult, makeWorktreeSummary } from './worktree-snapshot-fixtures'
 
 function rowWith(overrides = {}) {
-  return flattenHerdRows(buildHerdSnapshot(makePsResult([makeWorktreeSummary(overrides)])))[0]
+  return flattenWorktreeRows(
+    buildWorktreeSnapshot(makePsResult([makeWorktreeSummary(overrides)]))
+  )[0]
 }
 
 function tail(overrides: Partial<TerminalTailState> = {}): TerminalTailState {

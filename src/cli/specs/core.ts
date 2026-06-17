@@ -37,11 +37,11 @@ export const CORE_COMMAND_SPECS: CommandSpec[] = [
   },
   {
     path: ['tui'],
-    summary: 'Launch the interactive herd dashboard (full-screen TUI)',
+    summary: 'Launch the interactive worktree dashboard (full-screen TUI)',
     usage: 'orca tui [--no-alt-screen]',
     allowedFlags: [...GLOBAL_FLAGS, 'no-alt-screen'],
     notes: [
-      'Opens a full-screen, keyboard- and mouse-driven dashboard over the herd of worktrees, terminals, and agents.',
+      'Opens a full-screen, keyboard- and mouse-driven dashboard over your worktrees, terminals, and agents.',
       'Requires an interactive terminal (TTY). Works against local and paired remote runtimes.',
       'Pass --no-alt-screen to render inline instead of the alternate screen buffer (useful for debugging or recording).'
     ],

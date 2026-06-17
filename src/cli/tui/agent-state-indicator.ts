@@ -1,11 +1,11 @@
 import type { AgentStatusState } from '../../shared/agent-status-types'
 import type { RuntimeWorktreeStatus } from '../../shared/runtime-types'
 
-/** The four herd states herdr surfaces, in attention-priority order. */
-export type HerdIndicatorKind = 'blocked' | 'working' | 'done' | 'idle'
+/** The four worktree states herdr surfaces, in attention-priority order. */
+export type StatusIndicatorKind = 'blocked' | 'working' | 'done' | 'idle'
 
-export type HerdIndicator = {
-  kind: HerdIndicatorKind
+export type StatusIndicator = {
+  kind: StatusIndicatorKind
   /** Distinct shapes so the state reads without color (NO_COLOR / mono terms). */
   glyph: string
   /** Ink color name; views drop color when NO_COLOR is set. */
@@ -13,14 +13,14 @@ export type HerdIndicator = {
   label: string
 }
 
-const INDICATORS: Record<HerdIndicatorKind, HerdIndicator> = {
+const INDICATORS: Record<StatusIndicatorKind, StatusIndicator> = {
   blocked: { kind: 'blocked', glyph: '◆', color: 'red', label: 'blocked' },
   working: { kind: 'working', glyph: '●', color: 'yellow', label: 'working' },
   done: { kind: 'done', glyph: '✓', color: 'blue', label: 'done' },
   idle: { kind: 'idle', glyph: '○', color: 'gray', label: 'idle' }
 }
 
-export function indicatorFor(kind: HerdIndicatorKind): HerdIndicator {
+export function indicatorFor(kind: StatusIndicatorKind): StatusIndicator {
   return INDICATORS[kind]
 }
 
@@ -34,7 +34,7 @@ function agentDemandsAttention(state: AgentStatusState): boolean {
 export function worktreeIndicatorKind(
   status: RuntimeWorktreeStatus,
   agents: readonly { state: AgentStatusState }[]
-): HerdIndicatorKind {
+): StatusIndicatorKind {
   if (status === 'permission' || agents.some((a) => agentDemandsAttention(a.state))) {
     return 'blocked'
   }
@@ -57,12 +57,12 @@ export const IDLE_CONFIRMATIONS = 3
 export const IDLE_HOLD_CAP_MS = 700
 
 export type IndicatorDebounceState = {
-  published: HerdIndicatorKind
+  published: StatusIndicatorKind
   pendingSince: number | null
   confirmations: number
 }
 
-export function initialDebounceState(kind: HerdIndicatorKind): IndicatorDebounceState {
+export function initialDebounceState(kind: StatusIndicatorKind): IndicatorDebounceState {
   return { published: kind, pendingSince: null, confirmations: 0 }
 }
 
@@ -74,10 +74,10 @@ export type ReconcileOptions = {
 /** Fold the next raw kind into the debounce state, returning the kind to show. */
 export function reconcileIndicator(
   state: IndicatorDebounceState,
-  next: HerdIndicatorKind,
+  next: StatusIndicatorKind,
   now: number,
   options: ReconcileOptions = {}
-): { state: IndicatorDebounceState; published: HerdIndicatorKind } {
+): { state: IndicatorDebounceState; published: StatusIndicatorKind } {
   const confirmations = options.confirmations ?? IDLE_CONFIRMATIONS
   const holdCapMs = options.holdCapMs ?? IDLE_HOLD_CAP_MS
 

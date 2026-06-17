@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { formatBadges } from './herd-badge-format'
-import type { HerdBadges } from './herd-view-model'
+import { formatBadges } from './worktree-badge-format'
+import type { WorktreeBadges } from './worktree-snapshot'
 
-function badges(overrides: Partial<HerdBadges> = {}): HerdBadges {
+function badges(overrides: Partial<WorktreeBadges> = {}): WorktreeBadges {
   return {
     unread: false,
     liveTerminalCount: 0,

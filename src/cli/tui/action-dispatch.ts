@@ -9,7 +9,7 @@ export function worktreeSelector(worktreeId: string): string {
   return `id:${worktreeId}`
 }
 
-/** A concrete, fully-specified herd command. Building these is kept separate
+/** A concrete, fully-specified worktree command. Building these is kept separate
  *  from triggering keys so param construction is unit-testable. */
 export type TuiCommand =
   | { kind: 'worktree.create'; repo: string; name: string; agent?: string; prompt?: string }

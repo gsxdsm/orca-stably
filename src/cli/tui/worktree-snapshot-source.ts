@@ -1,16 +1,16 @@
 import type { RuntimeWorktreePsResult } from '../../shared/runtime-types'
-import { buildHerdSnapshot, type HerdSnapshot } from './herd-view-model'
+import { buildWorktreeSnapshot, type WorktreeSnapshot } from './worktree-snapshot'
 import type { TuiRpcClient } from './tui-rpc-client'
 
-export type HerdSnapshotState = {
-  snapshot: HerdSnapshot | null
+export type WorktreeSnapshotState = {
+  snapshot: WorktreeSnapshot | null
   /** True after a successful fetch; false while reconnecting/unreachable. */
   connected: boolean
   error: string | null
   lastUpdatedAt: number | null
 }
 
-export type HerdSnapshotSourceOptions = {
+export type WorktreeSnapshotSourceOptions = {
   intervalMs?: number
   limit?: number
   now?: () => number
@@ -28,32 +28,32 @@ function errorMessage(error: unknown): string {
   return String(error)
 }
 
-/** Polls `worktree.ps` on an interval and exposes the latest herd snapshot.
+/** Polls `worktree.ps` on an interval and exposes the latest worktree snapshot.
  *
- *  Cost contract: exactly ONE `worktree.ps` RPC per tick (the whole herd,
+ *  Cost contract: exactly ONE `worktree.ps` RPC per tick (the whole worktree,
  *  including per-agent rows, comes back in a single response) — never one call
  *  per worktree, which over a remote transport would mean a fresh socket and
  *  E2EE handshake per row. */
-export class HerdSnapshotSource {
+export class WorktreeSnapshotSource {
   private readonly client: TuiRpcClient
   private readonly intervalMs: number
   private readonly limit: number | undefined
   private readonly now: () => number
-  private readonly setTimer: NonNullable<HerdSnapshotSourceOptions['setTimer']>
-  private readonly clearTimer: NonNullable<HerdSnapshotSourceOptions['clearTimer']>
+  private readonly setTimer: NonNullable<WorktreeSnapshotSourceOptions['setTimer']>
+  private readonly clearTimer: NonNullable<WorktreeSnapshotSourceOptions['clearTimer']>
 
-  private state: HerdSnapshotState = {
+  private state: WorktreeSnapshotState = {
     snapshot: null,
     connected: false,
     error: null,
     lastUpdatedAt: null
   }
-  private readonly listeners = new Set<(state: HerdSnapshotState) => void>()
+  private readonly listeners = new Set<(state: WorktreeSnapshotState) => void>()
   private timer: ReturnType<typeof setTimeout> | null = null
   private running = false
   private consecutiveFailures = 0
 
-  constructor(client: TuiRpcClient, options: HerdSnapshotSourceOptions = {}) {
+  constructor(client: TuiRpcClient, options: WorktreeSnapshotSourceOptions = {}) {
     this.client = client
     this.intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS
     this.limit = options.limit
@@ -62,11 +62,11 @@ export class HerdSnapshotSource {
     this.clearTimer = options.clearTimer ?? ((handle) => clearTimeout(handle))
   }
 
-  getState(): HerdSnapshotState {
+  getState(): WorktreeSnapshotState {
     return this.state
   }
 
-  subscribe(listener: (state: HerdSnapshotState) => void): () => void {
+  subscribe(listener: (state: WorktreeSnapshotState) => void): () => void {
     this.listeners.add(listener)
     listener(this.state)
     return () => {
@@ -74,7 +74,7 @@ export class HerdSnapshotSource {
     }
   }
 
-  /** Fetch the herd once and update state. Resolves after the attempt whether
+  /** Fetch the worktree once and update state. Resolves after the attempt whether
    *  it succeeded or failed (failures set `connected: false`, keep the last
    *  snapshot, and grow the reconnect backoff). */
   async refreshOnce(): Promise<void> {
@@ -84,7 +84,7 @@ export class HerdSnapshotSource {
       })
       this.consecutiveFailures = 0
       this.setState({
-        snapshot: buildHerdSnapshot(response.result),
+        snapshot: buildWorktreeSnapshot(response.result),
         connected: true,
         error: null,
         lastUpdatedAt: this.now()
@@ -135,7 +135,7 @@ export class HerdSnapshotSource {
     this.timer = this.setTimer(() => void this.tick(), this.nextDelayMs())
   }
 
-  private setState(next: HerdSnapshotState): void {
+  private setState(next: WorktreeSnapshotState): void {
     this.state = next
     for (const listener of this.listeners) {
       listener(next)

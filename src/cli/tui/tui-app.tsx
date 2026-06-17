@@ -3,7 +3,7 @@ import { Box, Text, useApp, useInput } from 'ink'
 import type { RunTuiOptions } from './tui-runtime-contract'
 
 /** Root TUI component. U1 ships the shell (header, footer, clean quit); the
- *  herd sidebar, detail pane, and actions land in later units. */
+ *  worktree sidebar, detail pane, and actions land in later units. */
 export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Element {
   const { exit } = useApp()
 
@@ -22,7 +22,7 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
         <Text dimColor>{options.isRemote ? '  · remote runtime' : '  · local runtime'}</Text>
       </Box>
       <Box marginTop={1}>
-        <Text dimColor>Connecting to the herd…</Text>
+        <Text dimColor>Connecting…</Text>
       </Box>
       <Box marginTop={1}>
         <Text dimColor>Press q to quit</Text>

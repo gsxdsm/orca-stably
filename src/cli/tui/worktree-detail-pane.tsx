@@ -1,11 +1,11 @@
 import React from 'react'
 import { Box, Text } from 'ink'
-import type { HerdWorktreeRow } from './herd-view-model'
+import type { WorktreeRow } from './worktree-snapshot'
 import type { TerminalTailState } from './terminal-stream'
 import { TerminalTailView } from './terminal-tail-view'
 
 export type WorktreeDetailPaneProps = {
-  row: HerdWorktreeRow | null
+  row: WorktreeRow | null
   tail: TerminalTailState | null
   tailHeight?: number
 }

@@ -5,7 +5,7 @@ import {
   initialDebounceState,
   reconcileIndicator,
   worktreeIndicatorKind,
-  type HerdIndicatorKind
+  type StatusIndicatorKind
 } from './agent-state-indicator'
 
 describe('worktreeIndicatorKind', () => {
@@ -34,7 +34,7 @@ describe('worktreeIndicatorKind', () => {
 
 describe('indicatorFor', () => {
   it('gives each kind a distinct glyph so states read without color', () => {
-    const glyphs = (['blocked', 'working', 'done', 'idle'] as HerdIndicatorKind[]).map(
+    const glyphs = (['blocked', 'working', 'done', 'idle'] as StatusIndicatorKind[]).map(
       (k) => indicatorFor(k).glyph
     )
     expect(new Set(glyphs).size).toBe(4)

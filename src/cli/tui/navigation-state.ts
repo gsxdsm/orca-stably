@@ -1,4 +1,4 @@
-/** Pure selection-index math for the herd list. Kept separate from the Ink app
+/** Pure selection-index math for the worktree list. Kept separate from the Ink app
  *  so navigation is unit-testable without rendering. */
 
 /** Move the selection by `delta`, clamped to [0, total-1]. Returns 0 when the
@@ -17,7 +17,7 @@ export function moveSelection(index: number, delta: number, total: number): numb
   return next
 }
 
-/** Clamp an index into a (possibly shrunk) list so a selection survives herd
+/** Clamp an index into a (possibly shrunk) list so a selection survives worktree
  *  refreshes that remove rows. */
 export function clampSelection(index: number, total: number): number {
   if (total <= 0) {
