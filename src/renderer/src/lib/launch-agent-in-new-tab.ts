@@ -10,6 +10,7 @@ import { getAgentLaunchPlatformForRepo } from '@/lib/agent-launch-platform'
 import { reconcileTabOrder } from '@/components/tab-bar/reconcile-order'
 import { track, tuiAgentToAgentKind } from '@/lib/telemetry'
 import { pasteDraftWhenAgentReady } from '@/lib/agent-paste-draft'
+import { decideInitialAgentTabViewMode } from '@/lib/native-chat-initial-view-mode'
 import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
 import { getLocalProjectExecutionRuntimeContext } from '@/lib/local-preflight-context'
 import {
@@ -283,9 +284,14 @@ export function launchAgentInNewTab(args: LaunchAgentInNewTabArgs): LaunchAgentI
   //
   // Why: stamp the launched agent on the tab so the tab bar shows the provider
   // icon immediately, before the agent's first hook event arrives.
+  // Why: opt-in setting opens new agent tabs directly in the native chat view.
+  const initialViewMode = decideInitialAgentTabViewMode(
+    store.settings?.openAgentTabsInChatByDefault
+  )
   const tab = store.createTab(worktreeId, groupId, undefined, {
     launchAgent: agent,
-    quickCommandLabel
+    quickCommandLabel,
+    ...(initialViewMode ? { viewMode: initialViewMode } : {})
   })
   store.queueTabStartupCommand(tab.id, {
     command: startupPlan.launchCommand,

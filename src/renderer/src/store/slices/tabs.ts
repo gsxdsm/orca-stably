@@ -10,9 +10,11 @@ import type {
   TabGroup,
   TabGroupLayoutNode,
   TerminalTab,
+  TuiAgent,
   WorkspaceSessionState,
   WorkspaceVisibleTabType
 } from '../../../../shared/types'
+import { emitNativeChatToggled } from '@/lib/native-chat-telemetry'
 import {
   dedupeTabOrder,
   ensureGroup,
@@ -1045,6 +1047,11 @@ export const createTabsSlice: StateCreator<AppState, [], [], TabsSlice> = (set, 
   },
 
   toggleTabViewMode: (tabId) => {
+    let toggled: {
+      from: 'terminal' | 'chat'
+      to: 'terminal' | 'chat'
+      agent: TuiAgent | null
+    } | null = null
     set((state) => {
       const found = findTabAndWorktree(state.unifiedTabsByWorktree, tabId)
       if (!found) {
@@ -1052,9 +1059,22 @@ export const createTabsSlice: StateCreator<AppState, [], [], TabsSlice> = (set, 
       }
       // Why: default is 'terminal' for legacy/missing, so the first toggle flips
       // to 'chat'. patchTab mutates only this tab, leaving split siblings intact.
-      const nextMode = found.tab.viewMode === 'chat' ? 'terminal' : 'chat'
+      const fromMode: 'terminal' | 'chat' = found.tab.viewMode === 'chat' ? 'chat' : 'terminal'
+      const nextMode = fromMode === 'chat' ? 'terminal' : 'chat'
+      // Why: `launchAgent` lives on the legacy terminal tab keyed by the unified
+      // tab's entityId — resolve it here so the toggle telemetry can attribute
+      // adoption by agent without threading it through every caller.
+      const agent =
+        (state.tabsByWorktree[found.worktreeId] ?? []).find(
+          (terminal) => terminal.id === found.tab.entityId
+        )?.launchAgent ?? null
+      toggled = { from: fromMode, to: nextMode, agent }
       return patchTab(state.unifiedTabsByWorktree, tabId, { viewMode: nextMode }) ?? {}
     })
+    // Why: emit after the state write so the event reflects the committed mode.
+    if (toggled) {
+      emitNativeChatToggled(toggled)
+    }
   },
 
   setRenamingTabId: (tabId) => {
