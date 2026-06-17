@@ -72,6 +72,7 @@ import {
   isPtyLocked,
   onDriverChange
 } from '@/lib/pane-manager/mobile-driver-state'
+import { shouldChatTakeOverMobileSurface } from '../native-chat/native-chat-send-eligibility'
 import { resolvePaneKeyForManager } from '@/lib/pane-manager/pane-key-resolution'
 import { safeFit } from '@/lib/pane-manager/pane-tree-ops'
 import { captureTerminalShutdownLayout } from './terminal-shutdown-layout-capture'
@@ -459,6 +460,16 @@ export default function TerminalPane({
     (store) => store.consumePendingCodexPaneRestart
   )
   const clearCodexRestartNotice = useAppStore((store) => store.clearCodexRestartNotice)
+  // Why: when this tab is in native chat view the chat surface is the active
+  // layer above the still-mounted terminal, so the terminal's own mobile-driver
+  // overlay must not render on top of it; the chat composer's guarded canSend
+  // communicates the presence-lock inside the chat surface instead (U9/R8).
+  const isChatViewMode = useAppStore(
+    (store) =>
+      (store.unifiedTabsByWorktree[worktreeId] ?? []).find(
+        (t) => t.contentType === 'terminal' && t.entityId === tabId
+      )?.viewMode === 'chat'
+  )
   const savedLayout = useAppStore((store) => store.terminalLayoutsByTabId[tabId] ?? EMPTY_LAYOUT)
   const terminalTab = useAppStore((store) =>
     getCachedTerminalTabForWorktree(store.tabsByWorktree, worktreeId, tabId)
@@ -2659,6 +2670,11 @@ export default function TerminalPane({
         const isMobileDriving = driver.kind === 'mobile'
         const hasFitOverride = getFitOverrideForPty(ptyId) !== null
         if (!isMobileDriving && !hasFitOverride) {
+          return null
+        }
+        // Why: in chat view the native chat surface owns the mobile surface, so
+        // suppress the terminal's presence-lock/phone-fit overlay here (U9).
+        if (shouldChatTakeOverMobileSurface(isChatViewMode ? 'chat' : 'terminal')) {
           return null
         }
         return createPortal(

@@ -34,6 +34,10 @@ type ReadState =
  * with the pane's live hook turn-state. IO + store reads live here; the merge
  * itself stays pure (mergeNativeChatLiveSession → assembleNativeChatSession).
  *
+ * Remote/SSH: `nativeChat.readSession`/`subscribe` are main-process IPC, so the
+ * transcript is read against the runtime's home dir (local or server-side) on
+ * main — the renderer is transport-agnostic and needs no remote branch here.
+ *
  * Teardown: the subscription is closed on unmount and whenever agent/sessionId
  * change, so a toggle back to terminal or a session swap never leaks a watcher.
  */

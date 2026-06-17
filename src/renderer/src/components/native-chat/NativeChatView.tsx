@@ -1,6 +1,8 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { MessageSquare, TriangleAlert } from 'lucide-react'
 import { useAppStore } from '../../store'
+import { getDriverForPty, onDriverChange } from '@/lib/pane-manager/mobile-driver-state'
+import { deriveNativeChatCanSend } from './native-chat-send-eligibility'
 import { translate } from '@/i18n/i18n'
 import type { AgentStatusEntry } from '../../../../shared/agent-status-types'
 import type { TuiAgent } from '../../../../shared/types'
@@ -77,6 +79,22 @@ export default function NativeChatView({
   )
 }
 
+/**
+ * Track the mobile presence-lock for this tab's live pty and derive the
+ * composer's `canSend` (R8). The driver Map lives outside React for perf, so we
+ * subscribe to its change events and re-read on each flip. A pty held by a
+ * mobile client guards desktop sends exactly as it guards xterm input.
+ */
+function useNativeChatCanSend(terminalTabId: string): boolean {
+  const ptyId = useAppStore((s) => s.ptyIdsByTabId[terminalTabId]?.[0] ?? null)
+  const [driverTick, setDriverTick] = useState(0)
+  useEffect(() => onDriverChange(() => setDriverTick((n) => n + 1)), [])
+  return useMemo(() => {
+    void driverTick
+    return deriveNativeChatCanSend(ptyId ? getDriverForPty(ptyId) : null)
+  }, [ptyId, driverTick])
+}
+
 function NativeChatResolvedView({
   paneKey,
   agent,
@@ -90,6 +108,7 @@ function NativeChatResolvedView({
 }): React.JSX.Element {
   const session = useNativeChatLiveSession({ paneKey, agent, sessionId })
   const viewState = selectNativeChatViewState(session)
+  const canSend = useNativeChatCanSend(terminalTabId)
 
   // No on-disk session id means the conversation is degraded/approximate: the
   // transcript can't be read, so the banner signals reduced fidelity (R9).
@@ -109,9 +128,10 @@ function NativeChatResolvedView({
           <NativeChatMessageList session={session} isWorking={viewState.isWorking} />
         )}
       </div>
-      {/* U8: rich native input. canSend defaults true; U9 threads the mobile
-          presence-lock state through this prop. */}
-      <NativeChatComposer terminalTabId={terminalTabId} agent={agent} />
+      {/* canSend reflects the mobile presence-lock: when a mobile client holds
+          the pty, the composer shows its guarded state instead of racing the
+          mobile driver (R8). */}
+      <NativeChatComposer terminalTabId={terminalTabId} agent={agent} canSend={canSend} />
     </div>
   )
 }

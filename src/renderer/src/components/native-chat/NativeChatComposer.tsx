@@ -8,6 +8,8 @@ import { isRemoteRuntimePtyId, sendRuntimePtyInput } from '@/runtime/runtime-ter
 import { getSettingsForAgentTabRuntimeOwner } from '@/lib/agent-paste-draft'
 import { buildNativeChatSendBytes } from './native-chat-send'
 import { getAgentSlashCommands } from './native-chat-agent-commands'
+import { emitNativeChatMessageSent } from '@/lib/native-chat-telemetry'
+import type { TuiAgent } from '../../../../shared/types'
 import {
   applyMentionSuggestion,
   applySlashSuggestion,
@@ -101,11 +103,17 @@ export function NativeChatComposer({
     // sendRuntimePtyInput branches local pty:write vs remote runtime RPC, so the
     // same call works for SSH panes (R6).
     sendRuntimePtyInput(target.settings, target.ptyId, buildNativeChatSendBytes(text))
+    // Why: U10 telemetry — record adoption + local-vs-remote runtime split. The
+    // agent prop is the loose AgentType; tuiAgentToAgentKind maps unknowns to 'other'.
+    emitNativeChatMessageSent({
+      agent: agent as TuiAgent,
+      runtime: composerTargetIsRemote(target.ptyId) ? 'remote' : 'local'
+    })
     setHistory((prev) => pushHistory(prev, text))
     setDraft('')
     setCaret(0)
     setNotice(null)
-  }, [draft, disabled, resolveTarget])
+  }, [agent, draft, disabled, resolveTarget])
 
   const interrupt = useCallback(() => {
     const target = resolveTarget()
@@ -272,8 +280,11 @@ export function NativeChatComposer({
             onPaste={handlePaste}
             onSelect={(e) => syncCaret(e.currentTarget)}
             placeholder={composerPlaceholder(hasPty, canSend)}
+            // Why: coarse-pointer (touch) min-height meets the 44px tap-target
+            // convention used elsewhere (size-11) so the composer is usable with
+            // the on-screen keyboard on the mobile driver (U9/R8).
             className={cn(
-              'min-h-9 max-h-40 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none',
+              'min-h-9 max-h-40 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none pointer-coarse:min-h-11',
               'placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
               'disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30'
             )}
@@ -284,7 +295,7 @@ export function NativeChatComposer({
             disabled={disabled || draft.trim() === ''}
             onClick={send}
             className={cn(
-              'flex size-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors',
+              'flex size-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors pointer-coarse:size-11',
               'hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50'
             )}
           >

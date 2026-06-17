@@ -104,6 +104,12 @@ export type ScrapeNativeChatSession = {
  * Status is the assembler's derived value: 'empty' for blank scrollback,
  * 'ready' otherwise. `sessionId` is null because scrape has no provider id.
  * Reuses `assembleNativeChatSession` read-only (no edits to the assembler).
+ *
+ * Remote/SSH: this entry takes an already-serialized scrollback string and is
+ * transport-agnostic. The caller obtains it via the runtime-appropriate API —
+ * `getMainBufferSnapshot`/serializer for local panes, or the remote serialize
+ * RPC (remote-runtime-terminal-multiplexer) for remote panes — so no remote
+ * branch is needed inside this fallback.
  */
 export function scrapeNativeChatSession(
   rawScrollback: string,
