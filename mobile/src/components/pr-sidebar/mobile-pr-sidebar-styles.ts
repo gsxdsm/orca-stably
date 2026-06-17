@@ -1,16 +1,19 @@
 import { StyleSheet } from 'react-native'
 import { colors, radii, spacing, typography } from '../../theme/mobile-theme'
 
-// Fixed inline-dock width (KTD2/U4): leaves the diff >= ~380px within the 700px
-// breakpoint where docking engages.
-export const PR_SIDEBAR_DOCK_WIDTH = 320
+// Fixed inline-dock width (KTD2/U4): matches the left worktree-list sidebar's default
+// (HOST_SIDEBAR_DEFAULT_WIDTH = 340) so the two read as a matched pair; within the 700px
+// docking breakpoint this still leaves 360px for the content (>= the 360px floor).
+export const PR_SIDEBAR_DOCK_WIDTH = 340
 
 export const mobilePrSidebarStyles = StyleSheet.create({
-  // The inline-docked column lives in the screen's flex row beside the diff.
+  // The inline-docked column lives in the screen's flex row beside the content. Mirrors
+  // the left sidebar's static treatment: same bgBase surface and a 1px borderSubtle edge,
+  // but on the LEFT (the left sidebar borders its right edge facing the detail).
   dockColumn: {
     width: PR_SIDEBAR_DOCK_WIDTH,
-    backgroundColor: colors.bgPanel,
-    borderLeftWidth: StyleSheet.hairlineWidth,
+    backgroundColor: colors.bgBase,
+    borderLeftWidth: 1,
     borderLeftColor: colors.borderSubtle
   },
   // Inner scroll area; the diff and the sidebar scroll independently.

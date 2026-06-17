@@ -26,6 +26,7 @@ import { tuiAgentToAgentKind } from '@/lib/telemetry'
 import { isGitRepoKind } from '../../../shared/repo-kind'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { getRuntimeRepoBaseRefDefault } from '@/runtime/runtime-repo-client'
+import { resolveWorktreeCreateBaseBranch } from '@/runtime/worktree-create-base'
 import {
   buildTaskSourceContextFromRepo,
   type TaskSourceContext
@@ -193,7 +194,8 @@ export type ComposerCardProps = {
   onBaseBranchMrSelect?: (
     baseBranch: string,
     item: GitLabWorkItem,
-    pushTarget?: GitPushTarget
+    pushTarget?: GitPushTarget,
+    compareBaseRef?: string
   ) => void
   smartNameSelection: SmartWorkspaceNameSelection | null
   onClearSmartNameSelection: () => void
@@ -237,7 +239,8 @@ export type ComposerCardProps = {
     baseBranch: string,
     item: GitHubWorkItem,
     pushTarget?: GitPushTarget,
-    branchNameOverride?: string
+    branchNameOverride?: string,
+    compareBaseRef?: string
   ) => void
   /** PR number selected via the Start-from picker (when applicable). Used so the
    *  field can render "PR #N" copy. */
@@ -646,6 +649,9 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
   })
   const [baseBranch, setBaseBranch] = useState<string | undefined>(
     persistDraft ? newWorkspaceDraft?.baseBranch : initialBaseBranch
+  )
+  const [compareBaseRef, setCompareBaseRef] = useState<string | undefined>(
+    persistDraft ? newWorkspaceDraft?.compareBaseRef : undefined
   )
   const [branchNameOverride, setBranchNameOverride] = useState<string | undefined>(undefined)
   const [branchNameOverridePreservesNameEdits, setBranchNameOverridePreservesNameEdits] =
@@ -1061,13 +1067,15 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
       linkedPR,
       linkedGitLabIssue,
       linkedGitLabMR,
-      ...(baseBranch !== undefined ? { baseBranch } : {})
+      ...(baseBranch !== undefined ? { baseBranch } : {}),
+      ...(compareBaseRef !== undefined ? { compareBaseRef } : {})
     })
   }, [
     persistDraft,
     agentPrompt,
     attachmentPaths,
     baseBranch,
+    compareBaseRef,
     linkedIssue,
     linkedPR,
     linkedGitLabIssue,
@@ -1850,6 +1858,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
       // makes the field fall back to the new repo's effective base ref.
       if (!options.preserveStartFrom) {
         setBaseBranch(undefined)
+        setCompareBaseRef(undefined)
         setPushTarget(undefined)
         setBranchNameOverride(undefined)
         setForkPushWarning(null)
@@ -1921,6 +1930,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
 
   const handleBaseBranchChange = useCallback((next: string | undefined): void => {
     setBaseBranch(next)
+    setCompareBaseRef(undefined)
     setPushTarget(undefined)
     setBranchNameOverride(undefined)
     setForkPushWarning(null)
@@ -1933,9 +1943,11 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
       nextBaseBranch: string,
       item: GitHubWorkItem,
       nextPushTarget?: GitPushTarget,
-      nextBranchNameOverride?: string
+      nextBranchNameOverride?: string,
+      nextCompareBaseRef?: string
     ): void => {
       setBaseBranch(nextBaseBranch)
+      setCompareBaseRef(nextCompareBaseRef)
       setPushTarget(nextPushTarget)
       setBranchNameOverride(nextBranchNameOverride)
       setBranchNameOverridePreservesNameEdits(Boolean(nextBranchNameOverride))
@@ -1965,8 +1977,14 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
   // semantics — except the note prefill uses GitLab's `!N` MR convention
   // so a glance at the worktree sidebar makes the provider obvious.
   const handleBaseBranchMrSelect = useCallback(
-    (nextBaseBranch: string, item: GitLabWorkItem, nextPushTarget?: GitPushTarget): void => {
+    (
+      nextBaseBranch: string,
+      item: GitLabWorkItem,
+      nextPushTarget?: GitPushTarget,
+      nextCompareBaseRef?: string
+    ): void => {
       setBaseBranch(nextBaseBranch)
+      setCompareBaseRef(nextCompareBaseRef)
       setPushTarget(nextPushTarget)
       setBranchNameOverride(undefined)
       branchAutoNameRef.current = ''
@@ -1996,9 +2014,11 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
       const runRepo = selectedRepo ?? eligibleRepos.find((repo) => repo.id === item.repoId)
       applyLinkedWorkItem(item)
       if (item.type !== 'pr' || !runRepo) {
+        setCompareBaseRef(undefined)
         setPushTarget(undefined)
         return
       }
+      setCompareBaseRef(undefined)
       setPushTarget(undefined)
       const itemRepoSettings = getSettingsForRepoRuntimeOwner(
         { repos: [runRepo], settings },
@@ -2011,6 +2031,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
               repoId: runRepo.id,
               prNumber: item.number,
               ...(item.branchName ? { headRefName: item.branchName } : {}),
+              ...(item.baseRefName ? { baseRefName: item.baseRefName } : {}),
               ...(item.isCrossRepository !== undefined
                 ? { isCrossRepository: item.isCrossRepository }
                 : {})
@@ -2022,6 +2043,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
                 repo: runRepo.id,
                 prNumber: item.number,
                 ...(item.branchName ? { headRefName: item.branchName } : {}),
+                ...(item.baseRefName ? { baseRefName: item.baseRefName } : {}),
                 ...(item.isCrossRepository !== undefined
                   ? { isCrossRepository: item.isCrossRepository }
                   : {})
@@ -2032,6 +2054,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
         .then((result) => {
           if ('error' in result) {
             setBaseBranch(undefined)
+            setCompareBaseRef(undefined)
             setPushTarget(undefined)
             toast.error(result.error)
             return
@@ -2040,7 +2063,8 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
             result.baseBranch,
             item,
             result.pushTarget,
-            result.branchNameOverride
+            result.branchNameOverride,
+            result.compareBaseRef
           )
           // Why: a fork PR push lands on the contributor's fork; if they didn't
           // allow maintainer edits, GitHub will reject it. Warn up front.
@@ -2048,6 +2072,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
         })
         .catch((error: unknown) => {
           setBaseBranch(undefined)
+          setCompareBaseRef(undefined)
           setPushTarget(undefined)
           toast.error(
             error instanceof Error
@@ -2075,13 +2100,16 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
       // workspace is created on another host for the same logical project.
       const runRepo = selectedRepo ?? eligibleRepos.find((repo) => repo.id === item.repoId)
       if (item.type !== 'mr' || !runRepo) {
+        setCompareBaseRef(undefined)
         return
       }
+      setCompareBaseRef(undefined)
       void window.api.worktrees
         .resolveMrBase({
           repoId: runRepo.id,
           mrIid: item.number,
           ...(item.branchName ? { sourceBranch: item.branchName } : {}),
+          ...(item.baseRefName ? { targetBranch: item.baseRefName } : {}),
           ...(item.isCrossRepository !== undefined
             ? { isCrossRepository: item.isCrossRepository }
             : {})
@@ -2090,7 +2118,12 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
           if ('error' in result) {
             return
           }
-          handleBaseBranchMrSelect(result.baseBranch, item, result.pushTarget)
+          handleBaseBranchMrSelect(
+            result.baseBranch,
+            item,
+            result.pushTarget,
+            result.compareBaseRef
+          )
         })
     },
     [applyLinkedGitLabWorkItem, eligibleRepos, handleBaseBranchMrSelect, selectedRepo]
@@ -2105,6 +2138,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
         lastAutoName: lastAutoNameRef.current
       })
       setBaseBranch(selection.baseBranch)
+      setCompareBaseRef(undefined)
       setPushTarget(undefined)
       setStartFromResetHint(null)
       setForkPushWarning(null)
@@ -2154,6 +2188,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
     setLinkedPR(null)
     setLinkedWorkItem(null)
     setBaseBranch(undefined)
+    setCompareBaseRef(undefined)
     setPushTarget(undefined)
     setBranchNameOverride(undefined)
     setForkPushWarning(null)
@@ -2405,7 +2440,11 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
         pendingFirstAgentMessageRename,
         undefined,
         linkedLinearIssueWorkspaceId,
-        linkedLinearIssueOrganizationUrlKey
+        linkedLinearIssueOrganizationUrlKey,
+        undefined,
+        undefined,
+        undefined,
+        compareBaseRef
       )
       const worktree = result.worktree
 
@@ -2474,6 +2513,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
     branchNameOverride,
     branchNameOverridePreservesNameEdits,
     clearNewWorkspaceDraft,
+    compareBaseRef,
     createWorktree,
     applyWorktreeMeta,
     enableIssueAutomation,
@@ -2616,11 +2656,15 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
           workspaceName,
           preserveWorkspaceNameEdits: branchNameOverridePreservesNameEdits
         })
-        const submitBaseBranch =
-          selectedRepoIsGit && !baseBranch
-            ? ((await getRuntimeRepoBaseRefDefault(selectedRepoSettings, repoId).catch(() => null))
-                ?.defaultBaseRef ?? undefined)
-            : baseBranch
+        const submitBaseBranch = selectedRepoIsGit
+          ? await resolveWorktreeCreateBaseBranch({
+              explicitBaseBranch: baseBranch,
+              repoWorktreeBaseRef: selectedRepo.worktreeBaseRef,
+              loadDefaultBaseRef: async () =>
+                (await getRuntimeRepoBaseRefDefault(selectedRepoSettings, repoId).catch(() => null))
+                  ?.defaultBaseRef
+            })
+          : undefined
         const createDisplayName =
           smartGitHubResolution?.displayName ??
           (nameIsAutoManaged ? submitTitleName?.displayName : undefined)
@@ -2715,6 +2759,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
           name: workspaceName,
           ...(createDisplayName ? { displayName: createDisplayName } : {}),
           ...(selectedRepoIsGit && submitBaseBranch ? { baseBranch: submitBaseBranch } : {}),
+          ...(selectedRepoIsGit && compareBaseRef ? { compareBaseRef } : {}),
           setupDecision: effectiveSetupDecision,
           ...(selectedRepoIsGit && sparseEnabled
             ? {
@@ -2768,6 +2813,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
     },
     [
       baseBranch,
+      compareBaseRef,
       branchNameOverride,
       branchNameOverridePreservesNameEdits,
       clearNewWorkspaceDraft,
