@@ -715,6 +715,33 @@ export function buildMobileSessionTabSnapshots(
       }
     }
 
+    // Why: fallback so an open editor file still reaches mobile even when the
+    // group projection order didn't surface its tab (a file opens on desktop but
+    // its non-markdown tab never made it into the projection). Append any open
+    // file for this worktree not already emitted, keyed by relativePath. Markdown
+    // already syncs via the projection, so this primarily recovers plain files.
+    const emittedEditorPaths = new Set(
+      tabs.flatMap((tab) => ('relativePath' in tab && tab.relativePath ? [tab.relativePath] : []))
+    )
+    const openFilesForWorktree = openFileIndexes.byWorktreeAndId.get(worktreeId)
+    if (openFilesForWorktree) {
+      for (const file of openFilesForWorktree.values()) {
+        if (file.relativePath && emittedEditorPaths.has(file.relativePath)) {
+          continue
+        }
+        const markdown = buildMobileMarkdownTab(
+          state,
+          openFileIndexes.byWorktreeAndId,
+          editorDraftVersionByFileId,
+          file
+        )
+        tabs.push(markdown ?? buildMobileFileTab(state, file))
+        if (file.relativePath) {
+          emittedEditorPaths.add(file.relativePath)
+        }
+      }
+    }
+
     const active = tabs.find((tab) => tab.isActive) ?? null
     snapshots.push({
       worktree: worktreeId,
