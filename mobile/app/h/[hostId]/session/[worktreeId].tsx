@@ -32,10 +32,10 @@ import {
   File,
   FileText,
   GitBranch,
-  GitPullRequestArrow,
   Globe,
   ImagePlus,
   Keyboard as KeyboardIcon,
+  ListChecks,
   MessageSquare,
   Mic,
   Monitor,
@@ -4180,7 +4180,7 @@ export default function SessionScreen() {
                 hitSlop={8}
                 accessibilityLabel="Open pull request"
               >
-                <GitPullRequestArrow size={18} color={colors.textSecondary} strokeWidth={2.1} />
+                <ListChecks size={18} color={colors.textSecondary} strokeWidth={2.1} />
               </Pressable>
             )}
           </View>
