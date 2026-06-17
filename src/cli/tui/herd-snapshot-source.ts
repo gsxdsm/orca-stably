@@ -1,15 +1,6 @@
 import type { RuntimeWorktreePsResult } from '../../shared/runtime-types'
 import { buildHerdSnapshot, type HerdSnapshot } from './herd-view-model'
-
-/** Minimal RPC surface the source needs. RuntimeClient satisfies this
- *  structurally; tests provide a lightweight fake without casting. */
-export type HerdRpcClient = {
-  call<T>(
-    method: string,
-    params?: unknown,
-    options?: { timeoutMs?: number }
-  ): Promise<{ result: T }>
-}
+import type { TuiRpcClient } from './tui-rpc-client'
 
 export type HerdSnapshotState = {
   snapshot: HerdSnapshot | null
@@ -44,7 +35,7 @@ function errorMessage(error: unknown): string {
  *  per worktree, which over a remote transport would mean a fresh socket and
  *  E2EE handshake per row. */
 export class HerdSnapshotSource {
-  private readonly client: HerdRpcClient
+  private readonly client: TuiRpcClient
   private readonly intervalMs: number
   private readonly limit: number | undefined
   private readonly now: () => number
@@ -62,7 +53,7 @@ export class HerdSnapshotSource {
   private running = false
   private consecutiveFailures = 0
 
-  constructor(client: HerdRpcClient, options: HerdSnapshotSourceOptions = {}) {
+  constructor(client: TuiRpcClient, options: HerdSnapshotSourceOptions = {}) {
     this.client = client
     this.intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS
     this.limit = options.limit

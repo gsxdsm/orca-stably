@@ -1,16 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  HerdSnapshotSource,
-  type HerdRpcClient,
-  type HerdSnapshotState
-} from './herd-snapshot-source'
+import { HerdSnapshotSource, type HerdSnapshotState } from './herd-snapshot-source'
+import type { TuiRpcClient } from './tui-rpc-client'
 import { makePsResult, makeWorktreeSummary } from './herd-fixtures'
 
-function asClient(call: ReturnType<typeof vi.fn>): HerdRpcClient {
-  return { call } as unknown as HerdRpcClient
+function asClient(call: ReturnType<typeof vi.fn>): TuiRpcClient {
+  return { call } as unknown as TuiRpcClient
 }
 
-function okClient(worktreeId = 'wt-1'): { client: HerdRpcClient; call: ReturnType<typeof vi.fn> } {
+function okClient(worktreeId = 'wt-1'): { client: TuiRpcClient; call: ReturnType<typeof vi.fn> } {
   const call = vi.fn(async (method: string) => {
     if (method !== 'worktree.ps') {
       throw new Error(`unexpected method ${method}`)
