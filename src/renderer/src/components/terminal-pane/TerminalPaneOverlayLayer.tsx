@@ -11,10 +11,16 @@ import {
 } from '../activity/activity-terminal-portal'
 import TerminalPane from './TerminalPane'
 import { closeTerminalTab } from '../terminal/terminal-tab-actions'
+import NativeChatView from '../native-chat/NativeChatView'
+import { canToggleNativeChat } from '../native-chat/native-chat-availability'
+import { NativeChatToggleButton } from '../native-chat/NativeChatToggleButton'
+import { useNativeChatToggleShortcut } from '../native-chat/use-native-chat-toggle-shortcut'
 
 type TerminalOverlayAssignment = {
+  unifiedTabId: string
   groupId: string
   isActiveInGroup: boolean
+  viewMode: 'terminal' | 'chat'
 }
 
 const EMPTY_TERMINAL_TABS: readonly TerminalTab[] = []
@@ -52,6 +58,11 @@ type TerminalOverlaySlotProps = {
   isWorktreeActive: boolean
   isVisible: boolean
   isActive: boolean
+  /** Native chat is shown as a sibling overlay while the terminal stays mounted. */
+  isChatViewMode: boolean
+  /** Whether this terminal is eligible for the native chat toggle (agent pane). */
+  canToggleChat: boolean
+  onToggleChat: (terminalTabId: string) => void
   activityTerminalPortal: ActivityTerminalPortalTarget | null
   onFocusOwningGroup: ((groupId: string) => void) | undefined
   consumeSuppressedPtyExit: (ptyId: string) => boolean
@@ -68,6 +79,9 @@ const TerminalOverlaySlot = memo(function TerminalOverlaySlot({
   isWorktreeActive,
   isVisible,
   isActive,
+  isChatViewMode,
+  canToggleChat,
+  onToggleChat,
   activityTerminalPortal,
   onFocusOwningGroup,
   consumeSuppressedPtyExit,
@@ -254,6 +268,11 @@ const TerminalOverlaySlot = memo(function TerminalOverlaySlot({
     )
   }
 
+  // Why: only mount chat chrome when the terminal is the active, visible pane.
+  // Keeping TerminalPane mounted (above) preserves the live PTY/xterm; the chat
+  // surface is an absolutely-positioned sibling toggled by viewMode, never a
+  // remount of the terminal (R2).
+  const showChatAffordances = isVisible && activityTerminalPortal === null
   return (
     <div
       ref={overlayRef}
@@ -263,6 +282,17 @@ const TerminalOverlaySlot = memo(function TerminalOverlaySlot({
       onFocusCapture={focusGroup}
     >
       {terminalPane}
+      {showChatAffordances && isChatViewMode ? (
+        <div className="absolute inset-0 z-10 flex min-h-0 min-w-0 bg-background">
+          <NativeChatView />
+        </div>
+      ) : null}
+      {showChatAffordances && canToggleChat ? (
+        <NativeChatToggleButton
+          isChatViewMode={isChatViewMode}
+          onToggle={() => onToggleChat(terminalTabId)}
+        />
+      ) : null}
     </div>
   )
 })
@@ -278,12 +308,13 @@ const TerminalPaneOverlayLayer = memo(function TerminalPaneOverlayLayer({
   isWorktreeActive: boolean
   activityTerminalPortals?: ActivityTerminalPortalTarget[]
 }): React.JSX.Element | null {
-  const { terminalTabs, unifiedTabs, groups, activeGroupId } = useAppStore(
+  const { terminalTabs, unifiedTabs, groups, activeGroupId, agentStatusByPaneKey } = useAppStore(
     useShallow((state) => ({
       terminalTabs: state.tabsByWorktree[worktreeId] ?? EMPTY_TERMINAL_TABS,
       unifiedTabs: state.unifiedTabsByWorktree[worktreeId] ?? EMPTY_UNIFIED_TABS,
       groups: state.groupsByWorktree[worktreeId] ?? EMPTY_GROUPS,
-      activeGroupId: state.activeGroupIdByWorktree[worktreeId]
+      activeGroupId: state.activeGroupIdByWorktree[worktreeId],
+      agentStatusByPaneKey: state.agentStatusByPaneKey
     }))
   )
   const focusGroup = useAppStore((state) => state.focusGroup)
@@ -291,6 +322,9 @@ const TerminalPaneOverlayLayer = memo(function TerminalPaneOverlayLayer({
   const closeTab = useAppStore((state) => state.closeTab)
   const setActiveWorktree = useAppStore((state) => state.setActiveWorktree)
   const reconcileWorktreeTabModel = useAppStore((state) => state.reconcileWorktreeTabModel)
+  const toggleTabViewMode = useAppStore((state) => state.toggleTabViewMode)
+
+  useNativeChatToggleShortcut(worktreeId, isWorktreeActive)
 
   // Why: legacy TabGroupPanel routed terminal closes through
   // commands.closeItem → leaveWorktreeIfEmpty, which deselected the worktree
@@ -329,12 +363,28 @@ const TerminalPaneOverlayLayer = memo(function TerminalPaneOverlayLayer({
         continue
       }
       entries.set(tab.entityId, {
+        unifiedTabId: tab.id,
         groupId: tab.groupId,
-        isActiveInGroup: groupActiveTabById[tab.groupId] === tab.id
+        isActiveInGroup: groupActiveTabById[tab.groupId] === tab.id,
+        viewMode: tab.viewMode ?? 'terminal'
       })
     }
     return entries
   }, [groupActiveTabById, unifiedTabs])
+
+  // Why: a live agent-status entry for any pane of a tab (paneKey = `${tabId}:…`)
+  // means an agent was detected at runtime even without a launchAgent hint. Used
+  // to gate the native-chat toggle alongside launchAgent.
+  const tabIdsWithLiveAgent = useMemo(() => {
+    const ids = new Set<string>()
+    for (const paneKey of Object.keys(agentStatusByPaneKey)) {
+      const separator = paneKey.indexOf(':')
+      if (separator > 0) {
+        ids.add(paneKey.slice(0, separator))
+      }
+    }
+    return ids
+  }, [agentStatusByPaneKey])
 
   if (!worktreePath) {
     return null
@@ -350,6 +400,12 @@ const TerminalPaneOverlayLayer = memo(function TerminalPaneOverlayLayer({
           worktreeId,
           tabId: terminalTab.id
         })
+        const canToggleChat = canToggleNativeChat({
+          contentType: 'terminal',
+          launchAgent: terminalTab.launchAgent,
+          hasDetectedAgent: assignment ? tabIdsWithLiveAgent.has(assignment.unifiedTabId) : false
+        })
+        const unifiedTabId = assignment?.unifiedTabId
         return (
           <TerminalOverlaySlot
             key={terminalTab.id}
@@ -361,6 +417,13 @@ const TerminalPaneOverlayLayer = memo(function TerminalPaneOverlayLayer({
             isWorktreeActive={isWorktreeActive}
             isVisible={isVisible}
             isActive={isActive}
+            isChatViewMode={assignment?.viewMode === 'chat'}
+            canToggleChat={canToggleChat}
+            onToggleChat={() => {
+              if (unifiedTabId) {
+                toggleTabViewMode(unifiedTabId)
+              }
+            }}
             activityTerminalPortal={activityTerminalPortal}
             onFocusOwningGroup={focusOwningGroup}
             consumeSuppressedPtyExit={consumeSuppressedPtyExit}

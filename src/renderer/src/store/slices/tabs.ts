@@ -110,6 +110,11 @@ export type TabsSlice = {
     opts?: { recordInteraction?: boolean }
   ) => void
   setTabLabel: (tabId: string, label: string) => void
+  /** Set a tab's view mode (terminal vs native chat). Patches only that tab. */
+  setTabViewMode: (tabId: string, mode: 'terminal' | 'chat') => void
+  /** Flip a tab between the terminal and native chat renderings. The live
+   *  TerminalPane stays mounted — this only changes which surface is shown. */
+  toggleTabViewMode: (tabId: string) => void
   setTabCustomLabel: (
     tabId: string,
     label: string | null,
@@ -1033,6 +1038,23 @@ export const createTabsSlice: StateCreator<AppState, [], [], TabsSlice> = (set, 
 
   setTabLabel: (tabId, label) => {
     set((state) => patchTab(state.unifiedTabsByWorktree, tabId, { label }) ?? {})
+  },
+
+  setTabViewMode: (tabId, mode) => {
+    set((state) => patchTab(state.unifiedTabsByWorktree, tabId, { viewMode: mode }) ?? {})
+  },
+
+  toggleTabViewMode: (tabId) => {
+    set((state) => {
+      const found = findTabAndWorktree(state.unifiedTabsByWorktree, tabId)
+      if (!found) {
+        return {}
+      }
+      // Why: default is 'terminal' for legacy/missing, so the first toggle flips
+      // to 'chat'. patchTab mutates only this tab, leaving split siblings intact.
+      const nextMode = found.tab.viewMode === 'chat' ? 'terminal' : 'chat'
+      return patchTab(state.unifiedTabsByWorktree, tabId, { viewMode: nextMode }) ?? {}
+    })
   },
 
   setRenamingTabId: (tabId) => {
