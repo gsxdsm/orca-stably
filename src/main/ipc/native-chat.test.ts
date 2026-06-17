@@ -1,0 +1,211 @@
+import { appendFile, mkdir, mkdtemp, rm, writeFile } from 'fs/promises'
+import { tmpdir } from 'os'
+import { join } from 'path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const { handlers, listeners } = vi.hoisted(() => ({
+  handlers: new Map<string, (_event: unknown, args?: unknown) => unknown>(),
+  listeners: new Map<string, (_event: unknown, args?: unknown) => unknown>()
+}))
+
+vi.mock('electron', () => ({
+  ipcMain: {
+    handle: vi.fn((channel: string, handler: (_event: unknown, args?: unknown) => unknown) => {
+      handlers.set(channel, handler)
+    }),
+    on: vi.fn((channel: string, handler: (_event: unknown, args?: unknown) => unknown) => {
+      listeners.set(channel, handler)
+    })
+  }
+}))
+
+import {
+  clearNativeChatSubscriptions,
+  clearNativeChatTranscriptCache,
+  registerNativeChatHandlers
+} from './native-chat'
+
+let tempRoots: string[] = []
+
+beforeEach(() => {
+  handlers.clear()
+  listeners.clear()
+  clearNativeChatTranscriptCache()
+  clearNativeChatSubscriptions()
+})
+
+afterEach(async () => {
+  await Promise.all(tempRoots.map((root) => rm(root, { recursive: true, force: true })))
+  tempRoots = []
+})
+
+function jsonLines(records: unknown[]): string {
+  return records.map((record) => JSON.stringify(record)).join('\n')
+}
+
+async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
+  const start = Date.now()
+  while (!predicate()) {
+    if (Date.now() - start > timeoutMs) {
+      throw new Error('timed out waiting for condition')
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+}
+
+async function invokeReadSession(args: { agent: string; sessionId: string }): Promise<unknown> {
+  registerNativeChatHandlers()
+  const handler = handlers.get('nativeChat:readSession')
+  if (!handler) {
+    throw new Error('handler not registered')
+  }
+  return handler({}, args)
+}
+
+describe('nativeChat:readSession handler', () => {
+  it('resolves a Claude transcript and returns the full conversation', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-native-chat-ipc-'))
+    tempRoots.push(root)
+    const projectsDir = join(root, '.claude', 'projects')
+    const projectDir = join(projectsDir, '-repo')
+    await mkdir(projectDir, { recursive: true })
+    await writeFile(
+      join(projectDir, 'sess-ipc.jsonl'),
+      jsonLines([
+        {
+          type: 'user',
+          uuid: 'u-1',
+          timestamp: '2026-06-01T10:00:00.000Z',
+          message: { role: 'user', content: 'Hi' }
+        },
+        {
+          type: 'assistant',
+          uuid: 'a-1',
+          timestamp: '2026-06-01T10:00:01.000Z',
+          message: { role: 'assistant', content: [{ type: 'text', text: 'Hello' }] }
+        }
+      ])
+    )
+
+    // Point homedir-derived Claude root at our fixture via HOME so the resolver
+    // (which reads homedir() internally) finds the transcript.
+    const previousHome = process.env.HOME
+    process.env.HOME = root
+    try {
+      const result = (await invokeReadSession({ agent: 'claude', sessionId: 'sess-ipc' })) as {
+        messages?: unknown[]
+        error?: string
+      }
+      expect(result.error).toBeUndefined()
+      expect(result.messages).toHaveLength(2)
+    } finally {
+      if (previousHome === undefined) {
+        delete process.env.HOME
+      } else {
+        process.env.HOME = previousHome
+      }
+    }
+  })
+
+  it('emits appended messages over nativeChat:appended and tears down on destroy', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-native-chat-ipc-sub-'))
+    tempRoots.push(root)
+    const projectsDir = join(root, '.claude', 'projects')
+    const projectDir = join(projectsDir, '-repo')
+    await mkdir(projectDir, { recursive: true })
+    const filePath = join(projectDir, 'sess-sub.jsonl')
+    await writeFile(
+      filePath,
+      `${jsonLines([
+        {
+          type: 'user',
+          uuid: 'u-1',
+          timestamp: '2026-06-01T10:00:00.000Z',
+          message: { role: 'user', content: 'Hi' }
+        }
+      ])}\n`
+    )
+
+    registerNativeChatHandlers()
+    const subscribe = listeners.get('nativeChat:subscribe')
+    expect(subscribe).toBeDefined()
+
+    const sent: { channel: string; payload: unknown }[] = []
+    let destroyedCb: (() => void) | undefined
+    const sender = {
+      id: 1,
+      isDestroyed: () => false,
+      once: (event: string, cb: () => void) => {
+        if (event === 'destroyed') {
+          destroyedCb = cb
+        }
+      },
+      send: (channel: string, payload: unknown) => sent.push({ channel, payload })
+    }
+
+    const previousHome = process.env.HOME
+    process.env.HOME = root
+    try {
+      subscribe!(
+        { sender },
+        {
+          subscriptionId: 'sub-1',
+          agent: 'claude',
+          sessionId: 'sess-sub'
+        }
+      )
+
+      // The listener dispatches handleSubscribe fire-and-forget; give it a beat
+      // to resolve the path and install the watcher before we append.
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      await appendFile(
+        filePath,
+        `${JSON.stringify({
+          type: 'assistant',
+          uuid: 'a-1',
+          timestamp: '2026-06-01T10:00:01.000Z',
+          message: { role: 'assistant', content: [{ type: 'text', text: 'Hello' }] }
+        })}\n`
+      )
+
+      await waitFor(() => sent.some((s) => s.channel === 'nativeChat:appended'))
+      const appendedEvent = sent.find((s) => s.channel === 'nativeChat:appended')!
+      const payload = appendedEvent.payload as {
+        subscriptionId: string
+        messages: { id: string }[]
+      }
+      expect(payload.subscriptionId).toBe('sub-1')
+      expect(payload.messages.map((m) => m.id)).toContain('a-1')
+
+      // Destroyed window tears down the watcher without error.
+      expect(destroyedCb).toBeDefined()
+      destroyedCb!()
+    } finally {
+      if (previousHome === undefined) {
+        delete process.env.HOME
+      } else {
+        process.env.HOME = previousHome
+      }
+    }
+  })
+
+  it('returns an error for an unknown session without throwing', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-native-chat-ipc-missing-'))
+    tempRoots.push(root)
+    const previousHome = process.env.HOME
+    process.env.HOME = root
+    try {
+      const result = (await invokeReadSession({ agent: 'claude', sessionId: 'nope' })) as {
+        error?: string
+      }
+      expect(result.error).toBeTruthy()
+    } finally {
+      if (previousHome === undefined) {
+        delete process.env.HOME
+      } else {
+        process.env.HOME = previousHome
+      }
+    }
+  })
+})

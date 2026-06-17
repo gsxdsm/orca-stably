@@ -153,6 +153,7 @@ import type {
 import type { KeybindingActionId, KeybindingFileSnapshot } from '../shared/keybindings'
 import type { AiVaultListArgs } from '../shared/ai-vault-types'
 import type { AgentType } from '../shared/native-chat-types'
+import type { NativeChatAppendedMessages, NativeChatAppendedPayload } from './api-types'
 import {
   ORCA_EDITOR_PREPARE_HOT_EXIT_EVENT,
   type EditorPrepareHotExitDetail
@@ -3443,7 +3444,26 @@ const api = {
 
   nativeChat: {
     readSession: (agent: AgentType, sessionId: string): Promise<unknown> =>
-      ipcRenderer.invoke('nativeChat:readSession', { agent, sessionId })
+      ipcRenderer.invoke('nativeChat:readSession', { agent, sessionId }),
+    /** Start live tailing for a transcript. `onAppended` fires with only the
+     *  newly-appended messages. Returns an unsubscribe fn that closes the
+     *  main-process watcher (subscriptionId routes appends to this caller). */
+    subscribe: (
+      args: { subscriptionId: string; agent: AgentType; sessionId: string },
+      onAppended: (messages: NativeChatAppendedMessages) => void
+    ): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: NativeChatAppendedPayload) => {
+        if (payload.subscriptionId === args.subscriptionId) {
+          onAppended(payload.messages)
+        }
+      }
+      ipcRenderer.on('nativeChat:appended', listener)
+      ipcRenderer.send('nativeChat:subscribe', args)
+      return () => {
+        ipcRenderer.removeListener('nativeChat:appended', listener)
+        ipcRenderer.send('nativeChat:unsubscribe', { subscriptionId: args.subscriptionId })
+      }
+    }
   },
 
   runtime: {
