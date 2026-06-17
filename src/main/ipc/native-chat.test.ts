@@ -169,14 +169,18 @@ describe('nativeChat:readSession handler', () => {
         })}\n`
       )
 
-      await waitFor(() => sent.some((s) => s.channel === 'nativeChat:appended'))
+      // Seed-at-0 means the first appended event carries the whole-file re-read;
+      // the new turn 'a-1' arrives across one of the appended events. Collect ids
+      // from every appended event and assert the new turn shows up.
+      const appendedIds = (): string[] =>
+        sent
+          .filter((s) => s.channel === 'nativeChat:appended')
+          .flatMap((s) => (s.payload as { messages: { id: string }[] }).messages.map((m) => m.id))
+      await waitFor(() => appendedIds().includes('a-1'))
       const appendedEvent = sent.find((s) => s.channel === 'nativeChat:appended')!
-      const payload = appendedEvent.payload as {
-        subscriptionId: string
-        messages: { id: string }[]
-      }
+      const payload = appendedEvent.payload as { subscriptionId: string }
       expect(payload.subscriptionId).toBe('sub-1')
-      expect(payload.messages.map((m) => m.id)).toContain('a-1')
+      expect(appendedIds()).toContain('a-1')
 
       // Destroyed window tears down the watcher without error.
       expect(destroyedCb).toBeDefined()

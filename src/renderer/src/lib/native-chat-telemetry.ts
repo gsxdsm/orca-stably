@@ -11,20 +11,27 @@ import { track, tuiAgentToAgentKind } from './telemetry'
 import type { NativeChatRuntime } from '../../../shared/telemetry-events'
 import type { TuiAgent } from '../../../shared/types'
 
+/** Loose agent type accepted by these emitters: the strict launch `TuiAgent`, or
+ *  the broader `AgentType` string carried by the chat view. Narrowing to the
+ *  closed `agent_kind` enum (with an `'other'` fallback) happens here so call
+ *  sites never need an unsound `as TuiAgent` cast. */
+export type NativeChatTelemetryAgent = TuiAgent | string | null | undefined
+
 // `launchAgent` is optional on terminal tabs (plain shells, manually-started
-// agents). When absent we fall back to `'other'` so the closed `agent_kind`
-// enum still validates instead of dropping the event.
-function resolveAgentKind(
-  agent: TuiAgent | null | undefined
-): ReturnType<typeof tuiAgentToAgentKind> {
-  return agent ? tuiAgentToAgentKind(agent) : 'other'
+// agents) and the chat view's `AgentType` may carry a string outside the
+// `TuiAgent` union. When absent or unknown we fall back to `'other'` so the
+// closed `agent_kind` enum still validates instead of dropping the event.
+function resolveAgentKind(agent: NativeChatTelemetryAgent): ReturnType<typeof tuiAgentToAgentKind> {
+  // tuiAgentToAgentKind does a keyed lookup with an `'other'` fallback, so any
+  // string narrows safely; the cast only satisfies its TuiAgent parameter type.
+  return agent ? tuiAgentToAgentKind(agent as TuiAgent) : 'other'
 }
 
 /** Fire `native_chat_toggled` when a tab flips between terminal and chat. */
 export function emitNativeChatToggled(args: {
   from: 'terminal' | 'chat'
   to: 'terminal' | 'chat'
-  agent: TuiAgent | null | undefined
+  agent: NativeChatTelemetryAgent
 }): void {
   track('native_chat_toggled', {
     from_mode: args.from,
@@ -43,7 +50,7 @@ export function emitNativeChatToggled(args: {
  * resolution. This unit only provides the wrapper.
  */
 export function emitNativeChatMessageSent(args: {
-  agent: TuiAgent | null | undefined
+  agent: NativeChatTelemetryAgent
   runtime: NativeChatRuntime
 }): void {
   track('native_chat_message_sent', {

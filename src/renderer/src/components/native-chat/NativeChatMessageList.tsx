@@ -14,11 +14,7 @@ import {
   type NativeChatRenderItem,
   type NativeChatToolStep
 } from './native-chat-message-grouping'
-import {
-  nextStickStateOnScroll,
-  shouldShowJumpToLatest,
-  type ScrollGeometry
-} from './native-chat-autoscroll'
+import { isNearBottom, shouldShowJumpToLatest, type ScrollGeometry } from './native-chat-autoscroll'
 
 function geometryOf(el: HTMLElement): ScrollGeometry {
   return { scrollTop: el.scrollTop, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight }
@@ -168,6 +164,12 @@ export function NativeChatMessageList({
   const [stuckToBottom, setStuckToBottom] = useState(true)
   const [showJump, setShowJump] = useState(false)
 
+  // Why: mirror stuck state into a ref so the auto-scroll layout effect can read
+  // it without depending on it — depending on stuckToBottom (which scrollToBottom
+  // sets) would re-fire the effect in a self-loop.
+  const stuckToBottomRef = useRef(stuckToBottom)
+  stuckToBottomRef.current = stuckToBottom
+
   const items = buildNativeChatRenderItems(session.messages)
 
   const handleScroll = useCallback(() => {
@@ -176,7 +178,7 @@ export function NativeChatMessageList({
       return
     }
     const geometry = geometryOf(el)
-    const stick = nextStickStateOnScroll(geometry)
+    const stick = isNearBottom(geometry)
     setStuckToBottom(stick)
     setShowJump(shouldShowJumpToLatest(stick, geometry))
   }, [])
@@ -194,11 +196,12 @@ export function NativeChatMessageList({
   // Re-pin to the bottom when new content arrives, but only if the user hasn't
   // scrolled up. Layout effect so the jump happens before paint (no flicker).
   useLayoutEffect(() => {
-    if (stuckToBottom) {
+    if (stuckToBottomRef.current) {
       scrollToBottom()
     }
-    // items length + working flag capture "new content arrived".
-  }, [items.length, isWorking, stuckToBottom, scrollToBottom])
+    // items length + working flag capture "new content arrived". Stuck state is
+    // read from a ref so setting it inside scrollToBottom doesn't re-fire this.
+  }, [items.length, isWorking])
 
   // Keep the jump affordance in sync if the container resizes (e.g. composer
   // mounts, viewport reflow) without a scroll event.

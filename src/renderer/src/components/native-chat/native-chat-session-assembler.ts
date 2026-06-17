@@ -43,7 +43,33 @@ function turnKey(message: NativeChatMessage): string {
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .trim()
-  return `${message.role}:${text}`
+  // Why: two same-role messages with no turnId and no text (e.g. distinct
+  // tool-call-only turns) would otherwise share `${role}:` and the second would
+  // be dropped. Fold a digest of the non-text blocks (tool name+input, result
+  // output) into the key so different tool turns stay distinct.
+  return `${message.role}:${text}:${nonTextBlockDigest(message)}`
+}
+
+function nonTextBlockDigest(message: NativeChatMessage): string {
+  const parts: string[] = []
+  for (const block of message.blocks) {
+    if (block.type === 'tool-call') {
+      parts.push(`call:${block.name}:${stableStringify(block.input)}`)
+    } else if (block.type === 'tool-result') {
+      parts.push(`result:${block.output}`)
+    } else if (block.type === 'image-ref') {
+      parts.push(`image:${block.path ?? block.url ?? block.alt ?? ''}`)
+    }
+  }
+  return parts.join('|')
+}
+
+function stableStringify(value: unknown): string {
+  try {
+    return typeof value === 'string' ? value : JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
 }
 
 function supersedes(candidate: NativeChatMessage, existing: NativeChatMessage): boolean {
@@ -55,7 +81,7 @@ function supersedes(candidate: NativeChatMessage, existing: NativeChatMessage): 
 // Why: null timestamps (sources that can't supply one, e.g. scrape segments)
 // sort before any real timestamp so they don't jump to the end. Ties break on
 // id for a stable, deterministic order.
-function compareMessages(a: NativeChatMessage, b: NativeChatMessage): number {
+export function compareMessages(a: NativeChatMessage, b: NativeChatMessage): number {
   const at = a.timestamp ?? Number.NEGATIVE_INFINITY
   const bt = b.timestamp ?? Number.NEGATIVE_INFINITY
   if (at !== bt) {

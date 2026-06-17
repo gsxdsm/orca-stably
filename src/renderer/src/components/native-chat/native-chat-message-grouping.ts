@@ -16,6 +16,7 @@ import {
   type NativeChatToolCallBlock,
   type NativeChatToolResultBlock
 } from '../../../../shared/native-chat-types'
+import { compareMessages } from './native-chat-session-assembler'
 
 /** A tool-call block paired with the result that answered it, when one exists.
  *  `result` is null while the call is still in flight (no result yet). */
@@ -45,42 +46,27 @@ export type NativeChatRenderItem =
     }
 
 /** Order messages stably: null timestamps first (model rule), then ascending
- *  timestamp, ties broken by id so the order is deterministic across re-reads. */
+ *  timestamp, ties broken by id. Shares the assembler's comparator so both
+ *  paths order identically. */
 export function orderNativeChatMessages(messages: NativeChatMessage[]): NativeChatMessage[] {
-  return [...messages].sort((a, b) => {
-    if (a.timestamp === b.timestamp) {
-      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
-    }
-    if (a.timestamp === null) {
-      return -1
-    }
-    if (b.timestamp === null) {
-      return 1
-    }
-    return a.timestamp - b.timestamp
-  })
+  return [...messages].sort(compareMessages)
 }
 
-/** Index every tool-result by tool name across the whole conversation so a
- *  call can find its answer even when the result lands in a later message (the
+/** Collect every tool-result across the whole conversation in document order so
+ *  a call can find its answer even when the result lands in a later message (the
  *  common transcript shape: assistant emits the call, a following tool message
- *  carries the result). First unconsumed result for a name wins. */
-function buildToolResultQueue(
-  messages: NativeChatMessage[]
-): Map<string, NativeChatToolResultBlock[]> {
-  const byName = new Map<string, NativeChatToolResultBlock[]>()
+ *  carries the result). Results carry no originating name in our model, so they
+ *  are handed out FIFO to calls. */
+function collectToolResults(messages: NativeChatMessage[]): NativeChatToolResultBlock[] {
+  const results: NativeChatToolResultBlock[] = []
   for (const message of messages) {
     for (const block of message.blocks) {
       if (isToolResultBlock(block)) {
-        // Tool results aren't labeled with the originating name in our model, so
-        // we queue them globally in order and hand them out FIFO to calls.
-        const queue = byName.get('') ?? []
-        queue.push(block)
-        byName.set('', queue)
+        results.push(block)
       }
     }
   }
-  return byName
+  return results
 }
 
 /**
@@ -92,7 +78,7 @@ function buildToolResultQueue(
  */
 export function buildNativeChatRenderItems(messages: NativeChatMessage[]): NativeChatRenderItem[] {
   const ordered = orderNativeChatMessages(messages)
-  const resultQueue = buildToolResultQueue(ordered).get('') ?? []
+  const resultQueue = collectToolResults(ordered)
   let resultCursor = 0
 
   const items: NativeChatRenderItem[] = []

@@ -21,6 +21,25 @@ describe('buildNativeChatSendBytes', () => {
   it('handles CR-style line breaks as multi-line', () => {
     expect(buildNativeChatSendBytes('a\rb')).toBe(`${BEGIN}a\rb${END}\r`)
   })
+
+  it('sanitizes an embedded bracketed-paste end and bare ESC before framing', () => {
+    // A pasted scrollback line could carry its own `\x1b[201~` which would
+    // otherwise close the frame early and run the tail as keystrokes.
+    const malicious = 'before\nmid\x1b[201~ rm -rf /\x1b tail'
+    const bytes = buildNativeChatSendBytes(malicious)
+    // No raw ESC survives the sanitize, so the only `\x1b` bytes are the frame.
+    expect(bytes.startsWith(BEGIN)).toBe(true)
+    expect(bytes.endsWith(`${END}\r`)).toBe(true)
+    const inner = bytes.slice(BEGIN.length, bytes.length - END.length - 1)
+    expect(inner).not.toContain('\x1b')
+    expect(inner).toContain('␛[201~')
+  })
+
+  it('neutralizes a stray ESC in the single-line branch', () => {
+    const bytes = buildNativeChatSendBytes('hi\x1b there')
+    expect(bytes).toBe('hi␛ there\r')
+    expect(bytes).not.toContain('\x1b')
+  })
 })
 
 describe('isMultilineDraft', () => {

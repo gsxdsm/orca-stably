@@ -130,6 +130,30 @@ describe('assembleNativeChatSession', () => {
     expect(session.status).toBe('loading')
   })
 
+  it('keeps two distinct tool-call-only same-role messages (no turnId, no text)', () => {
+    const first = msg({
+      id: 'tc-1',
+      role: 'assistant',
+      timestamp: 100,
+      blocks: [{ type: 'tool-call', name: 'read', input: { path: 'a.txt' } }]
+    })
+    const second = msg({
+      id: 'tc-2',
+      role: 'assistant',
+      timestamp: 200,
+      blocks: [{ type: 'tool-call', name: 'read', input: { path: 'b.txt' } }]
+    })
+
+    const session = assembleNativeChatSession({
+      sources: { transcript: [first, second] },
+      sessionId: 's1',
+      agent: 'claude'
+    })
+
+    // Different tool inputs digest to different turn keys, so neither is dropped.
+    expect(session.messages.map((m) => m.id)).toEqual(['tc-1', 'tc-2'])
+  })
+
   it('carries an error message when provided', () => {
     const session = assembleNativeChatSession({
       sources: {},

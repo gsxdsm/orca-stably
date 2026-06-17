@@ -9,7 +9,6 @@ import { getSettingsForAgentTabRuntimeOwner } from '@/lib/agent-paste-draft'
 import { buildNativeChatSendBytes } from './native-chat-send'
 import { getAgentSlashCommands } from './native-chat-agent-commands'
 import { emitNativeChatMessageSent } from '@/lib/native-chat-telemetry'
-import type { TuiAgent } from '../../../../shared/types'
 import {
   applyMentionSuggestion,
   applySlashSuggestion,
@@ -104,9 +103,9 @@ export function NativeChatComposer({
     // same call works for SSH panes (R6).
     sendRuntimePtyInput(target.settings, target.ptyId, buildNativeChatSendBytes(text))
     // Why: U10 telemetry — record adoption + local-vs-remote runtime split. The
-    // agent prop is the loose AgentType; tuiAgentToAgentKind maps unknowns to 'other'.
+    // agent prop is the loose AgentType; the emitter narrows unknowns to 'other'.
     emitNativeChatMessageSent({
-      agent: agent as TuiAgent,
+      agent,
       runtime: composerTargetIsRemote(target.ptyId) ? 'remote' : 'local'
     })
     setHistory((prev) => pushHistory(prev, text))
@@ -140,6 +139,9 @@ export function NativeChatComposer({
         return
       }
       event.preventDefault()
+      // Why: snapshot the caret before the async temp-file round-trip — `caret`
+      // state can move (further typing/selection) while the await is in flight.
+      const caretAtPaste = caret
       void (async () => {
         const tempPath = await window.api.ui.saveClipboardImageAsTempFile()
         if (!tempPath) {
@@ -158,8 +160,8 @@ export function NativeChatComposer({
         // Insert the path at the caret as plain draft text; the agent resolves
         // the file path to an attachment.
         setDraft((prev) => {
-          const before = prev.slice(0, caret)
-          const after = prev.slice(caret)
+          const before = prev.slice(0, caretAtPaste)
+          const after = prev.slice(caretAtPaste)
           const insertion = `${result.reference} `
           const next = before + insertion + after
           setCaret(before.length + insertion.length)

@@ -88,7 +88,18 @@ export default function NativeChatView({
 function useNativeChatCanSend(terminalTabId: string): boolean {
   const ptyId = useAppStore((s) => s.ptyIdsByTabId[terminalTabId]?.[0] ?? null)
   const [driverTick, setDriverTick] = useState(0)
-  useEffect(() => onDriverChange(() => setDriverTick((n) => n + 1)), [])
+  // Why: the driver event fires for every pty; only re-derive when it targets
+  // this pane's pty. ptyId is a dep so the listener re-binds on a pty swap.
+  useEffect(
+    () =>
+      onDriverChange((event) => {
+        if (event.ptyId !== ptyId) {
+          return
+        }
+        setDriverTick((n) => n + 1)
+      }),
+    [ptyId]
+  )
   return useMemo(() => {
     void driverTick
     return deriveNativeChatCanSend(ptyId ? getDriverForPty(ptyId) : null)

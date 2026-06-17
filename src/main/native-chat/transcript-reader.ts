@@ -53,7 +53,10 @@ async function readTranscript(
   const messages: NativeChatMessage[] = []
   let index = 0
   for await (const line of reader) {
-    const message = decode(line, `${filePath}:${index}`)
+    // Why: fallback id embeds start offset 0 so it matches the live tailer's id
+    // for the same record (the tailer's first drain reads from offset 0 too).
+    // Records that re-emit then collapse by id in the assembler — no dup, no drop.
+    const message = decode(line, `${filePath}:0:${index}`)
     if (message) {
       messages.push(message)
     }

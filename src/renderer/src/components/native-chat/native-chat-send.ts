@@ -1,6 +1,8 @@
 // Pure: turn raw composer text into the exact PTY bytes to write. Kept separate
 // from the React composer so the byte rules are unit-testable without a DOM.
 
+import { sanitizeBracketedPasteText } from '../terminal-pane/terminal-bracketed-paste'
+
 // Why: bracketed-paste markers let modern agent TUIs (Claude / Codex / etc.)
 // treat injected multi-line text as one atomic paste instead of running each
 // embedded newline as a line-edit / submit. Mirrors agent-paste-draft.ts and
@@ -27,8 +29,12 @@ export function isMultilineDraft(text: string): boolean {
  * send. Callers wanting an un-submitted draft should not use this helper.
  */
 export function buildNativeChatSendBytes(text: string): string {
-  if (isMultilineDraft(text)) {
-    return `${BRACKETED_PASTE_BEGIN}${text}${BRACKETED_PASTE_END}${SUBMIT}`
+  // Why: a stray ESC in the draft (e.g. pasted scrollback carrying its own
+  // `\x1b[201~`) would otherwise close the bracketed-paste frame early and run
+  // the tail as live keystrokes. Sanitize ESC on both branches before framing.
+  const safe = sanitizeBracketedPasteText(text)
+  if (isMultilineDraft(safe)) {
+    return `${BRACKETED_PASTE_BEGIN}${safe}${BRACKETED_PASTE_END}${SUBMIT}`
   }
-  return `${text}${SUBMIT}`
+  return `${safe}${SUBMIT}`
 }

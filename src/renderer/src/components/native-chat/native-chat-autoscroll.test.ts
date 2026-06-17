@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   distanceFromBottom,
   isNearBottom,
-  nextStickStateOnScroll,
   shouldShowJumpToLatest,
   NATIVE_CHAT_BOTTOM_THRESHOLD_PX
 } from './native-chat-autoscroll'
@@ -29,13 +28,6 @@ describe('isNearBottom', () => {
       })
     ).toBe(true)
     expect(isNearBottom(scrolledUp)).toBe(false)
-  })
-})
-
-describe('nextStickStateOnScroll', () => {
-  it('re-attaches when the user scrolls back to the bottom', () => {
-    expect(nextStickStateOnScroll(scrolledUp)).toBe(false)
-    expect(nextStickStateOnScroll(atBottom)).toBe(true)
   })
 })
 

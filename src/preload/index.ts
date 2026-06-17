@@ -153,7 +153,11 @@ import type {
 import type { KeybindingActionId, KeybindingFileSnapshot } from '../shared/keybindings'
 import type { AiVaultListArgs } from '../shared/ai-vault-types'
 import type { AgentType } from '../shared/native-chat-types'
-import type { NativeChatAppendedMessages, NativeChatAppendedPayload } from './api-types'
+import type {
+  NativeChatAppendedMessages,
+  NativeChatAppendedPayload,
+  NativeChatReadSessionResult
+} from './api-types'
 import {
   ORCA_EDITOR_PREPARE_HOT_EXIT_EVENT,
   type EditorPrepareHotExitDetail
@@ -3443,7 +3447,7 @@ const api = {
   },
 
   nativeChat: {
-    readSession: (agent: AgentType, sessionId: string): Promise<unknown> =>
+    readSession: (agent: AgentType, sessionId: string): Promise<NativeChatReadSessionResult> =>
       ipcRenderer.invoke('nativeChat:readSession', { agent, sessionId }),
     /** Start live tailing for a transcript. `onAppended` fires with only the
      *  newly-appended messages. Returns an unsubscribe fn that closes the

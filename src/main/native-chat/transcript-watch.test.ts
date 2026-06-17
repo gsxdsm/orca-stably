@@ -44,7 +44,7 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void
 }
 
 describe('subscribeNativeChatTranscript', () => {
-  it('emits only the newly-appended messages on append', async () => {
+  it('re-emits from the top on first drain so appended turns are never dropped', async () => {
     const filePath = await tempFile(claudeLine('u-1', 'user', 'first'))
     const batches: NativeChatMessage[][] = []
 
@@ -57,15 +57,69 @@ describe('subscribeNativeChatTranscript', () => {
     })
 
     await appendFile(filePath, claudeLine('a-1', 'assistant', 'reply'))
-    await waitFor(() => batches.flat().length >= 1)
+    await waitFor(() => batches.flat().some((m) => m.id === 'a-1'))
 
     sub.unsubscribe()
 
-    // The pre-existing 'first' line must NOT be re-emitted — only the append.
-    const emitted = batches.flat()
-    expect(emitted).toHaveLength(1)
-    expect(emitted[0].id).toBe('a-1')
-    expect(emitted[0].role).toBe('assistant')
+    // Seed-at-0 means the first drain re-reads the whole file; the assembler
+    // dedups by id. The appended turn must appear; the pre-existing line may
+    // appear too (collapsed downstream by id).
+    const ids = batches.flat().map((m) => m.id)
+    expect(ids).toContain('a-1')
+  })
+
+  it('appends a turn in the gap between initial read and first watcher drain exactly once', async () => {
+    // Simulate the read/subscribe race: a turn lands after the caller's
+    // readSession EOF but before the watcher's first drain. Seeding at 0 means
+    // the first drain reads it; the assembler later dedups by deterministic id.
+    const filePath = await tempFile(claudeLine('u-1', 'user', 'first'))
+    const seen: NativeChatMessage[] = []
+
+    // The gap turn is written BEFORE subscribe completes its first drain.
+    await appendFile(filePath, claudeLine('a-gap', 'assistant', 'raced reply'))
+
+    const sub = await subscribeNativeChatTranscript({
+      agent: 'claude',
+      sessionId: 'ignored',
+      filePath,
+      onAppend: (messages) => seen.push(...messages),
+      debounceMs: 5
+    })
+
+    await waitFor(() => seen.some((m) => m.id === 'a-gap'))
+    sub.unsubscribe()
+
+    // The raced turn is present, and not duplicated within a single drain pass.
+    expect(seen.filter((m) => m.id === 'a-gap')).toHaveLength(1)
+  })
+
+  it('recovers cleanly when a read throws (subscription not left deaf)', async () => {
+    const filePath = await tempFile(claudeLine('u-1', 'user', 'hi'))
+    const seen: NativeChatMessage[] = []
+
+    const sub = await subscribeNativeChatTranscript({
+      agent: 'claude',
+      sessionId: 'ignored',
+      filePath,
+      onAppend: (messages) => seen.push(...messages),
+      debounceMs: 5
+    })
+
+    // Make the file unreadable mid-flight (EACCES on the read path). The drain's
+    // try/catch must break and reset `reading` in finally so a later append
+    // still tails once permissions are restored.
+    await waitFor(() => seen.some((m) => m.id === 'u-1'))
+    const { chmod } = await import('fs/promises')
+    await chmod(filePath, 0o000)
+    await appendFile(filePath, claudeLine('a-1', 'assistant', 'reply')).catch(() => {})
+    // Give the watcher a chance to attempt (and fail) a drain.
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    await chmod(filePath, 0o644)
+    await appendFile(filePath, claudeLine('a-2', 'assistant', 'recovered'))
+
+    await waitFor(() => seen.some((m) => m.id === 'a-2'))
+    sub.unsubscribe()
+    expect(seen.some((m) => m.id === 'a-2')).toBe(true)
   })
 
   it('releases the watcher on unsubscribe (no leak)', async () => {
@@ -106,11 +160,13 @@ describe('subscribeNativeChatTranscript', () => {
     await appendFile(filePath, claudeLine('a-2', 'assistant', 'two'))
     await appendFile(filePath, claudeLine('a-3', 'assistant', 'three'))
 
-    await waitFor(() => seen.length >= 3)
+    await waitFor(() => ['a-1', 'a-2', 'a-3'].every((id) => seen.some((m) => m.id === id)))
     sub.unsubscribe()
 
-    const ids = seen.map((m) => m.id)
-    expect(ids).toEqual(['a-1', 'a-2', 'a-3'])
+    // Order is preserved for the appended turns (the seed re-read may also carry
+    // the pre-existing u-1, which the assembler dedups downstream).
+    const appendedIds = seen.map((m) => m.id).filter((id) => id !== 'u-1')
+    expect(appendedIds).toEqual(['a-1', 'a-2', 'a-3'])
   })
 
   it('survives file replacement / rotation (offset reset on shrink)', async () => {

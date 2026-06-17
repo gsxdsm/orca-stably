@@ -144,9 +144,12 @@ export async function subscribeNativeChatTranscript(
     return { unsubscribe: () => {} }
   }
 
-  // Seed the offset at the current end so the initial readSession (done by the
-  // caller) isn't replayed; only genuinely new appends are emitted.
-  let offset = await fileSize(filePath)
+  // Why: seed the offset at 0 so the FIRST drain re-reads the whole file. This
+  // closes the read/subscribe race — a turn appended between the caller's
+  // readSession EOF and the watcher install is still emitted. Re-emitted lines
+  // collapse by deterministic id in the assembler (no dup, no drop). Subsequent
+  // drains use the incremental offset so the full re-read happens only once.
+  let offset = 0
   let closed = false
   let reading = false
   let pendingReadRequested = false
@@ -166,15 +169,22 @@ export async function subscribeNativeChatTranscript(
     try {
       do {
         pendingReadRequested = false
-        const currentSize = await fileSize(filePath!)
-        if (currentSize < offset) {
-          // Rotation/replacement/truncation: re-read from the top.
-          offset = 0
-        }
-        const { messages, consumedTo } = await readAppendedMessages(filePath!, offset, decode!)
-        offset = consumedTo
-        if (!closed && messages.length > 0) {
-          onAppend(messages)
+        try {
+          const currentSize = await fileSize(filePath!)
+          if (currentSize < offset) {
+            // Rotation/replacement/truncation: re-read from the top.
+            offset = 0
+          }
+          const { messages, consumedTo } = await readAppendedMessages(filePath!, offset, decode!)
+          offset = consumedTo
+          if (!closed && messages.length > 0) {
+            onAppend(messages)
+          }
+        } catch {
+          // Why: a transient read failure (EACCES/EIO/ENOENT during rotation)
+          // must not leave the subscription permanently deaf. Stop this drain;
+          // the finally resets `reading` so a later fs event re-arms the read.
+          break
         }
       } while (pendingReadRequested && !closed)
     } finally {

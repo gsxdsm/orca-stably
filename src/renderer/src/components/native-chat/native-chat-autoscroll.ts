@@ -30,16 +30,6 @@ export function isNearBottom(
   return distanceFromBottom(geometry) <= threshold
 }
 
-/** Decide the next stick state on a user scroll. Scrolling up past the
- *  threshold detaches; scrolling back to the bottom re-attaches. Pure so the
- *  scroll handler is a one-liner. */
-export function nextStickStateOnScroll(
-  geometry: ScrollGeometry,
-  threshold: number = NATIVE_CHAT_BOTTOM_THRESHOLD_PX
-): boolean {
-  return isNearBottom(geometry, threshold)
-}
-
 /** Whether the "jump to latest" affordance should show: only when the user has
  *  detached (scrolled up) and there is actually scrollable content below. */
 export function shouldShowJumpToLatest(
