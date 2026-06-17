@@ -9,6 +9,7 @@ import { resolveNativeChatSession } from './native-chat-pane-resolution'
 import { useNativeChatLiveSession } from './use-native-chat-live-session'
 import { selectNativeChatViewState } from './native-chat-view-state'
 import { NativeChatMessageList } from './NativeChatMessageList'
+import { NativeChatComposer } from './NativeChatComposer'
 import { formatAgentTypeLabel } from '@/lib/agent-status'
 
 export type NativeChatViewProps = {
@@ -71,6 +72,7 @@ export default function NativeChatView({
       paneKey={resolution.paneKey}
       agent={resolution.agent}
       sessionId={resolution.sessionId}
+      terminalTabId={terminalTabId}
     />
   )
 }
@@ -78,11 +80,13 @@ export default function NativeChatView({
 function NativeChatResolvedView({
   paneKey,
   agent,
-  sessionId
+  sessionId,
+  terminalTabId
 }: {
   paneKey: string
   agent: NativeChatSession['agent']
   sessionId: string | null
+  terminalTabId: string
 }): React.JSX.Element {
   const session = useNativeChatLiveSession({ paneKey, agent, sessionId })
   const viewState = selectNativeChatViewState(session)
@@ -105,8 +109,9 @@ function NativeChatResolvedView({
           <NativeChatMessageList session={session} isWorking={viewState.isWorking} />
         )}
       </div>
-      {/* Composer mounts here in U8 (rich native input). Reserved slot. */}
-      <div data-native-chat-composer-slot />
+      {/* U8: rich native input. canSend defaults true; U9 threads the mobile
+          presence-lock state through this prop. */}
+      <NativeChatComposer terminalTabId={terminalTabId} agent={agent} />
     </div>
   )
 }
