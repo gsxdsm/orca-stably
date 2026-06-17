@@ -1,6 +1,6 @@
 {
   "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
-  "include": ["../src/cli/tui/**/*.tsx", "../src/cli/tui/**/*.ts"],
+  "include": ["../src/cli/tui/**/*.tsx"],
   "compilerOptions": {
     "composite": false,
     "noEmit": true,
