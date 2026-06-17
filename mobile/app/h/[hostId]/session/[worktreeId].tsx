@@ -71,6 +71,7 @@ import {
 } from '../../../../src/session/session-panel-host'
 import { useMobilePrBranchContext } from '../../../../src/session/use-mobile-pr-branch-context'
 import { SessionDockColumn } from '../../../../src/session/SessionDockColumn'
+import { useMobileDockResize } from '../../../../src/session/use-mobile-dock-resize'
 import type { ConnectionState, RpcFailure, RpcSuccess } from '../../../../src/transport/types'
 import { useMobileDictation } from '../../../../src/hooks/use-mobile-dictation'
 import {
@@ -801,6 +802,7 @@ export default function SessionScreen() {
   // session content; on narrow it stays null and the icons push full-screen routes.
   const { isWideLayout } = useResponsiveLayout()
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
+  const { dockWidth, panHandlers: dockResizeHandlers } = useMobileDockResize()
   // Why: docking only exists on wide layouts. If the device leaves wide (fold /
   // rotate to portrait / split-screen) while a panel is docked, clear activePanel
   // so the header icon doesn't stay stuck "active" on narrow and the dock doesn't
@@ -2327,7 +2329,7 @@ export default function SessionScreen() {
     initializedHandlesRef,
     tabStripVisible: terminals.length > 1,
     textScale: terminalTextScale,
-    dockOpen: isWideLayout && activePanel !== null,
+    dockWidth: isWideLayout && activePanel !== null ? dockWidth : 0,
     unsubscribeTerminal,
     subscribeToTerminal
   })
@@ -4770,6 +4772,8 @@ export default function SessionScreen() {
               connState={connState}
               branch={prBranch}
               headSha={prHeadSha}
+              width={dockWidth}
+              resizeHandlers={dockResizeHandlers}
               onRequestClose={() => setActivePanel(null)}
             />
           )}
