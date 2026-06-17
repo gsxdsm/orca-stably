@@ -168,7 +168,20 @@ describe('CommentMarkdown', () => {
     )
 
     expect(markup).toContain('mermaid-block')
+    expect(markup).toContain('overflow-x-auto')
+    expect(markup).toContain('[&amp;_.mermaid-block_pre]:max-h-80')
     expect(markup).not.toContain('<pre')
+  })
+
+  it('keeps compact mermaid fences as bounded source blocks', () => {
+    const markup = renderToStaticMarkup(
+      <CommentMarkdown content={'```mermaid\ngraph TD; A-->B;\n```'} />
+    )
+
+    expect(markup).toContain('<pre')
+    expect(markup).toContain('max-h-32')
+    expect(markup).toContain('overflow-x-auto')
+    expect(markup).not.toContain('mermaid-block')
   })
 
   it('contains long PR body markdown inside its available width', () => {

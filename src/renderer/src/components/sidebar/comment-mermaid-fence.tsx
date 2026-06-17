@@ -8,8 +8,11 @@ export function isMermaidFence(className: string | undefined): boolean {
   return /\blanguage-mermaid\b/.test(className ?? '')
 }
 
-export function renderMermaidFence(children: React.ReactNode): React.JSX.Element {
-  return <CommentMermaidBlock content={String(children).trimEnd()} />
+export function renderMermaidFence(
+  children: React.ReactNode,
+  className?: string
+): React.JSX.Element {
+  return <CommentMermaidBlock content={String(children).trimEnd()} className={className} />
 }
 
 // Why: MermaidBlock renders a <div> via innerHTML, which is invalid inside a
