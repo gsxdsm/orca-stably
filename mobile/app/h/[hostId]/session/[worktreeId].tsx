@@ -2907,12 +2907,14 @@ export default function SessionScreen() {
           const openedPath = resolved.relativePath
           const activateOpenedFile = async (): Promise<void> => {
             await fetchSessionTabs()
-            const fileTab = sessionTabsRef.current.find(
-              (tab): tab is Extract<MobileSessionTab, { type: 'file' }> =>
-                tab.type === 'file' && tab.relativePath === openedPath
+            // Why: match any openable tab carrying this path, not just `file` —
+            // markdown opens as a `markdown` tab and images as `image`, so a
+            // file-only check would never activate those after a terminal tap.
+            const opened = sessionTabsRef.current.find(
+              (tab) => 'relativePath' in tab && tab.relativePath === openedPath
             )
-            if (fileTab && activeSessionTabIdRef.current !== fileTab.id) {
-              switchSessionTabRef.current?.(fileTab)
+            if (opened && activeSessionTabIdRef.current !== opened.id) {
+              switchSessionTabRef.current?.(opened)
             }
           }
           scheduleDelayedAction(() => void activateOpenedFile(), 300)
