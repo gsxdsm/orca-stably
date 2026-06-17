@@ -45,7 +45,7 @@ export type TerminalSelectionEvents = {
 
 export type TerminalWebViewHandle = {
   write: (data: string) => void
-  init: (cols: number, rows: number, initialData?: string) => void
+  init: (cols: number, rows: number, initialData?: string, preserveScroll?: boolean) => void
   resize: (cols: number, rows: number) => void
   clear: () => void
   measureFitDimensions: (containerHeight?: number) => Promise<{ cols: number; rows: number } | null>
@@ -314,7 +314,7 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
       write(data: string) {
         postMessage({ type: 'write', data })
       },
-      init(cols: number, rows: number, initialData?: string) {
+      init(cols: number, rows: number, initialData?: string, preserveScroll?: boolean) {
         // Why: arm a fresh ready promise BEFORE posting init. The WebView
         // resolves it via the 'ready' notify at the end of its rAF chain.
         // Resolve any prior in-flight ready first so awaiters from the
@@ -331,7 +331,15 @@ export const TerminalWebView = forwardRef<TerminalWebViewHandle, Props>(function
         readyPromiseRef.current = new Promise<void>((resolve) => {
           readyResolveRef.current = resolve
         })
-        postMessage({ type: 'init', cols, rows, initialData, terminalTheme, fontScale: textScale })
+        postMessage({
+          type: 'init',
+          cols,
+          rows,
+          initialData,
+          terminalTheme,
+          fontScale: textScale,
+          preserveScroll
+        })
       },
       resize(cols: number, rows: number) {
         postMessage({ type: 'resize', cols, rows })
