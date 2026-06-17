@@ -2934,12 +2934,24 @@ export default function SessionScreen() {
           if (!openResponse.ok) {
             return
           }
-          // Why: the desktop creates the file tab asynchronously; a single poll
-          // can race it, so refresh a few times to reliably pick it up and
-          // switch to it (the file browser gets this for free via router.back).
-          scheduleDelayedAction(() => void fetchSessionTabs(), 300)
-          scheduleDelayedAction(() => void fetchSessionTabs(), 900)
-          scheduleDelayedAction(() => void fetchSessionTabs(), 1800)
+          // Why: the host opens the file as a markdown/file/image tab (the type
+          // depends on the file — .md opens as a 'markdown' tab), and from a terminal
+          // the active tab stays on the terminal. Once the new tab syncs in, switch to
+          // it by relativePath across ANY openable type. Poll since it arrives async.
+          const openedPath = resolved.relativePath
+          const activateOpenedTab = async (): Promise<void> => {
+            await fetchSessionTabs()
+            const opened = sessionTabsRef.current.find(
+              (tab): tab is Extract<MobileSessionTab, { relativePath?: string }> =>
+                'relativePath' in tab && tab.relativePath === openedPath
+            )
+            if (opened && activeSessionTabIdRef.current !== opened.id) {
+              switchSessionTabRef.current?.(opened)
+            }
+          }
+          scheduleDelayedAction(() => void activateOpenedTab(), 300)
+          scheduleDelayedAction(() => void activateOpenedTab(), 900)
+          scheduleDelayedAction(() => void activateOpenedTab(), 1800)
         } catch {
           // Resolution/open is best-effort; a failed tap silently no-ops.
         }
