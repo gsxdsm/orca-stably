@@ -78,7 +78,7 @@ export const PRCommentCard = memo(function PRCommentCard({
         {comment.url ? (
           <Pressable
             style={styles.openButton}
-            onPress={() => void Linking.openURL(comment.url)}
+            onPress={() => void Linking.openURL(comment.url).catch(() => {})}
             hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel="Open comment on GitHub"

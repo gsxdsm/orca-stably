@@ -22,4 +22,13 @@ describe('parseGitHubPrReference', () => {
     expect(parseGitHubPrReference('https://example.com/foo/bar')).toBeNull()
     expect(parseGitHubPrReference('ftp://github.com/o/r/pull/1')).toBeNull()
   })
+
+  it('rejects a PR-shaped path on a non-GitHub host', () => {
+    expect(parseGitHubPrReference('https://example.com/o/r/pull/7')).toBeNull()
+    expect(parseGitHubPrReference('https://github.com.evil.test/o/r/pull/7')).toBeNull()
+  })
+
+  it('accepts github.com subdomains', () => {
+    expect(parseGitHubPrReference('https://www.github.com/o/r/pull/12')).toBe(12)
+  })
 })

@@ -2939,13 +2939,23 @@ export default function SessionScreen() {
           // the active tab stays on the terminal. Once the new tab syncs in, switch to
           // it by relativePath across ANY openable type. Poll since it arrives async.
           const openedPath = resolved.relativePath
+          // One-shot: once a retry finds and activates the tab, later retries must not
+          // re-run and steal focus if the user has since switched tabs themselves.
+          let activated = false
           const activateOpenedTab = async (): Promise<void> => {
+            if (activated) {
+              return
+            }
             await fetchSessionTabs()
+            if (activated) {
+              return
+            }
             const opened = sessionTabsRef.current.find(
               (tab): tab is Extract<MobileSessionTab, { relativePath?: string }> =>
                 'relativePath' in tab && tab.relativePath === openedPath
             )
             if (opened && activeSessionTabIdRef.current !== opened.id) {
+              activated = true
               switchSessionTabRef.current?.(opened)
             }
           }

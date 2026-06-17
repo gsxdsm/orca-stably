@@ -26,6 +26,12 @@ export function parseGitHubPrReference(input: string): number | null {
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
     return null
   }
+  // Enforce the GitHub host so an arbitrary site with a /o/r/pull/N path can't parse
+  // as a PR (e.g. github.enterprise.example would still be rejected here).
+  const host = url.hostname.toLowerCase()
+  if (host !== 'github.com' && !host.endsWith('.github.com')) {
+    return null
+  }
   const match = GH_ITEM_PATH_RE.exec(url.pathname.replace(/\/+$/, ''))
   if (!match) {
     return null
