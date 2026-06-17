@@ -2939,15 +2939,28 @@ export default function SessionScreen() {
           // the active tab stays on the terminal. Once the new tab syncs in, switch to
           // it by relativePath across ANY openable type. Poll since it arrives async.
           const openedPath = resolved.relativePath
+          // Why: retries poll for the async-arriving tab, but once activation lands
+          // a later retry would steal focus back from the user — short-circuit the
+          // remaining ones once the opened tab is (or becomes) the active tab.
+          let activated = false
           const activateOpenedTab = async (): Promise<void> => {
+            if (activated) {
+              return
+            }
             await fetchSessionTabs()
             const opened = sessionTabsRef.current.find(
               (tab): tab is Extract<MobileSessionTab, { relativePath?: string }> =>
                 'relativePath' in tab && tab.relativePath === openedPath
             )
-            if (opened && activeSessionTabIdRef.current !== opened.id) {
-              switchSessionTabRef.current?.(opened)
+            if (!opened) {
+              return
             }
+            if (activeSessionTabIdRef.current === opened.id) {
+              activated = true
+              return
+            }
+            switchSessionTabRef.current?.(opened)
+            activated = true
           }
           scheduleDelayedAction(() => void activateOpenedTab(), 300)
           scheduleDelayedAction(() => void activateOpenedTab(), 900)
