@@ -974,6 +974,11 @@ export default function SessionScreen() {
   // can use the exact container height instead of relying on window.innerHeight,
   // which can overstate the visible area due to layout timing.
   const terminalFrameHeightRef = useRef<number>(0)
+  // Why: the terminal frame's width changes when EITHER sidebar is resized (the
+  // left worktree sidebar shrinks the detail pane; the right dock takes a slice of
+  // the row) without any window-dim change. Tracking the measured width lets the
+  // refit hook re-fit the PTY on those resizes — see terminal-viewport-refit.ts.
+  const [terminalFrameWidth, setTerminalFrameWidth] = useState(0)
 
   const activeSessionTab = sessionTabs.find((tab) => tab.id === activeSessionTabId) ?? null
   const canSend =
@@ -2329,7 +2334,7 @@ export default function SessionScreen() {
     initializedHandlesRef,
     tabStripVisible: terminals.length > 1,
     textScale: terminalTextScale,
-    dockWidth: isWideLayout && activePanel !== null ? dockWidth : 0,
+    terminalFrameWidth,
     unsubscribeTerminal,
     subscribeToTerminal
   })
@@ -4408,6 +4413,10 @@ export default function SessionScreen() {
                 style={styles.terminalFrame}
                 onLayout={(e) => {
                   terminalFrameHeightRef.current = e.nativeEvent.layout.height
+                  // Trigger a refit only when the width actually changes (sidebar
+                  // resize, fold, rotation) — avoids churn on height-only changes.
+                  const nextWidth = Math.round(e.nativeEvent.layout.width)
+                  setTerminalFrameWidth((prev) => (prev === nextWidth ? prev : nextWidth))
                 }}
               >
                 {terminals.map((terminal) => (
