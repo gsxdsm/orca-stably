@@ -362,6 +362,7 @@ import type {
   OpenCodeUsageSummary
 } from '../shared/opencode-usage-types'
 import type { AiVaultListArgs, AiVaultListResult } from '../shared/ai-vault-types'
+import type { AgentType, NativeChatMessage } from '../shared/native-chat-types'
 import type { TelemetryConsentState } from '../shared/telemetry-consent-types'
 import type { AgentKind, LaunchSource, RequestKind } from '../shared/telemetry-events'
 import type { AppStarSource } from '../shared/gh-star-source'
@@ -710,6 +711,13 @@ export type OpenCodeUsageApi = {
 
 export type AiVaultApi = {
   listSessions: (args?: AiVaultListArgs) => Promise<AiVaultListResult>
+}
+
+export type NativeChatReadSessionResult = { messages: NativeChatMessage[] } | { error: string }
+
+export type NativeChatApi = {
+  /** Read the full on-disk transcript for an agent + session id (no cap). */
+  readSession: (agent: AgentType, sessionId: string) => Promise<NativeChatReadSessionResult>
 }
 
 export type AppApi = {
@@ -1997,6 +2005,7 @@ export type PreloadApi = {
   codexUsage: CodexUsageApi
   openCodeUsage: OpenCodeUsageApi
   aiVault: AiVaultApi
+  nativeChat: NativeChatApi
   fs: {
     readDir: (args: { dirPath: string; connectionId?: string }) => Promise<DirEntry[]>
     readFile: (args: {

@@ -152,6 +152,7 @@ import type {
 } from '../shared/automations-types'
 import type { KeybindingActionId, KeybindingFileSnapshot } from '../shared/keybindings'
 import type { AiVaultListArgs } from '../shared/ai-vault-types'
+import type { AgentType } from '../shared/native-chat-types'
 import {
   ORCA_EDITOR_PREPARE_HOT_EXIT_EVENT,
   type EditorPrepareHotExitDetail
@@ -3438,6 +3439,11 @@ const api = {
   aiVault: {
     listSessions: (args?: AiVaultListArgs): Promise<unknown> =>
       ipcRenderer.invoke('aiVault:listSessions', args)
+  },
+
+  nativeChat: {
+    readSession: (agent: AgentType, sessionId: string): Promise<unknown> =>
+      ipcRenderer.invoke('nativeChat:readSession', { agent, sessionId })
   },
 
   runtime: {
