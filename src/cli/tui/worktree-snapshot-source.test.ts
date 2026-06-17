@@ -106,4 +106,41 @@ describe('WorktreeSnapshotSource', () => {
     await Promise.resolve()
     expect(call).toHaveBeenCalledTimes(1)
   })
+
+  it('backs off exponentially on consecutive failures and resets on recovery', async () => {
+    let mode: 'fail' | 'ok' = 'fail'
+    const call = vi.fn(async () => {
+      if (mode === 'fail') {
+        throw new Error('down')
+      }
+      return { result: makePsResult([]) }
+    })
+    const delays: number[] = []
+    const pending: (() => void)[] = []
+    const source = new WorktreeSnapshotSource(asClient(call), {
+      intervalMs: 100,
+      setTimer: (cb, ms) => {
+        delays.push(ms)
+        pending.push(cb)
+        return 0 as unknown as ReturnType<typeof setTimeout>
+      },
+      clearTimer: () => {}
+    })
+    const flush = async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    }
+
+    source.start()
+    await flush() // tick 1 fails -> backoff for 1 failure
+    pending.pop()?.()
+    await flush() // tick 2 fails -> backoff for 2 failures
+    mode = 'ok'
+    pending.pop()?.()
+    await flush() // tick 3 succeeds -> delay resets to intervalMs
+
+    expect(delays[0]).toBe(200) // 100 * 2^1
+    expect(delays[1]).toBe(400) // 100 * 2^2
+    expect(delays[2]).toBe(100) // reset to intervalMs after recovery
+  })
 })

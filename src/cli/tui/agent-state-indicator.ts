@@ -1,7 +1,7 @@
 import type { AgentStatusState } from '../../shared/agent-status-types'
 import type { RuntimeWorktreeStatus } from '../../shared/runtime-types'
 
-/** The four worktree states herdr surfaces, in attention-priority order. */
+/** The four worktree states, in attention-priority order. */
 export type StatusIndicatorKind = 'blocked' | 'working' | 'done' | 'idle'
 
 export type StatusIndicator = {
@@ -47,7 +47,7 @@ export function worktreeIndicatorKind(
   return 'idle'
 }
 
-// ─── Anti-flicker debounce (adapted from herdr's PendingIdleConfirmation) ────
+// ─── Anti-flicker debounce ───────────────────────────────────────────────────
 // Raw state can flip working→idle→working between ticks. Hold a working→idle
 // transition until it's confirmed (N consecutive reconciles or a time cap) so
 // the sidebar doesn't strobe. Every other transition publishes immediately —

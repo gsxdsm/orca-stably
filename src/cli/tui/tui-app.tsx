@@ -1,8 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Text, useApp, useInput, useStdin } from 'ink'
 import type { RunTuiOptions } from './tui-runtime-contract'
 import { WorktreeSnapshotSource, type WorktreeSnapshotState } from './worktree-snapshot-source'
-import { flattenWorktreeRows } from './worktree-snapshot'
+import { flattenWorktreeRows, type WorktreeRow, type WorktreeSnapshot } from './worktree-snapshot'
+import {
+  initialDebounceState,
+  reconcileIndicator,
+  worktreeIndicatorKind,
+  type IndicatorDebounceState,
+  type StatusIndicatorKind
+} from './agent-state-indicator'
 import { WorktreeSidebar } from './worktree-sidebar'
 import { WorktreeDetailPane } from './worktree-detail-pane'
 import { StatusBar } from './status-bar'
@@ -10,9 +17,8 @@ import { HelpOverlay } from './help-overlay'
 import { ConfirmOverlay, PromptOverlay } from './tui-overlays'
 import { buildSidebarLines, rowIndexAtScreenRow } from './sidebar-lines'
 import { resolveTheme } from './theme'
-import { currentPlatform } from './keybinding-map'
+import { currentPlatform, resolveAction } from './keybinding-map'
 import { inkKeyToLogical } from './ink-key-bridge'
-import { resolveAction } from './keybinding-map'
 import { clampSelection, moveSelection } from './navigation-state'
 import { MOUSE_DISABLE, MOUSE_ENABLE, parseMouseEvent } from './mouse-input'
 import { TerminalReadTailStream } from './terminal-read-tail-stream'
@@ -47,6 +53,45 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
   const selected = rows[clampSelection(selectedIndex, rows.length)] ?? null
   const selectedWorktreeId = selected?.worktreeId ?? null
 
+  // Refs let the mouse handler read the latest snapshot/row count without
+  // re-subscribing stdin (and re-emitting MOUSE_ENABLE/DISABLE) every poll.
+  const snapshotRef = useRef<WorktreeSnapshot | null>(snap.snapshot)
+  snapshotRef.current = snap.snapshot
+  const rowCountRef = useRef(rows.length)
+  rowCountRef.current = rows.length
+
+  // Per-worktree debounce state so the sidebar indicators don't strobe on
+  // working↔idle flips between polls.
+  const debounceRef = useRef(new Map<string, IndicatorDebounceState>())
+  const [publishedKinds, setPublishedKinds] = useState<Map<string, StatusIndicatorKind>>(new Map())
+
+  useEffect(() => {
+    if (!snap.snapshot) {
+      return
+    }
+    const next = new Map<string, StatusIndicatorKind>()
+    const seen = new Set<string>()
+    const now = Date.now()
+    for (const row of rows) {
+      seen.add(row.worktreeId)
+      const raw = worktreeIndicatorKind(row.status, row.agents)
+      const prev = debounceRef.current.get(row.worktreeId) ?? initialDebounceState(raw)
+      const result = reconcileIndicator(prev, raw, now)
+      debounceRef.current.set(row.worktreeId, result.state)
+      next.set(row.worktreeId, result.published)
+    }
+    // Drop debounce state for worktrees that left the herd.
+    for (const id of debounceRef.current.keys()) {
+      if (!seen.has(id)) {
+        debounceRef.current.delete(id)
+      }
+    }
+    setPublishedKinds(next)
+  }, [snap, rows])
+
+  const indicatorKindFor = (row: WorktreeRow): StatusIndicatorKind =>
+    publishedKinds.get(row.worktreeId) ?? worktreeIndicatorKind(row.status, row.agents)
+
   useEffect(() => {
     const unsubscribe = source.subscribe(setSnap)
     source.start()
@@ -68,6 +113,7 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
       return
     }
     let stream: TerminalReadTailStream | null = null
+    let unsubscribe: (() => void) | null = null
     let cancelled = false
     void (async () => {
       try {
@@ -80,7 +126,7 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
           return
         }
         stream = new TerminalReadTailStream(options.client, handle, { isRemote: options.isRemote })
-        stream.subscribe(setTail)
+        unsubscribe = stream.subscribe(setTail)
         stream.start()
       } catch {
         if (!cancelled) {
@@ -90,6 +136,7 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
     })()
     return () => {
       cancelled = true
+      unsubscribe?.()
       stream?.stop()
     }
   }, [selectedWorktreeId, options.client, options.isRemote])
@@ -108,12 +155,12 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
       }
       if (event.type === 'scroll') {
         setSelectedIndex((index) =>
-          moveSelection(index, event.direction === 'down' ? 1 : -1, rows.length)
+          moveSelection(index, event.direction === 'down' ? 1 : -1, rowCountRef.current)
         )
         return
       }
       if (event.type === 'press' && event.button === 'left' && event.col < SIDEBAR_WIDTH) {
-        const target = rowIndexAtScreenRow(buildSidebarLines(snap.snapshot), event.row)
+        const target = rowIndexAtScreenRow(buildSidebarLines(snapshotRef.current), event.row)
         if (target !== null) {
           setSelectedIndex(target)
         }
@@ -124,7 +171,10 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
       stdin.off('data', onData)
       process.stdout.write(MOUSE_DISABLE)
     }
-  }, [stdin, rows.length, snap.snapshot])
+    // Deps intentionally only [stdin]: mouse reporting must be enabled once for
+    // the session, not torn down/re-enabled on every poll. Latest snapshot/row
+    // count are read via refs.
+  }, [stdin])
 
   async function run(command: TuiCommand): Promise<void> {
     const result = await dispatchAction(options.client, command)
@@ -236,6 +286,7 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
               snapshot={snap.snapshot}
               selectedWorktreeId={selected?.worktreeId ?? null}
               theme={theme}
+              indicatorKindFor={indicatorKindFor}
             />
           ) : (
             <Text dimColor>Connecting…</Text>

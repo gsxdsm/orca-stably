@@ -57,7 +57,7 @@ describe('reconcileIndicator (anti-flicker)', () => {
 
   it('holds a working→idle transition until confirmed, then publishes idle', () => {
     // First reconcile starts the hold; it then takes `confirmations` more
-    // consecutive idle reads to publish (matching herdr's debounce).
+    // consecutive idle reads to publish.
     let out = reconcileIndicator(initialDebounceState('working'), 'idle', 0, { confirmations: 2 })
     expect(out.published).toBe('working') // hold started
     out = reconcileIndicator(out.state, 'idle', 1, { confirmations: 2 })

@@ -9,12 +9,42 @@ import {
 import type { TuiRpcClient } from './tui-rpc-client'
 
 describe('buildCall', () => {
-  it('builds worktree.create params', () => {
+  it('builds worktree.create params with startupAgent/startupPrompt', () => {
     expect(
       buildCall({ kind: 'worktree.create', repo: 'id:r1', name: 'task', agent: 'codex' })
     ).toEqual({
       method: 'worktree.create',
-      params: { repo: 'id:r1', name: 'task', agent: 'codex', prompt: undefined }
+      params: { repo: 'id:r1', name: 'task', startupAgent: 'codex', startupPrompt: undefined }
+    })
+  })
+
+  it('maps the remaining worktree/terminal command kinds to their methods + selectors', () => {
+    expect(buildCall({ kind: 'worktree.sleep', worktree: 'id:w' })).toEqual({
+      method: 'worktree.sleep',
+      params: { worktree: 'id:w' }
+    })
+    expect(buildCall({ kind: 'worktree.set', worktree: 'id:w', displayName: 'x' }).params).toEqual({
+      worktree: 'id:w',
+      displayName: 'x'
+    })
+    expect(
+      buildCall({ kind: 'terminal.split', terminal: 't', direction: 'vertical' })
+    ).toMatchObject({ method: 'terminal.split', params: { terminal: 't', direction: 'vertical' } })
+    expect(buildCall({ kind: 'terminal.close', terminal: 't' })).toEqual({
+      method: 'terminal.close',
+      params: { terminal: 't' }
+    })
+    expect(buildCall({ kind: 'terminal.rename', terminal: 't', title: null }).params).toEqual({
+      terminal: 't',
+      title: null
+    })
+    expect(buildCall({ kind: 'terminal.stop', worktree: 'id:w' })).toEqual({
+      method: 'terminal.stop',
+      params: { worktree: 'id:w' }
+    })
+    expect(buildCall({ kind: 'terminal.focus', terminal: 't' })).toEqual({
+      method: 'terminal.focus',
+      params: { terminal: 't' }
     })
   })
 

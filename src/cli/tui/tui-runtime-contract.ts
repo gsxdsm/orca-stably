@@ -11,7 +11,7 @@ export type RunTuiOptions = {
   noAltScreen: boolean
 }
 
-/** Shape the esbuild bundle (`tui-bundle.cjs`) exposes to the handler. */
+/** Shape the esbuild bundle (`tui-bundle.mjs`) exposes to the handler. */
 export type TuiBundle = {
   runTui: (options: RunTuiOptions) => Promise<void>
 }

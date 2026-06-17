@@ -52,8 +52,10 @@ export function buildCall(command: TuiCommand): RpcCall {
         params: {
           repo: command.repo,
           name: command.name,
-          agent: command.agent,
-          prompt: command.prompt
+          // The runtime expects startupAgent/startupPrompt; plain agent/prompt
+          // are silently dropped and the agent never launches.
+          startupAgent: command.agent,
+          startupPrompt: command.prompt
         }
       }
     case 'worktree.rm':

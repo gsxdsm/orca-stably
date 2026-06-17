@@ -35,7 +35,10 @@ export class TerminalReadTailStream implements TerminalStream {
   private readonly clearTimer: NonNullable<TerminalReadTailStreamOptions['clearTimer']>
 
   private state: TerminalTailState
-  private cursor: string | null = null
+  // The runtime returns nextCursor as a numeric string, but terminal.read's
+  // schema requires the cursor param to be a non-negative integer — so we keep
+  // it as a number and only advance it when the runtime sends a new one.
+  private cursor: number | null = null
   private receivedAnyLine = false
   private readonly listeners = new Set<(state: TerminalTailState) => void>()
   private timer: ReturnType<typeof setTimeout> | null = null
@@ -66,29 +69,38 @@ export class TerminalReadTailStream implements TerminalStream {
 
   async refreshOnce(): Promise<void> {
     try {
-      const { result } = await this.client.call<RuntimeTerminalRead>('terminal.read', {
-        terminal: this.handle,
-        cursor: this.cursor ?? undefined,
-        limit: this.limit
-      })
+      // terminal.read wraps its payload in a `terminal` envelope key.
+      const { result } = await this.client.call<{ terminal: RuntimeTerminalRead }>(
+        'terminal.read',
+        {
+          terminal: this.handle,
+          cursor: this.cursor ?? undefined,
+          limit: this.limit
+        }
+      )
+      const read = result.terminal
       // Cursor paging returns only lines newer than `cursor`, so appending can
       // never duplicate previously-seen output.
-      const lines =
-        result.tail.length > 0 ? [...this.state.lines, ...result.tail] : this.state.lines
+      const lines = read.tail.length > 0 ? [...this.state.lines, ...read.tail] : this.state.lines
       const bounded = lines.length > MAX_LINES ? lines.slice(-MAX_LINES) : lines
-      if (result.tail.length > 0) {
+      if (read.tail.length > 0) {
         this.receivedAnyLine = true
       }
-      this.cursor = result.nextCursor
+      // Only advance the cursor when the runtime sends a new one; a null
+      // nextCursor must not drop us back to the un-cursored preview (which would
+      // re-fetch and duplicate the tail).
+      if (read.nextCursor !== null) {
+        this.cursor = Number(read.nextCursor)
+      }
       this.setState({
         handle: this.handle,
         lines: bounded,
-        status: result.status,
-        truncated: result.truncated,
+        status: read.status,
+        truncated: read.truncated,
         connected: true,
         // A remote PTY with no main-owned snapshot reports unknown with no
         // content; show a degraded fallback instead of pretending it's empty.
-        degraded: this.isRemote && result.status === 'unknown' && !this.receivedAnyLine
+        degraded: this.isRemote && read.status === 'unknown' && !this.receivedAnyLine
       })
     } catch {
       this.setState({ ...this.state, connected: false })

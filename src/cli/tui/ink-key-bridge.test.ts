@@ -24,6 +24,8 @@ describe('inkKeyToLogical', () => {
     expect(inkKeyToLogical('', key({ return: true }))).toEqual({ type: 'enter' })
     expect(inkKeyToLogical('', key({ escape: true }))).toEqual({ type: 'escape' })
     expect(inkKeyToLogical('', key({ backspace: true }))).toEqual({ type: 'backspace' })
+    expect(inkKeyToLogical('', key({ tab: true }))).toEqual({ type: 'tab' })
+    expect(inkKeyToLogical('', key({ delete: true }))).toEqual({ type: 'backspace' })
   })
 
   it('maps Ctrl combinations', () => {

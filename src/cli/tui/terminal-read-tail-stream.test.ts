@@ -20,9 +20,10 @@ function clientReturning(reads: RuntimeTerminalRead[]): {
 } {
   let index = 0
   const call = vi.fn(async () => {
-    const result = reads[Math.min(index, reads.length - 1)]
+    const terminal = reads[Math.min(index, reads.length - 1)]
     index += 1
-    return { result }
+    // terminal.read wraps its payload in a `terminal` envelope key.
+    return { result: { terminal } }
   })
   return { client: { call } as unknown as TuiRpcClient, call }
 }
@@ -30,8 +31,8 @@ function clientReturning(reads: RuntimeTerminalRead[]): {
 describe('TerminalReadTailStream', () => {
   it('appends only new lines across cursor-paged reads (no duplication)', async () => {
     const { client } = clientReturning([
-      read({ tail: ['line 1', 'line 2'], nextCursor: 'c1' }),
-      read({ tail: ['line 3'], nextCursor: 'c2' })
+      read({ tail: ['line 1', 'line 2'], nextCursor: '12' }),
+      read({ tail: ['line 3'], nextCursor: '13' })
     ])
     const stream = new TerminalReadTailStream(client, 'term_1')
     await stream.refreshOnce()
@@ -39,16 +40,33 @@ describe('TerminalReadTailStream', () => {
     expect(stream.getState().lines).toEqual(['line 1', 'line 2', 'line 3'])
   })
 
-  it('passes the prior nextCursor on the following read', async () => {
+  it('passes the prior nextCursor as a number on the following read', async () => {
     const { client, call } = clientReturning([
-      read({ tail: ['a'], nextCursor: 'cursor-42' }),
-      read({ tail: ['b'], nextCursor: 'cursor-43' })
+      read({ tail: ['a'], nextCursor: '42' }),
+      read({ tail: ['b'], nextCursor: '43' })
     ])
     const stream = new TerminalReadTailStream(client, 'term_1')
     await stream.refreshOnce()
     await stream.refreshOnce()
     expect(call.mock.calls[0][1]).toMatchObject({ terminal: 'term_1', cursor: undefined })
-    expect(call.mock.calls[1][1]).toMatchObject({ cursor: 'cursor-42' })
+    // cursor must be a non-negative integer per the terminal.read schema
+    expect(call.mock.calls[1][1]).toMatchObject({ cursor: 42 })
+  })
+
+  it('does not reset the cursor (or re-fetch the preview) when nextCursor is null', async () => {
+    const { client, call } = clientReturning([
+      read({ tail: ['a'], nextCursor: '5' }),
+      read({ tail: [], nextCursor: null }),
+      read({ tail: ['b'], nextCursor: '6' })
+    ])
+    const stream = new TerminalReadTailStream(client, 'term_1')
+    await stream.refreshOnce()
+    await stream.refreshOnce()
+    await stream.refreshOnce()
+    // the null-cursor tick must keep cursor at 5, not drop to undefined
+    expect(call.mock.calls[1][1]).toMatchObject({ cursor: 5 })
+    expect(call.mock.calls[2][1]).toMatchObject({ cursor: 5 })
+    expect(stream.getState().lines).toEqual(['a', 'b'])
   })
 
   it('marks the terminal exited and stops polling it', async () => {
@@ -89,6 +107,22 @@ describe('TerminalReadTailStream', () => {
     const stream = new TerminalReadTailStream(client, 'term_1', { isRemote: false })
     await stream.refreshOnce()
     expect(stream.getState().degraded).toBe(false)
+  })
+
+  it('notifies subscribers and stops notifying after unsubscribe', async () => {
+    const { client } = clientReturning([
+      read({ tail: ['a'], nextCursor: '1' }),
+      read({ tail: ['b'], nextCursor: '2' })
+    ])
+    const stream = new TerminalReadTailStream(client, 'term_1')
+    const listener = vi.fn()
+    const unsubscribe = stream.subscribe(listener)
+    expect(listener).toHaveBeenCalledTimes(1) // immediate current-state notify
+    await stream.refreshOnce()
+    expect(listener).toHaveBeenCalledTimes(2)
+    unsubscribe()
+    await stream.refreshOnce()
+    expect(listener).toHaveBeenCalledTimes(2) // no further notifications
   })
 
   it('marks disconnected when the read fails', async () => {
