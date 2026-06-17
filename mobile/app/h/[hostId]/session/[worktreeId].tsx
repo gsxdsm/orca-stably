@@ -795,6 +795,15 @@ export default function SessionScreen() {
   // session content; on narrow it stays null and the icons push full-screen routes.
   const { isWideLayout } = useResponsiveLayout()
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
+  // Why: docking only exists on wide layouts. If the device leaves wide (fold /
+  // rotate to portrait / split-screen) while a panel is docked, clear activePanel
+  // so the header icon doesn't stay stuck "active" on narrow and the dock doesn't
+  // resurrect (re-mounting a second live panel) when the layout returns to wide.
+  useEffect(() => {
+    if (!isWideLayout && activePanel !== null) {
+      setActivePanel(null)
+    }
+  }, [isWideLayout, activePanel])
   // Session-level PR context: gates the PR header icon (isGithubRepo) and feeds the
   // docked PR panel — resolved here so the icon can appear before the panel mounts (KTD4).
   const {
@@ -2281,6 +2290,7 @@ export default function SessionScreen() {
     initializedHandlesRef,
     tabStripVisible: terminals.length > 1,
     textScale: terminalTextScale,
+    dockOpen: isWideLayout && activePanel !== null,
     unsubscribeTerminal,
     subscribeToTerminal
   })
