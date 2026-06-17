@@ -810,13 +810,13 @@ export default function SessionScreen() {
       setActivePanel(null)
     }
   }, [isWideLayout, activePanel])
-  // Session-level PR context: gates the PR header icon (isGithubRepo) and feeds the
-  // docked PR panel — resolved here so the icon can appear before the panel mounts (KTD4).
-  const {
-    branch: prBranch,
-    headSha: prHeadSha,
-    isGithubRepo
-  } = useMobilePrBranchContext({ client, connState, worktreeId })
+  // Session-level PR context feeds the docked PR panel (branch/headSha). The PR
+  // header icon is always shown now, so it no longer gates on isGithubRepo.
+  const { branch: prBranch, headSha: prHeadSha } = useMobilePrBranchContext({
+    client,
+    connState,
+    worktreeId
+  })
   const initialCreateWarning = typeof createdWarning === 'string' ? createdWarning.trim() : ''
   const [terminals, setTerminals] = useState<Terminal[]>([])
   const terminalsRef = useRef<Terminal[]>([])
@@ -4176,22 +4176,21 @@ export default function SessionScreen() {
             >
               <Folder size={18} color={colors.textSecondary} strokeWidth={2.1} />
             </Pressable>
-            {/* PR is a top-level entry only on GitHub repos; gated on the session-level
-                branch-context probe so it appears before the panel ever mounts (R1/KTD4). */}
-            {isGithubRepo && (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.filesButton,
-                  pressed && styles.filesButtonPressed,
-                  activePanel === 'pr' && styles.filesButtonActive
-                ]}
-                onPress={() => handlePanelTap('pr')}
-                hitSlop={8}
-                accessibilityLabel="Open pull request"
-              >
-                <ListChecks size={18} color={colors.textSecondary} strokeWidth={2.1} />
-              </Pressable>
-            )}
+            {/* Why: always show the PR entry next to source-control/files (no async
+                gate) so it doesn't pop in late after the branch-context probe; the
+                panel itself handles non-hosted-review / no-PR states. */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.filesButton,
+                pressed && styles.filesButtonPressed,
+                activePanel === 'pr' && styles.filesButtonActive
+              ]}
+              onPress={() => handlePanelTap('pr')}
+              hitSlop={8}
+              accessibilityLabel="Open pull request"
+            >
+              <ListChecks size={18} color={colors.textSecondary} strokeWidth={2.1} />
+            </Pressable>
           </View>
 
           {visibleTabs.length > 0 && (
