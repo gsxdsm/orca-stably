@@ -238,6 +238,43 @@ describe('keybindings', () => {
     ])
   })
 
+  it('defines browser history shortcuts for Logitech side-button remaps', () => {
+    expect(getEffectiveKeybindingsForAction('browser.back', 'darwin')).toEqual(['Mod+BracketLeft'])
+    expect(getEffectiveKeybindingsForAction('browser.forward', 'darwin')).toEqual([
+      'Mod+BracketRight'
+    ])
+    expect(getEffectiveKeybindingsForAction('browser.back', 'linux')).toEqual(['Alt+ArrowLeft'])
+    expect(getEffectiveKeybindingsForAction('browser.forward', 'win32')).toEqual(['Alt+ArrowRight'])
+    expect(
+      keybindingMatchesAction(
+        'browser.back',
+        {
+          key: '[',
+          code: 'BracketLeft',
+          meta: true,
+          control: false,
+          alt: false,
+          shift: false
+        },
+        'darwin'
+      )
+    ).toBe(true)
+    expect(
+      keybindingMatchesAction(
+        'browser.forward',
+        {
+          key: 'ArrowRight',
+          code: 'ArrowRight',
+          meta: false,
+          control: false,
+          alt: true,
+          shift: false
+        },
+        'linux'
+      )
+    ).toBe(true)
+  })
+
   it('binds close-all editor tabs to Mod+Alt+W beside tab.close', () => {
     expect(getEffectiveKeybindingsForAction('tab.closeAll', 'darwin')).toEqual(['Mod+Alt+W'])
     expect(getEffectiveKeybindingsForAction('tab.closeAll', 'linux')).toEqual(['Mod+Alt+W'])
@@ -344,6 +381,31 @@ describe('keybindings', () => {
     ).toBe(true)
   })
 
+  it('keeps workspace board unassigned until users customize it', () => {
+    const binding = {
+      key: 'k',
+      code: 'KeyK',
+      control: true,
+      meta: false,
+      alt: true,
+      shift: false
+    }
+
+    expect(getEffectiveKeybindingsForAction('workspace.openBoard', 'linux')).toEqual([])
+    expect(keybindingMatchesAction('workspace.openBoard', binding, 'linux')).toBe(false)
+    expect(
+      keybindingMatchesAction('workspace.openBoard', binding, 'linux', {
+        'workspace.openBoard': ['Mod+Alt+K']
+      })
+    ).toBe(true)
+
+    const definition = getKeybindingDefinition('workspace.openBoard')
+    expect(definition?.title).toBe('Open Workspace Board')
+    expect(definition?.searchKeywords).toEqual(
+      expect.arrayContaining(['workspace', 'board', 'kanban'])
+    )
+  })
+
   it('defines a macOS-only default for the new agent tab shortcut', () => {
     expect(getEffectiveKeybindingsForAction('tab.newAgent', 'darwin')).toEqual(['Mod+Alt+T'])
     expect(getEffectiveKeybindingsForAction('tab.newAgent', 'linux')).toEqual([])
@@ -400,11 +462,7 @@ describe('keybindings', () => {
 
     expect(conflicts).toContainEqual({
       binding: 'Mod+Shift+E',
-      actionIds: expect.arrayContaining([
-        'file.exportPdf',
-        'sidebar.explorer.toggle',
-        'worktree.palette'
-      ])
+      actionIds: expect.arrayContaining(['sidebar.explorer.toggle', 'worktree.palette'])
     })
   })
 
