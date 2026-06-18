@@ -96,7 +96,8 @@ export function tabStripRow(
   let used = 0
   for (let i = start; i < tabs.length; i += 1) {
     const tab = tabs[i]
-    const label = ` ${tabStripLabel(tab)} `
+    // One trailing space only, so the strip starts flush at the box's left edge.
+    const label = `${tabStripLabel(tab)} `
     if (used + cellWidth(label) > width) {
       break
     }
