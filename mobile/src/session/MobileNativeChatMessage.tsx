@@ -8,9 +8,9 @@ import { colors } from '../theme/mobile-theme'
 import {
   isImageRefBlock,
   isTextBlock,
-  isToolCallBlock,
-  isToolResultBlock,
-  splitNativeChatBlocks
+  pairToolBlocks,
+  splitNativeChatBlocks,
+  type ToolPair
 } from './mobile-native-chat-blocks'
 import { diffFromText, diffFromToolCall, type DiffLine } from './mobile-native-chat-diff'
 import { MAX_TOOL_RESULT_CHARS, styles, TEXT_SIZE } from './mobile-native-chat-message-styles'
@@ -41,27 +41,48 @@ function DiffView({ lines }: { lines: DiffLine[] }): React.JSX.Element {
 /** A single inline tool line — `▸ ToolName  preview` — that expands in place to
  *  show the call's diff/input or the result's body. Mirrors the reference design
  *  where tool calls read as flat lines in the conversation, not boxed blocks. */
-function ToolLine({ block }: { block: NativeChatBlock }): React.JSX.Element | null {
-  const [expanded, setExpanded] = useState(false)
-  let name: string
-  let preview: string
-  let diff: DiffLine[] | null = null
-  let body: { output: string; isError?: boolean } | null = null
-
-  if (isToolCallBlock(block)) {
-    name = block.name
-    preview = summarizeToolInput(block.input)
-    diff = diffFromToolCall(block.name, block.input)
-  } else if (isToolResultBlock(block)) {
-    name = 'Result'
-    preview = block.output.split('\n')[0]?.slice(0, 80) ?? ''
-    diff = diffFromText(block.output)
-    body = { output: block.output, isError: block.isError }
-  } else {
-    return null
+function ResultBody({
+  output,
+  isError,
+  diff
+}: {
+  output: string
+  isError?: boolean
+  diff: DiffLine[] | null
+}): React.JSX.Element {
+  if (diff) {
+    return <DiffView lines={diff} />
   }
+  return (
+    <View style={[styles.toolResult, isError && styles.toolResultError]}>
+      <Text style={styles.mono}>
+        {output.length > MAX_TOOL_RESULT_CHARS
+          ? `${output.slice(0, MAX_TOOL_RESULT_CHARS)}…`
+          : output}
+      </Text>
+    </View>
+  )
+}
 
-  const hasDetail = diff !== null || body !== null || preview.length > 40
+/** One request: a tool call and its result rendered together as a single
+ *  expandable line. `defaultExpanded` lets the group toggle open every line. */
+function ToolLine({
+  pair,
+  defaultExpanded
+}: {
+  pair: ToolPair
+  defaultExpanded: boolean
+}): React.JSX.Element {
+  const [expanded, setExpanded] = useState(defaultExpanded)
+  useEffect(() => setExpanded(defaultExpanded), [defaultExpanded])
+  const { call, result } = pair
+  const name = call ? call.name : 'Result'
+  const preview = call
+    ? summarizeToolInput(call.input)
+    : (result?.output.split('\n')[0]?.slice(0, 80) ?? '')
+  const callDiff = call ? diffFromToolCall(call.name, call.input) : null
+  const resultDiff = result ? diffFromText(result.output) : null
+  const hasDetail = callDiff !== null || result !== undefined || preview.length > 40
   return (
     <View>
       <Pressable
@@ -83,17 +104,11 @@ function ToolLine({ block }: { block: NativeChatBlock }): React.JSX.Element | nu
       </Pressable>
       {expanded ? (
         <View style={styles.toolDetail}>
-          {diff ? <DiffView lines={diff} /> : null}
-          {!diff && body ? (
-            <View style={[styles.toolResult, body.isError && styles.toolResultError]}>
-              <Text style={styles.mono}>
-                {body.output.length > MAX_TOOL_RESULT_CHARS
-                  ? `${body.output.slice(0, MAX_TOOL_RESULT_CHARS)}…`
-                  : body.output}
-              </Text>
-            </View>
+          {callDiff ? <DiffView lines={callDiff} /> : null}
+          {!callDiff && call && preview ? <Text style={styles.mono}>{preview}</Text> : null}
+          {result ? (
+            <ResultBody output={result.output} isError={result.isError} diff={resultDiff} />
           ) : null}
-          {!diff && !body && preview ? <Text style={styles.mono}>{preview}</Text> : null}
         </View>
       ) : null}
     </View>
@@ -138,33 +153,39 @@ function Prose({
  *  toolbar toggle drive every run at once while still allowing per-run override. */
 function ToolRun({
   blocks,
-  defaultExpanded
+  defaultExpanded,
+  trailing
 }: {
   blocks: NativeChatBlock[]
   defaultExpanded: boolean
+  trailing?: React.ReactNode
 }): React.JSX.Element {
   const [open, setOpen] = useState(defaultExpanded)
   // Re-sync when the global toolbar toggle flips.
   useEffect(() => setOpen(defaultExpanded), [defaultExpanded])
-  const callCount = blocks.filter((b) => b.type === 'tool-call').length || blocks.length
+  const pairs = pairToolBlocks(blocks)
+  const callCount = blocks.filter((b) => b.type === 'tool-call').length || pairs.length
   const summary = summarizeToolRun(blocks)
   return (
     <View style={styles.toolRun}>
-      <Pressable style={styles.toolLine} onPress={() => setOpen((v) => !v)} hitSlop={6}>
-        {open ? (
-          <ChevronDown size={15} color={colors.textMuted} strokeWidth={2} />
-        ) : (
-          <SquareChevronRight size={15} color={colors.textMuted} strokeWidth={2} />
-        )}
-        <Text style={styles.toolRunCount}>{callCount}×</Text>
-        <Text style={styles.toolRunLabel} numberOfLines={1}>
-          {summary || `${callCount} tool ${callCount === 1 ? 'call' : 'calls'}`}
-        </Text>
-      </Pressable>
+      <View style={styles.toolRunHeader}>
+        <Pressable style={styles.toolRunToggle} onPress={() => setOpen((v) => !v)} hitSlop={6}>
+          {open ? (
+            <ChevronDown size={15} color={colors.textMuted} strokeWidth={2} />
+          ) : (
+            <SquareChevronRight size={15} color={colors.textMuted} strokeWidth={2} />
+          )}
+          <Text style={styles.toolRunCount}>{callCount}×</Text>
+          <Text style={styles.toolRunLabel} numberOfLines={1}>
+            {summary || `${callCount} tool ${callCount === 1 ? 'call' : 'calls'}`}
+          </Text>
+        </Pressable>
+        {trailing}
+      </View>
       {open ? (
         <View style={styles.toolRunBody}>
-          {blocks.map((block, i) => (
-            <ToolLine key={i} block={block} />
+          {pairs.map((pair, i) => (
+            <ToolLine key={i} pair={pair} defaultExpanded={defaultExpanded} />
           ))}
         </View>
       ) : null}
@@ -257,19 +278,23 @@ function MobileNativeChatMessageImpl({
     copyTimer.current = setTimeout(() => setCopied(false), 700)
   }
 
+  // Copy + scroll-to-top, shown inline with the first tool call (or after the
+  // prose when there are no tools).
+  const controls =
+    isAgent && !queued ? (
+      <AgentControls
+        onCopy={handleCopy}
+        onScrollToTop={
+          onScrollToMessage && messageIndex !== undefined
+            ? () => onScrollToMessage(messageIndex)
+            : undefined
+        }
+      />
+    ) : null
+
   return (
     <View style={[styles.row, isUser && styles.rowUser]}>
       {isUser && queued ? <Text style={styles.queuedTag}>Queued</Text> : null}
-      {isAgent && !queued ? (
-        <AgentControls
-          onCopy={handleCopy}
-          onScrollToTop={
-            onScrollToMessage && messageIndex !== undefined
-              ? () => onScrollToMessage(messageIndex)
-              : undefined
-          }
-        />
-      ) : null}
       <View
         style={[
           styles.content,
@@ -288,7 +313,11 @@ function MobileNativeChatMessageImpl({
             onOpenFile={onOpenFile}
           />
         ))}
-        {tools.length > 0 ? <ToolRun blocks={tools} defaultExpanded={toolsExpanded} /> : null}
+        {tools.length > 0 ? (
+          <ToolRun blocks={tools} defaultExpanded={toolsExpanded} trailing={controls} />
+        ) : controls ? (
+          <View style={styles.controlsRow}>{controls}</View>
+        ) : null}
       </View>
     </View>
   )

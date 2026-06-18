@@ -61,6 +61,31 @@ export function foldToolMessages(messages: readonly NativeChatMessage[]): Native
   return out
 }
 
+export type ToolPair = {
+  call?: NativeChatToolCallBlock
+  result?: NativeChatToolResultBlock
+}
+
+/** Pair each tool call with its result so a request and its output render as one
+ *  block. A result attaches to the most recent unmatched call; an orphan result
+ *  (no preceding call) stands on its own. */
+export function pairToolBlocks(blocks: readonly NativeChatBlock[]): ToolPair[] {
+  const pairs: ToolPair[] = []
+  for (const block of blocks) {
+    if (block.type === 'tool-call') {
+      pairs.push({ call: block })
+    } else if (block.type === 'tool-result') {
+      const last = pairs[pairs.length - 1]
+      if (last && last.call && !last.result) {
+        last.result = block
+      } else {
+        pairs.push({ result: block })
+      }
+    }
+  }
+  return pairs
+}
+
 /** Split a message's blocks into prose (text/image) and tool (call/result), so
  *  the view can render the agent's words first and fold the tool activity into a
  *  separate collapsible run beneath it. */

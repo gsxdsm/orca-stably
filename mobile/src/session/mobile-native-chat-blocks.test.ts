@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { NativeChatMessage } from '../../../src/shared/native-chat-types'
-import { foldToolMessages, splitNativeChatBlocks } from './mobile-native-chat-blocks'
+import {
+  foldToolMessages,
+  pairToolBlocks,
+  splitNativeChatBlocks
+} from './mobile-native-chat-blocks'
 
 function msg(
   role: NativeChatMessage['role'],
@@ -19,6 +23,37 @@ describe('splitNativeChatBlocks', () => {
     ])
     expect(prose.map((b) => b.type)).toEqual(['text'])
     expect(tools.map((b) => b.type)).toEqual(['tool-call', 'tool-result'])
+  })
+})
+
+describe('pairToolBlocks', () => {
+  it('pairs each call with the following result', () => {
+    const pairs = pairToolBlocks([
+      { type: 'tool-call', name: 'Bash', input: { command: 'ls' } },
+      { type: 'tool-result', output: 'a\nb' },
+      { type: 'tool-call', name: 'Edit', input: {} },
+      { type: 'tool-result', output: 'ok' }
+    ])
+    expect(pairs).toHaveLength(2)
+    expect(pairs[0]!.call?.name).toBe('Bash')
+    expect(pairs[0]!.result?.output).toBe('a\nb')
+    expect(pairs[1]!.call?.name).toBe('Edit')
+  })
+
+  it('keeps an orphan result on its own', () => {
+    const pairs = pairToolBlocks([{ type: 'tool-result', output: 'x' }])
+    expect(pairs).toEqual([{ result: { type: 'tool-result', output: 'x' } }])
+  })
+
+  it('does not attach a second result to an already-filled pair', () => {
+    const pairs = pairToolBlocks([
+      { type: 'tool-call', name: 'Bash', input: {} },
+      { type: 'tool-result', output: '1' },
+      { type: 'tool-result', output: '2' }
+    ])
+    expect(pairs).toHaveLength(2)
+    expect(pairs[1]!.call).toBeUndefined()
+    expect(pairs[1]!.result?.output).toBe('2')
   })
 })
 

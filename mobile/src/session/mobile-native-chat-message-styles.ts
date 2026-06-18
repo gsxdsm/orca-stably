@@ -62,6 +62,22 @@ export const styles = StyleSheet.create({
   toolRun: {
     marginTop: spacing.xs
   },
+  toolRunHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm
+  },
+  toolRunToggle: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 3
+  },
+  controlsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end'
+  },
   toolRunCount: {
     color: colors.statusGreen,
     fontFamily: 'monospace',
