@@ -186,7 +186,10 @@ import { useMobileNativeChatSession } from '../../../../src/session/use-mobile-n
 import { resolveMobileNativeChat } from '../../../../src/session/mobile-native-chat-eligibility'
 import { parseAgentQuestion } from '../../../../src/session/mobile-native-chat-question'
 import { detectAgentPermission } from '../../../../src/session/mobile-native-chat-permission'
-import { extractPendingAsk } from '../../../../src/session/mobile-native-chat-ask'
+import {
+  extractPendingAsk,
+  parseAskFromStatus
+} from '../../../../src/session/mobile-native-chat-ask'
 import {
   getRepoIdFromMobileWorktreeId,
   isFileExistsErrorMessage,
@@ -1201,12 +1204,18 @@ export default function SessionScreen() {
     nativeChatBlocked && nativeChatStatus && !nativeChatPermission
       ? parseAgentQuestion(nativeChatStatus.lastAssistantMessage ?? '')
       : null
-  // Why: a structured AskUserQuestion in the transcript is the reliable signal —
-  // render it natively regardless of the heuristic status text.
-  const nativeChatAsk = useMemo(
-    () => (activeChatResolution != null ? extractPendingAsk(nativeChatSession.messages) : null),
-    [activeChatResolution, nativeChatSession.messages]
-  )
+  // Why: a pending AskUserQuestion isn't in the transcript until it's answered,
+  // so prefer the live agent-status `interactivePrompt`; fall back to the
+  // transcript tool-call (covers replays / agents without the live field).
+  const nativeChatAsk = useMemo(() => {
+    if (activeChatResolution == null) {
+      return null
+    }
+    return (
+      parseAskFromStatus(nativeChatStatus?.interactivePrompt, nativeChatStatus?.toolName) ??
+      extractPendingAsk(nativeChatSession.messages)
+    )
+  }, [activeChatResolution, nativeChatStatus?.interactivePrompt, nativeChatSession.messages])
   const handleNativeChatOpenFile = useCallback(
     (relativePath: string) => {
       if (!client) {

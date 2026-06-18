@@ -405,6 +405,11 @@ function resolvePrompt(
 export type ToolSnapshot = {
   toolName?: string
   toolInput?: string
+  /** Full JSON of an AskUserQuestion tool input, set only on the event that
+   *  carries it. Deliberately NOT inherited across events in resolveToolState
+   *  so it clears the moment the agent moves to a different tool / state and a
+   *  stale prompt can't linger on the emitted payload. */
+  interactivePrompt?: string
   hasToolUpdate?: boolean
   hasToolInputField?: boolean
   lastAssistantMessage?: string
@@ -440,6 +445,10 @@ function resolveToolState(
   const merged: ToolSnapshot = {
     toolName,
     toolInput,
+    // Why: do NOT inherit `previous.interactivePrompt`. The prompt is only
+    // valid for the single AskUserQuestion event that produced it; carrying it
+    // forward would leave a stale live card on the next tool/state change.
+    interactivePrompt: update.interactivePrompt,
     lastAssistantMessage: update.clearLastAssistantMessage
       ? undefined
       : (update.lastAssistantMessage ?? previous.lastAssistantMessage)
@@ -599,13 +608,48 @@ function hasAnyOwnField(record: Record<string, unknown>, keys: readonly string[]
 }
 
 function toolUpdate(
-  fields: Pick<ToolSnapshot, 'toolName' | 'toolInput'>,
+  fields: Pick<ToolSnapshot, 'toolName' | 'toolInput' | 'interactivePrompt'>,
   options?: { hasToolInputField?: boolean }
 ): ToolSnapshot {
   return {
     ...fields,
     hasToolUpdate: true,
     hasToolInputField: options?.hasToolInputField === true
+  }
+}
+
+/** True for the AskUserQuestion tool across the casing variants different
+ *  agents emit (`AskUserQuestion` / `ask_user_question` / `askUserQuestion`).
+ *  Why: this is the structured "pick an option" prompt whose full input the
+ *  clients render as a live card. */
+function isAskUserQuestionTool(toolName: string | undefined): boolean {
+  return toolName?.replaceAll(/[^a-z0-9]/gi, '').toLowerCase() === 'askuserquestion'
+}
+
+/** Capture the full AskUserQuestion tool input as a JSON string when the tool
+ *  is an AskUserQuestion variant; otherwise undefined so resolveToolState
+ *  clears any prior prompt. Kept agent-generic: callers pass whatever raw
+ *  tool-input object their hook payload exposed. */
+/** Drop the hook envelope keys a plugin merges into its event properties so
+ *  the serialized interactive prompt holds only the question structure. */
+function stripHookEnvelopeKeys(record: Record<string, unknown>): Record<string, unknown> {
+  const { hook_event_name: _h, hookEventName: _he, ...rest } = record
+  return rest
+}
+
+function deriveInteractivePrompt(
+  toolName: string | undefined,
+  toolInput: unknown
+): string | undefined {
+  if (!isAskUserQuestionTool(toolName) || toolInput === undefined || toolInput === null) {
+    return undefined
+  }
+  try {
+    return JSON.stringify(toolInput)
+  } catch {
+    // Why: defend against circular/unserializable input from a buggy agent —
+    // a missing live card is better than throwing in the hook hot path.
+    return undefined
   }
 }
 
@@ -1120,7 +1164,11 @@ function extractClaudeToolFields(
     Object.assign(
       update,
       toolUpdate(
-        { toolName, toolInput: deriveToolInputPreview(toolName, hookPayload.tool_input) },
+        {
+          toolName,
+          toolInput: deriveToolInputPreview(toolName, hookPayload.tool_input),
+          interactivePrompt: deriveInteractivePrompt(toolName, hookPayload.tool_input)
+        },
         { hasToolInputField: hasOwnField(hookPayload, 'tool_input') }
       )
     )
@@ -1299,6 +1347,19 @@ function extractOpenCodeToolFields(
     const text = readString(hookPayload, 'text')
     if (text) {
       return { lastAssistantMessage: capOpenCodeHookText(text) }
+    }
+  }
+  if (eventName === 'AskUserQuestion') {
+    // Why: OpenCode posts the question.asked event's `event.properties` as the
+    // hook payload (the plugin merges `hook_event_name` into it). The structured
+    // input is that object — minus the hook envelope key — or its `tool_input`
+    // when wrapped. Capture the full JSON so clients render the live card.
+    const toolInputSource = hasOwnField(hookPayload, 'tool_input')
+      ? hookPayload.tool_input
+      : stripHookEnvelopeKeys(hookPayload)
+    return {
+      hasToolUpdate: true,
+      interactivePrompt: deriveInteractivePrompt('AskUserQuestion', toolInputSource)
     }
   }
   return {}
@@ -2075,6 +2136,7 @@ function normalizeClaudeEvent(
       agentType: 'claude',
       toolName: snapshot.toolName,
       toolInput: snapshot.toolInput,
+      interactivePrompt: snapshot.interactivePrompt,
       lastAssistantMessage: snapshot.lastAssistantMessage,
       interrupted
     })
@@ -2135,6 +2197,7 @@ function normalizeDevinEvent(
       agentType: 'devin',
       toolName: snapshot.toolName,
       toolInput: snapshot.toolInput,
+      interactivePrompt: snapshot.interactivePrompt,
       lastAssistantMessage: snapshot.lastAssistantMessage,
       interrupted
     })
@@ -2245,6 +2308,7 @@ function normalizeGeminiEvent(
       agentType: 'gemini',
       toolName: snapshot.toolName,
       toolInput: snapshot.toolInput,
+      interactivePrompt: snapshot.interactivePrompt,
       lastAssistantMessage: snapshot.lastAssistantMessage
     })
   )
@@ -2320,6 +2384,7 @@ function normalizeAntigravityEvent(
       agentType: 'antigravity',
       toolName: snapshot.toolName,
       toolInput: snapshot.toolInput,
+      interactivePrompt: snapshot.interactivePrompt,
       lastAssistantMessage: snapshot.lastAssistantMessage
     })
   )
@@ -2402,6 +2467,7 @@ function normalizeAmpEvent(
       agentType: 'amp',
       toolName: snapshot.toolName,
       toolInput: snapshot.toolInput,
+      interactivePrompt: snapshot.interactivePrompt,
       lastAssistantMessage: snapshot.lastAssistantMessage,
       interrupted
     })
@@ -2539,6 +2605,7 @@ function normalizeCodexEvent(
       agentType: 'codex',
       toolName: snapshot.toolName,
       toolInput: snapshot.toolInput,
+      interactivePrompt: snapshot.interactivePrompt,
       lastAssistantMessage: snapshot.lastAssistantMessage
     })
   )
@@ -2581,6 +2648,7 @@ function normalizeOpenCodeFamilyEvent(
       agentType: source,
       toolName: snapshot.toolName,
       toolInput: snapshot.toolInput,
+      interactivePrompt: snapshot.interactivePrompt,
       lastAssistantMessage: snapshot.lastAssistantMessage
     })
   )
@@ -2643,6 +2711,7 @@ function normalizeCursorEvent(
       agentType: 'cursor',
       toolName: snapshot.toolName,
       toolInput: snapshot.toolInput,
+      interactivePrompt: snapshot.interactivePrompt,
       lastAssistantMessage: snapshot.lastAssistantMessage,
       interrupted
     })
@@ -2707,6 +2776,7 @@ function normalizeCopilotEvent(
       agentType: 'copilot',
       toolName: snapshot.toolName,
       toolInput: snapshot.toolInput,
+      interactivePrompt: snapshot.interactivePrompt,
       lastAssistantMessage: snapshot.lastAssistantMessage
     })
   )
@@ -2752,6 +2822,7 @@ function normalizePiCompatibleEvent(
       agentType,
       toolName: snapshot.toolName,
       toolInput: snapshot.toolInput,
+      interactivePrompt: snapshot.interactivePrompt,
       lastAssistantMessage: snapshot.lastAssistantMessage
     })
   )
@@ -2823,6 +2894,7 @@ function normalizeDroidEvent(
       agentType: 'droid',
       toolName: snapshot.toolName,
       toolInput: snapshot.toolInput,
+      interactivePrompt: snapshot.interactivePrompt,
       lastAssistantMessage: snapshot.lastAssistantMessage
     })
   )
@@ -2861,6 +2933,7 @@ function normalizeCommandCodeEvent(
       agentType: 'command-code',
       toolName: snapshot.toolName,
       toolInput: snapshot.toolInput,
+      interactivePrompt: snapshot.interactivePrompt,
       lastAssistantMessage: snapshot.lastAssistantMessage
     })
   )
@@ -2943,6 +3016,7 @@ function normalizeGrokEvent(
       agentType: 'grok',
       toolName: snapshot.toolName,
       toolInput: snapshot.toolInput,
+      interactivePrompt: snapshot.interactivePrompt,
       lastAssistantMessage: snapshot.lastAssistantMessage
     })
   )
@@ -2991,6 +3065,7 @@ function normalizeHermesEvent(
       agentType: 'hermes',
       toolName: snapshot.toolName,
       toolInput: snapshot.toolInput,
+      interactivePrompt: snapshot.interactivePrompt,
       lastAssistantMessage: snapshot.lastAssistantMessage
     })
   )

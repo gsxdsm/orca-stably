@@ -6,8 +6,6 @@ import type { NativeChatBlock, NativeChatMessage } from '../../../src/shared/nat
 // heuristically parsing status text. A prompt is "pending" while its tool-call is
 // the most recent tool activity with no following tool-result.
 
-const ASK_TOOL_NAMES = new Set(['AskUserQuestion', 'ask_user_question', 'askUserQuestion'])
-
 export type AskOption = { label: string; description?: string }
 export type AskQuestion = {
   question: string
@@ -17,7 +15,22 @@ export type AskQuestion = {
 }
 export type AskPrompt = { questions: AskQuestion[] }
 
-function asAskPrompt(input: unknown): AskPrompt | null {
+/** A parser turns one agent's interactive-question tool input into the normalized
+ *  AskPrompt the card renders. */
+export type InteractiveQuestionParser = (input: unknown) => AskPrompt | null
+
+// Registry of question-tool parsers keyed by the tool name the agent reports.
+// To support a new terminal/agent's question tool, register its parser here (or
+// via registerQuestionTool) — the renderer and wiring stay unchanged.
+const QUESTION_TOOL_PARSERS = new Map<string, InteractiveQuestionParser>()
+
+export function registerQuestionTool(toolName: string, parser: InteractiveQuestionParser): void {
+  QUESTION_TOOL_PARSERS.set(toolName, parser)
+}
+
+/** Claude's AskUserQuestion shape: `{ questions: [{ question, header, multiSelect,
+ *  options: [{ label, description }] }] }`. Also the de-facto default shape. */
+function parseQuestionsShape(input: unknown): AskPrompt | null {
   if (!input || typeof input !== 'object') {
     return null
   }
@@ -65,18 +78,52 @@ function asAskPrompt(input: unknown): AskPrompt | null {
   return questions.length > 0 ? { questions } : null
 }
 
-function isAskCall(block: NativeChatBlock): boolean {
-  return block.type === 'tool-call' && ASK_TOOL_NAMES.has(block.name)
+// Claude's AskUserQuestion (and aliases) ship the canonical questions shape.
+for (const name of ['AskUserQuestion', 'ask_user_question', 'askUserQuestion']) {
+  QUESTION_TOOL_PARSERS.set(name, parseQuestionsShape)
 }
 
-/** The most recent AskUserQuestion prompt still awaiting an answer, or null. A
- *  prompt is answered once any tool-result follows it in the message stream. */
+/** Resolve an interactive-prompt payload to an AskPrompt: try the tool's
+ *  registered parser first, then fall back to the canonical questions shape so a
+ *  new agent that happens to use the same structure works without registration. */
+function parseToolInput(toolName: string | undefined, input: unknown): AskPrompt | null {
+  const parser = toolName ? QUESTION_TOOL_PARSERS.get(toolName) : undefined
+  return (parser ? parser(input) : null) ?? parseQuestionsShape(input)
+}
+
+/** Parse the live `agentStatus.interactivePrompt` (the agent's untruncated
+ *  question-tool input as JSON) — the reliable source for a pending question,
+ *  since the transcript isn't written until the question is answered. */
+export function parseAskFromStatus(
+  interactivePrompt: string | undefined | null,
+  toolName?: string
+): AskPrompt | null {
+  if (!interactivePrompt) {
+    return null
+  }
+  try {
+    return parseToolInput(toolName, JSON.parse(interactivePrompt))
+  } catch {
+    return null
+  }
+}
+
+function questionToolFor(block: NativeChatBlock): InteractiveQuestionParser | null {
+  if (block.type !== 'tool-call') {
+    return null
+  }
+  return QUESTION_TOOL_PARSERS.get(block.name) ?? null
+}
+
+/** The most recent interactive question still awaiting an answer, or null. A
+ *  question is answered once any tool-result follows it in the message stream. */
 export function extractPendingAsk(messages: readonly NativeChatMessage[]): AskPrompt | null {
   let pending: AskPrompt | null = null
   for (const message of messages) {
     for (const block of message.blocks) {
-      if (isAskCall(block) && block.type === 'tool-call') {
-        const parsed = asAskPrompt(block.input)
+      const parser = questionToolFor(block)
+      if (parser && block.type === 'tool-call') {
+        const parsed = parser(block.input)
         if (parsed) {
           pending = parsed
         }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NativeChatMessage } from '../../../src/shared/native-chat-types'
-import { extractPendingAsk, formatAskAnswer } from './mobile-native-chat-ask'
+import { extractPendingAsk, formatAskAnswer, parseAskFromStatus } from './mobile-native-chat-ask'
 
 function msg(blocks: NativeChatMessage['blocks'], id = 'm'): NativeChatMessage {
   return { id, role: 'assistant', blocks, timestamp: 0, source: 'transcript' }
@@ -62,6 +62,20 @@ describe('extractPendingAsk', () => {
       ])
     ])
     expect(ask?.questions[0]!.question).toBe('Second')
+  })
+})
+
+describe('parseAskFromStatus', () => {
+  it('parses the live interactivePrompt JSON into a prompt', () => {
+    const ask = parseAskFromStatus(JSON.stringify(askInput))
+    expect(ask?.questions[0]!.options.map((o) => o.label)).toEqual(['A', 'B'])
+  })
+
+  it('returns null for empty or malformed input', () => {
+    expect(parseAskFromStatus(undefined)).toBeNull()
+    expect(parseAskFromStatus('')).toBeNull()
+    expect(parseAskFromStatus('{not json')).toBeNull()
+    expect(parseAskFromStatus('{"foo":1}')).toBeNull()
   })
 })
 
