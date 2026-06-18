@@ -131,11 +131,17 @@ export function fileBrowserRows(
 ): string[] {
   const tree = visibleTreeRows(state)
   const selected = clampFileIndex(state, tree)
+  // Leave a one-column right margin so the panel's edge is visible against the
+  // screen edge; each row is content (w cells) + a trailing blank column.
+  const w = Math.max(1, width - 1)
+  const margin = (styled: string): string => `${styled} `
   const rows: string[] = [
-    style(
-      fitCells(' Files  (↑↓ move · → open · ← close · f exit)', width),
-      { bg: 'white', fg: 'black', bold: true },
-      useColor
+    margin(
+      style(
+        fitCells(' Files  (↑↓ move · → open · ← close · f exit)', w),
+        { bg: 'white', fg: 'black', bold: true },
+        useColor
+      )
     )
   ]
   const bodyHeight = Math.max(0, height - rows.length)
@@ -150,10 +156,12 @@ export function fileBrowserRows(
     const glyph = row.kind === 'dir' ? (state.expanded.has(row.path) ? '▾ ' : '▸ ') : '  '
     const isSel = start + i === selected
     rows.push(
-      style(
-        fitCells(`${indent}${glyph}${row.name}`, width),
-        isSel ? { inverse: true, bold: true } : row.kind === 'dir' ? { bold: true } : {},
-        useColor
+      margin(
+        style(
+          fitCells(`${indent}${glyph}${row.name}`, w),
+          isSel ? { inverse: true, bold: true } : row.kind === 'dir' ? { bold: true } : {},
+          useColor
+        )
       )
     )
   }
