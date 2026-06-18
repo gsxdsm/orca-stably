@@ -25,7 +25,6 @@ describe('resolveAction', () => {
     expect(resolveAction({ type: 'char', value: 'n' })).toBe('new-worktree')
     expect(resolveAction({ type: 'char', value: 'c' })).toBe('new-terminal')
     expect(resolveAction({ type: 'char', value: 'x' })).toBe('remove-worktree')
-    expect(resolveAction({ type: 'char', value: 's' })).toBe('send-input')
   })
 
   it('returns null for unbound keys', () => {

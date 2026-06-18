@@ -31,6 +31,15 @@ describe('clipAnsi', () => {
     // Width 3 can't fit the second wide glyph (would need 4); stops at 2.
     expect(cellWidth(clipAnsi('日本', 3))).toBe(2)
   })
+
+  it('preserves truecolor + formatting SGR runs verbatim (full color support)', () => {
+    const truecolor = `${ESC}[38;2;255;128;0m${ESC}[1mWARN${ESC}[0m ok`
+    const clipped = clipAnsi(truecolor, 10)
+    // The 24-bit foreground and bold introducers survive the slice untouched.
+    expect(clipped).toContain(`${ESC}[38;2;255;128;0m`)
+    expect(clipped).toContain(`${ESC}[1m`)
+    expect(cellWidth(clipped)).toBe(7)
+  })
 })
 
 describe('fitCells', () => {

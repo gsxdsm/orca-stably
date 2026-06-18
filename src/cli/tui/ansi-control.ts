@@ -8,6 +8,13 @@ export const SHOW_CURSOR = '\x1b[?25h'
 export const CLEAR_SCREEN = '\x1b[2J\x1b[H'
 export const ALT_SCREEN_ENTER = '\x1b[?1049h'
 export const ALT_SCREEN_LEAVE = '\x1b[?1049l'
+/** Disable/enable terminal auto-wrap (DECAWM). We own the screen and place every
+ *  row by absolute cursor moves, so wrapping must be OFF — otherwise a viewport
+ *  line whose true display width exceeds our cell count (e.g. an emoji we measure
+ *  as one cell) overflows the edge, wraps, and shifts the whole layout. With it
+ *  off the terminal clips at the edge instead, like every full-screen TUI. */
+export const AUTOWRAP_OFF = '\x1b[?7l'
+export const AUTOWRAP_ON = '\x1b[?7h'
 /** Clear from the cursor to the end of the current physical row. */
 export const CLEAR_TO_EOL = '\x1b[K'
 

@@ -24,7 +24,11 @@ export type FrameModel = {
   sidebarWidth: number
   tabs: readonly { handle: string; title: string }[]
   focusedHandle: string | null
+  /** True when keystrokes/scroll are captured by the terminal (input focus). */
+  terminalFocused: boolean
   viewport: TerminalAnsiFrame
+  /** Lines scrolled back from the live bottom of the focused terminal. */
+  scrollOffset: number
   resolveKind: (row: WorktreeRow) => StatusIndicatorKind
   platform: Platform
   context: string
@@ -118,7 +122,7 @@ function narrowTerminalFrame(model: FrameModel, bodyHeight: number): string[] {
  *  below — herdr-style tabs-over-terminal. */
 function rightColumn(model: FrameModel, width: number, bodyHeight: number): string[] {
   const tab = tabStripRow(model.tabs, model.focusedHandle, width, model.useColor)
-  const body = viewportRows(model.viewport, width, Math.max(0, bodyHeight - 1))
+  const body = viewportRows(model.viewport, width, Math.max(0, bodyHeight - 1), model.scrollOffset)
   return [tab, ...body]
 }
 
@@ -129,6 +133,7 @@ function statusFooter(model: FrameModel): string {
     model.context,
     model.disconnected,
     model.error,
+    model.terminalFocused,
     model.useColor
   )
 }

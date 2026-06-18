@@ -22,6 +22,15 @@ describe('viewportRows', () => {
     expect(rows[1]).toContain('l4')
   })
 
+  it('scrolls back through history with a scroll offset', () => {
+    const frame = ansiFrame('l1\nl2\nl3\nl4\nl5')
+    const live = viewportRows(frame, 10, 2, 0)
+    expect(live[1]).toContain('l5')
+    const back = viewportRows(frame, 10, 2, 2)
+    expect(back[0]).toContain('l2')
+    expect(back[1]).toContain('l3')
+  })
+
   it('clips wide lines to the viewport width', () => {
     const rows = viewportRows(ansiFrame('abcdefghijklmnop'), 6, 1)
     expect(cellWidth(rows[0])).toBe(6)

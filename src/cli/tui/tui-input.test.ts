@@ -27,11 +27,15 @@ function makeHost(overrides: Partial<ControllerHost> = {}): ControllerHost {
     focusedHandle: () => 't1',
     overlay: () => overlay,
     inputValue: () => '',
+    terminalFocused: () => false,
     selectIndex: vi.fn(),
     move: vi.fn(),
     setNarrowView: vi.fn(),
     setFocused: vi.fn(),
     cycleFocus: vi.fn(),
+    focusTerminal: vi.fn(),
+    exitTerminalFocus: vi.fn(),
+    scrollTerminal: vi.fn(),
     setOverlay: vi.fn((next: ControllerOverlay) => {
       overlay = next
     }),
@@ -72,6 +76,12 @@ describe('handleKey', () => {
     expect(host.cycleFocus).toHaveBeenCalled()
   })
 
+  it('focuses the terminal for input on Enter (wide)', () => {
+    const host = makeHost()
+    handleKey(host, key({ type: 'enter' }))
+    expect(host.focusTerminal).toHaveBeenCalled()
+  })
+
   it('opens a prompt for new-worktree and submits a built command', () => {
     const host = makeHost({ inputValue: () => 'feature-y' })
     handleKey(host, key({ type: 'char', value: 'n' }))
@@ -100,10 +110,30 @@ const press = (col: number, row: number): MouseEvent => ({
 })
 
 describe('handleMouse', () => {
-  it('scrolls the selection', () => {
+  it('scrolls the selection when the terminal is not focused', () => {
     const host = makeHost()
     handleMouse(host, { type: 'scroll', direction: 'down', col: 0, row: 0 })
     expect(host.move).toHaveBeenCalledWith(1)
+    expect(host.scrollTerminal).not.toHaveBeenCalled()
+  })
+
+  it('scrolls terminal history (up = older) when the terminal is focused', () => {
+    const host = makeHost({ terminalFocused: () => true })
+    handleMouse(host, { type: 'scroll', direction: 'up', col: 0, row: 0 })
+    expect(host.scrollTerminal).toHaveBeenCalledWith(3)
+    expect(host.move).not.toHaveBeenCalled()
+  })
+
+  it('focuses the terminal when the viewport body is clicked (wide)', () => {
+    const host = makeHost()
+    handleMouse(host, press(60, 10))
+    expect(host.focusTerminal).toHaveBeenCalled()
+  })
+
+  it('returns to navigation when the sidebar is clicked while focused', () => {
+    const host = makeHost({ terminalFocused: () => true })
+    handleMouse(host, press(2, 4))
+    expect(host.exitTerminalFocus).toHaveBeenCalled()
   })
 
   it('selects a worktree when the sidebar is clicked', () => {

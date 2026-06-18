@@ -119,6 +119,21 @@ export function buildCall(command: TuiCommand): RpcCall {
   }
 }
 
+/** Forward raw keystroke bytes to a focused terminal. Best-effort and silent:
+ *  it runs on every keypress, so (unlike dispatchAction) it neither surfaces
+ *  errors nor refreshes the worktree snapshot. */
+export async function sendTerminalKeys(
+  client: TuiRpcClient,
+  terminal: string,
+  data: string
+): Promise<void> {
+  try {
+    await client.call('terminal.send', { terminal, text: data, client: TUI_CLIENT })
+  } catch {
+    // A dropped keystroke is recoverable; the next poll re-syncs the screen.
+  }
+}
+
 export type DispatchResult = { ok: true } | { ok: false; error: string }
 
 /** Execute a command. Errors are returned (not thrown) so the app can surface

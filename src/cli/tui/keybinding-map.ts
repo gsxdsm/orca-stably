@@ -14,7 +14,6 @@ export type TuiAction =
   | 'new-worktree'
   | 'remove-worktree'
   | 'new-terminal'
-  | 'send-input'
 
 export type Platform = 'mac' | 'other'
 
@@ -52,8 +51,7 @@ const BINDINGS: Binding[] = [
   { action: 'activate', hint: 'activate', matches: isChar('a') },
   { action: 'new-worktree', hint: 'new worktree', matches: isChar('n') },
   { action: 'new-terminal', hint: 'new terminal', matches: isChar('c') },
-  { action: 'remove-worktree', hint: 'remove', matches: isChar('x') },
-  { action: 'send-input', hint: 'send', matches: isChar('s') }
+  { action: 'remove-worktree', hint: 'remove', matches: isChar('x') }
 ]
 
 /** First action whose binding matches the key, or null. */
@@ -75,12 +73,11 @@ export function keybindingHelp(platform: Platform = currentPlatform()): KeyHelp[
   const quit = platform === 'mac' ? 'q / ⌃C' : 'q / Ctrl+C'
   return [
     { keys: '↑/k ↓/j', hint: 'move' },
-    { keys: 'Enter', hint: 'open' },
-    { keys: 'Esc', hint: 'back' },
+    { keys: 'Enter', hint: 'focus terminal' },
+    { keys: 'Ctrl+]', hint: 'leave terminal' },
     { keys: 'a', hint: 'activate' },
     { keys: 'n', hint: 'new worktree' },
     { keys: 'c', hint: 'new terminal' },
-    { keys: 's', hint: 'send input' },
     { keys: 'x', hint: 'remove' },
     { keys: 'r', hint: 'refresh' },
     { keys: '?', hint: 'help' },
@@ -93,9 +90,9 @@ export function statusBarHelp(platform: Platform = currentPlatform()): KeyHelp[]
   const quit = platform === 'mac' ? '⌃C' : 'Ctrl+C'
   return [
     { keys: '↑↓', hint: 'move' },
-    { keys: '⏎', hint: 'open' },
+    { keys: '⏎', hint: 'terminal' },
     { keys: 'n', hint: 'new' },
-    { keys: 's', hint: 'send' },
+    { keys: 'c', hint: 'term' },
     { keys: '?', hint: 'help' },
     { keys: `q/${quit}`, hint: 'quit' }
   ]

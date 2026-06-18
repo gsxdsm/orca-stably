@@ -76,6 +76,7 @@ export function statusRow(
   context: string,
   disconnected: boolean,
   error: string | null,
+  terminalFocused: boolean,
   useColor: boolean
 ): string {
   if (error) {
@@ -87,6 +88,17 @@ export function statusRow(
       { fg: 'yellow' },
       useColor
     )
+  }
+  // In terminal focus, keystrokes go to the PTY — show how to get back and scroll
+  // rather than the navigation keymap (which is inactive).
+  if (terminalFocused) {
+    const left = style(' ● terminal ', { bg: 'cyan', fg: 'black', bold: true }, useColor)
+    const rest = style(
+      fitCells(' Ctrl-] navigate · wheel scrolls history · keys → terminal', width - 12),
+      { dim: true },
+      useColor
+    )
+    return left + rest
   }
   const hints = statusBarHelp(platform)
     .map((hint) => `${hint.keys} ${hint.hint}`)

@@ -36,17 +36,25 @@ export type ControllerHost = {
   focusedHandle: () => string | null
   overlay: () => ControllerOverlay
   inputValue: () => string
+  /** True when keystrokes/scroll target the focused terminal rather than nav. */
+  terminalFocused: () => boolean
   selectIndex: (index: number) => void
   move: (delta: number) => void
   setNarrowView: (view: NarrowView) => void
   setFocused: (handle: string | null) => void
   cycleFocus: () => void
+  focusTerminal: () => void
+  exitTerminalFocus: () => void
+  scrollTerminal: (delta: number) => void
   setOverlay: (overlay: ControllerOverlay) => void
   setInput: (value: string) => void
   runCommand: (command: TuiCommand) => void
   refresh: () => void
   quit: () => void
 }
+
+/** Lines moved per scroll-wheel tick when scrolling the focused terminal. */
+const SCROLL_LINES = 3
 
 // ─── Keyboard ────────────────────────────────────────────────────────────────
 
@@ -77,12 +85,16 @@ export function handleKey(host: ControllerHost, key: LogicalKey): void {
   if (!action) {
     return
   }
-  if (host.isNarrow() && host.narrowView() === 'list' && action === 'open' && host.selected()) {
-    host.setNarrowView('terminal')
-    return
-  }
-  if (host.isNarrow() && host.narrowView() === 'terminal' && action === 'back') {
-    host.setNarrowView('list')
+  // Enter focuses the terminal for input: in narrow this opens the terminal
+  // view (which is implicitly focused); in wide it captures keystrokes.
+  if (action === 'open') {
+    if (host.isNarrow()) {
+      if (host.selected()) {
+        host.setNarrowView('terminal')
+      }
+    } else {
+      host.focusTerminal()
+    }
     return
   }
   startAction(host, action)
@@ -148,14 +160,6 @@ function startTargetedAction(host: ControllerHost, action: TuiAction): void {
     openPrompt(host, `New worktree name (repo ${selected.repoId}):`, (text) =>
       text ? { kind: 'worktree.create', repo: `id:${selected.repoId}`, name: text } : null
     )
-  } else if (action === 'send-input' && host.focusedHandle()) {
-    const handle = host.focusedHandle() as string
-    openPrompt(host, 'Send to focused terminal:', (text) => ({
-      kind: 'terminal.send',
-      terminal: handle,
-      text,
-      enter: true
-    }))
   }
 }
 
@@ -172,7 +176,13 @@ function openPrompt(
 
 export function handleMouse(host: ControllerHost, event: MouseEvent): void {
   if (event.type === 'scroll') {
-    host.move(event.direction === 'down' ? 1 : -1)
+    // When the terminal is focused the wheel scrolls its history (up = older);
+    // otherwise it moves the worktree selection.
+    if (host.terminalFocused()) {
+      host.scrollTerminal(event.direction === 'up' ? SCROLL_LINES : -SCROLL_LINES)
+    } else {
+      host.move(event.direction === 'down' ? 1 : -1)
+    }
     return
   }
   if (event.type !== 'press' || event.button !== 'left') {
@@ -182,10 +192,16 @@ export function handleMouse(host: ControllerHost, event: MouseEvent): void {
     routeNarrowMouse(host, event.col, event.row)
     return
   }
+  // Wide: the sidebar returns to navigation; the tab row or viewport body
+  // focuses the terminal for input.
   if (event.col < host.sidebarWidth()) {
     selectSidebarRow(host, event.row, false)
+    host.exitTerminalFocus()
   } else if (event.row === HEADER_ROWS) {
     focusTabAt(host, host.sidebarWidth() + 2, event.col)
+    host.focusTerminal()
+  } else {
+    host.focusTerminal()
   }
 }
 

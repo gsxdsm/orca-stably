@@ -1,6 +1,8 @@
 import {
   ALT_SCREEN_ENTER,
   ALT_SCREEN_LEAVE,
+  AUTOWRAP_OFF,
+  AUTOWRAP_ON,
   CLEAR_SCREEN,
   HIDE_CURSOR,
   SHOW_CURSOR
@@ -19,8 +21,13 @@ import {
 } from './tui-input'
 import { WorktreeSnapshotSource, type WorktreeSnapshotState } from './worktree-snapshot-source'
 import { flattenWorktreeRows, type WorktreeRow } from './worktree-snapshot'
-import { TerminalAnsiSource, emptyAnsiFrame, type TerminalAnsiFrame } from './terminal-ansi-source'
+import { FocusedTerminalPane } from './focused-terminal-pane'
 import { dispatchAction, type TuiCommand } from './action-dispatch'
+
+/** Telnet-style escape (Ctrl-]) returns from terminal-input focus to navigation;
+ *  it's effectively unused by interactive programs, so it won't clash with what
+ *  we're forwarding to the PTY. */
+const FOCUS_ESCAPE = '\x1d'
 import { IndicatorDebounceMap } from './indicator-debounce-map'
 import { clampSelection, moveSelection } from './navigation-state'
 import { MAX_PANES } from './pane-layout'
@@ -44,17 +51,15 @@ export class TuiScreenController {
   private snap: WorktreeSnapshotState
   private selectedIndex = 0
   private terminals: TerminalRef[] = []
-  private focusedHandleId: string | null = null
-  private viewport: TerminalAnsiFrame = emptyAnsiFrame()
   private narrow: NarrowView = 'list'
   private overlay: ControllerOverlay = { kind: 'none' }
   private input = ''
   private error: string | null = null
+  private readonly pane: FocusedTerminalPane
 
   private size = { columns: process.stdout.columns ?? 80, rows: process.stdout.rows ?? 24 }
   private readonly indicators = new IndicatorDebounceMap()
 
-  private ansiSource: TerminalAnsiSource | null = null
   private loadedWorktreeId: string | null = null
   private loadToken = 0
   private renderQueued = false
@@ -69,12 +74,15 @@ export class TuiScreenController {
     this.source = new WorktreeSnapshotSource(options.client)
     this.compositor = new ScreenCompositor()
     this.snap = this.source.getState()
+    this.pane = new FocusedTerminalPane(options.client, () => this.render())
   }
 
   run(): Promise<void> {
     return new Promise<void>((resolve) => {
       this.resolveExit = resolve
-      process.stdout.write(ALT_SCREEN_ENTER + HIDE_CURSOR + MOUSE_ENABLE + CLEAR_SCREEN)
+      process.stdout.write(
+        ALT_SCREEN_ENTER + HIDE_CURSOR + AUTOWRAP_OFF + MOUSE_ENABLE + CLEAR_SCREEN
+      )
       const stdin = process.stdin
       if (stdin.isTTY) {
         stdin.setRawMode?.(true)
@@ -101,15 +109,19 @@ export class TuiScreenController {
     snapshot: () => this.snap.snapshot,
     resolveKind: (row) => this.indicators.kindFor(row),
     terminals: () => this.terminals,
-    focusedHandle: () => this.focusedHandleId,
+    focusedHandle: () => this.pane.handle,
     overlay: () => this.overlay,
     inputValue: () => this.input,
+    terminalFocused: () => this.inputFocused(),
+    focusTerminal: () => this.focusTerminal(),
+    exitTerminalFocus: () => this.exitTerminalFocus(),
+    scrollTerminal: (delta) => this.pane.scroll(delta),
     selectIndex: (index) => this.selectIndex(index),
     move: (delta) =>
       this.selectIndex(moveSelection(this.selectedIndex, delta, this.worktreeRows().length)),
     setNarrowView: (view) => this.setNarrowView(view),
-    setFocused: (handle) => this.setFocused(handle),
-    cycleFocus: () => this.cycleFocus(),
+    setFocused: (handle) => this.pane.setHandle(handle),
+    cycleFocus: () => this.pane.cycle(this.terminals),
     setOverlay: (overlay) => {
       this.overlay = overlay
       this.render()
@@ -128,6 +140,16 @@ export class TuiScreenController {
     const mouse = parseMouseEvents(data)
     if (mouse.length > 0) {
       mouse.forEach((event) => handleMouse(this.host, event))
+      return
+    }
+    // While the terminal is focused, forward raw keystrokes to the PTY verbatim
+    // (so escapes/control chars pass through); Ctrl-] is the way back to nav.
+    if (this.inputFocused()) {
+      if (data === FOCUS_ESCAPE) {
+        this.exitTerminalFocus()
+      } else {
+        this.pane.sendKeys(data)
+      }
       return
     }
     const key = decodeKey(data)
@@ -191,38 +213,28 @@ export class TuiScreenController {
 
   private setTerminals(terminals: TerminalRef[]): void {
     this.terminals = terminals
-    this.setFocused(terminals[0]?.handle ?? null)
+    this.pane.setHandle(terminals[0]?.handle ?? null)
     this.render()
   }
 
-  // ─── Focused terminal stream ───────────────────────────────────────────────
+  // ─── Terminal input focus (delegated to the pane) ──────────────────────────
 
-  private setFocused(handle: string | null): void {
-    if (handle === this.focusedHandleId) {
-      return
-    }
-    this.focusedHandleId = handle
-    this.ansiSource?.stop()
-    this.ansiSource = null
-    this.viewport = emptyAnsiFrame()
-    if (handle) {
-      const source = new TerminalAnsiSource(this.options.client, handle)
-      source.subscribe((frame) => {
-        this.viewport = frame
-        this.render()
-      })
-      source.start()
-      this.ansiSource = source
-    }
-    this.render()
+  /** True when keystrokes/scroll target the terminal: the pane's explicit
+   *  wide-mode focus, or implicitly whenever the narrow terminal view is open. */
+  private inputFocused(): boolean {
+    return this.pane.focused || (this.isNarrow() && this.narrow === 'terminal')
   }
 
-  private cycleFocus(): void {
-    if (this.terminals.length === 0) {
-      return
+  private focusTerminal(): void {
+    this.pane.focusInput(this.terminals.length > 0)
+  }
+
+  private exitTerminalFocus(): void {
+    this.pane.exitInput()
+    if (this.isNarrow()) {
+      this.narrow = 'list'
     }
-    const current = this.terminals.findIndex((terminal) => terminal.handle === this.focusedHandleId)
-    this.setFocused(this.terminals[(current + 1) % this.terminals.length].handle)
+    this.render()
   }
 
   // ─── State setters + geometry ──────────────────────────────────────────────
@@ -303,8 +315,10 @@ export class TuiScreenController {
       selectedName: selected?.displayName ?? '',
       sidebarWidth: this.sidebarWidth(),
       tabs: this.terminals,
-      focusedHandle: this.focusedHandleId,
-      viewport: this.viewport,
+      focusedHandle: this.pane.handle,
+      terminalFocused: this.inputFocused(),
+      viewport: this.pane.viewport,
+      scrollOffset: this.pane.scrollOffset,
       resolveKind: this.indicators.kindFor,
       platform: this.platform,
       context: contextLabel(selected),
@@ -320,7 +334,7 @@ export class TuiScreenController {
       return
     }
     this.disposed = true
-    this.ansiSource?.stop()
+    this.pane.stop()
     this.source.stop()
     const stdin = process.stdin
     stdin.off('data', this.onData)
@@ -331,7 +345,7 @@ export class TuiScreenController {
     stdin.pause()
     // Restore a visible cursor + default shape, drop mouse reporting, leave the
     // alt screen — herdr's restore postlude so a quit never strands the terminal.
-    process.stdout.write(`${SHOW_CURSOR}\x1b[0 q${MOUSE_DISABLE}${ALT_SCREEN_LEAVE}`)
+    process.stdout.write(`${SHOW_CURSOR}\x1b[0 q${AUTOWRAP_ON}${MOUSE_DISABLE}${ALT_SCREEN_LEAVE}`)
     this.resolveExit?.()
   }
 }

@@ -1,14 +1,27 @@
 import { clipAnsi, fitCells, padCells } from './text-width'
+import { visibleTailLines } from './pane-layout'
 import type { TerminalAnsiFrame } from './terminal-ansi-source'
+
+/** Number of screen lines the frame currently holds (after trimming trailing
+ *  blanks) — the controller clamps the scrollback offset against this. */
+export function terminalLineCount(frame: TerminalAnsiFrame): number {
+  return frameLines(frame).length
+}
 
 /** Turn the focused terminal's frame into exactly `height` rows of exactly
  *  `width` visible cells, for placement in the viewport rectangle.
  *
  *  When ANSI data is present we slice it VERBATIM (byte-for-byte) — split into
- *  screen lines, take the bottom `height`, and clip each to `width` with an
- *  ANSI-aware slice that never splits an escape. No re-parsing through a
- *  terminal emulator: the runtime already serialized a faithful SGR screen. */
-export function viewportRows(frame: TerminalAnsiFrame, width: number, height: number): string[] {
+ *  screen lines, window to `height` (scrolled back by `scrollOffset`), and clip
+ *  each to `width` with an ANSI-aware slice that never splits an escape. No
+ *  re-parsing through a terminal emulator: the runtime already serialized a
+ *  faithful SGR screen. */
+export function viewportRows(
+  frame: TerminalAnsiFrame,
+  width: number,
+  height: number,
+  scrollOffset = 0
+): string[] {
   if (width <= 0 || height <= 0) {
     return []
   }
@@ -16,8 +29,7 @@ export function viewportRows(frame: TerminalAnsiFrame, width: number, height: nu
   if (lines.length === 0) {
     return placeholder(frame, width, height)
   }
-  const start = Math.max(0, lines.length - height)
-  const visible = lines.slice(start)
+  const visible = visibleTailLines(lines, height, scrollOffset)
   const rows: string[] = []
   for (const line of visible) {
     rows.push(padCells(clipAnsi(line, width), width))
