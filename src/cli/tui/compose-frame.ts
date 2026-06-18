@@ -95,7 +95,7 @@ function wideFrame(model: FrameModel, bodyHeight: number): string[] {
   // A heavy divider marks the input-focused side; blue when the terminal holds
   // focus, matching the top/bottom focus bars.
   const sep = model.terminalFocused
-    ? `${style('┃', { fg: 'blue', bold: true }, model.useColor)} `
+    ? `${style('┃', { fg: 'white', bold: true }, model.useColor)} `
     : `${style(BORDER, { dim: true }, model.useColor)} `
   const rows = [wideHeader(model)]
   for (let i = 0; i < bodyHeight; i += 1) {
@@ -178,7 +178,7 @@ function narrowTerminalFrame(model: FrameModel, bodyHeight: number): string[] {
     model.useColor
   )
   const right = rightColumn(model, viewportWidth, bodyHeight)
-  const back = style(BACK_LABEL, { bg: 'cyan', fg: 'black', bold: true }, model.useColor)
+  const back = style(BACK_LABEL, { bg: 'white', fg: 'black', bold: true }, model.useColor)
   const title = style(
     fitCells(` ${model.selectedName}`, model.columns - BACK_LABEL.length),
     { bold: true },

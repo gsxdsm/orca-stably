@@ -12,18 +12,12 @@ import { decodeKey } from './tty-key-adapter'
 import { ScreenCompositor } from './screen-compositor'
 import { composeFrame, type FrameModel } from './compose-frame'
 import { contextLabel, toOverlayModel } from './frame-derivation'
-import {
-  handleKey,
-  handleMouse,
-  type ControllerHost,
-  type ControllerOverlay,
-  type TerminalRef
-} from './tui-input'
+import { handleKey, handleMouse, type ControllerHost, type ControllerOverlay } from './tui-input'
 import { WorktreeSnapshotSource, type WorktreeSnapshotState } from './worktree-snapshot-source'
 import { flattenWorktreeRows, type WorktreeRow } from './worktree-snapshot'
 import { FocusedTerminalPane } from './focused-terminal-pane'
 import { dispatchAction, type TuiCommand } from './action-dispatch'
-import { groupTerminalsByWorktree } from './terminals-by-worktree'
+import { TerminalRegistry } from './terminal-registry'
 import { DoubleEscapeDetector } from './double-escape'
 
 /** Telnet-style escape (Ctrl-]) returns from terminal-input focus to navigation;
@@ -32,7 +26,6 @@ import { DoubleEscapeDetector } from './double-escape'
 const FOCUS_ESCAPE = '\x1d'
 import { IndicatorDebounceMap } from './indicator-debounce-map'
 import { clampSelection, moveSelection } from './navigation-state'
-import { MAX_PANES } from './pane-layout'
 import { currentPlatform } from './keybinding-map'
 import { resolveTheme } from './theme'
 import {
@@ -43,7 +36,6 @@ import {
   type NarrowView
 } from './tui-layout'
 import type { RunTuiOptions } from './tui-runtime-contract'
-import type { RuntimeTerminalListResult } from '../../shared/runtime-types'
 
 /** The manual screen controller: owns the terminal directly (herdr-style) and
  *  drives a diff-based compositor instead of Ink, so the right pane can carry
@@ -58,20 +50,17 @@ export class TuiScreenController {
 
   private snap: WorktreeSnapshotState
   private selectedIndex = 0
-  /** All terminals grouped by worktree (one terminal.list poll), the source for
-   *  both the right-pane tabs and the nested sidebar tab lines. */
-  private terminalsByWorktree = new Map<string, TerminalRef[]>()
   private tabsExpanded = true
   private narrow: NarrowView = 'list'
   private overlay: ControllerOverlay = { kind: 'none' }
   private input = ''
   private error: string | null = null
   private readonly pane: FocusedTerminalPane
+  private readonly terminals: TerminalRegistry
 
   private size = { columns: process.stdout.columns ?? 80, rows: process.stdout.rows ?? 24 }
   private readonly indicators = new IndicatorDebounceMap()
 
-  private loadToken = 0
   private renderQueued = false
   private resolveExit: (() => void) | null = null
   private disposed = false
@@ -86,6 +75,11 @@ export class TuiScreenController {
     this.compositor = new ScreenCompositor()
     this.snap = this.source.getState()
     this.pane = new FocusedTerminalPane(options.client, () => this.render())
+    this.terminals = new TerminalRegistry(options.client, this.pane, () => this.render())
+  }
+
+  private selectedWorktreeId(): string | undefined {
+    return this.worktreeRows()[this.selectedIndex]?.worktreeId
   }
 
   run(): Promise<void> {
@@ -103,7 +97,7 @@ export class TuiScreenController {
       process.stdout.on('resize', this.onResize)
       this.source.subscribe((state) => this.handleSnapshot(state))
       this.source.start()
-      void this.loadAllTerminals()
+      void this.terminals.reload(this.selectedWorktreeId())
       this.render()
     })
   }
@@ -120,8 +114,8 @@ export class TuiScreenController {
     bodyHeight: () => this.bodyHeight(),
     snapshot: () => this.snap.snapshot,
     resolveKind: (row) => this.indicators.kindFor(row),
-    terminals: () => this.selectedTerminals(),
-    terminalsByWorktree: () => this.terminalsByWorktree,
+    terminals: () => this.terminals.forWorktree(this.selectedWorktreeId()),
+    terminalsByWorktree: () => this.terminals.byWorktreeMap,
     tabsExpanded: () => this.tabsExpanded,
     focusedHandle: () => this.pane.handle,
     overlay: () => this.overlay,
@@ -143,7 +137,7 @@ export class TuiScreenController {
       this.render()
     },
     setFocused: (handle) => this.pane.setHandle(handle),
-    cycleFocus: () => this.pane.cycle(this.selectedTerminals()),
+    cycleFocus: () => this.pane.cycle(this.terminals.forWorktree(this.selectedWorktreeId())),
     setOverlay: (overlay) => {
       this.overlay = overlay
       this.render()
@@ -184,49 +178,22 @@ export class TuiScreenController {
   // ─── Snapshot + selection ──────────────────────────────────────────────────
 
   private handleSnapshot(state: WorktreeSnapshotState): void {
+    // Anchor selection to the worktree id so activity-driven reordering of the
+    // list doesn't switch the workspace (and its terminal) out from under the user.
+    const keepId = this.worktreeRows()[this.selectedIndex]?.worktreeId
     this.snap = state
     if (this.snap.snapshot) {
       this.indicators.reconcile(this.worktreeRows(), Date.now())
     }
-    this.selectedIndex = clampSelection(this.selectedIndex, this.worktreeRows().length)
-    void this.loadAllTerminals()
+    const rows = this.worktreeRows()
+    const kept = keepId ? rows.findIndex((row) => row.worktreeId === keepId) : -1
+    this.selectedIndex = kept >= 0 ? kept : clampSelection(this.selectedIndex, rows.length)
+    void this.terminals.reload(this.selectedWorktreeId())
     this.render()
   }
 
   private worktreeRows(): WorktreeRow[] {
     return this.snap.snapshot ? flattenWorktreeRows(this.snap.snapshot) : []
-  }
-
-  /** The selected worktree's terminals (right-pane tabs), capped at MAX_PANES. */
-  private selectedTerminals(): TerminalRef[] {
-    const id = this.worktreeRows()[this.selectedIndex]?.worktreeId
-    return (id ? this.terminalsByWorktree.get(id) : undefined)?.slice(0, MAX_PANES) ?? []
-  }
-
-  /** Poll every terminal once and group by worktree, then make sure the focused
-   *  handle still belongs to the selected worktree. */
-  private async loadAllTerminals(): Promise<void> {
-    const token = ++this.loadToken
-    try {
-      const list = await this.options.client.call<RuntimeTerminalListResult>('terminal.list', {})
-      if (token !== this.loadToken) {
-        return
-      }
-      this.terminalsByWorktree = groupTerminalsByWorktree(list.result.terminals)
-    } catch {
-      // Keep the last map on a transient failure; the next poll re-syncs.
-    }
-    this.ensureFocusedHandle()
-    this.render()
-  }
-
-  /** Keep the pane's handle pointing at a terminal of the selected worktree
-   *  (default the first), or null when it has none. */
-  private ensureFocusedHandle(): void {
-    const refs = this.selectedTerminals()
-    if (!refs.some((ref) => ref.handle === this.pane.handle)) {
-      this.pane.setHandle(refs[0]?.handle ?? null)
-    }
   }
 
   private jumpToTab(index: number, handle: string): void {
@@ -263,7 +230,7 @@ export class TuiScreenController {
       return
     }
     this.selectedIndex = next
-    this.ensureFocusedHandle()
+    this.terminals.ensureFocused(this.selectedWorktreeId())
     this.render()
   }
 
@@ -328,8 +295,8 @@ export class TuiScreenController {
       selectedIndex: this.selectedIndex,
       selectedName: selected?.displayName ?? '',
       sidebarWidth: this.sidebarWidth(),
-      tabs: this.selectedTerminals(),
-      terminalsByWorktree: this.terminalsByWorktree,
+      tabs: this.terminals.forWorktree(this.selectedWorktreeId()),
+      terminalsByWorktree: this.terminals.byWorktreeMap,
       tabsExpanded: this.tabsExpanded,
       focusedHandle: this.pane.handle,
       terminalFocused: this.inputFocused(),

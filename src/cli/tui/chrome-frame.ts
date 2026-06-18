@@ -13,12 +13,12 @@ import type { WorktreeRow, WorktreeSnapshot } from './worktree-snapshot'
  *  the layout matches the mouse hit-testing geometry exactly. */
 
 export function headerRow(label: string, width: number, useColor: boolean): string {
-  return style(fitCells(label, width), { bg: 'cyan', fg: 'black', bold: true }, useColor)
+  return style(fitCells(label, width), { bg: 'white', fg: 'black', bold: true }, useColor)
 }
 
-/** A two-segment bar split at the sidebar divider: the focused side is blue, the
- *  other white. Used for both the top and bottom bars so which pane has focus —
- *  workspaces (left) or terminal (right) — reads at a glance. */
+/** A two-segment bar split at the sidebar divider: the focused side is a solid
+ *  white bar, the other gray. Used for both the top and bottom bars so which
+ *  pane has focus — workspaces (left) or terminal (right) — reads at a glance. */
 export function focusBar(
   left: string,
   leftWidth: number,
@@ -27,8 +27,8 @@ export function focusBar(
   terminalFocused: boolean,
   useColor: boolean
 ): string {
-  const active: TextStyle = { bg: 'blue', fg: 'white', bold: true }
-  const idle: TextStyle = { bg: 'white', fg: 'black' }
+  const active: TextStyle = { bg: 'white', fg: 'black', bold: true }
+  const idle: TextStyle = { bg: 'gray', fg: 'white' }
   const leftSeg = style(fitCells(left, leftWidth), terminalFocused ? idle : active, useColor)
   const rightSeg = style(
     fitCells(right, Math.max(0, totalWidth - leftWidth)),
@@ -85,7 +85,7 @@ export function tabStripRow(
       break
     }
     const isFocused = tab.handle === focused
-    const spec: TextStyle = isFocused ? { bg: 'cyan', fg: 'black', bold: true } : { dim: true }
+    const spec: TextStyle = isFocused ? { bg: 'white', fg: 'black', bold: true } : { dim: true }
     out += style(label, spec, useColor)
     used += cellWidth(label)
   }
@@ -114,7 +114,7 @@ export function statusRow(
   // In terminal focus, keystrokes go to the PTY — show how to get back and scroll
   // rather than the navigation keymap (which is inactive).
   if (terminalFocused) {
-    const left = style(' ● terminal ', { bg: 'cyan', fg: 'black', bold: true }, useColor)
+    const left = style(' ● terminal ', { bg: 'white', fg: 'black', bold: true }, useColor)
     const rest = style(
       fitCells(' Ctrl-] navigate · wheel scrolls history · keys → terminal', width - 12),
       { dim: true },
@@ -126,7 +126,7 @@ export function statusRow(
     .map((hint) => `${hint.keys} ${hint.hint}`)
     .join('  ')
   const left = context ? `${context}  ` : ''
-  const ctx = style(left, { fg: 'cyan' }, useColor)
+  const ctx = style(left, { fg: 'white' }, useColor)
   const rest = style(fitCells(hints, Math.max(0, width - cellWidth(left))), { dim: true }, useColor)
   return ctx + rest
 }
@@ -202,7 +202,7 @@ function renderTabLine(
   const label = `   ${line.focused ? '▸' : '·'} ${truncateTabLabel(line.title)}`
   return style(
     fitCells(label, width),
-    line.focused ? { fg: 'cyan', bold: true } : { dim: true },
+    line.focused ? { fg: 'white', bold: true } : { dim: true },
     useColor
   )
 }

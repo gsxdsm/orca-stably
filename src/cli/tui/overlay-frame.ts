@@ -59,10 +59,10 @@ const H = '─'
 function drawBox(box: Box, innerWidth: number, useColor: boolean): string[] {
   const titleBar = ` ${box.title} `
   const fill = Math.max(0, innerWidth + 2 - titleBar.length)
-  const top = style(`╭${titleBar}${H.repeat(fill)}╮`, { fg: 'cyan', bold: true }, useColor)
-  const bottom = style(`╰${H.repeat(innerWidth + 2)}╯`, { fg: 'cyan' }, useColor)
+  const top = style(`╭${titleBar}${H.repeat(fill)}╮`, { fg: 'gray', bold: true }, useColor)
+  const bottom = style(`╰${H.repeat(innerWidth + 2)}╯`, { fg: 'gray' }, useColor)
   const body = box.lines.map((line) => {
-    const edge = style('│', { fg: 'cyan' }, useColor)
+    const edge = style('│', { fg: 'gray' }, useColor)
     return `${edge} ${fitCells(line, innerWidth)} ${edge}`
   })
   return [top, ...body, bottom]
