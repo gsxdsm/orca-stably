@@ -79,6 +79,19 @@ describe('saveFileTab', () => {
     expect(calls).toEqual(['files.writeIfUnchanged', 'files.read', 'files.write'])
   })
 
+  it('surfaces a non-method CAS error as failed (no fallback)', async () => {
+    const calls: string[] = []
+    const editor = editorWith('hello')
+    const client = {
+      call: vi.fn(async (method: string) => {
+        calls.push(method)
+        throw new Error('permission denied')
+      })
+    }
+    expect(await saveFileTab(client as never, 'id:wt', 'a.txt', editor, false)).toBe('failed')
+    expect(calls).toEqual(['files.writeIfUnchanged']) // no read/write fallback
+  })
+
   it('reports a conflict on the fallback path when the disk diverged', async () => {
     const editor = editorWith('hello')
     const client = {

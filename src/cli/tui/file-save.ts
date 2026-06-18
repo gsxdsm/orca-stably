@@ -34,17 +34,24 @@ async function casSave(
   editor: FileEditor
 ): Promise<SaveResult> {
   try {
-    const { result } = await client.call<{ status?: 'saved' | 'conflict' }>(
+    const { result } = await client.call<{ status: 'saved' | 'conflict' }>(
       'files.writeIfUnchanged',
       { worktree, relativePath, content: editor.content, expectedContent: editor.savedContent }
     )
     if (result.status === 'conflict') {
       return 'conflict'
     }
+    if (result.status !== 'saved') {
+      // An unexpected verdict is a real failure, not a save — don't mark clean.
+      throw new Error('invalid_cas_status')
+    }
     editor.markSaved()
     return 'saved'
-  } catch {
-    // Older runtime without files.writeIfUnchanged: best-effort read-then-write.
+  } catch (error) {
+    // Only fall back when the runtime lacks the CAS RPC; surface real failures.
+    if (!isUnknownMethodError(error)) {
+      throw error
+    }
     const { result } = await client.call<{ content?: string }>('files.read', {
       worktree,
       relativePath
@@ -56,4 +63,9 @@ async function casSave(
     editor.markSaved()
     return 'saved'
   }
+}
+
+function isUnknownMethodError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return /unknown method|method not found/i.test(message)
 }
