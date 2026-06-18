@@ -1,5 +1,21 @@
 import { describe, expect, it } from 'vitest'
-import { clampSelection, moveSelection } from './navigation-state'
+import { clampSelection, moveSelection, windowStart } from './navigation-state'
+
+describe('windowStart', () => {
+  it('returns 0 when everything fits', () => {
+    expect(windowStart(3, 5, 5)).toBe(0)
+    expect(windowStart(3, 5, 10)).toBe(0)
+  })
+
+  it('centers the selection when it overflows', () => {
+    expect(windowStart(10, 100, 10)).toBe(5)
+  })
+
+  it('clamps at the top and bottom edges', () => {
+    expect(windowStart(0, 100, 10)).toBe(0)
+    expect(windowStart(99, 100, 10)).toBe(90)
+  })
+})
 
 describe('moveSelection', () => {
   it('moves within bounds', () => {

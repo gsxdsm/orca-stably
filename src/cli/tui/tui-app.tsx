@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Text, useApp, useInput, useStdin, useStdout } from 'ink'
+import { Text, useApp, useInput, useStdin, useStdout } from 'ink'
 import type { RunTuiOptions } from './tui-runtime-contract'
 import { WorktreeSnapshotSource, type WorktreeSnapshotState } from './worktree-snapshot-source'
 import { flattenWorktreeRows, type WorktreeRow, type WorktreeSnapshot } from './worktree-snapshot'
@@ -12,16 +12,18 @@ import {
 } from './agent-state-indicator'
 import { WorktreeSidebar } from './worktree-sidebar'
 import { TerminalPanes } from './terminal-panes'
-import { StatusBar } from './status-bar'
 import { HelpOverlay } from './help-overlay'
 import { ConfirmOverlay, PromptOverlay } from './tui-overlays'
-import { buildSidebarLines, rowIndexAtScreenRow } from './sidebar-lines'
-import { MAX_PANES, tabHandleAtColumn, tabRegions, truncateTabLabel } from './pane-layout'
+import { MAX_PANES, truncateTabLabel } from './pane-layout'
 import { resolveTheme } from './theme'
 import { currentPlatform, resolveAction } from './keybinding-map'
 import { inkKeyToLogical } from './ink-key-bridge'
 import { clampSelection, moveSelection } from './navigation-state'
-import { MOUSE_DISABLE, MOUSE_ENABLE, parseMouseEvents, type MouseEvent } from './mouse-input'
+import { WorkspaceStatusStrip } from './workspace-status-strip'
+import { TuiView } from './tui-view'
+import { HEADER_ROWS, NARROW_THRESHOLD, sidebarWidthFor, type NarrowView } from './tui-layout'
+import { createMouseDataHandler } from './tui-mouse'
+import { MOUSE_DISABLE, MOUSE_ENABLE } from './mouse-input'
 import { TerminalScreenStream } from './terminal-screen-stream'
 import { emptyScreenState, type TerminalScreenState } from './terminal-screen'
 import { dispatchAction, worktreeSelector, type TuiCommand } from './action-dispatch'
@@ -34,17 +36,6 @@ type Overlay =
   | { kind: 'prompt'; label: string; build: (text: string) => TuiCommand | null }
 
 type TerminalRef = { handle: string; title: string }
-
-function sidebarWidthFor(columns: number): number {
-  return Math.max(16, Math.min(34, Math.floor(columns * 0.34)))
-}
-
-function padToWidth(label: string, width: number): string {
-  if (width <= 0) {
-    return label
-  }
-  return label.length >= width ? label.slice(0, width) : label + ' '.repeat(width - label.length)
-}
 
 /** Root TUI: a herdr-style dashboard — worktree sidebar (workspace switcher)
  *  beside a main panel of vertically split terminal panes. */
@@ -65,11 +56,14 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
   const [focusedHandle, setFocusedHandle] = useState<string | null>(null)
   const [screen, setScreen] = useState<TerminalScreenState>(emptyScreenState())
   const [size, setSize] = useState({ columns: stdout?.columns ?? 80, rows: stdout?.rows ?? 24 })
+  const [narrowView, setNarrowView] = useState<NarrowView>('list')
 
   const rows = useMemo(() => (snap.snapshot ? flattenWorktreeRows(snap.snapshot) : []), [snap])
   const selected = rows[clampSelection(selectedIndex, rows.length)] ?? null
   const selectedWorktreeId = selected?.worktreeId ?? null
   const sidebarWidth = sidebarWidthFor(size.columns)
+  const isNarrow = size.columns < NARROW_THRESHOLD
+  const bodyRows = Math.max(3, size.rows - HEADER_ROWS - 1)
 
   const tabSpecs = terminals.map((terminal) => ({
     handle: terminal.handle,
@@ -86,6 +80,14 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
   sidebarWidthRef.current = sidebarWidth
   const tabSpecsRef = useRef(tabSpecs)
   tabSpecsRef.current = tabSpecs
+  const selectedIndexRef = useRef(selectedIndex)
+  selectedIndexRef.current = selectedIndex
+  const isNarrowRef = useRef(isNarrow)
+  isNarrowRef.current = isNarrow
+  const narrowViewRef = useRef(narrowView)
+  narrowViewRef.current = narrowView
+  const bodyRowsRef = useRef(bodyRows)
+  bodyRowsRef.current = bodyRows
 
   // Per-worktree debounce so the sidebar indicators don't strobe between polls.
   const debounceRef = useRef(new Map<string, IndicatorDebounceState>())
@@ -199,38 +201,20 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
       return
     }
     process.stdout.write(MOUSE_ENABLE)
-    const handleMouse = (event: MouseEvent): void => {
-      if (event.type === 'scroll') {
-        setSelectedIndex((index) =>
-          moveSelection(index, event.direction === 'down' ? 1 : -1, rowCountRef.current)
-        )
-        return
-      }
-      if (event.type !== 'press' || event.button !== 'left') {
-        return
-      }
-      if (event.col < sidebarWidthRef.current) {
-        const target = rowIndexAtScreenRow(buildSidebarLines(snapshotRef.current), event.row)
-        if (target !== null) {
-          setSelectedIndex(target)
-        }
-        return
-      }
-      // Main panel: the tab strip is the first content row (just below the app
-      // header bar). A click there focuses that terminal's tab.
-      const handle = tabHandleAtColumn(
-        tabRegions(tabSpecsRef.current, sidebarWidthRef.current + 2),
-        event.col
-      )
-      if (handle) {
-        setFocusedHandle(handle)
-      }
-    }
-    const onData = (chunk: Buffer | string): void => {
-      for (const event of parseMouseEvents(chunk.toString())) {
-        handleMouse(event)
-      }
-    }
+    const onData = createMouseDataHandler({
+      snapshotRef,
+      rowCountRef,
+      sidebarWidthRef,
+      tabSpecsRef,
+      selectedIndexRef,
+      isNarrowRef,
+      narrowViewRef,
+      bodyRowsRef,
+      setSelectedIndex,
+      selectIndex: setSelectedIndex,
+      setNarrowView,
+      setFocusedHandle
+    })
     stdin.on('data', onData)
     return () => {
       stdin.off('data', onData)
@@ -348,12 +332,22 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
       cycleFocus()
       return
     }
-    if (logical) {
-      startAction(resolveAction(logical))
+    if (!logical) {
+      return
     }
+    const action = resolveAction(logical)
+    // In narrow mode, open/back swap between the workspace list and terminal.
+    if (isNarrow && narrowView === 'list' && action === 'open' && selected) {
+      setNarrowView('terminal')
+      return
+    }
+    if (isNarrow && narrowView === 'terminal' && action === 'back') {
+      setNarrowView('list')
+      return
+    }
+    startAction(action)
   })
 
-  const bodyRows = Math.max(3, size.rows - 2)
   const branchLabel = selected ? selected.branch.replace(/^refs\/heads\//, '') : ''
   // Avoid "name · name" when the display name already is the branch.
   const showBranch = branchLabel.length > 0 && branchLabel !== selected?.displayName
@@ -363,54 +357,55 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
       : selected.displayName
     : ''
 
+  const sidebarPane = snap.snapshot ? (
+    <WorktreeSidebar
+      snapshot={snap.snapshot}
+      selectedWorktreeId={selected?.worktreeId ?? null}
+      theme={theme}
+      indicatorKindFor={indicatorKindFor}
+    />
+  ) : (
+    <Text dimColor>Connecting…</Text>
+  )
+
   return (
-    <Box flexDirection="column" width={size.columns} height={size.rows}>
-      <Text backgroundColor="cyan" color="black" bold>
-        {padToWidth(
-          ` orca tui · ${rows.length} worktree${rows.length === 1 ? '' : 's'}`,
-          size.columns
-        )}
-      </Text>
-      <Box flexGrow={1}>
-        <Box
-          width={sidebarWidth}
-          flexDirection="column"
-          borderStyle="single"
-          borderTop={false}
-          borderBottom={false}
-          borderLeft={false}
-        >
-          {snap.snapshot ? (
-            <WorktreeSidebar
-              snapshot={snap.snapshot}
-              selectedWorktreeId={selected?.worktreeId ?? null}
-              theme={theme}
-              indicatorKindFor={indicatorKindFor}
-            />
-          ) : (
-            <Text dimColor>Connecting…</Text>
-          )}
-        </Box>
-        <Box flexGrow={1} flexDirection="column" marginLeft={1}>
-          <TerminalPanes
-            tabs={terminals}
-            focusedHandle={focusedHandle}
-            screen={screen}
-            availableRows={bodyRows}
-          />
-        </Box>
-      </Box>
-
-      {overlay.kind === 'help' ? <HelpOverlay platform={platform} /> : null}
-      {overlay.kind === 'confirm' ? <ConfirmOverlay message={overlay.message} /> : null}
-      {overlay.kind === 'prompt' ? <PromptOverlay label={overlay.label} value={input} /> : null}
-
-      <StatusBar
-        platform={platform}
-        disconnected={!snap.connected}
-        error={error}
-        context={contextLabel}
-      />
-    </Box>
+    <TuiView
+      columns={size.columns}
+      rows={size.rows}
+      isNarrow={isNarrow}
+      narrowView={narrowView}
+      worktreeCount={rows.length}
+      selectedName={selected?.displayName ?? ''}
+      sidebarWidth={sidebarWidth}
+      sidebar={sidebarPane}
+      main={
+        <TerminalPanes
+          tabs={terminals}
+          focusedHandle={focusedHandle}
+          screen={screen}
+          availableRows={bodyRows}
+        />
+      }
+      strip={
+        <WorkspaceStatusStrip
+          rows={rows}
+          selectedIndex={selectedIndex}
+          height={bodyRows}
+          theme={theme}
+          indicatorKindFor={indicatorKindFor}
+        />
+      }
+      overlays={
+        <>
+          {overlay.kind === 'help' ? <HelpOverlay platform={platform} /> : null}
+          {overlay.kind === 'confirm' ? <ConfirmOverlay message={overlay.message} /> : null}
+          {overlay.kind === 'prompt' ? <PromptOverlay label={overlay.label} value={input} /> : null}
+        </>
+      }
+      platform={platform}
+      disconnected={!snap.connected}
+      error={error}
+      context={contextLabel}
+    />
   )
 }

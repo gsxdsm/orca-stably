@@ -25,3 +25,13 @@ export function clampSelection(index: number, total: number): number {
   }
   return Math.min(Math.max(index, 0), total - 1)
 }
+
+/** First visible index for a scrolling window of `capacity` rows that keeps the
+ *  `selected` row on screen (centered when possible). */
+export function windowStart(selected: number, total: number, capacity: number): number {
+  if (capacity <= 0 || capacity >= total) {
+    return 0
+  }
+  const half = Math.floor(capacity / 2)
+  return Math.min(Math.max(selected - half, 0), total - capacity)
+}
