@@ -63,7 +63,7 @@ export const styles = StyleSheet.create({
     marginTop: spacing.xs
   },
   toolRunCount: {
-    color: colors.syntaxMeta,
+    color: colors.statusGreen,
     fontFamily: 'monospace',
     fontSize: MONO_SIZE,
     fontWeight: '700'

@@ -10,7 +10,6 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'
-import { runOnJS } from 'react-native-reanimated'
 import { ArrowDown, ChevronsDownUp, ChevronsUpDown, Square } from 'lucide-react-native'
 import type { NativeChatMessage } from '../../../src/shared/native-chat-types'
 import { colors } from '../theme/mobile-theme'
@@ -117,19 +116,20 @@ export function MobileNativeChatView({
   const fontScaleRef = useRef(1)
   fontScaleRef.current = fontScale
   const pinchBase = useRef(1)
-  const savePinchBase = useCallback(() => {
-    pinchBase.current = fontScaleRef.current
-  }, [])
+  // Why: run the gesture callbacks on the JS thread (not a reanimated worklet) so
+  // they can touch React refs/state and clampFontScale directly — accessing those
+  // from the UI-thread worklet crashes the app.
   const pinchGesture = useMemo(
     () =>
       Gesture.Pinch()
+        .runOnJS(true)
         .onStart(() => {
-          runOnJS(savePinchBase)()
+          pinchBase.current = fontScaleRef.current
         })
         .onUpdate((e) => {
-          runOnJS(setFontScale)(clampFontScale(pinchBase.current * e.scale))
+          setFontScale(clampFontScale(pinchBase.current * e.scale))
         }),
-    [savePinchBase]
+    []
   )
 
   // Fold each tool-result turn into the assistant turn it belongs to, then append
