@@ -16,6 +16,7 @@ import { colors } from '../theme/mobile-theme'
 import { clampFontScale } from './mobile-native-chat-message-text'
 import { styles } from './mobile-native-chat-view-styles'
 import { foldToolMessages } from './mobile-native-chat-blocks'
+import { stripNoiseMessages } from './mobile-native-chat-noise'
 import { MobileAgentWorkingIndicator } from './MobileAgentWorkingIndicator'
 import { MobileNativeChatComposer } from './MobileNativeChatComposer'
 import { MobileNativeChatMessage } from './MobileNativeChatMessage'
@@ -142,7 +143,7 @@ export function MobileNativeChatView({
 
   // Fold each tool-result turn into the assistant turn it belongs to, then append
   // the route-owned optimistic "queued" messages at the tail.
-  const folded = useMemo(() => foldToolMessages(messages), [messages])
+  const folded = useMemo(() => foldToolMessages(stripNoiseMessages(messages)), [messages])
   const pendingIds = useMemo(() => new Set(pending.map((p) => p.id)), [pending])
   // Only show the streaming bubble while its text leads the transcript — once the
   // real assistant turn lands with the same text, drop the synthetic one.
