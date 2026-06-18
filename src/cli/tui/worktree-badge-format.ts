@@ -6,15 +6,16 @@ import type { WorktreeBadges } from './worktree-snapshot'
 export function formatBadges(badges: WorktreeBadges): string {
   const parts: string[] = []
 
+  // Loose `!= null` so an undefined link field renders nothing, not "undefined".
   if (badges.pr) {
     parts.push(`#${badges.pr.number}`)
-  } else if (badges.gitLabMr !== null) {
+  } else if (badges.gitLabMr != null) {
     parts.push(`!${badges.gitLabMr}`)
-  } else if (badges.linearIssue !== null) {
+  } else if (badges.linearIssue != null) {
     parts.push(badges.linearIssue)
-  } else if (badges.issue !== null) {
+  } else if (badges.issue != null) {
     parts.push(`#${badges.issue}`)
-  } else if (badges.gitLabIssue !== null) {
+  } else if (badges.gitLabIssue != null) {
     parts.push(`#${badges.gitLabIssue}`)
   }
 

@@ -16,7 +16,7 @@ import { StatusBar } from './status-bar'
 import { HelpOverlay } from './help-overlay'
 import { ConfirmOverlay, PromptOverlay } from './tui-overlays'
 import { buildSidebarLines, rowIndexAtScreenRow } from './sidebar-lines'
-import { MAX_PANES, paneIndexAtRow } from './pane-layout'
+import { MAX_PANES, tabHandleAtColumn, tabRegions, truncateTabLabel } from './pane-layout'
 import { resolveTheme } from './theme'
 import { currentPlatform, resolveAction } from './keybinding-map'
 import { inkKeyToLogical } from './ink-key-bridge'
@@ -76,6 +76,10 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
     title: terminal.title,
     tail: tails.get(terminal.handle) ?? null
   }))
+  const tabSpecs = terminals.map((terminal) => ({
+    handle: terminal.handle,
+    label: truncateTabLabel(terminal.title)
+  }))
 
   // Refs so the mouse handler reads the latest state without re-subscribing
   // stdin (which would churn MOUSE_ENABLE/DISABLE) on every poll.
@@ -83,12 +87,10 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
   snapshotRef.current = snap.snapshot
   const rowCountRef = useRef(rows.length)
   rowCountRef.current = rows.length
-  const paneCountRef = useRef(panes.length)
-  paneCountRef.current = panes.length
   const sidebarWidthRef = useRef(sidebarWidth)
   sidebarWidthRef.current = sidebarWidth
-  const terminalsRef = useRef(terminals)
-  terminalsRef.current = terminals
+  const tabSpecsRef = useRef(tabSpecs)
+  tabSpecsRef.current = tabSpecs
 
   // Per-worktree debounce so the sidebar indicators don't strobe between polls.
   const debounceRef = useRef(new Map<string, IndicatorDebounceState>())
@@ -174,7 +176,10 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
         setFocusedHandle(refs[0]?.handle ?? null)
         for (const ref of refs) {
           const stream = new TerminalReadTailStream(options.client, ref.handle, {
-            isRemote: options.isRemote
+            isRemote: options.isRemote,
+            // Fetch a full screen's worth so the panel shows real terminal
+            // output, not just the short uncursored preview.
+            limit: 500
           })
           const unsubscribe = stream.subscribe((state) => {
             setTails((prev) => {
@@ -230,12 +235,14 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
         }
         return
       }
-      // Click in the main panel focuses the pane under the pointer. Row 0 of the
-      // main column is the worktree header, so the panes start one row down.
-      const paneIndex = paneIndexAtRow(paneCountRef.current, size.rows - 1, event.row - 1)
-      const ref = terminalsRef.current[paneIndex]
-      if (ref) {
-        setFocusedHandle(ref.handle)
+      // Main panel: the tab strip is the first content row (just below the app
+      // header bar). A click there focuses that terminal's tab.
+      const handle = tabHandleAtColumn(
+        tabRegions(tabSpecsRef.current, sidebarWidthRef.current + 2),
+        event.col
+      )
+      if (handle) {
+        setFocusedHandle(handle)
       }
     }
     const onData = (chunk: Buffer | string): void => {
@@ -248,7 +255,7 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
       stdin.off('data', onData)
       process.stdout.write(MOUSE_DISABLE)
     }
-  }, [stdin, size.rows])
+  }, [stdin])
 
   async function run(command: TuiCommand): Promise<void> {
     const result = await dispatchAction(options.client, command)
@@ -366,7 +373,6 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
   })
 
   const bodyRows = Math.max(3, size.rows - 2)
-  const mainWidth = Math.max(10, size.columns - sidebarWidth - 2)
   const branchLabel = selected ? selected.branch.replace(/^refs\/heads\//, '') : ''
   // Avoid "name · name" when the display name already is the branch.
   const showBranch = branchLabel.length > 0 && branchLabel !== selected?.displayName
@@ -405,18 +411,7 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
           )}
         </Box>
         <Box flexGrow={1} flexDirection="column" marginLeft={1}>
-          {selected ? (
-            <Text bold>
-              {selected.displayName}
-              {showBranch ? <Text dimColor>{` · ${branchLabel}`}</Text> : null}
-            </Text>
-          ) : null}
-          <TerminalPanes
-            panes={panes}
-            focusedHandle={focusedHandle}
-            availableRows={bodyRows}
-            availableWidth={mainWidth}
-          />
+          <TerminalPanes panes={panes} focusedHandle={focusedHandle} availableRows={bodyRows} />
         </Box>
       </Box>
 

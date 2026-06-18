@@ -1,16 +1,38 @@
 import { describe, expect, it } from 'vitest'
-import { paneHeights, paneIndexAtRow, visibleTailLines } from './pane-layout'
+import { tabHandleAtColumn, tabRegions, truncateTabLabel, visibleTailLines } from './pane-layout'
 
-describe('paneHeights', () => {
-  it('splits rows evenly, remainder to the earliest panes', () => {
-    expect(paneHeights(2, 10)).toEqual([5, 5])
-    expect(paneHeights(3, 10)).toEqual([4, 3, 3])
-    expect(paneHeights(1, 7)).toEqual([7])
+describe('truncateTabLabel', () => {
+  it('keeps short titles, falling back to shell for blanks', () => {
+    expect(truncateTabLabel('claude')).toBe('claude')
+    expect(truncateTabLabel('   ')).toBe('shell')
   })
 
-  it('returns empty for non-positive inputs', () => {
-    expect(paneHeights(0, 10)).toEqual([])
-    expect(paneHeights(2, 0)).toEqual([])
+  it('truncates long titles with an ellipsis', () => {
+    expect(truncateTabLabel('a very long terminal title here', 10)).toBe('a very lo…')
+  })
+})
+
+describe('tabRegions / tabHandleAtColumn', () => {
+  // ` a ` (3) + ` bb ` (4) starting at x=20: a -> [20,23), bb -> [23,27).
+  const tabs = [
+    { handle: 'a', label: 'a' },
+    { handle: 'bb', label: 'bb' }
+  ]
+
+  it('lays tabs out left to right with one space of padding', () => {
+    expect(tabRegions(tabs, 20)).toEqual([
+      { handle: 'a', x: 20, width: 3 },
+      { handle: 'bb', x: 23, width: 4 }
+    ])
+  })
+
+  it('resolves a click column to the tab under it', () => {
+    const regions = tabRegions(tabs, 20)
+    expect(tabHandleAtColumn(regions, 21)).toBe('a')
+    expect(tabHandleAtColumn(regions, 23)).toBe('bb')
+    expect(tabHandleAtColumn(regions, 26)).toBe('bb')
+    expect(tabHandleAtColumn(regions, 27)).toBeNull()
+    expect(tabHandleAtColumn(regions, 5)).toBeNull()
   })
 })
 
@@ -21,32 +43,9 @@ describe('visibleTailLines', () => {
     expect(visibleTailLines(lines, 2, 0)).toEqual(['d', 'e'])
   })
 
-  it('scrolls back by the offset', () => {
+  it('scrolls back by the offset and clamps to available lines', () => {
     expect(visibleTailLines(lines, 2, 1)).toEqual(['c', 'd'])
-  })
-
-  it('clamps to available lines', () => {
     expect(visibleTailLines(lines, 10, 0)).toEqual(lines)
     expect(visibleTailLines(lines, 0, 0)).toEqual([])
-  })
-})
-
-describe('paneIndexAtRow', () => {
-  // available=10, 2 panes: bodyRows = max(2, 10-2) = 8 -> heights [4,4].
-  // Each pane = 1 title + 4 body = 5 rows. pane 0 -> rows 0..4, pane 1 -> 5..9.
-  it('maps a row to the pane that contains it', () => {
-    expect(paneIndexAtRow(2, 10, 0)).toBe(0)
-    expect(paneIndexAtRow(2, 10, 4)).toBe(0)
-    expect(paneIndexAtRow(2, 10, 5)).toBe(1)
-    expect(paneIndexAtRow(2, 10, 9)).toBe(1)
-  })
-
-  it('clamps out-of-range rows to a valid pane', () => {
-    expect(paneIndexAtRow(2, 10, -5)).toBe(0)
-    expect(paneIndexAtRow(2, 10, 999)).toBe(1)
-  })
-
-  it('returns 0 when there are no panes', () => {
-    expect(paneIndexAtRow(0, 10, 3)).toBe(0)
   })
 })

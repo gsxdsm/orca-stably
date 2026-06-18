@@ -63,13 +63,16 @@ function toRow(summary: RuntimeWorktreePsSummary): WorktreeRow {
     preview: summary.preview,
     parentWorktreeId: summary.parentWorktreeId,
     badges: {
-      unread: summary.unread,
-      liveTerminalCount: summary.liveTerminalCount,
-      issue: summary.linkedIssue,
-      pr: summary.linkedPR,
-      gitLabMr: summary.linkedGitLabMR,
-      gitLabIssue: summary.linkedGitLabIssue,
-      linearIssue: summary.linkedLinearIssue
+      // The runtime sometimes omits link fields (undefined) rather than sending
+      // null; coerce so the formatter's null checks render nothing, not
+      // "undefined".
+      unread: summary.unread ?? false,
+      liveTerminalCount: summary.liveTerminalCount ?? 0,
+      issue: summary.linkedIssue ?? null,
+      pr: summary.linkedPR ?? null,
+      gitLabMr: summary.linkedGitLabMR ?? null,
+      gitLabIssue: summary.linkedGitLabIssue ?? null,
+      linearIssue: summary.linkedLinearIssue ?? null
     }
   }
 }
