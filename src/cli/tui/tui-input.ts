@@ -1,6 +1,11 @@
 import { resolveAction, type TuiAction } from './keybinding-map'
 import { worktreeSelector, type TuiCommand } from './action-dispatch'
-import { buildSidebarLines, rowIndexAtScreenRow } from './sidebar-lines'
+import {
+  buildSidebarLines,
+  rowIndexAtScreenRow,
+  tabAtScreenRow,
+  type SidebarLine
+} from './sidebar-lines'
 import { tabHandleAtColumn, tabRegions, truncateTabLabel } from './pane-layout'
 import { windowStart } from './navigation-state'
 import { BACK_LABEL, HEADER_ROWS, STRIP_WIDTH, type NarrowView } from './tui-layout'
@@ -33,6 +38,9 @@ export type ControllerHost = {
   snapshot: () => WorktreeSnapshot | null
   resolveKind: (row: WorktreeRow) => StatusIndicatorKind
   terminals: () => readonly TerminalRef[]
+  /** All terminals grouped by worktree, for the nested sidebar tab lines. */
+  terminalsByWorktree: () => ReadonlyMap<string, readonly TerminalRef[]>
+  tabsExpanded: () => boolean
   focusedHandle: () => string | null
   overlay: () => ControllerOverlay
   inputValue: () => string
@@ -46,6 +54,9 @@ export type ControllerHost = {
   focusTerminal: () => void
   exitTerminalFocus: () => void
   scrollTerminal: (delta: number) => void
+  toggleTabs: () => void
+  /** Select a worktree and focus a specific terminal of it (jump-to-tab). */
+  jumpToTab: (index: number, handle: string) => void
   setOverlay: (overlay: ControllerOverlay) => void
   setInput: (value: string) => void
   runCommand: (command: TuiCommand) => void
@@ -131,6 +142,8 @@ function startAction(host: ControllerHost, action: TuiAction): void {
     host.move(-1)
   } else if (action === 'move-down') {
     host.move(1)
+  } else if (action === 'toggle-tabs') {
+    host.toggleTabs()
   } else {
     startTargetedAction(host, action)
   }
@@ -192,12 +205,18 @@ export function handleMouse(host: ControllerHost, event: MouseEvent): void {
     routeNarrowMouse(host, event.col, event.row)
     return
   }
-  // Wide: clicking a *different* workspace switches to it and focuses its
-  // terminal for input; clicking the already-selected workspace (or empty list
-  // space) focuses the workspace area instead. The tab row / viewport body
-  // always focus the terminal.
+  // Wide: a nested tab line jumps to that terminal; clicking a *different*
+  // workspace switches to it and focuses its terminal; clicking the
+  // already-selected workspace (or empty list space) focuses the workspace area.
+  // The tab row / viewport body always focus the terminal.
   if (event.col < host.sidebarWidth()) {
-    const target = sidebarRowAt(host, event.row)
+    const { lines, lineIndex } = sidebarHit(host, event.row)
+    const tab = tabAtScreenRow(lines, lineIndex)
+    if (tab) {
+      host.jumpToTab(tab.index, tab.handle)
+      return
+    }
+    const target = rowIndexAtScreenRow(lines, lineIndex)
     if (target === null || target === host.selectedIndex()) {
       host.exitTerminalFocus()
     } else {
@@ -214,7 +233,18 @@ export function handleMouse(host: ControllerHost, event: MouseEvent): void {
 
 function routeNarrowMouse(host: ControllerHost, col: number, row: number): void {
   if (host.narrowView() === 'list') {
-    selectSidebarRow(host, row, true)
+    const { lines, lineIndex } = sidebarHit(host, row)
+    const tab = tabAtScreenRow(lines, lineIndex)
+    if (tab) {
+      host.jumpToTab(tab.index, tab.handle)
+      host.setNarrowView('terminal')
+      return
+    }
+    const target = rowIndexAtScreenRow(lines, lineIndex)
+    if (target !== null) {
+      host.selectIndex(target)
+      host.setNarrowView('terminal')
+    }
     return
   }
   if (row === 0 && col < BACK_LABEL.length) {
@@ -235,34 +265,23 @@ function routeNarrowMouse(host: ControllerHost, col: number, row: number): void 
   }
 }
 
-/** Map a sidebar screen row to a flattened worktree index, honoring the
- *  sidebar's scroll window so a click resolves to the worktree the row renders.
- *  Null when the row is a header/spacer/gutter. */
-function sidebarRowAt(host: ControllerHost, screenRow: number): number | null {
-  const lines = buildSidebarLines(host.snapshot(), host.resolveKind)
+/** Build the sidebar lines (with nested tabs) the same way the renderer does,
+ *  and resolve which line a screen row hit — honoring the scroll window so the
+ *  hit-test never drifts from what's drawn. */
+function sidebarHit(
+  host: ControllerHost,
+  screenRow: number
+): { lines: readonly SidebarLine[]; lineIndex: number } {
+  const lines = buildSidebarLines(host.snapshot(), host.resolveKind, {
+    terminalsByWorktree: host.terminalsByWorktree(),
+    expanded: host.tabsExpanded(),
+    focusedHandle: host.focusedHandle()
+  })
   const selectedLine = lines.findIndex(
     (line) => line.kind === 'row' && line.index === host.selectedIndex()
   )
   const start = windowStart(Math.max(0, selectedLine), lines.length, host.bodyHeight())
-  return rowIndexAtScreenRow(lines, start + (screenRow - HEADER_ROWS))
-}
-
-/** Select the worktree at a sidebar screen row (narrow list → opens its terminal
- *  view). Returns true when a worktree row was hit. */
-function selectSidebarRow(
-  host: ControllerHost,
-  screenRow: number,
-  switchToTerminal: boolean
-): boolean {
-  const target = sidebarRowAt(host, screenRow)
-  if (target === null) {
-    return false
-  }
-  host.selectIndex(target)
-  if (switchToTerminal) {
-    host.setNarrowView('terminal')
-  }
-  return true
+  return { lines, lineIndex: start + (screenRow - HEADER_ROWS) }
 }
 
 function focusTabAt(host: ControllerHost, originX: number, col: number): void {

@@ -32,6 +32,8 @@ function makeHost(overrides: Partial<ControllerHost> = {}): ControllerHost {
     snapshot: () => snapshot,
     resolveKind: (row) => worktreeIndicatorKind(row.status, row.agents),
     terminals: () => [{ handle: 't1', title: 'shell' }],
+    terminalsByWorktree: () => new Map(),
+    tabsExpanded: () => false,
     focusedHandle: () => 't1',
     overlay: () => overlay,
     inputValue: () => '',
@@ -44,6 +46,8 @@ function makeHost(overrides: Partial<ControllerHost> = {}): ControllerHost {
     focusTerminal: vi.fn(),
     exitTerminalFocus: vi.fn(),
     scrollTerminal: vi.fn(),
+    toggleTabs: vi.fn(),
+    jumpToTab: vi.fn(),
     setOverlay: vi.fn((next: ControllerOverlay) => {
       overlay = next
     }),
@@ -88,6 +92,12 @@ describe('handleKey', () => {
     const host = makeHost()
     handleKey(host, key({ type: 'enter' }))
     expect(host.focusTerminal).toHaveBeenCalled()
+  })
+
+  it('toggles nested tabs on t', () => {
+    const host = makeHost()
+    handleKey(host, key({ type: 'char', value: 't' }))
+    expect(host.toggleTabs).toHaveBeenCalled()
   })
 
   it('opens a prompt for new-worktree and submits a built command', () => {
@@ -152,6 +162,21 @@ describe('handleMouse', () => {
     handleMouse(host, press(2, 4)) // screenRow 4 = idx0 = the selected workspace
     expect(host.exitTerminalFocus).toHaveBeenCalled()
     expect(host.selectIndex).not.toHaveBeenCalled()
+  })
+
+  it('jumps to a nested tab when its sidebar line is clicked', () => {
+    const host = makeHost({
+      tabsExpanded: () => true,
+      terminalsByWorktree: () =>
+        new Map([
+          ['wt-1', [{ handle: 't1', title: 'shell' }]],
+          ['wt-2', [{ handle: 't2', title: 'shell' }]]
+        ])
+    })
+    // lines: header(0) spacer(1) group(2) row-wt1(3) tab-t1(4) row-wt2(5) tab-t2(6)
+    // screenRow 5 → lineIndex 4 → the wt-1 tab.
+    handleMouse(host, press(2, 5))
+    expect(host.jumpToTab).toHaveBeenCalledWith(0, 't1')
   })
 
   it('focuses a tab when the tab row is clicked', () => {

@@ -1,7 +1,7 @@
 import { style, type TextStyle } from './ansi-control'
 import { cellWidth, fitCells } from './text-width'
 import { indicatorFor } from './agent-state-indicator'
-import { buildSidebarLines, type SidebarLine } from './sidebar-lines'
+import { buildSidebarLines, type SidebarLine, type SidebarTabsOptions } from './sidebar-lines'
 import { windowStart } from './navigation-state'
 import { truncateTabLabel } from './pane-layout'
 import { statusBarHelp, type Platform } from './keybinding-map'
@@ -117,9 +117,10 @@ export function sidebarRows(
   height: number,
   width: number,
   resolveKind: (row: WorktreeRow) => StatusIndicatorKind,
-  useColor: boolean
+  useColor: boolean,
+  tabs: SidebarTabsOptions = {}
 ): string[] {
-  const lines = buildSidebarLines(snapshot, resolveKind)
+  const lines = buildSidebarLines(snapshot, resolveKind, tabs)
   if (!lines.some((line) => line.kind === 'row')) {
     return emptySidebar(height, width, useColor)
   }
@@ -164,7 +165,24 @@ function renderSidebarLine(
   if (line.kind === 'group') {
     return style(fitCells(line.repo, width), { dim: true }, useColor)
   }
+  if (line.kind === 'tab') {
+    return renderTabLine(line, width, useColor)
+  }
   return renderWorktreeRow(line, line.index === selectedIndex, width, useColor)
+}
+
+/** A nested terminal tab under its worktree: indented, focused tab highlighted. */
+function renderTabLine(
+  line: Extract<SidebarLine, { kind: 'tab' }>,
+  width: number,
+  useColor: boolean
+): string {
+  const label = `   ${line.focused ? '▸' : '·'} ${truncateTabLabel(line.title)}`
+  return style(
+    fitCells(label, width),
+    line.focused ? { fg: 'cyan', bold: true } : { dim: true },
+    useColor
+  )
 }
 
 function renderWorktreeRow(

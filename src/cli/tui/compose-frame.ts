@@ -23,6 +23,9 @@ export type FrameModel = {
   selectedName: string
   sidebarWidth: number
   tabs: readonly { handle: string; title: string }[]
+  /** All terminals grouped by worktree, for the nested sidebar tab lines. */
+  terminalsByWorktree: ReadonlyMap<string, readonly { handle: string; title: string }[]>
+  tabsExpanded: boolean
   focusedHandle: string | null
   /** True when keystrokes/scroll are captured by the terminal (input focus). */
   terminalFocused: boolean
@@ -58,6 +61,18 @@ function headerLabel(model: FrameModel): string {
   return ` orca tui · ${count} worktree${count === 1 ? '' : 's'}`
 }
 
+function sidebarTabsOptions(model: FrameModel): {
+  terminalsByWorktree: ReadonlyMap<string, readonly { handle: string; title: string }[]>
+  expanded: boolean
+  focusedHandle: string | null
+} {
+  return {
+    terminalsByWorktree: model.terminalsByWorktree,
+    expanded: model.tabsExpanded,
+    focusedHandle: model.focusedHandle
+  }
+}
+
 function wideFrame(model: FrameModel, bodyHeight: number): string[] {
   const viewportWidth = Math.max(1, model.columns - model.sidebarWidth - 2)
   const left = sidebarRows(
@@ -66,7 +81,8 @@ function wideFrame(model: FrameModel, bodyHeight: number): string[] {
     bodyHeight,
     model.sidebarWidth,
     model.resolveKind,
-    model.useColor
+    model.useColor,
+    sidebarTabsOptions(model)
   )
   const right = rightColumn(model, viewportWidth, bodyHeight)
   // A heavy cyan divider marks the right pane as input-focused; a dim thin one
@@ -89,7 +105,8 @@ function narrowListFrame(model: FrameModel, bodyHeight: number): string[] {
     bodyHeight,
     model.columns,
     model.resolveKind,
-    model.useColor
+    model.useColor,
+    sidebarTabsOptions(model)
   )
   return [
     headerRow(headerLabel(model), model.columns, model.useColor),

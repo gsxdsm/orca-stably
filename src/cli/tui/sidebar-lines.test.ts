@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSidebarLines, rowIndexAtScreenRow } from './sidebar-lines'
+import { buildSidebarLines, rowIndexAtScreenRow, tabAtScreenRow } from './sidebar-lines'
 import { buildWorktreeSnapshot } from './worktree-snapshot'
 import { makePsResult, makeWorktreeSummary } from './worktree-snapshot-fixtures'
 
@@ -29,6 +29,58 @@ describe('buildSidebarLines', () => {
 
   it('returns only the header for an empty/absent snapshot', () => {
     expect(buildSidebarLines(null).map((l) => l.kind)).toEqual(['header'])
+  })
+
+  it('nests terminal tabs under their worktree when expanded', () => {
+    const tabs = {
+      expanded: true,
+      focusedHandle: 't-a2',
+      terminalsByWorktree: new Map([
+        [
+          'a',
+          [
+            { handle: 't-a1', title: 'one' },
+            { handle: 't-a2', title: 'two' }
+          ]
+        ]
+      ])
+    }
+    const lines = buildSidebarLines(snapshot, undefined, tabs)
+    // row(a) is followed by its two tab lines.
+    expect(lines.map((l) => l.kind)).toEqual([
+      'header',
+      'spacer',
+      'group',
+      'row',
+      'tab',
+      'tab',
+      'row',
+      'spacer',
+      'group',
+      'row'
+    ])
+    const focused = lines.find((l) => l.kind === 'tab' && l.focused)
+    expect(focused && focused.kind === 'tab' ? focused.handle : null).toBe('t-a2')
+  })
+
+  it('omits tab lines when collapsed', () => {
+    const tabs = {
+      expanded: false,
+      terminalsByWorktree: new Map([['a', [{ handle: 't-a1', title: 'one' }]]])
+    }
+    expect(buildSidebarLines(snapshot, undefined, tabs).some((l) => l.kind === 'tab')).toBe(false)
+  })
+})
+
+describe('tabAtScreenRow', () => {
+  it('resolves a tab line to its worktree index and handle', () => {
+    const lines = buildSidebarLines(snapshot, undefined, {
+      expanded: true,
+      terminalsByWorktree: new Map([['a', [{ handle: 't-a1', title: 'one' }]]])
+    })
+    // header(0) spacer(1) group(2) row-a(3) tab(4) ...
+    expect(tabAtScreenRow(lines, 4)).toEqual({ index: 0, worktreeId: 'a', handle: 't-a1' })
+    expect(tabAtScreenRow(lines, 3)).toBeNull()
   })
 })
 

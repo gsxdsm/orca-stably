@@ -32,6 +32,8 @@ function model(overrides: Partial<FrameModel> = {}): FrameModel {
     selectedName: rows[0]?.displayName ?? '',
     sidebarWidth: sidebarWidthFor(columns),
     tabs: [{ handle: 't1', title: 'shell' }],
+    terminalsByWorktree: new Map([['wt-1', [{ handle: 't1', title: 'shell' }]]]),
+    tabsExpanded: false,
     focusedHandle: 't1',
     terminalFocused: false,
     viewport: emptyAnsiFrame(),

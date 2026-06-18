@@ -14,6 +14,7 @@ export type TuiAction =
   | 'new-worktree'
   | 'remove-worktree'
   | 'new-terminal'
+  | 'toggle-tabs'
 
 export type Platform = 'mac' | 'other'
 
@@ -51,7 +52,8 @@ const BINDINGS: Binding[] = [
   { action: 'activate', hint: 'activate', matches: isChar('a') },
   { action: 'new-worktree', hint: 'new worktree', matches: isChar('n') },
   { action: 'new-terminal', hint: 'new terminal', matches: isChar('c') },
-  { action: 'remove-worktree', hint: 'remove', matches: isChar('x') }
+  { action: 'remove-worktree', hint: 'remove', matches: isChar('x') },
+  { action: 'toggle-tabs', hint: 'expand/collapse tabs', matches: isChar('t') }
 ]
 
 /** First action whose binding matches the key, or null. */
@@ -78,6 +80,7 @@ export function keybindingHelp(platform: Platform = currentPlatform()): KeyHelp[
     { keys: 'a', hint: 'activate' },
     { keys: 'n', hint: 'new worktree' },
     { keys: 'c', hint: 'new terminal' },
+    { keys: 't', hint: 'expand/collapse tabs' },
     { keys: 'x', hint: 'remove' },
     { keys: 'r', hint: 'refresh' },
     { keys: '?', hint: 'help' },
