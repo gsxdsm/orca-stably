@@ -1,5 +1,6 @@
 import { clipAnsi, fitCells, padCells } from './text-width'
 import { visibleTailLines } from './pane-layout'
+import { sanitizeToSgr } from './sgr-sanitize'
 import type { TerminalAnsiFrame } from './terminal-ansi-source'
 
 /** Number of screen lines the frame currently holds (after trimming trailing
@@ -45,12 +46,13 @@ export function viewportRows(
  *  rather than scrolled up by the serializer's full-height padding. */
 function frameLines(frame: TerminalAnsiFrame): string[] {
   if (frame.data !== null) {
-    // Split into screen lines without a control-char regex (lint: no-control-regex).
+    // Split into screen lines without a control-char regex (lint: no-control-regex),
+    // then reduce each to SGR + text so replay-only escapes can't corrupt layout.
     const split = frame.data
       .split('\r\n')
       .join('\n')
       .split('\n')
-      .map((line) => (line.endsWith('\r') ? line.slice(0, -1) : line))
+      .map((line) => sanitizeToSgr(line.endsWith('\r') ? line.slice(0, -1) : line))
     return trimTrailingBlank(split)
   }
   return trimTrailingBlank(frame.plainLines.slice())
