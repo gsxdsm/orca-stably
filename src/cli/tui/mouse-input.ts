@@ -67,6 +67,7 @@ export function parseMouseEvents(data: string): MouseEvent[] {
       break
     }
     const from = start + SGR_MOUSE_PREFIX.length
+    const nextStart = data.indexOf(SGR_MOUSE_PREFIX, from)
     const pressEnd = data.indexOf('M', from)
     const releaseEnd = data.indexOf('m', from)
     const candidates = [pressEnd, releaseEnd].filter((index) => index !== -1)
@@ -74,6 +75,12 @@ export function parseMouseEvents(data: string): MouseEvent[] {
       break
     }
     const end = Math.min(...candidates)
+    // If the terminator falls past the next event's prefix, this report was
+    // truncated in the chunk — skip to the next prefix instead of swallowing it.
+    if (nextStart !== -1 && end > nextStart) {
+      cursor = nextStart
+      continue
+    }
     const event = parseMouseEvent(data.slice(start, end + 1))
     if (event) {
       events.push(event)

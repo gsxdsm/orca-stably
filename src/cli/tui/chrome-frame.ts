@@ -132,9 +132,18 @@ export function statusRow(
   // In terminal focus, keystrokes go to the PTY — show how to get back and scroll
   // rather than the navigation keymap (which is inactive).
   if (terminalFocused) {
-    const left = style(' ● terminal ', { bg: 'white', fg: 'black', bold: true }, useColor)
+    const leftLabel = ' ● terminal '
+    const leftWidth = Math.min(width, cellWidth(leftLabel))
+    const left = style(
+      fitCells(leftLabel, leftWidth),
+      { bg: 'white', fg: 'black', bold: true },
+      useColor
+    )
     const rest = style(
-      fitCells(' Ctrl-] navigate · wheel scrolls history · keys → terminal', width - 12),
+      fitCells(
+        ' Ctrl-] navigate · wheel scrolls history · keys → terminal',
+        Math.max(0, width - leftWidth)
+      ),
       { dim: true },
       useColor
     )
@@ -143,9 +152,10 @@ export function statusRow(
   const hints = statusBarHelp(platform)
     .map((hint) => `${hint.keys} ${hint.hint}`)
     .join('  ')
-  const left = context ? `${context}  ` : ''
-  const ctx = style(left, { fg: 'white' }, useColor)
-  const rest = style(fitCells(hints, Math.max(0, width - cellWidth(left))), { dim: true }, useColor)
+  const label = context ? `${context}  ` : ''
+  const leftWidth = Math.min(width, cellWidth(label))
+  const ctx = style(fitCells(label, leftWidth), { fg: 'white' }, useColor)
+  const rest = style(fitCells(hints, Math.max(0, width - leftWidth)), { dim: true }, useColor)
   return ctx + rest
 }
 
@@ -238,5 +248,6 @@ function renderWorktreeRow(
   const nameWidth = Math.max(0, width - 2 - badgeWidth)
   const name = fitCells(line.displayName, nameWidth)
   const badges = line.badges ? ` ${style(line.badges, { dim: true }, useColor)}` : ''
-  return `${glyph}${name}${badges}`
+  // Final clamp keeps the row exactly `width` even when badges run long.
+  return fitCells(`${glyph}${name}${badges}`, width)
 }

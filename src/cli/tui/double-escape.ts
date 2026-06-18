@@ -11,6 +11,7 @@ export class DoubleEscapeDetector {
 
   test(data: string, now: number): boolean {
     if (data === '\x1b\x1b') {
+      this.lastEscAt = 0
       return true
     }
     if (data !== '\x1b') {

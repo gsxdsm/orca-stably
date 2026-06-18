@@ -126,7 +126,9 @@ export function sliceCellsFrom(line: string, start: number): string {
     return line
   }
   let visible = 0
-  let activeSgr = ''
+  // Track the stack of active opening SGR runs so stacked styles (e.g. color +
+  // bold) are all re-emitted on the tail; a reset clears the stack.
+  const activeSgr: string[] = []
   let i = 0
   while (i < line.length && visible < start) {
     const esc = escapeLength(line, i)
@@ -134,9 +136,9 @@ export function sliceCellsFrom(line: string, start: number): string {
       const seq = line.slice(i, i + esc)
       const opens = opensStyle(seq)
       if (opens === true) {
-        activeSgr = seq
+        activeSgr.push(seq)
       } else if (opens === false) {
-        activeSgr = ''
+        activeSgr.length = 0
       }
       i += esc
       continue
@@ -145,7 +147,7 @@ export function sliceCellsFrom(line: string, start: number): string {
     visible += charWidth(cp)
     i += cp > 0xffff ? 2 : 1
   }
-  return activeSgr + line.slice(i)
+  return activeSgr.join('') + line.slice(i)
 }
 
 /** Fit PLAIN text to exactly `width` cells: truncate when too wide, right-pad

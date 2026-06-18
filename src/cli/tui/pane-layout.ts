@@ -7,9 +7,6 @@ import { tabGlyph, type SessionTab } from './session-tab'
 /** Cap on terminals listed as tabs for one worktree. */
 export const MAX_PANES = 6
 
-export type TabSpec = { handle: string; label: string }
-export type TabRegion = { handle: string; x: number; width: number }
-
 const TAB_MAX_LABEL = 18
 
 /** Truncate a terminal title to a tab-friendly width. */
@@ -57,30 +54,6 @@ export function tabStripStart(
     start += 1
   }
   return start
-}
-
-/** Each tab renders as ` label ` (one space of padding each side) starting at
- *  `originX`; returns the clickable x-range per tab so a press resolves to a
- *  handle. Labels must already be truncated via {@link truncateTabLabel}. */
-export function tabRegions(tabs: readonly TabSpec[], originX: number): TabRegion[] {
-  const regions: TabRegion[] = []
-  let x = originX
-  for (const tab of tabs) {
-    const width = tab.label.length + 2
-    regions.push({ handle: tab.handle, x, width })
-    x += width
-  }
-  return regions
-}
-
-/** Resolve a click column on the tab row to a tab handle, or null. */
-export function tabHandleAtColumn(regions: readonly TabRegion[], col: number): string | null {
-  for (const region of regions) {
-    if (col >= region.x && col < region.x + region.width) {
-      return region.handle
-    }
-  }
-  return null
 }
 
 /** The window of tail lines to show in a body of `height` rows, scrolled back

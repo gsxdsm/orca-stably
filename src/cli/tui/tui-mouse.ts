@@ -13,7 +13,6 @@ import {
 import { tabStripLabel, tabStripStart } from './pane-layout'
 import { cellWidth } from './text-width'
 import { windowStart } from './navigation-state'
-import type { SessionTab } from './session-tab'
 import { BACK_LABEL, HEADER_ROWS, STRIP_WIDTH } from './tui-layout'
 import type { ControllerHost } from './tui-input'
 import type { MouseEvent } from './mouse-input'
@@ -132,7 +131,7 @@ function routeNarrowMouse(host: ControllerHost, col: number, row: number, right:
     host.setNarrowView('list')
     return
   }
-  if (col < STRIP_WIDTH) {
+  if (col < STRIP_WIDTH && row >= HEADER_ROWS) {
     const total = host.worktreeRows().length
     const start = windowStart(host.selectedIndex(), total, host.bodyHeight())
     const index = start + (row - HEADER_ROWS)
@@ -192,19 +191,22 @@ function tabClick(host: ControllerHost, index: number, tabId: string, right: boo
 /** Select the tab's worktree and ask to close the tab (session.tabs.close). */
 function requestCloseTab(host: ControllerHost, index: number, tabId: string): void {
   host.selectIndex(index)
-  let tab: SessionTab | undefined
-  for (const tabs of host.tabsByWorktree().values()) {
-    tab = tabs.find((candidate) => candidate.id === tabId)
-    if (tab) {
-      break
-    }
+  // Resolve the tab within its own worktree (by index) so colliding tab ids
+  // across worktrees can't close the wrong one.
+  const worktreeId = host.worktreeRows()[index]?.worktreeId
+  if (!worktreeId) {
+    return
   }
+  const tab = host
+    .tabsByWorktree()
+    .get(worktreeId)
+    ?.find((candidate) => candidate.id === tabId)
   if (!tab) {
     return
   }
   host.setOverlay({
     kind: 'confirm',
     message: `Close "${tab.title}"?`,
-    command: { kind: 'session.tabs.close', worktree: worktreeSelector(tab.worktreeId), tabId }
+    command: { kind: 'session.tabs.close', worktree: worktreeSelector(worktreeId), tabId }
   })
 }

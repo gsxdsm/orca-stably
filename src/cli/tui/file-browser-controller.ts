@@ -27,6 +27,9 @@ type FileBrowserDeps = {
  *  controller so that file stays focused on layout and tab/terminal state. */
 export class FileBrowserController {
   private state = emptyFileBrowser()
+  // Bumped on every open/close so a stale files.list response can't overwrite a
+  // newer open (or a close) after an out-of-order resolve.
+  private openToken = 0
 
   constructor(
     private readonly client: RpcClient,
@@ -51,6 +54,7 @@ export class FileBrowserController {
   }
 
   private async open(): Promise<void> {
+    const token = ++this.openToken
     const worktreeId = this.deps.worktreeId()
     if (!worktreeId) {
       return
@@ -61,7 +65,7 @@ export class FileBrowserController {
       const { result } = await this.client.call<{ files?: FileEntry[] }>('files.list', {
         worktree: `id:${worktreeId}`
       })
-      if (this.state.open) {
+      if (token === this.openToken && this.state.open) {
         this.state = { ...this.state, files: result.files ?? [] }
         this.deps.onChange()
       }
@@ -71,6 +75,7 @@ export class FileBrowserController {
   }
 
   close(): void {
+    this.openToken += 1
     this.state = emptyFileBrowser()
     this.deps.onChange()
   }

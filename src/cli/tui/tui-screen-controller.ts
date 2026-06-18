@@ -94,9 +94,8 @@ export class TuiScreenController {
   run(): Promise<void> {
     return new Promise<void>((resolve) => {
       this.resolveExit = resolve
-      process.stdout.write(
-        ALT_SCREEN_ENTER + HIDE_CURSOR + AUTOWRAP_OFF + MOUSE_ENABLE + CLEAR_SCREEN
-      )
+      const enter = this.options.noAltScreen ? '' : ALT_SCREEN_ENTER
+      process.stdout.write(enter + HIDE_CURSOR + AUTOWRAP_OFF + MOUSE_ENABLE + CLEAR_SCREEN)
       const stdin = process.stdin
       if (stdin.isTTY) {
         stdin.setRawMode?.(true)
@@ -346,7 +345,8 @@ export class TuiScreenController {
     stdin.pause()
     // Restore a visible cursor + default shape, drop mouse reporting, leave the
     // alt screen — herdr's restore postlude so a quit never strands the terminal.
-    process.stdout.write(`${SHOW_CURSOR}\x1b[0 q${AUTOWRAP_ON}${MOUSE_DISABLE}${ALT_SCREEN_LEAVE}`)
+    const leave = this.options.noAltScreen ? '' : ALT_SCREEN_LEAVE
+    process.stdout.write(`${SHOW_CURSOR}\x1b[0 q${AUTOWRAP_ON}${MOUSE_DISABLE}${leave}`)
     this.resolveExit?.()
   }
 }

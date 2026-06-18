@@ -17,7 +17,7 @@ function makeCtx(
   return {
     flags,
     client: client as unknown as HandlerContext['client'],
-    cwd: '/tmp',
+    cwd: process.cwd(),
     json: false
   }
 }

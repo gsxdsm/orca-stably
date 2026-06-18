@@ -41,6 +41,11 @@ describe('FileBrowserController', () => {
     await flush()
     fb.handleKey('f')
     expect(fb.isOpen).toBe(false)
+
+    fb.toggle()
+    await flush()
+    fb.handleKey('\x1b')
+    expect(fb.isOpen).toBe(false)
   })
 
   it('expands a folder with → and opens a file with Enter', async () => {

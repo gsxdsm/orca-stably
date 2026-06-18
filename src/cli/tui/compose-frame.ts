@@ -220,9 +220,14 @@ function narrowTerminalFrame(model: FrameModel, bodyHeight: number): string[] {
     model.useColor
   )
   const right = rightColumn(model, viewportWidth, bodyHeight)
-  const back = style(BACK_LABEL, { bg: 'white', fg: 'black', bold: true }, model.useColor)
+  const backWidth = Math.min(model.columns, cellWidth(BACK_LABEL))
+  const back = style(
+    fitCells(BACK_LABEL, backWidth),
+    { bg: 'white', fg: 'black', bold: true },
+    model.useColor
+  )
   const title = style(
-    fitCells(` ${model.selectedName}`, model.columns - BACK_LABEL.length),
+    fitCells(` ${model.selectedName}`, Math.max(0, model.columns - backWidth)),
     { bold: true },
     model.useColor
   )

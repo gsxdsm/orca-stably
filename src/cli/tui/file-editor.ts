@@ -109,11 +109,37 @@ export class FileEditor {
     this.col = 0
   }
 
+  // Step/scan by Unicode code points so the cursor never lands inside a
+  // surrogate pair (astral chars are 2 UTF-16 units; insert moves by 2).
+  private prevCol(line: string, col: number): number {
+    if (col <= 0) {
+      return 0
+    }
+    const cp = line.codePointAt(col - 1) ?? 0
+    return col - (cp > 0xffff ? 2 : 1)
+  }
+
+  private nextCol(line: string, col: number): number {
+    if (col >= line.length) {
+      return line.length
+    }
+    const cp = line.codePointAt(col) ?? 0
+    return Math.min(line.length, col + (cp > 0xffff ? 2 : 1))
+  }
+
+  private charAtCol(line: string, col: number): string {
+    if (col >= line.length) {
+      return ' '
+    }
+    return String.fromCodePoint(line.codePointAt(col) ?? 0x20)
+  }
+
   private backspace(): void {
     if (this.col > 0) {
       const line = this.lines[this.row]
-      this.lines[this.row] = line.slice(0, this.col - 1) + line.slice(this.col)
-      this.col -= 1
+      const start = this.prevCol(line, this.col)
+      this.lines[this.row] = line.slice(0, start) + line.slice(this.col)
+      this.col = start
     } else if (this.row > 0) {
       const prev = this.lines[this.row - 1]
       this.col = prev.length
@@ -126,14 +152,14 @@ export class FileEditor {
   private move(dir: 'up' | 'down' | 'left' | 'right'): void {
     if (dir === 'left') {
       if (this.col > 0) {
-        this.col -= 1
+        this.col = this.prevCol(this.lines[this.row], this.col)
       } else if (this.row > 0) {
         this.row -= 1
         this.col = this.lines[this.row].length
       }
     } else if (dir === 'right') {
       if (this.col < this.lines[this.row].length) {
-        this.col += 1
+        this.col = this.nextCol(this.lines[this.row], this.col)
       } else if (this.row < this.lines.length - 1) {
         this.row += 1
         this.col = 0
@@ -158,7 +184,7 @@ export class FileEditor {
   /** Invert the cursor cell on the (possibly colored) rendered line. Splices in
    *  visible-cell space so it survives the decorator's SGR codes. */
   private cursorLine(rendered: string, raw: string): string {
-    const at = this.col < raw.length ? raw[this.col] : ' '
+    const at = this.charAtCol(raw, this.col)
     // Map the buffer index to a visible column so wide glyphs before the cursor
     // don't shift the inverted cell off the character under it.
     const visualCol = cellWidth(raw.slice(0, this.col))

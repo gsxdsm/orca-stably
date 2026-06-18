@@ -26,8 +26,7 @@ export function overlayRows(
     return base
   }
   const box = boxFor(overlay)
-  const inner = Math.max(box.title.length + 2, ...box.lines.map((line) => cellWidth(line)))
-  const innerWidth = Math.min(columns - 4, inner)
+  const innerWidth = boxInnerWidth(box, columns)
   const boxWidth = innerWidth + 4
   const boxLines = drawBox(box, innerWidth, useColor)
   const top = Math.max(0, Math.floor((rows - boxLines.length) / 2))
@@ -62,8 +61,7 @@ export function overlayClick(
     return null
   }
   const box = boxFor(overlay)
-  const inner = Math.max(box.title.length + 2, ...box.lines.map((line) => cellWidth(line)))
-  const innerWidth = Math.min(columns - 4, inner)
+  const innerWidth = boxInnerWidth(box, columns)
   const boxWidth = innerWidth + 4
   const boxLines = drawBox(box, innerWidth, useColorIrrelevant)
   const top = Math.max(0, Math.floor((rows - boxLines.length) / 2))
@@ -88,6 +86,13 @@ export function overlayClick(
 // drawBox styling is irrelevant to geometry; pass a constant for measurement.
 const useColorIrrelevant = false
 
+/** Inner box width: the widest of the title (cell width) and the body lines,
+ *  clamped to the screen and never negative (tiny terminals would break geometry). */
+function boxInnerWidth(box: Box, columns: number): number {
+  const inner = Math.max(cellWidth(` ${box.title} `), ...box.lines.map((line) => cellWidth(line)))
+  return Math.max(0, Math.min(columns - 4, inner))
+}
+
 function boxFor(overlay: Exclude<OverlayModel, { kind: 'none' }>): Box {
   if (overlay.kind === 'help') {
     const lines = keybindingHelp(overlay.platform).map(
@@ -104,8 +109,12 @@ function boxFor(overlay: Exclude<OverlayModel, { kind: 'none' }>): Box {
 const H = '─'
 
 function drawBox(box: Box, innerWidth: number, useColor: boolean): string[] {
-  const titleBar = ` ${box.title} `
-  const fill = Math.max(0, innerWidth + 2 - titleBar.length)
+  const rawTitle = ` ${box.title} `
+  // Clip an over-long title to the top border span (innerWidth + 2) so it never
+  // overflows the box; measure with cell width for the ─ fill.
+  const titleBar =
+    cellWidth(rawTitle) > innerWidth + 2 ? clipAnsi(rawTitle, innerWidth + 2) : rawTitle
+  const fill = Math.max(0, innerWidth + 2 - cellWidth(titleBar))
   const top = style(`╭${titleBar}${H.repeat(fill)}╮`, { fg: 'gray', bold: true }, useColor)
   const bottom = style(`╰${H.repeat(innerWidth + 2)}╯`, { fg: 'gray' }, useColor)
   const body = box.lines.map((line) => {

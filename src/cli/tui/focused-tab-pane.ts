@@ -260,6 +260,9 @@ export class FocusedTabPane {
     }
     if (key.type === 'ctrl' && key.value === 'g') {
       editor.revert()
+      // Discarding clears the conflict so the next Ctrl-S re-checks the disk
+      // instead of silently force-overwriting.
+      this.saveConflict = false
     } else if (!editor.handleKey(key)) {
       return
     }

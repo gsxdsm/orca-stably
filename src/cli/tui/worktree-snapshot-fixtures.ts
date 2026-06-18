@@ -1,3 +1,4 @@
+import { join, sep } from 'node:path'
 import type {
   RuntimeWorktreeAgentRow,
   RuntimeWorktreePsResult,
@@ -30,7 +31,7 @@ export function makeWorktreeSummary(
     worktreeId: 'wt-1',
     repoId: 'repo-1',
     repo: 'web-app',
-    path: '/work/web-app',
+    path: join(sep, 'work', 'web-app'),
     branch: 'feature/x',
     parentWorktreeId: null,
     childWorktreeIds: [],

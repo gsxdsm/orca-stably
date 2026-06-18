@@ -77,7 +77,16 @@ function computeFrameLines(frame: TerminalAnsiFrame): string[] {
 
 function trimTrailingBlank(lines: string[]): string[] {
   let end = lines.length
-  while (end > 0 && clipAnsi(lines[end - 1], 1000).trim().length === 0) {
+  // Strip SGR before checking for blank so a styled-but-empty row still trims
+  // (its escape codes aren't whitespace). Regex built without a literal control
+  // char to satisfy no-control-regex.
+  const sgr = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
+  while (
+    end > 0 &&
+    clipAnsi(lines[end - 1], 1000)
+      .replace(sgr, '')
+      .trim().length === 0
+  ) {
     end -= 1
   }
   return lines.slice(0, end)
