@@ -7,7 +7,15 @@ import type { MouseEvent } from './mouse-input'
 import type { LogicalKey } from './tty-key-adapter'
 
 const snapshot = buildWorktreeSnapshot(
-  makePsResult([makeWorktreeSummary({ worktreeId: 'wt-1', isActive: true, liveTerminalCount: 1 })])
+  makePsResult([
+    makeWorktreeSummary({ worktreeId: 'wt-1', isActive: true, liveTerminalCount: 1 }),
+    makeWorktreeSummary({
+      worktreeId: 'wt-2',
+      displayName: 'feature/y',
+      isActive: true,
+      liveTerminalCount: 1
+    })
+  ])
 )
 const rows = flattenWorktreeRows(snapshot)
 
@@ -130,18 +138,20 @@ describe('handleMouse', () => {
     expect(host.focusTerminal).toHaveBeenCalled()
   })
 
-  it('selects the workspace and returns to navigation when a sidebar row is clicked', () => {
-    const host = makeHost({ terminalFocused: () => true })
-    handleMouse(host, press(2, 4))
-    expect(host.selectIndex).toHaveBeenCalledWith(0)
-    expect(host.exitTerminalFocus).toHaveBeenCalled()
+  it('switches to and focuses a different workspace clicked in the sidebar', () => {
+    const host = makeHost()
+    // lines: header(0) spacer(1) group(2) row(3=idx0) row(4=idx1); selected is 0,
+    // so screenRow 5 (idx1) is a different workspace.
+    handleMouse(host, press(2, 5))
+    expect(host.selectIndex).toHaveBeenCalledWith(1)
+    expect(host.focusTerminal).toHaveBeenCalled()
   })
 
-  it('selects a worktree when the sidebar is clicked', () => {
-    const host = makeHost()
-    // lines: header(0) spacer(1) group(2) row(3) → screenRow 4 maps to row index 0.
-    handleMouse(host, press(2, 4))
-    expect(host.selectIndex).toHaveBeenCalledWith(0)
+  it('focuses the workspace area when the already-selected workspace is clicked', () => {
+    const host = makeHost({ terminalFocused: () => true })
+    handleMouse(host, press(2, 4)) // screenRow 4 = idx0 = the selected workspace
+    expect(host.exitTerminalFocus).toHaveBeenCalled()
+    expect(host.selectIndex).not.toHaveBeenCalled()
   })
 
   it('focuses a tab when the tab row is clicked', () => {

@@ -192,11 +192,18 @@ export function handleMouse(host: ControllerHost, event: MouseEvent): void {
     routeNarrowMouse(host, event.col, event.row)
     return
   }
-  // Wide: clicking the sidebar selects a workspace and returns to navigation;
-  // clicking the tab row or the viewport body focuses the terminal for input.
+  // Wide: clicking a *different* workspace switches to it and focuses its
+  // terminal for input; clicking the already-selected workspace (or empty list
+  // space) focuses the workspace area instead. The tab row / viewport body
+  // always focus the terminal.
   if (event.col < host.sidebarWidth()) {
-    selectSidebarRow(host, event.row, false)
-    host.exitTerminalFocus()
+    const target = sidebarRowAt(host, event.row)
+    if (target === null || target === host.selectedIndex()) {
+      host.exitTerminalFocus()
+    } else {
+      host.selectIndex(target)
+      host.focusTerminal()
+    }
   } else if (event.row === HEADER_ROWS) {
     focusTabAt(host, host.sidebarWidth() + 2, event.col)
     host.focusTerminal()
@@ -228,20 +235,26 @@ function routeNarrowMouse(host: ControllerHost, col: number, row: number): void 
   }
 }
 
-/** Map a sidebar screen row to a worktree, honoring the sidebar's scroll window
- *  so a click resolves to the same worktree the row renders. Returns true when a
- *  worktree row was hit (vs a header/spacer/gutter). */
-function selectSidebarRow(
-  host: ControllerHost,
-  screenRow: number,
-  switchToTerminal: boolean
-): boolean {
+/** Map a sidebar screen row to a flattened worktree index, honoring the
+ *  sidebar's scroll window so a click resolves to the worktree the row renders.
+ *  Null when the row is a header/spacer/gutter. */
+function sidebarRowAt(host: ControllerHost, screenRow: number): number | null {
   const lines = buildSidebarLines(host.snapshot(), host.resolveKind)
   const selectedLine = lines.findIndex(
     (line) => line.kind === 'row' && line.index === host.selectedIndex()
   )
   const start = windowStart(Math.max(0, selectedLine), lines.length, host.bodyHeight())
-  const target = rowIndexAtScreenRow(lines, start + (screenRow - HEADER_ROWS))
+  return rowIndexAtScreenRow(lines, start + (screenRow - HEADER_ROWS))
+}
+
+/** Select the worktree at a sidebar screen row (narrow list → opens its terminal
+ *  view). Returns true when a worktree row was hit. */
+function selectSidebarRow(
+  host: ControllerHost,
+  screenRow: number,
+  switchToTerminal: boolean
+): boolean {
+  const target = sidebarRowAt(host, screenRow)
   if (target === null) {
     return false
   }
