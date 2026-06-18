@@ -69,7 +69,10 @@ function computeFrameLines(frame: TerminalAnsiFrame): string[] {
       .map((line) => sanitizeToSgr(line.endsWith('\r') ? line.slice(0, -1) : line))
     return trimTrailingBlank(split)
   }
-  return trimTrailingBlank(frame.plainLines.slice())
+  // Plain content (editor/markdown/file/browser) keeps its exact line count —
+  // trimming trailing blanks here would desync the scroll/window math (counted
+  // on the full buffer) from what's drawn, corrupting the view near the ends.
+  return frame.plainLines.slice()
 }
 
 function trimTrailingBlank(lines: string[]): string[] {
