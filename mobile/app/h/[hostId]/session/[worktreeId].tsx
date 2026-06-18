@@ -1225,20 +1225,26 @@ export default function SessionScreen() {
     },
     [client, worktreeId]
   )
-  // Stop the agent mid-turn — send an interrupt (Ctrl-C) to the active pane.
+  // Stop the agent mid-turn. TUI agents (Claude Code, Codex) interrupt the
+  // current turn on Escape — not Ctrl-C, which tends to quit/clear the prompt.
+  // Send Escape twice to reliably cancel an in-progress generation.
   const handleNativeChatStop = useCallback(() => {
     const handle = activeHandleRef.current
     if (!client || !handle) {
       return
     }
-    void client.sendRequest('terminal.send', {
-      terminal: handle,
-      text: '',
-      interrupt: true,
-      ...(deviceTokenRef.current
-        ? { client: { id: deviceTokenRef.current, type: 'mobile' as const } }
-        : {})
-    })
+    const escape = String.fromCharCode(27)
+    const sendEscape = (): void => {
+      void client.sendRequest('terminal.send', {
+        terminal: handle,
+        text: escape,
+        ...(deviceTokenRef.current
+          ? { client: { id: deviceTokenRef.current, type: 'mobile' as const } }
+          : {})
+      })
+    }
+    sendEscape()
+    setTimeout(sendEscape, 80)
   }, [client])
   // Why: file paths for the composer's `@` mention autocomplete, loaded lazily
   // (only once the user opens a mention) so the chat view costs nothing up front.

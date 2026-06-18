@@ -17,6 +17,19 @@ export function summarizeToolInput(input: unknown): string {
   return `${collapsed.slice(0, MAX_PREVIEW_LENGTH - 1)}…`
 }
 
+/** The worktree-relative file path a tool call targets, if any (Read/Edit/Write/
+ *  NotebookEdit), so the chat can render the tool line as a tappable file link.
+ *  Absolute paths are returned as-is; the opener resolves them against the
+ *  worktree. Returns null when the call has no single file target. */
+export function toolFilePath(input: unknown): string | null {
+  if (!input || typeof input !== 'object') {
+    return null
+  }
+  const obj = input as Record<string, unknown>
+  const path = obj.file_path ?? obj.filePath ?? obj.path ?? obj.notebook_path
+  return typeof path === 'string' && path.length > 0 ? path : null
+}
+
 /** A very short hint for a tool call in a one-line run summary: the target file's
  *  basename when present, else a clipped preview of the input. */
 export function briefToolArg(input: unknown): string {

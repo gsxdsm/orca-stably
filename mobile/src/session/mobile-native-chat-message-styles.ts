@@ -114,6 +114,10 @@ export const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontSize: MONO_SIZE
   },
+  toolPreviewLink: {
+    color: colors.accentBlue,
+    textDecorationLine: 'underline'
+  },
   toolDetail: {
     paddingLeft: spacing.lg,
     paddingBottom: spacing.xs,

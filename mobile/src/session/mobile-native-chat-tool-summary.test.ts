@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { summarizeToolInput } from './mobile-native-chat-tool-summary'
+import { summarizeToolInput, toolFilePath } from './mobile-native-chat-tool-summary'
 
 describe('summarizeToolInput', () => {
   it('passes short strings through, collapsing whitespace', () => {
@@ -25,5 +25,19 @@ describe('summarizeToolInput', () => {
   it('handles numbers and booleans', () => {
     expect(summarizeToolInput(42)).toBe('42')
     expect(summarizeToolInput(true)).toBe('true')
+  })
+})
+
+describe('toolFilePath', () => {
+  it('extracts file_path / filePath / path / notebook_path', () => {
+    expect(toolFilePath({ file_path: 'src/a.ts' })).toBe('src/a.ts')
+    expect(toolFilePath({ filePath: 'src/b.ts' })).toBe('src/b.ts')
+    expect(toolFilePath({ path: 'src/c.ts' })).toBe('src/c.ts')
+    expect(toolFilePath({ notebook_path: 'n.ipynb' })).toBe('n.ipynb')
+  })
+  it('returns null when there is no file target', () => {
+    expect(toolFilePath({ command: 'ls' })).toBeNull()
+    expect(toolFilePath('x')).toBeNull()
+    expect(toolFilePath(null)).toBeNull()
   })
 })

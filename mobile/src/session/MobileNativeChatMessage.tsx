@@ -15,7 +15,11 @@ import {
 import { diffFromText, diffFromToolCall, type DiffLine } from './mobile-native-chat-diff'
 import { MAX_TOOL_RESULT_CHARS, styles, TEXT_SIZE } from './mobile-native-chat-message-styles'
 import { nativeChatMessageText } from './mobile-native-chat-message-text'
-import { summarizeToolInput, summarizeToolRun } from './mobile-native-chat-tool-summary'
+import {
+  summarizeToolInput,
+  summarizeToolRun,
+  toolFilePath
+} from './mobile-native-chat-tool-summary'
 
 function DiffView({ lines }: { lines: DiffLine[] }): React.JSX.Element {
   return (
@@ -68,10 +72,12 @@ function ResultBody({
  *  expandable line. `defaultExpanded` lets the group toggle open every line. */
 function ToolLine({
   pair,
-  defaultExpanded
+  defaultExpanded,
+  onOpenFile
 }: {
   pair: ToolPair
   defaultExpanded: boolean
+  onOpenFile?: (relativePath: string) => void
 }): React.JSX.Element {
   const [expanded, setExpanded] = useState(defaultExpanded)
   useEffect(() => setExpanded(defaultExpanded), [defaultExpanded])
@@ -83,6 +89,10 @@ function ToolLine({
   const callDiff = call ? diffFromToolCall(call.name, call.input) : null
   const resultDiff = result ? diffFromText(result.output) : null
   const hasDetail = callDiff !== null || result !== undefined || preview.length > 40
+  // A tool that targets a file (Read/Edit/Write…) renders its preview as a
+  // tappable link that opens the file, independent of the line's expand tap.
+  const filePath = call ? toolFilePath(call.input) : null
+  const openable = filePath !== null && onOpenFile !== undefined
   return (
     <View>
       <Pressable
@@ -97,7 +107,12 @@ function ToolLine({
         )}
         <Text style={styles.toolName}>{name}</Text>
         {preview ? (
-          <Text style={styles.toolPreview} numberOfLines={1}>
+          <Text
+            style={[styles.toolPreview, openable && styles.toolPreviewLink]}
+            numberOfLines={1}
+            onPress={openable ? () => onOpenFile!(filePath!) : undefined}
+            suppressHighlighting={!openable}
+          >
             {preview}
           </Text>
         ) : null}
@@ -154,11 +169,13 @@ function Prose({
 function ToolRun({
   blocks,
   defaultExpanded,
-  trailing
+  trailing,
+  onOpenFile
 }: {
   blocks: NativeChatBlock[]
   defaultExpanded: boolean
   trailing?: React.ReactNode
+  onOpenFile?: (relativePath: string) => void
 }): React.JSX.Element {
   const [open, setOpen] = useState(defaultExpanded)
   // Re-sync when the global toolbar toggle flips.
@@ -185,7 +202,12 @@ function ToolRun({
       {open ? (
         <View style={styles.toolRunBody}>
           {pairs.map((pair, i) => (
-            <ToolLine key={i} pair={pair} defaultExpanded={defaultExpanded} />
+            <ToolLine
+              key={i}
+              pair={pair}
+              defaultExpanded={defaultExpanded}
+              onOpenFile={onOpenFile}
+            />
           ))}
         </View>
       ) : null}
@@ -314,7 +336,12 @@ function MobileNativeChatMessageImpl({
           />
         ))}
         {tools.length > 0 ? (
-          <ToolRun blocks={tools} defaultExpanded={toolsExpanded} trailing={controls} />
+          <ToolRun
+            blocks={tools}
+            defaultExpanded={toolsExpanded}
+            trailing={controls}
+            onOpenFile={onOpenFile}
+          />
         ) : controls ? (
           <View style={styles.controlsRow}>{controls}</View>
         ) : null}
