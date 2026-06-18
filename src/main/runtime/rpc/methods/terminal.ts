@@ -668,7 +668,8 @@ export const TERMINAL_METHODS: RpcAnyMethod[] = [
         return { terminal: null }
       }
       const snapshot = await runtime.serializeTerminalBuffer(leaf.ptyId, {
-        scrollbackRows: params.scrollbackRows
+        // Clamp so a stray negative/huge value can't reach the serializer.
+        scrollbackRows: normalizeMultiplexSnapshotScrollbackRows(params.scrollbackRows)
       })
       return { terminal: snapshot }
     }

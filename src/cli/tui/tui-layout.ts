@@ -16,10 +16,3 @@ export type NarrowView = 'list' | 'terminal'
 export function sidebarWidthFor(columns: number): number {
   return Math.max(16, Math.min(34, Math.floor(columns * 0.34)))
 }
-
-export function padToWidth(label: string, width: number): string {
-  if (width <= 0) {
-    return label
-  }
-  return label.length >= width ? label.slice(0, width) : label + ' '.repeat(width - label.length)
-}
