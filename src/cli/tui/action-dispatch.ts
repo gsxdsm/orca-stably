@@ -1,8 +1,8 @@
 import type { TuiRpcClient } from './tui-rpc-client'
 
-/** Identifies the TUI as the sender for terminal.send (the runtime requires a
- *  client descriptor on input writes). */
-const TUI_CLIENT = { id: 'orca-tui', type: 'cli' as const }
+/** Identifies the TUI as the sender for terminal.send. The runtime only accepts
+ *  a 'mobile' | 'desktop' client type on input writes; the CLI is desktop-class. */
+const TUI_CLIENT = { id: 'orca-tui', type: 'desktop' as const }
 
 /** A worktree selector string the runtime understands (`id:<worktreeId>`). */
 export function worktreeSelector(worktreeId: string): string {

@@ -55,7 +55,7 @@ describe('buildCall', () => {
       terminal: 't1',
       text: 'hi',
       enter: true,
-      client: { id: 'orca-tui', type: 'cli' }
+      client: { id: 'orca-tui', type: 'desktop' }
     })
   })
 
