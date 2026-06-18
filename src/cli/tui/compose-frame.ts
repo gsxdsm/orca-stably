@@ -107,15 +107,31 @@ function wideFrame(model: FrameModel, bodyHeight: number): string[] {
     model.useColor,
     sidebarTabsOptions(model)
   )
-  const right = rightColumn(model, viewportWidth, bodyHeight)
-  // A heavy divider marks the input-focused side; blue when the terminal holds
-  // focus, matching the top/bottom focus bars.
-  const sep = model.terminalFocused
-    ? `${style('┃', { fg: 'white', bold: true }, model.useColor)} `
-    : `${style(BORDER, { dim: true }, model.useColor)} `
+  // A heavy divider marks the input-focused side; the body keeps a one-space
+  // margin after it, but the tab strip sits flush against the bar.
+  const bar = model.terminalFocused
+    ? style('┃', { fg: 'white', bold: true }, model.useColor)
+    : style(BORDER, { dim: true }, model.useColor)
+  const sep = `${bar} `
   const rows = [wideHeader(model)]
-  for (let i = 0; i < bodyHeight; i += 1) {
-    rows.push(`${left[i]}${sep}${right[i]}`)
+  if (model.fileBrowser.open) {
+    const browser = fileBrowserRows(model.fileBrowser, viewportWidth, bodyHeight, model.useColor)
+    for (let i = 0; i < bodyHeight; i += 1) {
+      rows.push(`${left[i]}${sep}${browser[i]}`)
+    }
+  } else {
+    // Tab strip flush against the bar and one column wider; body keeps the margin.
+    const tab = tabStripRow(model.tabs, model.focusedTabId, viewportWidth + 1, model.useColor)
+    const body = viewportRows(
+      model.viewport,
+      viewportWidth,
+      Math.max(0, bodyHeight - 1),
+      model.scrollOffset
+    )
+    rows.push(`${left[0]}${bar}${tab}`)
+    for (let i = 1; i < bodyHeight; i += 1) {
+      rows.push(`${left[i]}${sep}${body[i - 1] ?? ' '.repeat(viewportWidth)}`)
+    }
   }
   rows.push(wideFooter(model))
   return rows

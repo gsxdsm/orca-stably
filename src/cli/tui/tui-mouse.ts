@@ -100,7 +100,9 @@ function routeWideMouse(host: ControllerHost, col: number, row: number, right: b
       host.focusTerminal()
     }
   } else if (row === HEADER_ROWS) {
-    focusTabAt(host, host.sidebarWidth() + 2, col, right)
+    // Tab strip is flush against the divider bar (sidebarWidth + 1), unlike the
+    // body below it which keeps the one-space margin (sidebarWidth + 2).
+    focusTabAt(host, host.sidebarWidth() + 1, col, right)
   } else if (!right) {
     host.focusTerminal()
     // Body click → editor cursor (body starts below header+tab strip; right pane
