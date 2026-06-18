@@ -141,6 +141,9 @@ export const mobileSessionFrameStyles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden'
   },
+  nativeChatOverlay: {
+    ...StyleSheet.absoluteFillObject
+  },
   terminalPane: {
     ...StyleSheet.absoluteFillObject
   },

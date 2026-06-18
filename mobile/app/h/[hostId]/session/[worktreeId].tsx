@@ -53,10 +53,12 @@ import type { RpcClient } from '../../../../src/transport/rpc-client'
 import type { RuntimeTerminalPathResolution } from '../../../../../src/shared/runtime-types'
 import { loadHosts } from '../../../../src/transport/host-store'
 import {
+  loadNativeChatTabIds,
   loadTerminalAutocompleteEnabled,
   loadTerminalLinkOpenMode,
   loadTerminalTextScale,
   HOST_DOCK_MIN_WIDTH,
+  saveNativeChatTabIds,
   saveTerminalTextScale,
   type MobileTerminalLinkOpenMode
 } from '../../../../src/storage/preferences'
@@ -179,6 +181,9 @@ import {
   isDictationSetupRequiredError
 } from '../../../../src/dictation/mobile-dictation-setup'
 import { TerminalPaneView } from '../../../../src/session/TerminalPaneView'
+import { MobileNativeChatView } from '../../../../src/session/MobileNativeChatView'
+import { useMobileNativeChatSession } from '../../../../src/session/use-mobile-native-chat-session'
+import { resolveMobileNativeChat } from '../../../../src/session/mobile-native-chat-eligibility'
 import {
   getRepoIdFromMobileWorktreeId,
   isFileExistsErrorMessage,
@@ -1091,6 +1096,133 @@ export default function SessionScreen() {
   const [terminalFrameWidth, setTerminalFrameWidth] = useState(0)
 
   const activeSessionTab = sessionTabs.find((tab) => tab.id === activeSessionTabId) ?? null
+  // Why: native chat is a per-tab view toggled from the tab long-press menu.
+  // Kept as local device state (like terminalModes) — it's a client-side
+  // rendering choice, not host session state, so it needs no RPC round-trip.
+  const [chatTabIds, setChatTabIds] = useState<Set<string>>(new Set())
+  // Restore each tab's chat/terminal choice for this worktree on mount.
+  useEffect(() => {
+    let active = true
+    void loadNativeChatTabIds(worktreeId).then((ids) => {
+      if (active && ids.length > 0) {
+        setChatTabIds(new Set(ids))
+      }
+    })
+    return () => {
+      active = false
+    }
+  }, [worktreeId])
+  const toggleTabChatView = useCallback(
+    (tabId: string) => {
+      setChatTabIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(tabId)) {
+          next.delete(tabId)
+        } else {
+          next.add(tabId)
+        }
+        void saveNativeChatTabIds(worktreeId, [...next])
+        return next
+      })
+    },
+    [worktreeId]
+  )
+  const activeChatResolution =
+    activeSessionTab && activeSessionTab.type === 'terminal' && chatTabIds.has(activeSessionTab.id)
+      ? resolveMobileNativeChat(activeSessionTab)
+      : null
+  const showNativeChat = activeChatResolution != null
+  // Why: dictation's onTranscript is a stable closure; read the live view mode
+  // through a ref so transcripts route to the chat composer only while it's open.
+  const showNativeChatRef = useRef(showNativeChat)
+  showNativeChatRef.current = showNativeChat
+  const [chatComposerText, setChatComposerText] = useState('')
+  // Why: queued (optimistic) sends live on the route, not the chat view, so they
+  // survive switching to the terminal view and back until the agent's transcript
+  // catches up. Keyed by the active chat session so a tab switch starts fresh.
+  const [chatPending, setChatPending] = useState<Array<{ id: string; text: string }>>([])
+  const chatPendingCounter = useRef(0)
+  const activeChatSessionId = activeChatResolution?.sessionId ?? null
+  useEffect(() => {
+    setChatPending([])
+  }, [activeChatSessionId])
+  const nativeChatSession = useMobileNativeChatSession({
+    client,
+    agent: activeChatResolution?.agent ?? null,
+    sessionId: activeChatResolution?.sessionId ?? null
+  })
+  // Drop a queued echo once its real user turn lands in the transcript.
+  useEffect(() => {
+    setChatPending((prev) =>
+      prev.length === 0
+        ? prev
+        : prev.filter(
+            (p) =>
+              !nativeChatSession.messages.some(
+                (m) =>
+                  m.role === 'user' &&
+                  m.blocks.some((b) => b.type === 'text' && b.text.trim() === p.text.trim())
+              )
+          )
+    )
+  }, [nativeChatSession.messages])
+  // Why: the active agent's live status drives the chat's "working" indicator.
+  const nativeChatAgentWorking =
+    activeChatResolution != null && activeSessionTab?.type === 'terminal'
+      ? activeSessionTab.agentStatus?.state === 'working'
+      : false
+  // Why: file paths for the composer's `@` mention autocomplete, loaded lazily
+  // (only once the user opens a mention) so the chat view costs nothing up front.
+  const [nativeChatFilePaths, setNativeChatFilePaths] = useState<string[]>([])
+  const nativeChatFilesLoadedRef = useRef(false)
+  const loadNativeChatFiles = useCallback(() => {
+    if (nativeChatFilesLoadedRef.current || !client) {
+      return
+    }
+    nativeChatFilesLoadedRef.current = true
+    void client
+      .sendRequest('files.list', { worktree: `id:${worktreeId}` })
+      .then((response) => {
+        if (!response.ok) {
+          return
+        }
+        const result = response.result as { files?: Array<{ relativePath?: string }> }
+        setNativeChatFilePaths(
+          (result.files ?? [])
+            .map((f) => f.relativePath ?? '')
+            .filter((p): p is string => p.length > 0)
+        )
+      })
+      .catch(() => {
+        nativeChatFilesLoadedRef.current = false
+      })
+  }, [client, worktreeId])
+  const handleNativeChatSend = useCallback(
+    (text: string) => {
+      const handle = activeHandleRef.current
+      if (!client || !handle) {
+        return
+      }
+      // Submit as one bracketed paste + Enter so multi-line composer input
+      // reaches the agent as a single prompt, mirroring terminal.send usage.
+      void client
+        .sendRequest('terminal.send', {
+          terminal: handle,
+          text,
+          enter: true,
+          ...(deviceTokenRef.current
+            ? { client: { id: deviceTokenRef.current, type: 'mobile' as const } }
+            : {})
+        })
+        .catch(() => {
+          // Transient send failure; the composer keeps the conversation visible.
+        })
+      // Optimistic echo so the prompt shows immediately as "queued".
+      chatPendingCounter.current += 1
+      setChatPending((prev) => [...prev, { id: `pending-${chatPendingCounter.current}`, text }])
+    },
+    [client]
+  )
   const canSend =
     connState === 'connected' &&
     activeHandle != null &&
@@ -1180,12 +1312,14 @@ export default function SessionScreen() {
     client,
     enabled: canSend,
     onTranscript: (text) => {
-      setInput((current) => {
-        if (!current.trim()) {
-          return text
-        }
-        return `${current.trimEnd()} ${text}`
-      })
+      const append = (current: string): string =>
+        current.trim() ? `${current.trimEnd()} ${text}` : text
+      // Route dictation into whichever composer is in front.
+      if (showNativeChatRef.current) {
+        setChatComposerText(append)
+      } else {
+        setInput(append)
+      }
       showToast('Dictation inserted')
     },
     onError: (err) => {
@@ -4706,6 +4840,33 @@ export default function SessionScreen() {
                     onOpenUrl={handleTerminalOpenUrl}
                   />
                 ))}
+                {/* Why: overlay native chat over the live terminal (kept mounted so
+                    its PTY stream survives toggling) rather than unmounting it. */}
+                {showNativeChat && (
+                  <View style={styles.nativeChatOverlay}>
+                    <MobileNativeChatView
+                      messages={nativeChatSession.messages}
+                      status={nativeChatSession.status}
+                      error={nativeChatSession.error}
+                      agentWorking={nativeChatAgentWorking}
+                      hasMore={nativeChatSession.hasMore}
+                      loadingEarlier={nativeChatSession.loadingEarlier}
+                      onLoadEarlier={nativeChatSession.loadEarlier}
+                      onSend={handleNativeChatSend}
+                      pending={chatPending}
+                      composerText={chatComposerText}
+                      onComposerTextChange={setChatComposerText}
+                      onAttachImage={() => void attachImage('library')}
+                      isAttaching={isAttaching}
+                      onMicPress={handleDictationToggle}
+                      micActive={dictation.isRecording}
+                      inputLocked={connState !== 'connected'}
+                      filePaths={nativeChatFilePaths}
+                      onNeedFiles={loadNativeChatFiles}
+                      keyboardInset={keyboardLift}
+                    />
+                  </View>
+                )}
                 {toastMessage && (
                   <Animated.View pointerEvents="none" style={[styles.toast, toastAnimatedStyle]}>
                     <Text style={styles.toastText}>{toastMessage}</Text>
@@ -4715,8 +4876,9 @@ export default function SessionScreen() {
             )}
 
             {/* Why: translate instead of resizing so keyboard open/close does not
-            trigger a server-side PTY viewport change. */}
-            {!activeMarkdownTab && !activeFileTab && !activeBrowserTab && (
+            trigger a server-side PTY viewport change. The dock hides in native
+            chat because that view supplies its own composer. */}
+            {!activeMarkdownTab && !activeFileTab && !activeBrowserTab && !showNativeChat && (
               <View
                 style={[
                   styles.commandDock,
@@ -5120,6 +5282,28 @@ export default function SessionScreen() {
         visible={actionTarget != null}
         title={actionTarget?.title || 'Terminal'}
         actions={[
+          ...(() => {
+            const tab = actionTarget
+              ? sessionTabs.find(
+                  (candidate) =>
+                    candidate.type === 'terminal' && candidate.terminal === actionTarget.handle
+                )
+              : null
+            if (!tab || !resolveMobileNativeChat(tab)) {
+              return []
+            }
+            const isChat = chatTabIds.has(tab.id)
+            return [
+              {
+                label: isChat ? 'Switch to terminal view' : 'Switch to chat view',
+                icon: isChat ? SquareTerminal : MessageSquare,
+                onPress: () => {
+                  setActionTarget(null)
+                  toggleTabChatView(tab.id)
+                }
+              }
+            ]
+          })(),
           ...(actionTarget
             ? [
                 {

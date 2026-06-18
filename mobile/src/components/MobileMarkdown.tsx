@@ -7,6 +7,9 @@ import { parseMobileMarkdown } from './mobile-markdown-parser'
 type Props = {
   content?: string
   fallback?: string
+  /** Multiplier for prose font size (paragraphs, lists, quotes). Defaults to 1;
+   *  the chat view passes >1 so agent prose reads larger than the compact base. */
+  textScale?: number
 }
 
 const MAX_TABLE_ROWS = 40
@@ -86,10 +89,16 @@ function renderInline(text: string): ReactNode[] {
   return parts
 }
 
-function MobileMarkdownInner({ content, fallback = '' }: Props) {
+function MobileMarkdownInner({ content, fallback = '', textScale = 1 }: Props) {
   const text = content?.trim() ?? ''
   const previewText = useMemo(() => normalizeMobileMarkdownPreviewHtml(text), [text])
   const blocks = useMemo(() => parseMobileMarkdown(previewText), [previewText])
+  // Scale prose sizes; inline spans (bold/italic/code) inherit fontSize from the
+  // wrapping Text, so scaling the paragraph/list wrappers is enough.
+  const proseScale =
+    textScale !== 1 ? { fontSize: 13 * textScale, lineHeight: 19 * textScale } : null
+  const listScale =
+    textScale !== 1 ? { fontSize: 14 * textScale, lineHeight: 20 * textScale } : null
   if (!text) {
     return fallback ? <Text style={styles.paragraph}>{fallback}</Text> : null
   }
@@ -185,7 +194,7 @@ function MobileMarkdownInner({ content, fallback = '' }: Props) {
                         ? '[x]'
                         : '[ ]'}
                   </Text>
-                  <Text style={styles.listText}>{renderInline(item.text)}</Text>
+                  <Text style={[styles.listText, listScale]}>{renderInline(item.text)}</Text>
                 </View>
               ))}
             </View>
@@ -195,7 +204,7 @@ function MobileMarkdownInner({ content, fallback = '' }: Props) {
           return <View key={index} style={styles.rule} />
         }
         return (
-          <Text key={index} style={styles.paragraph}>
+          <Text key={index} style={[styles.paragraph, proseScale]}>
             {block.text.split('\n').map((line, lineIndex) => (
               <Fragment key={lineIndex}>
                 {lineIndex > 0 ? '\n' : null}
