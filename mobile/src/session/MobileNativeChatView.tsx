@@ -5,18 +5,22 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
-  StyleSheet,
   Text,
   View
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowDown, ArrowUp, ChevronsDownUp, ChevronsUpDown } from 'lucide-react-native'
+import { ArrowDown, ArrowUp, ChevronsDownUp, ChevronsUpDown, Square } from 'lucide-react-native'
 import type { NativeChatMessage } from '../../../src/shared/native-chat-types'
-import { colors, spacing, typography } from '../theme/mobile-theme'
+import { colors } from '../theme/mobile-theme'
+import { styles } from './mobile-native-chat-view-styles'
 import { foldToolMessages } from './mobile-native-chat-blocks'
 import { MobileAgentWorkingIndicator } from './MobileAgentWorkingIndicator'
 import { MobileNativeChatComposer } from './MobileNativeChatComposer'
 import { MobileNativeChatMessage } from './MobileNativeChatMessage'
+import { MobileNativeChatPermission } from './MobileNativeChatPermission'
+import type { MobileChatPermission } from './mobile-native-chat-permission'
+import { MobileNativeChatQuestion } from './MobileNativeChatQuestion'
+import type { MobileChatQuestion } from './mobile-native-chat-question'
 import type { MobileNativeChatStatus } from './use-mobile-native-chat-session'
 
 type Props = {
@@ -24,6 +28,11 @@ type Props = {
   status: MobileNativeChatStatus
   error?: string
   agentWorking?: boolean
+  /** Interrupt the agent mid-turn (shown as a Stop button on the working bar). */
+  onStop?: () => void
+  /** Live partial assistant text while a turn is still streaming (from the agent
+   *  status hook). Shown as an in-progress bubble until the transcript catches up. */
+  streamingText?: string
   hasMore?: boolean
   loadingEarlier?: boolean
   onLoadEarlier?: () => void
@@ -40,6 +49,14 @@ type Props = {
   inputLocked?: boolean
   filePaths?: string[]
   onNeedFiles?: () => void
+  /** A pending agent question/permission detected from live status, shown as a
+   *  native card above the composer; answering sends text to the agent. */
+  question?: MobileChatQuestion | null
+  onAnswerQuestion?: (text: string) => void
+  permission?: MobileChatPermission | null
+  onRespondPermission?: (send: string) => void
+  /** Open a worktree file tapped in agent markdown. */
+  onOpenFile?: (relativePath: string) => void
   /** Pixels to lift the composer by when the soft keyboard is open. The route
    *  owns keyboard tracking (the app uses manual lift, not KeyboardAvoidingView). */
   keyboardInset?: number
@@ -61,6 +78,8 @@ export function MobileNativeChatView({
   status,
   error,
   agentWorking,
+  onStop,
+  streamingText,
   hasMore,
   loadingEarlier,
   onLoadEarlier,
@@ -75,6 +94,11 @@ export function MobileNativeChatView({
   inputLocked,
   filePaths,
   onNeedFiles,
+  question,
+  onAnswerQuestion,
+  permission,
+  onRespondPermission,
+  onOpenFile,
   keyboardInset = 0
 }: Props): React.JSX.Element {
   const insets = useSafeAreaInsets()
@@ -90,9 +114,41 @@ export function MobileNativeChatView({
   // the route-owned optimistic "queued" messages at the tail.
   const folded = useMemo(() => foldToolMessages(messages), [messages])
   const pendingIds = useMemo(() => new Set(pending.map((p) => p.id)), [pending])
+  // Only show the streaming bubble while its text leads the transcript — once the
+  // real assistant turn lands with the same text, drop the synthetic one.
+  const streaming = useMemo(() => {
+    const text = streamingText?.trim()
+    if (!text) {
+      return null
+    }
+    const last = folded[folded.length - 1]
+    const lastText =
+      last?.role === 'assistant'
+        ? last.blocks
+            .filter((b) => b.type === 'text')
+            .map((b) => (b.type === 'text' ? b.text : ''))
+            .join('')
+            .trim()
+        : ''
+    if (lastText.includes(text) || text.length <= lastText.length) {
+      return null
+    }
+    return text
+  }, [streamingText, folded])
   const data = useMemo<NativeChatMessage[]>(
     () => [
       ...folded,
+      ...(streaming
+        ? [
+            {
+              id: 'streaming',
+              role: 'assistant' as const,
+              blocks: [{ type: 'text' as const, text: streaming }],
+              timestamp: null,
+              source: 'hook' as const
+            }
+          ]
+        : []),
       ...pending.map((p) => ({
         id: p.id,
         role: 'user' as const,
@@ -101,7 +157,7 @@ export function MobileNativeChatView({
         source: 'transcript' as const
       }))
     ],
-    [folded, pending]
+    [folded, streaming, pending]
   )
 
   // Follow the tail as the conversation grows, but only when already pinned to
@@ -153,9 +209,10 @@ export function MobileNativeChatView({
         message={item}
         queued={pendingIds.has(item.id)}
         toolsExpanded={toolsExpanded}
+        onOpenFile={onOpenFile}
       />
     ),
-    [pendingIds, toolsExpanded]
+    [pendingIds, toolsExpanded, onOpenFile]
   )
 
   const hint = statusHint(status, error)
@@ -163,22 +220,6 @@ export function MobileNativeChatView({
 
   return (
     <View style={[styles.root, { paddingBottom: bottomPad }]}>
-      <View style={styles.toolbar}>
-        <Pressable
-          style={({ pressed }) => [styles.toolbarButton, pressed && styles.pressed]}
-          onPress={() => setToolsExpanded((v) => !v)}
-          hitSlop={6}
-        >
-          {toolsExpanded ? (
-            <ChevronsDownUp size={15} color={colors.textSecondary} strokeWidth={2} />
-          ) : (
-            <ChevronsUpDown size={15} color={colors.textSecondary} strokeWidth={2} />
-          )}
-          <Text style={styles.toolbarLabel}>
-            {toolsExpanded ? 'Collapse tool calls' : 'Expand tool calls'}
-          </Text>
-        </Pressable>
-      </View>
       {showLoading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.textSecondary} />
@@ -251,7 +292,53 @@ export function MobileNativeChatView({
           ) : null}
         </View>
       )}
-      {agentWorking ? <MobileAgentWorkingIndicator /> : null}
+      {/* Pending agent prompt: permission takes precedence over a question. */}
+      {permission ? (
+        <MobileNativeChatPermission
+          permission={permission}
+          onRespond={(send) => onRespondPermission?.(send)}
+        />
+      ) : question ? (
+        <MobileNativeChatQuestion
+          question={question}
+          onAnswer={(text) => onAnswerQuestion?.(text)}
+        />
+      ) : null}
+      {/* Chrome row above the composer: working status on the left, the global
+          tool-calls expand/collapse toggle in the right corner. */}
+      <View style={styles.chromeRow}>
+        <View style={styles.chromeLeft}>
+          {agentWorking ? (
+            <Pressable
+              style={({ pressed }) => [styles.stopButton, pressed && styles.pressed]}
+              onPress={onStop}
+              hitSlop={8}
+              accessibilityLabel="Stop the agent"
+            >
+              <MobileAgentWorkingIndicator />
+              <Square
+                size={13}
+                color={colors.statusRed}
+                strokeWidth={2.4}
+                fill={colors.statusRed}
+              />
+              <Text style={styles.stopLabel}>Stop</Text>
+            </Pressable>
+          ) : null}
+        </View>
+        <Pressable
+          style={({ pressed }) => [styles.chromeToggle, pressed && styles.pressed]}
+          onPress={() => setToolsExpanded((v) => !v)}
+          hitSlop={8}
+        >
+          {toolsExpanded ? (
+            <ChevronsDownUp size={14} color={colors.textMuted} strokeWidth={2} />
+          ) : (
+            <ChevronsUpDown size={14} color={colors.textMuted} strokeWidth={2} />
+          )}
+          <Text style={styles.chromeToggleLabel}>{toolsExpanded ? 'Collapse' : 'Tools'}</Text>
+        </Pressable>
+      </View>
       <MobileNativeChatComposer
         value={composerText}
         onChangeText={onComposerTextChange}
@@ -270,80 +357,3 @@ export function MobileNativeChatView({
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.bgBase
-  },
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderSubtle
-  },
-  toolbarButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: 4
-  },
-  toolbarLabel: {
-    color: colors.textSecondary,
-    fontSize: typography.metaSize,
-    fontWeight: '600'
-  },
-  pressed: {
-    opacity: 0.6
-  },
-  listWrap: {
-    flex: 1,
-    position: 'relative'
-  },
-  listContent: {
-    paddingVertical: spacing.sm,
-    flexGrow: 1
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl
-  },
-  hint: {
-    color: colors.textMuted,
-    fontSize: typography.bodySize,
-    textAlign: 'center'
-  },
-  fab: {
-    position: 'absolute',
-    right: spacing.md,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bgRaised,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSubtle
-  },
-  fabTop: {
-    top: spacing.md
-  },
-  fabBottom: {
-    bottom: spacing.md
-  },
-  loadEarlier: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    minHeight: 36
-  },
-  loadEarlierText: {
-    color: colors.textMuted,
-    fontSize: typography.metaSize,
-    fontWeight: '600'
-  }
-})

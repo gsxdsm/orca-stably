@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MessageSquare, TriangleAlert } from 'lucide-react'
+import { ChevronsDownUp, ChevronsUpDown, MessageSquare, TriangleAlert } from 'lucide-react'
 import { useAppStore } from '../../store'
 import { getDriverForPty, onDriverChange } from '@/lib/pane-manager/mobile-driver-state'
 import { deriveNativeChatCanSend } from './native-chat-send-eligibility'
@@ -120,14 +120,23 @@ function NativeChatResolvedView({
   const session = useNativeChatLiveSession({ paneKey, agent, sessionId })
   const viewState = selectNativeChatViewState(session)
   const canSend = useNativeChatCanSend(terminalTabId)
+  // Global expand/collapse for every tool run. Each flip re-syncs all runs; a
+  // run can still be toggled individually after.
+  const [toolsExpanded, setToolsExpanded] = useState(false)
 
   // No on-disk session id means the conversation is degraded/approximate: the
   // transcript can't be read, so the banner signals reduced fidelity (R9).
   const isApproximate = sessionId === null
+  const isConversation = viewState.kind === 'ready'
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-background">
-      <NativeChatHeader agent={agent} isApproximate={isApproximate} />
+      <NativeChatHeader
+        agent={agent}
+        isApproximate={isApproximate}
+        toolsExpanded={toolsExpanded}
+        onToggleTools={isConversation ? () => setToolsExpanded((v) => !v) : null}
+      />
       <div className="flex min-h-0 flex-1 flex-col">
         {viewState.kind === 'loading' ? (
           <NativeChatEmptyState kind="loading" />
@@ -136,7 +145,11 @@ function NativeChatResolvedView({
         ) : viewState.kind === 'empty' ? (
           <NativeChatEmptyState kind="empty" />
         ) : (
-          <NativeChatMessageList session={session} isWorking={viewState.isWorking} />
+          <NativeChatMessageList
+            session={session}
+            isWorking={viewState.isWorking}
+            expandSignal={toolsExpanded}
+          />
         )}
       </div>
       {/* canSend reflects the mobile presence-lock: when a mobile client holds
@@ -149,10 +162,15 @@ function NativeChatResolvedView({
 
 function NativeChatHeader({
   agent,
-  isApproximate
+  isApproximate,
+  toolsExpanded,
+  onToggleTools
 }: {
   agent: NativeChatSession['agent']
   isApproximate: boolean
+  toolsExpanded: boolean
+  /** Null when there is no conversation to act on (loading/empty/error). */
+  onToggleTools: (() => void) | null
 }): React.JSX.Element {
   return (
     <header className="shrink-0 border-b border-border">
@@ -161,6 +179,25 @@ function NativeChatHeader({
         <span className="truncate text-sm font-medium text-foreground">
           {formatAgentTypeLabel(agent)}
         </span>
+        {onToggleTools ? (
+          <button
+            type="button"
+            onClick={onToggleTools}
+            aria-pressed={toolsExpanded}
+            className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {toolsExpanded ? (
+              <ChevronsDownUp className="size-3.5" />
+            ) : (
+              <ChevronsUpDown className="size-3.5" />
+            )}
+            <span>
+              {toolsExpanded
+                ? translate('components.native-chat.tool.collapseAll', 'Collapse tool calls')
+                : translate('components.native-chat.tool.expandAll', 'Expand tool calls')}
+            </span>
+          </button>
+        ) : null}
       </div>
       {isApproximate ? (
         <div className="flex items-center gap-1.5 border-t border-border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground sm:px-4">

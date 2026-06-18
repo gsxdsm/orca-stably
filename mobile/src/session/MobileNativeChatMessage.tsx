@@ -103,10 +103,12 @@ function ToolLine({ block }: { block: NativeChatBlock }): React.JSX.Element | nu
 
 function Prose({
   block,
-  invert
+  invert,
+  onOpenFile
 }: {
   block: NativeChatBlock
   invert?: boolean
+  onOpenFile?: (relativePath: string) => void
 }): React.JSX.Element | null {
   if (isTextBlock(block)) {
     // Inverted (user) bubbles use a fixed dark-on-light text rather than the
@@ -114,7 +116,7 @@ function Prose({
     if (invert) {
       return <Text style={styles.userText}>{block.text}</Text>
     }
-    return <MobileMarkdown content={block.text} textScale={1.25} />
+    return <MobileMarkdown content={block.text} textScale={1.25} onOpenFile={onOpenFile} />
   }
   if (isImageRefBlock(block)) {
     return <Text style={styles.imageRef}>🖼 {block.alt ?? block.path ?? block.url ?? 'image'}</Text>
@@ -164,11 +166,13 @@ function ToolRun({
 function MobileNativeChatMessageImpl({
   message,
   queued,
-  toolsExpanded = false
+  toolsExpanded = false,
+  onOpenFile
 }: {
   message: NativeChatMessage
   queued?: boolean
   toolsExpanded?: boolean
+  onOpenFile?: (relativePath: string) => void
 }): React.JSX.Element {
   const isUser = message.role === 'user'
   const isReasoning = message.role === 'reasoning'
@@ -188,7 +192,7 @@ function MobileNativeChatMessageImpl({
         ]}
       >
         {prose.map((block, index) => (
-          <Prose key={index} block={block} invert={isUser} />
+          <Prose key={index} block={block} invert={isUser} onOpenFile={onOpenFile} />
         ))}
         {tools.length > 0 ? <ToolRun blocks={tools} defaultExpanded={toolsExpanded} /> : null}
       </View>

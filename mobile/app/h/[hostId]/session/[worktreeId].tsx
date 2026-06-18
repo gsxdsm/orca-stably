@@ -184,6 +184,8 @@ import { TerminalPaneView } from '../../../../src/session/TerminalPaneView'
 import { MobileNativeChatView } from '../../../../src/session/MobileNativeChatView'
 import { useMobileNativeChatSession } from '../../../../src/session/use-mobile-native-chat-session'
 import { resolveMobileNativeChat } from '../../../../src/session/mobile-native-chat-eligibility'
+import { parseAgentQuestion } from '../../../../src/session/mobile-native-chat-question'
+import { detectAgentPermission } from '../../../../src/session/mobile-native-chat-permission'
 import {
   getRepoIdFromMobileWorktreeId,
   isFileExistsErrorMessage,
@@ -1171,6 +1173,57 @@ export default function SessionScreen() {
     activeChatResolution != null && activeSessionTab?.type === 'terminal'
       ? activeSessionTab.agentStatus?.state === 'working'
       : false
+  // Why: surface the agent's in-progress reply (hook preview) as a streaming
+  // bubble while it works, before the completed turn is written to the transcript.
+  const nativeChatStreamingText =
+    nativeChatAgentWorking && activeSessionTab?.type === 'terminal'
+      ? activeSessionTab.agentStatus?.lastAssistantMessage
+      : undefined
+  // Why: when the agent is blocked/waiting, heuristically surface a native
+  // permission or question card (permission wins) parsed from its status text.
+  const nativeChatStatus =
+    activeChatResolution != null && activeSessionTab?.type === 'terminal'
+      ? activeSessionTab.agentStatus
+      : null
+  const nativeChatBlocked =
+    nativeChatStatus?.state === 'waiting' || nativeChatStatus?.state === 'blocked'
+  const nativeChatPermission =
+    nativeChatBlocked && nativeChatStatus
+      ? detectAgentPermission({
+          state: nativeChatStatus.state,
+          lastAssistantMessage: nativeChatStatus.lastAssistantMessage,
+          toolName: nativeChatStatus.toolName,
+          toolInput: nativeChatStatus.toolInput
+        })
+      : null
+  const nativeChatQuestion =
+    nativeChatBlocked && nativeChatStatus && !nativeChatPermission
+      ? parseAgentQuestion(nativeChatStatus.lastAssistantMessage ?? '')
+      : null
+  const handleNativeChatOpenFile = useCallback(
+    (relativePath: string) => {
+      if (!client) {
+        return
+      }
+      void client.sendRequest('files.open', { worktree: `id:${worktreeId}`, relativePath })
+    },
+    [client, worktreeId]
+  )
+  // Stop the agent mid-turn — send an interrupt (Ctrl-C) to the active pane.
+  const handleNativeChatStop = useCallback(() => {
+    const handle = activeHandleRef.current
+    if (!client || !handle) {
+      return
+    }
+    void client.sendRequest('terminal.send', {
+      terminal: handle,
+      text: '',
+      interrupt: true,
+      ...(deviceTokenRef.current
+        ? { client: { id: deviceTokenRef.current, type: 'mobile' as const } }
+        : {})
+    })
+  }, [client])
   // Why: file paths for the composer's `@` mention autocomplete, loaded lazily
   // (only once the user opens a mention) so the chat view costs nothing up front.
   const [nativeChatFilePaths, setNativeChatFilePaths] = useState<string[]>([])
@@ -4849,6 +4902,13 @@ export default function SessionScreen() {
                       status={nativeChatSession.status}
                       error={nativeChatSession.error}
                       agentWorking={nativeChatAgentWorking}
+                      streamingText={nativeChatStreamingText}
+                      onStop={handleNativeChatStop}
+                      question={nativeChatQuestion}
+                      onAnswerQuestion={handleNativeChatSend}
+                      permission={nativeChatPermission}
+                      onRespondPermission={handleNativeChatSend}
+                      onOpenFile={handleNativeChatOpenFile}
                       hasMore={nativeChatSession.hasMore}
                       loadingEarlier={nativeChatSession.loadingEarlier}
                       onLoadEarlier={nativeChatSession.loadEarlier}
