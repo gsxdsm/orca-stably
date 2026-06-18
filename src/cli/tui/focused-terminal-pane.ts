@@ -3,6 +3,7 @@ import { terminalLineCount } from './viewport-frame'
 import { sendTerminalKeys } from './action-dispatch'
 import { renderMarkdown } from './render-markdown'
 import { FileEditor } from './file-editor'
+import { highlightLine, languageFromPath } from './syntax-highlight'
 import { decodeKey } from './tty-key-adapter'
 import type { TuiRpcClient } from './tui-rpc-client'
 import type { SessionTab } from './session-tab'
@@ -40,6 +41,8 @@ export class FocusedTerminalPane {
   private editor: FileEditor | null = null
   /** First buffer line shown while editing, so a click maps to the right line. */
   private editorTop = 0
+  /** Syntax highlighter for the open file (identity until a file is loaded). */
+  private highlight: (line: string) => string = (line) => line
 
   constructor(
     private readonly client: TuiRpcClient,
@@ -87,6 +90,7 @@ export class FocusedTerminalPane {
     this.fitRows = 0
     this.editor = null
     this.editorTop = 0
+    this.highlight = (line) => line
     if (!tab) {
       this.inputFocused = false
     }
@@ -165,10 +169,12 @@ export class FocusedTerminalPane {
             ...content.split('\n')
           ])
         } else {
-          // Other files open in an editable buffer.
+          // Other files open in an editable, syntax-highlighted buffer.
+          const lang = languageFromPath(tab.relativePath)
+          this.highlight = (line) => highlightLine(line, lang)
           this.editor = new FileEditor()
           this.editor.load(content)
-          this.frame = linesToFrame(this.editor.renderLines())
+          this.frame = linesToFrame(this.editor.renderLines(this.highlight))
         }
         this.onChange()
       })
@@ -249,7 +255,7 @@ export class FocusedTerminalPane {
       return
     }
     this.revealCursor()
-    this.frame = linesToFrame(editor.renderLines())
+    this.frame = linesToFrame(editor.renderLines(this.highlight))
     this.onChange()
   }
 
@@ -310,7 +316,7 @@ export class FocusedTerminalPane {
     }
     this.editor.setCursor(this.editorTop + bodyRow, col)
     this.revealCursor()
-    this.frame = linesToFrame(this.editor.renderLines())
+    this.frame = linesToFrame(this.editor.renderLines(this.highlight))
     this.onChange()
   }
 

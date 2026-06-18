@@ -1,7 +1,12 @@
+import { clipAnsi, sliceCellsFrom } from './text-width'
 import type { LogicalKey } from './tty-key-adapter'
 
 const INVERSE = '\x1b[7m'
 const RESET = '\x1b[0m'
+
+/** Per-line transform (e.g. syntax highlighting) applied before the cursor cell. */
+export type LineDecorator = (line: string) => string
+const identity: LineDecorator = (line) => line
 
 /** An in-memory text buffer with a cursor, for the read/write file view. Pure
  *  editing logic (no I/O): the pane owns load/save via files.read/files.write. */
@@ -122,13 +127,20 @@ export class FileEditor {
     }
   }
 
-  /** The buffer as screen lines, with the cursor cell drawn inverse. */
-  renderLines(): string[] {
-    return this.lines.map((line, i) => (i === this.row ? this.cursorLine(line) : line))
+  /** The buffer as screen lines, optionally decorated (syntax highlighting),
+   *  with the cursor cell drawn inverse over the decorated text. */
+  renderLines(decorate: LineDecorator = identity): string[] {
+    return this.lines.map((line, i) =>
+      i === this.row ? this.cursorLine(decorate(line), line) : decorate(line)
+    )
   }
 
-  private cursorLine(line: string): string {
-    const at = this.col < line.length ? line[this.col] : ' '
-    return `${line.slice(0, this.col)}${INVERSE}${at}${RESET}${line.slice(this.col + 1)}`
+  /** Invert the cursor cell on the (possibly colored) rendered line. Splices in
+   *  visible-cell space so it survives the decorator's SGR codes. */
+  private cursorLine(rendered: string, raw: string): string {
+    const at = this.col < raw.length ? raw[this.col] : ' '
+    const before = clipAnsi(rendered, this.col)
+    const after = sliceCellsFrom(rendered, this.col + 1)
+    return `${before}${INVERSE}${at}${RESET}${after}`
   }
 }
