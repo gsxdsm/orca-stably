@@ -77,11 +77,11 @@ export class TerminalScreenStream {
         this.setState({ lines, connected: true, plainFallback: false })
         return
       } catch (error) {
+        // A clear unknown-method error means the runtime predates readAnsi —
+        // stop trying it. For any other error, still fall through to the plain
+        // tail this tick so the panel always shows output, and retry ANSI next.
         if (looksLikeUnknownMethod(error)) {
-          this.ansiSupported = false // older runtime — use plain text from now on
-        } else {
-          this.setState({ ...this.state, connected: false })
-          return
+          this.ansiSupported = false
         }
       }
     }
