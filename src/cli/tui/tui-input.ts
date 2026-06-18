@@ -6,9 +6,6 @@ import type { LogicalKey } from './tty-key-adapter'
 import type { StatusIndicatorKind } from './agent-state-indicator'
 import type { WorktreeRow, WorktreeSnapshot } from './worktree-snapshot'
 
-// Mouse routing lives in ./tui-mouse; re-exported so callers import both here.
-export { handleMouse } from './tui-mouse'
-
 /** Controller overlay state, including the closures that turn user input into
  *  an RPC command (kept here so the input layer owns the command-building). */
 export type ControllerOverlay =

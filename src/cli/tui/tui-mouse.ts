@@ -1,4 +1,8 @@
 import { worktreeSelector } from './action-dispatch'
+import { handleKey, type ControllerOverlay } from './tui-input'
+import { overlayClick } from './overlay-frame'
+import { toOverlayModel } from './frame-derivation'
+import type { Platform } from './keybinding-map'
 import {
   buildSidebarLines,
   rowIndexAtScreenRow,
@@ -15,6 +19,26 @@ import type { MouseEvent } from './mouse-input'
 
 /** Lines moved per scroll-wheel tick when scrolling the focused terminal. */
 const SCROLL_LINES = 3
+
+/** Route a click while a dialog is open: map it to yes/no/dismiss and feed the
+ *  overlay key path (y confirms; anything else cancels/dismisses). */
+export function routeOverlayClick(
+  host: ControllerHost,
+  overlay: ControllerOverlay,
+  inputValue: string,
+  platform: Platform,
+  size: { columns: number; rows: number },
+  event: MouseEvent
+): void {
+  if (event.type !== 'press' || event.button !== 'left') {
+    return
+  }
+  const model = toOverlayModel(overlay, inputValue, platform)
+  const action = overlayClick(model, size.columns, size.rows, event.col, event.row)
+  if (action) {
+    handleKey(host, action === 'confirm' ? { type: 'char', value: 'y' } : { type: 'escape' })
+  }
+}
 
 export function handleMouse(host: ControllerHost, event: MouseEvent): void {
   if (event.type === 'scroll') {

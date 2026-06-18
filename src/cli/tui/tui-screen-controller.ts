@@ -7,13 +7,13 @@ import {
   HIDE_CURSOR,
   SHOW_CURSOR
 } from './ansi-control'
-import { MOUSE_DISABLE, MOUSE_ENABLE, parseMouseEvents, type MouseEvent } from './mouse-input'
-import { overlayClick } from './overlay-frame'
+import { MOUSE_DISABLE, MOUSE_ENABLE, parseMouseEvents } from './mouse-input'
 import { decodeKey } from './tty-key-adapter'
 import { ScreenCompositor } from './screen-compositor'
 import { composeFrame, type FrameModel } from './compose-frame'
 import { contextLabel, toOverlayModel } from './frame-derivation'
-import { handleKey, handleMouse, type ControllerHost, type ControllerOverlay } from './tui-input'
+import { handleKey, type ControllerHost, type ControllerOverlay } from './tui-input'
+import { handleMouse, routeOverlayClick } from './tui-mouse'
 import { WorktreeSnapshotSource, type WorktreeSnapshotState } from './worktree-snapshot-source'
 import { flattenWorktreeRows, type WorktreeRow } from './worktree-snapshot'
 import { FocusedTerminalPane } from './focused-terminal-pane'
@@ -155,8 +155,14 @@ export class TuiScreenController {
     const data = chunk.toString()
     const mouse = parseMouseEvents(data)
     if (mouse.length > 0) {
-      const active = this.overlay.kind !== 'none'
-      mouse.forEach((event) => (active ? this.overlayMouse(event) : handleMouse(this.host, event)))
+      // An open dialog captures clicks too (yes/no/dismiss); otherwise route normally.
+      for (const event of mouse) {
+        if (this.overlay.kind === 'none') {
+          handleMouse(this.host, event)
+        } else {
+          routeOverlayClick(this.host, this.overlay, this.input, this.platform, this.size, event)
+        }
+      }
       return
     }
     // An open dialog (confirm/prompt/help) captures keys regardless of terminal
@@ -251,19 +257,6 @@ export class TuiScreenController {
   private update(mutate: () => void): void {
     mutate()
     this.render()
-  }
-
-  /** An open dialog captures clicks too: map a click to yes/no/dismiss and feed
-   *  the overlay key path (y confirms; anything else cancels/dismisses). */
-  private overlayMouse(event: MouseEvent): void {
-    if (event.type !== 'press' || event.button !== 'left') {
-      return
-    }
-    const model = toOverlayModel(this.overlay, this.input, this.platform)
-    const action = overlayClick(model, this.size.columns, this.size.rows, event.col, event.row)
-    if (action) {
-      handleKey(this.host, action === 'confirm' ? { type: 'char', value: 'y' } : { type: 'escape' })
-    }
   }
 
   private async runCommand(command: TuiCommand): Promise<void> {
