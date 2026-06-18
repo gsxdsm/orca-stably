@@ -31,10 +31,35 @@ function model(overrides: Partial<FrameModel> = {}): FrameModel {
     selectedIndex: 0,
     selectedName: rows[0]?.displayName ?? '',
     sidebarWidth: sidebarWidthFor(columns),
-    tabs: [{ handle: 't1', title: 'shell' }],
-    terminalsByWorktree: new Map([['wt-1', [{ handle: 't1', title: 'shell' }]]]),
+    tabs: [
+      {
+        worktreeId: 'wt-1',
+        id: 't1',
+        kind: 'terminal',
+        title: 'shell',
+        terminalHandle: 'term_1',
+        relativePath: null,
+        url: null
+      }
+    ],
+    tabsByWorktree: new Map([
+      [
+        'wt-1',
+        [
+          {
+            worktreeId: 'wt-1',
+            id: 't1',
+            kind: 'terminal',
+            title: 'shell',
+            terminalHandle: 'term_1',
+            relativePath: null,
+            url: null
+          }
+        ]
+      ]
+    ]),
     tabsExpanded: false,
-    focusedHandle: 't1',
+    focusedTabId: 't1',
     terminalFocused: false,
     viewport: emptyAnsiFrame(),
     scrollOffset: 0,

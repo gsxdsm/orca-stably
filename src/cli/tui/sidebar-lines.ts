@@ -1,7 +1,7 @@
 import { worktreeIndicatorKind, type StatusIndicatorKind } from './agent-state-indicator'
 import { formatBadges } from './worktree-badge-format'
 import { windowStart } from './navigation-state'
-import type { TerminalRef } from './tui-input'
+import type { SessionTab, SessionTabKind } from './session-tab'
 import type { WorktreeRow, WorktreeSnapshot } from './worktree-snapshot'
 
 /** One rendered sidebar line. The component renders these top-to-bottom (one
@@ -28,18 +28,20 @@ export type SidebarLine =
       /** The owning worktree's flattened index, so jumping selects it too. */
       index: number
       worktreeId: string
-      handle: string
+      /** Session tab id (used to activate/jump to the tab). */
+      id: string
+      tabKind: SessionTabKind
       title: string
       focused: boolean
     }
 
-/** Terminal tabs per worktree, plus the expand state, for nesting tabs under
+/** Session tabs per worktree, plus the expand state, for nesting tabs under
  *  workspaces. The same options must reach both the renderer and the mouse
  *  hit-test so the two stay aligned. */
 export type SidebarTabsOptions = {
-  terminalsByWorktree?: ReadonlyMap<string, readonly TerminalRef[]>
+  tabsByWorktree?: ReadonlyMap<string, readonly SessionTab[]>
   expanded?: boolean
-  focusedHandle?: string | null
+  focusedTabId?: string | null
 }
 
 export function buildSidebarLines(
@@ -57,7 +59,7 @@ export function buildSidebarLines(
   for (const group of snapshot.groups) {
     lines.push({ kind: 'spacer' }, { kind: 'group', repo: group.repo })
     for (const row of group.worktrees) {
-      const terminals = tabs.terminalsByWorktree?.get(row.worktreeId) ?? []
+      const worktreeTabs = tabs.tabsByWorktree?.get(row.worktreeId) ?? []
       lines.push({
         kind: 'row',
         index,
@@ -65,17 +67,18 @@ export function buildSidebarLines(
         displayName: row.displayName,
         badges: formatBadges(row.badges),
         indicator: resolveKind(row),
-        expanded: expanded && terminals.length > 0
+        expanded: expanded && worktreeTabs.length > 0
       })
       if (expanded) {
-        for (const terminal of terminals) {
+        for (const tab of worktreeTabs) {
           lines.push({
             kind: 'tab',
             index,
             worktreeId: row.worktreeId,
-            handle: terminal.handle,
-            title: terminal.title,
-            focused: terminal.handle === tabs.focusedHandle
+            id: tab.id,
+            tabKind: tab.kind,
+            title: tab.title,
+            focused: tab.id === tabs.focusedTabId
           })
         }
       }
@@ -110,13 +113,13 @@ export function sidebarWindowStart(
   return windowStart(Math.max(0, selectedLine), lines.length, height)
 }
 
-/** Map a 0-based screen row to the terminal tab it renders, or null. */
+/** Map a 0-based screen row to the session tab it renders, or null. */
 export function tabAtScreenRow(
   lines: readonly SidebarLine[],
   screenRow: number
-): { index: number; worktreeId: string; handle: string } | null {
+): { index: number; worktreeId: string; id: string } | null {
   const line = lines[screenRow]
   return line && line.kind === 'tab'
-    ? { index: line.index, worktreeId: line.worktreeId, handle: line.handle }
+    ? { index: line.index, worktreeId: line.worktreeId, id: line.id }
     : null
 }

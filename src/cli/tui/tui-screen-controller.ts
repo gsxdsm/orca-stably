@@ -17,7 +17,8 @@ import { WorktreeSnapshotSource, type WorktreeSnapshotState } from './worktree-s
 import { flattenWorktreeRows, type WorktreeRow } from './worktree-snapshot'
 import { FocusedTerminalPane } from './focused-terminal-pane'
 import { dispatchAction, type TuiCommand } from './action-dispatch'
-import { TerminalRegistry } from './terminal-registry'
+import { SessionTabsRegistry } from './session-tabs-registry'
+import type { SessionTab } from './session-tab'
 import { DoubleEscapeDetector } from './double-escape'
 
 /** Telnet-style escape (Ctrl-]) returns from terminal-input focus to navigation;
@@ -56,7 +57,7 @@ export class TuiScreenController {
   private input = ''
   private error: string | null = null
   private readonly pane: FocusedTerminalPane
-  private readonly terminals: TerminalRegistry
+  private readonly tabs: SessionTabsRegistry
 
   private size = { columns: process.stdout.columns ?? 80, rows: process.stdout.rows ?? 24 }
   private readonly indicators = new IndicatorDebounceMap()
@@ -75,11 +76,30 @@ export class TuiScreenController {
     this.compositor = new ScreenCompositor()
     this.snap = this.source.getState()
     this.pane = new FocusedTerminalPane(options.client, () => this.render())
-    this.terminals = new TerminalRegistry(options.client, this.pane, () => this.render())
+    this.tabs = new SessionTabsRegistry(options.client, () => this.render())
   }
 
   private selectedWorktreeId(): string | undefined {
     return this.worktreeRows()[this.selectedIndex]?.worktreeId
+  }
+
+  private selectedTabs(): SessionTab[] {
+    return this.tabs.forWorktree(this.selectedWorktreeId())
+  }
+
+  /** Reload every tab, then keep the focused tab valid for the selected worktree. */
+  private async syncTabs(): Promise<void> {
+    await this.tabs.reload()
+    this.ensureFocusedTab()
+  }
+
+  /** Keep the pane's tab pointing at a tab of the selected worktree (default the
+   *  first), or none when it has no tabs. */
+  private ensureFocusedTab(): void {
+    const refs = this.selectedTabs()
+    if (!refs.some((tab) => tab.id === this.pane.tabId)) {
+      this.pane.setTab(refs[0] ?? null)
+    }
   }
 
   run(): Promise<void> {
@@ -97,7 +117,7 @@ export class TuiScreenController {
       process.stdout.on('resize', this.onResize)
       this.source.subscribe((state) => this.handleSnapshot(state))
       this.source.start()
-      void this.terminals.reload(this.selectedWorktreeId())
+      void this.syncTabs()
       this.render()
     })
   }
@@ -114,10 +134,10 @@ export class TuiScreenController {
     bodyHeight: () => this.bodyHeight(),
     snapshot: () => this.snap.snapshot,
     resolveKind: (row) => this.indicators.kindFor(row),
-    terminals: () => this.terminals.forWorktree(this.selectedWorktreeId()),
-    terminalsByWorktree: () => this.terminals.byWorktreeMap,
+    terminals: () => this.selectedTabs(),
+    tabsByWorktree: () => this.tabs.byWorktreeMap,
     tabsExpanded: () => this.tabsExpanded,
-    focusedHandle: () => this.pane.handle,
+    focusedTabId: () => this.pane.tabId,
     overlay: () => this.overlay,
     inputValue: () => this.input,
     terminalFocused: () => this.inputFocused(),
@@ -128,7 +148,7 @@ export class TuiScreenController {
       this.tabsExpanded = !this.tabsExpanded
       this.render()
     },
-    jumpToTab: (index, handle) => this.jumpToTab(index, handle),
+    jumpToTab: (index, tabId) => this.jumpToTab(index, tabId),
     selectIndex: (index) => this.selectIndex(index),
     move: (delta) =>
       this.selectIndex(moveSelection(this.selectedIndex, delta, this.worktreeRows().length)),
@@ -136,8 +156,7 @@ export class TuiScreenController {
       this.narrow = view
       this.render()
     },
-    setFocused: (handle) => this.pane.setHandle(handle),
-    cycleFocus: () => this.pane.cycle(this.terminals.forWorktree(this.selectedWorktreeId())),
+    cycleFocus: () => this.pane.cycle(this.selectedTabs()),
     setOverlay: (overlay) => {
       this.overlay = overlay
       this.render()
@@ -188,7 +207,7 @@ export class TuiScreenController {
     const rows = this.worktreeRows()
     const kept = keepId ? rows.findIndex((row) => row.worktreeId === keepId) : -1
     this.selectedIndex = kept >= 0 ? kept : clampSelection(this.selectedIndex, rows.length)
-    void this.terminals.reload(this.selectedWorktreeId())
+    void this.syncTabs()
     this.render()
   }
 
@@ -196,9 +215,9 @@ export class TuiScreenController {
     return this.snap.snapshot ? flattenWorktreeRows(this.snap.snapshot) : []
   }
 
-  private jumpToTab(index: number, handle: string): void {
+  private jumpToTab(index: number, tabId: string): void {
     this.selectIndex(index)
-    this.pane.setHandle(handle)
+    this.pane.setTab(this.tabs.find(tabId) ?? null)
     this.focusTerminal()
   }
 
@@ -233,7 +252,7 @@ export class TuiScreenController {
       return
     }
     this.selectedIndex = next
-    this.terminals.ensureFocused(this.selectedWorktreeId())
+    this.ensureFocusedTab()
     this.render()
   }
 
@@ -298,10 +317,10 @@ export class TuiScreenController {
       selectedIndex: this.selectedIndex,
       selectedName: selected?.displayName ?? '',
       sidebarWidth: this.sidebarWidth(),
-      tabs: this.terminals.forWorktree(this.selectedWorktreeId()),
-      terminalsByWorktree: this.terminals.byWorktreeMap,
+      tabs: this.selectedTabs(),
+      tabsByWorktree: this.tabs.byWorktreeMap,
       tabsExpanded: this.tabsExpanded,
-      focusedHandle: this.pane.handle,
+      focusedTabId: this.pane.tabId,
       terminalFocused: this.inputFocused(),
       viewport: this.pane.viewport,
       scrollOffset: this.pane.scrollOffset,

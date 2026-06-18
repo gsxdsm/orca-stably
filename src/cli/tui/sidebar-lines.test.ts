@@ -31,19 +31,21 @@ describe('buildSidebarLines', () => {
     expect(buildSidebarLines(null).map((l) => l.kind)).toEqual(['header'])
   })
 
-  it('nests terminal tabs under their worktree when expanded', () => {
+  const tab = (id: string, title: string, kind: 'terminal' | 'file' = 'terminal') => ({
+    worktreeId: 'a',
+    id,
+    kind,
+    title,
+    terminalHandle: kind === 'terminal' ? id : null,
+    relativePath: kind === 'file' ? title : null,
+    url: null
+  })
+
+  it('nests session tabs under their worktree when expanded', () => {
     const tabs = {
       expanded: true,
-      focusedHandle: 't-a2',
-      terminalsByWorktree: new Map([
-        [
-          'a',
-          [
-            { handle: 't-a1', title: 'one' },
-            { handle: 't-a2', title: 'two' }
-          ]
-        ]
-      ])
+      focusedTabId: 't-a2',
+      tabsByWorktree: new Map([['a', [tab('t-a1', 'one'), tab('t-a2', 'two', 'file')]]])
     }
     const lines = buildSidebarLines(snapshot, undefined, tabs)
     // row(a) is followed by its two tab lines.
@@ -60,26 +62,33 @@ describe('buildSidebarLines', () => {
       'row'
     ])
     const focused = lines.find((l) => l.kind === 'tab' && l.focused)
-    expect(focused && focused.kind === 'tab' ? focused.handle : null).toBe('t-a2')
+    expect(focused && focused.kind === 'tab' ? focused.id : null).toBe('t-a2')
   })
 
   it('omits tab lines when collapsed', () => {
-    const tabs = {
-      expanded: false,
-      terminalsByWorktree: new Map([['a', [{ handle: 't-a1', title: 'one' }]]])
-    }
+    const tabs = { expanded: false, tabsByWorktree: new Map([['a', [tab('t-a1', 'one')]]]) }
     expect(buildSidebarLines(snapshot, undefined, tabs).some((l) => l.kind === 'tab')).toBe(false)
   })
 })
 
 describe('tabAtScreenRow', () => {
-  it('resolves a tab line to its worktree index and handle', () => {
+  const tab = (id: string, title: string) => ({
+    worktreeId: 'a',
+    id,
+    kind: 'terminal' as const,
+    title,
+    terminalHandle: id,
+    relativePath: null,
+    url: null
+  })
+
+  it('resolves a tab line to its worktree index and id', () => {
     const lines = buildSidebarLines(snapshot, undefined, {
       expanded: true,
-      terminalsByWorktree: new Map([['a', [{ handle: 't-a1', title: 'one' }]]])
+      tabsByWorktree: new Map([['a', [tab('t-a1', 'one')]]])
     })
     // header(0) spacer(1) group(2) row-a(3) tab(4) ...
-    expect(tabAtScreenRow(lines, 4)).toEqual({ index: 0, worktreeId: 'a', handle: 't-a1' })
+    expect(tabAtScreenRow(lines, 4)).toEqual({ index: 0, worktreeId: 'a', id: 't-a1' })
     expect(tabAtScreenRow(lines, 3)).toBeNull()
   })
 })

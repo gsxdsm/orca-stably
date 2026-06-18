@@ -9,13 +9,12 @@ import {
 } from './sidebar-lines'
 import { tabHandleAtColumn, tabRegions, truncateTabLabel } from './pane-layout'
 import { windowStart } from './navigation-state'
+import { tabGlyph, type SessionTab } from './session-tab'
 import { BACK_LABEL, HEADER_ROWS, STRIP_WIDTH, type NarrowView } from './tui-layout'
 import type { MouseEvent } from './mouse-input'
 import type { LogicalKey } from './tty-key-adapter'
 import type { StatusIndicatorKind } from './agent-state-indicator'
 import type { WorktreeRow, WorktreeSnapshot } from './worktree-snapshot'
-
-export type TerminalRef = { handle: string; title: string }
 
 /** Controller overlay state, including the closures that turn user input into
  *  an RPC command (kept here so the input layer owns the command-building). */
@@ -38,11 +37,13 @@ export type ControllerHost = {
   bodyHeight: () => number
   snapshot: () => WorktreeSnapshot | null
   resolveKind: (row: WorktreeRow) => StatusIndicatorKind
-  terminals: () => readonly TerminalRef[]
-  /** All terminals grouped by worktree, for the nested sidebar tab lines. */
-  terminalsByWorktree: () => ReadonlyMap<string, readonly TerminalRef[]>
+  /** The selected worktree's tabs (right-pane tab strip). */
+  terminals: () => readonly SessionTab[]
+  /** All session tabs grouped by worktree, for the nested sidebar tab lines. */
+  tabsByWorktree: () => ReadonlyMap<string, readonly SessionTab[]>
   tabsExpanded: () => boolean
-  focusedHandle: () => string | null
+  /** Id of the focused tab (highlighting). */
+  focusedTabId: () => string | null
   overlay: () => ControllerOverlay
   inputValue: () => string
   /** True when keystrokes/scroll target the focused terminal rather than nav. */
@@ -50,14 +51,13 @@ export type ControllerHost = {
   selectIndex: (index: number) => void
   move: (delta: number) => void
   setNarrowView: (view: NarrowView) => void
-  setFocused: (handle: string | null) => void
   cycleFocus: () => void
   focusTerminal: () => void
   exitTerminalFocus: () => void
   scrollTerminal: (delta: number) => void
   toggleTabs: () => void
-  /** Select a worktree and focus a specific terminal of it (jump-to-tab). */
-  jumpToTab: (index: number, handle: string) => void
+  /** Select a worktree (by flattened index) and focus one of its tabs by id. */
+  jumpToTab: (index: number, tabId: string) => void
   setOverlay: (overlay: ControllerOverlay) => void
   setInput: (value: string) => void
   runCommand: (command: TuiCommand) => void
@@ -214,7 +214,7 @@ export function handleMouse(host: ControllerHost, event: MouseEvent): void {
     const { lines, lineIndex } = sidebarHit(host, event.row)
     const tab = tabAtScreenRow(lines, lineIndex)
     if (tab) {
-      host.jumpToTab(tab.index, tab.handle)
+      host.jumpToTab(tab.index, tab.id)
       return
     }
     const target = rowIndexAtScreenRow(lines, lineIndex)
@@ -237,7 +237,7 @@ function routeNarrowMouse(host: ControllerHost, col: number, row: number): void 
     const { lines, lineIndex } = sidebarHit(host, row)
     const tab = tabAtScreenRow(lines, lineIndex)
     if (tab) {
-      host.jumpToTab(tab.index, tab.handle)
+      host.jumpToTab(tab.index, tab.id)
       host.setNarrowView('terminal')
       return
     }
@@ -274,21 +274,23 @@ function sidebarHit(
   screenRow: number
 ): { lines: readonly SidebarLine[]; lineIndex: number } {
   const lines = buildSidebarLines(host.snapshot(), host.resolveKind, {
-    terminalsByWorktree: host.terminalsByWorktree(),
+    tabsByWorktree: host.tabsByWorktree(),
     expanded: host.tabsExpanded(),
-    focusedHandle: host.focusedHandle()
+    focusedTabId: host.focusedTabId()
   })
   const start = sidebarWindowStart(lines, host.selectedIndex(), host.bodyHeight())
   return { lines, lineIndex: start + (screenRow - HEADER_ROWS) }
 }
 
+/** Resolve a click on the right-pane tab strip to a tab and jump to it. The spec
+ *  label includes the kind glyph so the click regions match the rendered tabs. */
 function focusTabAt(host: ControllerHost, originX: number, col: number): void {
-  const specs = host.terminals().map((terminal) => ({
-    handle: terminal.handle,
-    label: truncateTabLabel(terminal.title)
+  const specs = host.terminals().map((tab) => ({
+    handle: tab.id,
+    label: `${tabGlyph(tab.kind)} ${truncateTabLabel(tab.title)}`
   }))
-  const handle = tabHandleAtColumn(tabRegions(specs, originX), col)
-  if (handle) {
-    host.setFocused(handle)
+  const id = tabHandleAtColumn(tabRegions(specs, originX), col)
+  if (id) {
+    host.jumpToTab(host.selectedIndex(), id)
   }
 }

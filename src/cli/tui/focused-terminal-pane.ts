@@ -2,7 +2,7 @@ import { TerminalAnsiSource, emptyAnsiFrame, type TerminalAnsiFrame } from './te
 import { terminalLineCount } from './viewport-frame'
 import { sendTerminalKeys } from './action-dispatch'
 import type { TuiRpcClient } from './tui-rpc-client'
-import type { TerminalRef } from './tui-input'
+import type { SessionTab } from './session-tab'
 
 /** terminal.updateViewport viewport bounds (runtime schema). */
 const FIT_MIN_COLS = 20
@@ -14,12 +14,23 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
-/** Owns the focused terminal: which handle is shown, its polled ANSI frame, the
- *  scrollback offset, and whether keystrokes are captured (wide-mode input
- *  focus). Pulled out of the controller so that file stays focused on layout and
- *  app state. Narrow-mode focus is derived by the controller from the view. */
+function plainFrame(content: string): TerminalAnsiFrame {
+  return {
+    data: null,
+    cols: 0,
+    rows: 0,
+    plainLines: content.split('\n'),
+    connected: true,
+    plainFallback: true
+  }
+}
+
+/** Owns the focused tab: which tab is shown, the content frame it renders, the
+ *  scroll offset, and (for terminals) input focus. Terminal tabs poll readAnsi
+ *  live; file/markdown tabs read their content once; browser tabs show a URL —
+ *  so the viewport can render any tab kind, not just terminals. */
 export class FocusedTerminalPane {
-  private handleId: string | null = null
+  private tab: SessionTab | null = null
   private source: TerminalAnsiSource | null = null
   private frame: TerminalAnsiFrame = emptyAnsiFrame()
   private scrollback = 0
@@ -32,8 +43,14 @@ export class FocusedTerminalPane {
     private readonly onChange: () => void
   ) {}
 
+  /** The focused tab's id (for highlighting the active tab). */
+  get tabId(): string | null {
+    return this.tab?.id ?? null
+  }
+
+  /** The focused terminal handle, when the tab is a terminal (for input/fit). */
   get handle(): string | null {
-    return this.handleId
+    return this.tab?.kind === 'terminal' ? this.tab.terminalHandle : null
   }
 
   get viewport(): TerminalAnsiFrame {
@@ -44,50 +61,90 @@ export class FocusedTerminalPane {
     return this.scrollback
   }
 
-  /** True when wide-mode input focus is on; the controller ORs this with the
-   *  narrow terminal view to decide whether keystrokes go to the PTY. */
   get focused(): boolean {
     return this.inputFocused
   }
 
-  setHandle(handle: string | null): void {
-    if (handle === this.handleId) {
+  setTab(tab: SessionTab | null): void {
+    if (tab?.id === this.tab?.id) {
       return
     }
-    this.handleId = handle
+    this.tab = tab
     this.scrollback = 0
     this.fitCols = 0
     this.fitRows = 0
-    if (!handle) {
+    if (!tab) {
       this.inputFocused = false
     }
     this.source?.stop()
     this.source = null
     this.frame = emptyAnsiFrame()
-    if (handle) {
-      const source = new TerminalAnsiSource(this.client, handle)
+    this.loadContent(tab)
+    this.onChange()
+  }
+
+  /** Start the live readAnsi poll for a terminal tab, or fetch static content
+   *  for a file/markdown/browser tab. */
+  private loadContent(tab: SessionTab | null): void {
+    if (!tab) {
+      return
+    }
+    if (tab.kind === 'terminal') {
+      if (!tab.terminalHandle) {
+        return
+      }
+      const source = new TerminalAnsiSource(this.client, tab.terminalHandle)
       source.subscribe((frame) => {
         this.frame = frame
         this.onChange()
       })
       source.start()
       this.source = source
-    }
-    this.onChange()
-  }
-
-  cycle(terminals: readonly TerminalRef[]): void {
-    if (terminals.length === 0) {
       return
     }
-    const current = terminals.findIndex((terminal) => terminal.handle === this.handleId)
-    this.setHandle(terminals[(current + 1) % terminals.length].handle)
+    if (tab.kind === 'browser') {
+      this.frame = plainFrame(
+        `URL: ${tab.url ?? '(unknown)'}\n\n(browser tabs open in the Orca app)`
+      )
+      return
+    }
+    this.fetchFile(tab)
   }
 
-  /** Capture input focus. Focus is intent, not tied to a live handle: keystrokes
-   *  only forward while a handle exists (see the controller), and setHandle(null)
-   *  clears focus — so focusing then selecting a workspace lands on its terminal
-   *  once it loads, and an empty workspace simply stays unfocused. */
+  /** Read a file/markdown tab's content once and show it (newest content wins if
+   *  the focused tab hasn't changed since the request). */
+  private fetchFile(tab: SessionTab): void {
+    if (!tab.relativePath) {
+      this.frame = plainFrame(`(no source path for ${tab.title})`)
+      return
+    }
+    void this.client
+      .call<{ content?: string }>('files.read', {
+        worktree: `id:${tab.worktreeId}`,
+        relativePath: tab.relativePath
+      })
+      .then(({ result }) => {
+        if (this.tab?.id === tab.id) {
+          this.frame = plainFrame(result.content ?? '')
+          this.onChange()
+        }
+      })
+      .catch(() => {
+        if (this.tab?.id === tab.id) {
+          this.frame = plainFrame(`(could not read ${tab.relativePath})`)
+          this.onChange()
+        }
+      })
+  }
+
+  cycle(tabs: readonly SessionTab[]): void {
+    if (tabs.length === 0) {
+      return
+    }
+    const current = tabs.findIndex((tab) => tab.id === this.tab?.id)
+    this.setTab(tabs[(current + 1) % tabs.length])
+  }
+
   focusInput(): void {
     this.inputFocused = true
     this.scrollback = 0
@@ -110,26 +167,26 @@ export class FocusedTerminalPane {
   }
 
   sendKeys(data: string): void {
-    if (this.handleId) {
-      void sendTerminalKeys(this.client, this.handleId, data)
+    const handle = this.handle
+    if (handle) {
+      void sendTerminalKeys(this.client, handle, data)
     }
   }
 
-  /** Resize the focused PTY to the viewport so its content reflows to the pane —
-   *  the TUI's size overrides the terminal's own. Uses updateViewport's desktop
-   *  path, which resizes directly WITHOUT taking the mobile input "floor" (that
-   *  gated keystrokes when we tried resizeForClient). No-op when unchanged. */
+  /** Resize the focused PTY to the viewport (terminal tabs only) via the desktop
+   *  updateViewport path — no input-floor side effect. No-op when unchanged. */
   fit({ cols, rows }: { cols: number; rows: number }): void {
+    const handle = this.handle
     const c = clamp(cols, FIT_MIN_COLS, FIT_MAX_COLS)
     const r = clamp(rows, FIT_MIN_ROWS, FIT_MAX_ROWS)
-    if (!this.handleId || (c === this.fitCols && r === this.fitRows)) {
+    if (!handle || (c === this.fitCols && r === this.fitRows)) {
       return
     }
     this.fitCols = c
     this.fitRows = r
     void this.client
       .call('terminal.updateViewport', {
-        terminal: this.handleId,
+        terminal: handle,
         client: { id: 'orca-tui', type: 'desktop' },
         viewport: { cols: c, rows: r }
       })

@@ -10,6 +10,7 @@ import {
 import { windowStart } from './navigation-state'
 import { truncateTabLabel } from './pane-layout'
 import { statusBarHelp, type Platform } from './keybinding-map'
+import { tabGlyph, type SessionTab } from './session-tab'
 import type { StatusIndicatorKind } from './agent-state-indicator'
 import type { WorktreeRow, WorktreeSnapshot } from './worktree-snapshot'
 
@@ -76,23 +77,27 @@ export function statusStripRows(
 }
 
 export function tabStripRow(
-  tabs: readonly { handle: string; title: string }[],
-  focusedHandle: string | null,
+  tabs: readonly SessionTab[],
+  focusedTabId: string | null,
   width: number,
   useColor: boolean
 ): string {
   if (tabs.length === 0) {
-    return style(fitCells(' no terminals — press c to start one', width), { dim: true }, useColor)
+    return style(
+      fitCells(' no tabs — press c for a terminal, f for files', width),
+      { dim: true },
+      useColor
+    )
   }
-  const focused = focusedHandle ?? tabs[0].handle
+  const focused = focusedTabId ?? tabs[0].id
   let out = ''
   let used = 0
   for (const tab of tabs) {
-    const label = ` ${truncateTabLabel(tab.title)} `
+    const label = ` ${tabGlyph(tab.kind)} ${truncateTabLabel(tab.title)} `
     if (used + cellWidth(label) > width) {
       break
     }
-    const isFocused = tab.handle === focused
+    const isFocused = tab.id === focused
     const spec: TextStyle = isFocused ? { bg: 'white', fg: 'black', bold: true } : { dim: true }
     out += style(label, spec, useColor)
     used += cellWidth(label)
@@ -204,7 +209,7 @@ function renderTabLine(
   width: number,
   useColor: boolean
 ): string {
-  const label = `   ${line.focused ? '▸' : '·'} ${truncateTabLabel(line.title)}`
+  const label = `   ${tabGlyph(line.tabKind)} ${truncateTabLabel(line.title)}`
   return style(
     fitCells(label, width),
     line.focused ? { fg: 'white', bold: true } : { dim: true },

@@ -3,8 +3,21 @@ import { handleKey, handleMouse, type ControllerHost, type ControllerOverlay } f
 import { buildWorktreeSnapshot, flattenWorktreeRows } from './worktree-snapshot'
 import { worktreeIndicatorKind } from './agent-state-indicator'
 import { makePsResult, makeWorktreeSummary } from './worktree-snapshot-fixtures'
+import type { SessionTab } from './session-tab'
 import type { MouseEvent } from './mouse-input'
 import type { LogicalKey } from './tty-key-adapter'
+
+function sessionTab(id: string, title: string, worktreeId = 'wt-1'): SessionTab {
+  return {
+    worktreeId,
+    id,
+    kind: 'terminal',
+    title,
+    terminalHandle: id,
+    relativePath: null,
+    url: null
+  }
+}
 
 const snapshot = buildWorktreeSnapshot(
   makePsResult([
@@ -31,17 +44,16 @@ function makeHost(overrides: Partial<ControllerHost> = {}): ControllerHost {
     bodyHeight: () => 20,
     snapshot: () => snapshot,
     resolveKind: (row) => worktreeIndicatorKind(row.status, row.agents),
-    terminals: () => [{ handle: 't1', title: 'shell' }],
-    terminalsByWorktree: () => new Map(),
+    terminals: () => [sessionTab('t1', 'shell')],
+    tabsByWorktree: () => new Map(),
     tabsExpanded: () => false,
-    focusedHandle: () => 't1',
+    focusedTabId: () => 't1',
     overlay: () => overlay,
     inputValue: () => '',
     terminalFocused: () => false,
     selectIndex: vi.fn(),
     move: vi.fn(),
     setNarrowView: vi.fn(),
-    setFocused: vi.fn(),
     cycleFocus: vi.fn(),
     focusTerminal: vi.fn(),
     exitTerminalFocus: vi.fn(),
@@ -167,10 +179,10 @@ describe('handleMouse', () => {
   it('jumps to a nested tab when its sidebar line is clicked', () => {
     const host = makeHost({
       tabsExpanded: () => true,
-      terminalsByWorktree: () =>
+      tabsByWorktree: () =>
         new Map([
-          ['wt-1', [{ handle: 't1', title: 'shell' }]],
-          ['wt-2', [{ handle: 't2', title: 'shell' }]]
+          ['wt-1', [sessionTab('t1', 'shell')]],
+          ['wt-2', [sessionTab('t2', 'shell', 'wt-2')]]
         ])
     })
     // lines: header(0) spacer(1) group(2) row-wt1(3) tab-t1(4) row-wt2(5) tab-t2(6)
@@ -179,11 +191,11 @@ describe('handleMouse', () => {
     expect(host.jumpToTab).toHaveBeenCalledWith(0, 't1')
   })
 
-  it('focuses a tab when the tab row is clicked', () => {
+  it('jumps to a tab when the tab strip is clicked', () => {
     const host = makeHost()
-    // Tab strip starts at sidebarWidth + 2 = 32; first tab " shell " spans it.
+    // Tab strip starts at sidebarWidth + 2 = 32; first tab "❯ shell" spans it.
     handleMouse(host, press(34, 1))
-    expect(host.setFocused).toHaveBeenCalledWith('t1')
+    expect(host.jumpToTab).toHaveBeenCalledWith(0, 't1')
   })
 
   it('opens the terminal view when a narrow list row is clicked', () => {

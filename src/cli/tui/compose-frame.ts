@@ -13,6 +13,7 @@ import { BACK_LABEL, STRIP_WIDTH } from './tui-layout'
 import { overlayRows, type OverlayModel } from './overlay-frame'
 import type { Platform } from './keybinding-map'
 import type { StatusIndicatorKind } from './agent-state-indicator'
+import type { SessionTab } from './session-tab'
 import type { TerminalAnsiFrame } from './terminal-ansi-source'
 import type { WorktreeRow, WorktreeSnapshot } from './worktree-snapshot'
 import type { NarrowView } from './tui-layout'
@@ -29,11 +30,11 @@ export type FrameModel = {
   selectedIndex: number
   selectedName: string
   sidebarWidth: number
-  tabs: readonly { handle: string; title: string }[]
-  /** All terminals grouped by worktree, for the nested sidebar tab lines. */
-  terminalsByWorktree: ReadonlyMap<string, readonly { handle: string; title: string }[]>
+  tabs: readonly SessionTab[]
+  /** All session tabs grouped by worktree, for the nested sidebar tab lines. */
+  tabsByWorktree: ReadonlyMap<string, readonly SessionTab[]>
   tabsExpanded: boolean
-  focusedHandle: string | null
+  focusedTabId: string | null
   /** True when keystrokes/scroll are captured by the terminal (input focus). */
   terminalFocused: boolean
   viewport: TerminalAnsiFrame
@@ -69,14 +70,14 @@ function headerLabel(model: FrameModel): string {
 }
 
 function sidebarTabsOptions(model: FrameModel): {
-  terminalsByWorktree: ReadonlyMap<string, readonly { handle: string; title: string }[]>
+  tabsByWorktree: ReadonlyMap<string, readonly SessionTab[]>
   expanded: boolean
-  focusedHandle: string | null
+  focusedTabId: string | null
 } {
   return {
-    terminalsByWorktree: model.terminalsByWorktree,
+    tabsByWorktree: model.tabsByWorktree,
     expanded: model.tabsExpanded,
-    focusedHandle: model.focusedHandle
+    focusedTabId: model.focusedTabId
   }
 }
 
@@ -195,7 +196,7 @@ function narrowTerminalFrame(model: FrameModel, bodyHeight: number): string[] {
 /** The right pane: tab strip on top, the focused terminal's verbatim output
  *  below — herdr-style tabs-over-terminal. */
 function rightColumn(model: FrameModel, width: number, bodyHeight: number): string[] {
-  const tab = tabStripRow(model.tabs, model.focusedHandle, width, model.useColor)
+  const tab = tabStripRow(model.tabs, model.focusedTabId, width, model.useColor)
   const body = viewportRows(model.viewport, width, Math.max(0, bodyHeight - 1), model.scrollOffset)
   return [tab, ...body]
 }
