@@ -75,10 +75,6 @@ export class FocusedTerminalPane {
     return this.inputFocused
   }
 
-  get isDirty(): boolean {
-    return this.editor?.dirty ?? false
-  }
-
   /** Editor status for the footer: none (not editing) / clean / dirty / conflict
    *  (the file changed on disk since load — a second Ctrl-S overwrites). */
   get editState(): 'none' | 'clean' | 'dirty' | 'conflict' {
@@ -329,7 +325,7 @@ export class FocusedTerminalPane {
     if (!this.editor || bodyRow < 0) {
       return
     }
-    this.editor.setCursor(this.editorTop + bodyRow, col)
+    this.editor.setCursorFromClick(this.editorTop + bodyRow, col)
     this.revealCursor()
     this.frame = linesToFrame(this.editor.renderLines(this.highlight))
     this.onChange()

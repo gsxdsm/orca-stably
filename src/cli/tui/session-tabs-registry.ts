@@ -50,7 +50,7 @@ export class SessionTabsRegistry {
     const current = refs.find((tab) => tab.id === this.pane.tabId)
     if (current) {
       this.pane.refresh(current)
-    } else if (!this.pane.isDirty) {
+    } else if (this.pane.editState !== 'dirty' && this.pane.editState !== 'conflict') {
       this.pane.setTab(refs[0] ?? null)
     }
   }

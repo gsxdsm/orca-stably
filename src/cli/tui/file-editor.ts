@@ -1,4 +1,4 @@
-import { clipAnsi, sliceCellsFrom } from './text-width'
+import { cellWidth, clipAnsi, sliceCellsFrom } from './text-width'
 import type { LogicalKey } from './tty-key-adapter'
 
 const INVERSE = '\x1b[7m'
@@ -52,10 +52,25 @@ export class FileEditor {
     this.load(this.baseline)
   }
 
-  /** Place the cursor from a click at a buffer (row, col), clamped into range. */
+  /** Place the cursor at a buffer (row, col index), clamped into range. */
   setCursor(row: number, col: number): void {
     this.row = Math.min(Math.max(row, 0), this.lines.length - 1)
     this.col = Math.min(Math.max(col, 0), this.lines[this.row].length)
+  }
+
+  /** Place the cursor from a click at a visible (row, cell-column): walk the
+   *  line by display width so wide/CJK/emoji glyphs map to the right index. */
+  setCursorFromClick(row: number, cellCol: number): void {
+    this.row = Math.min(Math.max(row, 0), this.lines.length - 1)
+    const line = this.lines[this.row]
+    let i = 0
+    let cells = 0
+    while (i < line.length && cells < cellCol) {
+      const ch = String.fromCodePoint(line.codePointAt(i) ?? 0)
+      cells += cellWidth(ch)
+      i += ch.length
+    }
+    this.col = i
   }
 
   /** Apply an editing key; returns true if it changed the buffer or cursor. */
@@ -144,8 +159,11 @@ export class FileEditor {
    *  visible-cell space so it survives the decorator's SGR codes. */
   private cursorLine(rendered: string, raw: string): string {
     const at = this.col < raw.length ? raw[this.col] : ' '
-    const before = clipAnsi(rendered, this.col)
-    const after = sliceCellsFrom(rendered, this.col + 1)
+    // Map the buffer index to a visible column so wide glyphs before the cursor
+    // don't shift the inverted cell off the character under it.
+    const visualCol = cellWidth(raw.slice(0, this.col))
+    const before = clipAnsi(rendered, visualCol)
+    const after = sliceCellsFrom(rendered, visualCol + cellWidth(at))
     return `${before}${INVERSE}${at}${RESET}${after}`
   }
 }

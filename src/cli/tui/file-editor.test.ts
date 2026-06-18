@@ -48,6 +48,14 @@ describe('FileEditor', () => {
     expect(editor.dirty).toBe(false)
   })
 
+  it('maps a click cell-column to the buffer index across wide glyphs', () => {
+    const editor = loaded('日本x') // each CJK char is 2 cells wide
+    // Click at visible column 4 → past the two 2-cell glyphs → buffer index 2.
+    editor.setCursorFromClick(0, 4)
+    editor.handleKey(char('!'))
+    expect(editor.content).toBe('日本!x')
+  })
+
   it('draws the cursor cell inverse in the rendered lines', () => {
     const editor = loaded('ab')
     editor.setCursor(0, 0)
