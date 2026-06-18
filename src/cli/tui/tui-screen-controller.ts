@@ -33,7 +33,13 @@ import { clampSelection, moveSelection } from './navigation-state'
 import { MAX_PANES } from './pane-layout'
 import { currentPlatform } from './keybinding-map'
 import { resolveTheme } from './theme'
-import { HEADER_ROWS, NARROW_THRESHOLD, sidebarWidthFor, type NarrowView } from './tui-layout'
+import {
+  HEADER_ROWS,
+  NARROW_THRESHOLD,
+  sidebarWidthFor,
+  viewportCellDims,
+  type NarrowView
+} from './tui-layout'
 import type { RunTuiOptions } from './tui-runtime-contract'
 import type { RuntimeTerminalListResult } from '../../shared/runtime-types'
 
@@ -119,7 +125,10 @@ export class TuiScreenController {
     selectIndex: (index) => this.selectIndex(index),
     move: (delta) =>
       this.selectIndex(moveSelection(this.selectedIndex, delta, this.worktreeRows().length)),
-    setNarrowView: (view) => this.setNarrowView(view),
+    setNarrowView: (view) => {
+      this.narrow = view
+      this.render()
+    },
     setFocused: (handle) => this.pane.setHandle(handle),
     cycleFocus: () => this.pane.cycle(this.terminals),
     setOverlay: (overlay) => {
@@ -226,7 +235,7 @@ export class TuiScreenController {
   }
 
   private focusTerminal(): void {
-    this.pane.focusInput(this.terminals.length > 0)
+    this.pane.focusInput()
   }
 
   private exitTerminalFocus(): void {
@@ -246,11 +255,6 @@ export class TuiScreenController {
     }
     this.selectedIndex = next
     this.syncSelectedWorktree()
-    this.render()
-  }
-
-  private setNarrowView(view: NarrowView): void {
-    this.narrow = view
     this.render()
   }
 
@@ -295,6 +299,7 @@ export class TuiScreenController {
     setImmediate(() => {
       this.renderQueued = false
       if (!this.disposed) {
+        this.pane.fit(viewportCellDims(this.size.columns, this.bodyHeight(), this.isNarrow()))
         this.compositor.render(composeFrame(this.frameModel()))
       }
     })

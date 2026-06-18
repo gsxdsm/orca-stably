@@ -69,7 +69,11 @@ function wideFrame(model: FrameModel, bodyHeight: number): string[] {
     model.useColor
   )
   const right = rightColumn(model, viewportWidth, bodyHeight)
-  const sep = `${style(BORDER, { dim: true }, model.useColor)} `
+  // A heavy cyan divider marks the right pane as input-focused; a dim thin one
+  // means navigation has focus.
+  const sep = model.terminalFocused
+    ? `${style('┃', { fg: 'cyan', bold: true }, model.useColor)} `
+    : `${style(BORDER, { dim: true }, model.useColor)} `
   const rows = [headerRow(headerLabel(model), model.columns, model.useColor)]
   for (let i = 0; i < bodyHeight; i += 1) {
     rows.push(`${left[i]}${sep}${right[i]}`)

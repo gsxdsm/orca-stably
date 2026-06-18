@@ -192,11 +192,12 @@ export function handleMouse(host: ControllerHost, event: MouseEvent): void {
     routeNarrowMouse(host, event.col, event.row)
     return
   }
-  // Wide: the sidebar returns to navigation; the tab row or viewport body
-  // focuses the terminal for input.
+  // Wide: selecting a workspace focuses its terminal; so do the tab row and the
+  // viewport body. (Ctrl-] is the way back to navigation.)
   if (event.col < host.sidebarWidth()) {
-    selectSidebarRow(host, event.row, false)
-    host.exitTerminalFocus()
+    if (selectSidebarRow(host, event.row, false)) {
+      host.focusTerminal()
+    }
   } else if (event.row === HEADER_ROWS) {
     focusTabAt(host, host.sidebarWidth() + 2, event.col)
     host.focusTerminal()
@@ -229,24 +230,27 @@ function routeNarrowMouse(host: ControllerHost, col: number, row: number): void 
 }
 
 /** Map a sidebar screen row to a worktree, honoring the sidebar's scroll window
- *  so a click resolves to the same worktree the row renders. */
+ *  so a click resolves to the same worktree the row renders. Returns true when a
+ *  worktree row was hit (vs a header/spacer/gutter). */
 function selectSidebarRow(
   host: ControllerHost,
   screenRow: number,
   switchToTerminal: boolean
-): void {
+): boolean {
   const lines = buildSidebarLines(host.snapshot(), host.resolveKind)
   const selectedLine = lines.findIndex(
     (line) => line.kind === 'row' && line.index === host.selectedIndex()
   )
   const start = windowStart(Math.max(0, selectedLine), lines.length, host.bodyHeight())
   const target = rowIndexAtScreenRow(lines, start + (screenRow - HEADER_ROWS))
-  if (target !== null) {
-    host.selectIndex(target)
-    if (switchToTerminal) {
-      host.setNarrowView('terminal')
-    }
+  if (target === null) {
+    return false
   }
+  host.selectIndex(target)
+  if (switchToTerminal) {
+    host.setNarrowView('terminal')
+  }
+  return true
 }
 
 function focusTabAt(host: ControllerHost, originX: number, col: number): void {

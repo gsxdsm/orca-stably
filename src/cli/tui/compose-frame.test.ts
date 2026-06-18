@@ -68,6 +68,11 @@ describe('composeFrame', () => {
     expect(frame.join('\n')).toContain('Confirm')
   })
 
+  it('marks the divider with a heavy bar when the terminal is focused', () => {
+    expect(composeFrame(model({ terminalFocused: false })).some((r) => r.includes('┃'))).toBe(false)
+    expect(composeFrame(model({ terminalFocused: true })).some((r) => r.includes('┃'))).toBe(true)
+  })
+
   it('shows the back button in the narrow terminal view', () => {
     const frame = composeFrame(model({ isNarrow: true, narrowView: 'terminal', columns: 50 }))
     expect(frame[0]).toContain('workspaces')

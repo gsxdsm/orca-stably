@@ -130,10 +130,11 @@ describe('handleMouse', () => {
     expect(host.focusTerminal).toHaveBeenCalled()
   })
 
-  it('returns to navigation when the sidebar is clicked while focused', () => {
-    const host = makeHost({ terminalFocused: () => true })
+  it('focuses the selected workspace terminal when a sidebar row is clicked', () => {
+    const host = makeHost()
     handleMouse(host, press(2, 4))
-    expect(host.exitTerminalFocus).toHaveBeenCalled()
+    expect(host.selectIndex).toHaveBeenCalledWith(0)
+    expect(host.focusTerminal).toHaveBeenCalled()
   })
 
   it('selects a worktree when the sidebar is clicked', () => {
