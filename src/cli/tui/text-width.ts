@@ -117,6 +117,37 @@ export function clipAnsi(line: string, width: number): string {
   return styleOpen ? `${out}${ESC}[0m` : out
 }
 
+/** Return the tail of a styled line after skipping `start` visible cells,
+ *  re-emitting the SGR style in effect at the cut so the tail renders correctly.
+ *  The complement of clipAnsi — used to composite a box over the middle of a row
+ *  while preserving the cells on either side. */
+export function sliceCellsFrom(line: string, start: number): string {
+  if (start <= 0) {
+    return line
+  }
+  let visible = 0
+  let activeSgr = ''
+  let i = 0
+  while (i < line.length && visible < start) {
+    const esc = escapeLength(line, i)
+    if (esc > 0) {
+      const seq = line.slice(i, i + esc)
+      const opens = opensStyle(seq)
+      if (opens === true) {
+        activeSgr = seq
+      } else if (opens === false) {
+        activeSgr = ''
+      }
+      i += esc
+      continue
+    }
+    const cp = line.codePointAt(i) ?? 0
+    visible += charWidth(cp)
+    i += cp > 0xffff ? 2 : 1
+  }
+  return activeSgr + line.slice(i)
+}
+
 /** Fit PLAIN text to exactly `width` cells: truncate when too wide, right-pad
  *  with spaces when too short. */
 export function fitCells(text: string, width: number): string {

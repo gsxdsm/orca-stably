@@ -1,5 +1,5 @@
 import { style } from './ansi-control'
-import { cellWidth, fitCells } from './text-width'
+import { cellWidth, clipAnsi, fitCells, padCells, sliceCellsFrom } from './text-width'
 import { keybindingHelp, type Platform } from './keybinding-map'
 
 /** A modal drawn centered over the composed frame (help / confirm / prompt).
@@ -12,8 +12,9 @@ export type OverlayModel =
 
 type Box = { title: string; lines: string[] }
 
-/** Stamp the overlay box over `base`, centered. Replaced rows are full-width so
- *  the modal cleanly covers the chrome behind it. Returns a new array. */
+/** Stamp the overlay box over `base`, centered. The box is composited onto each
+ *  row it occupies so the chrome to the left and right of the box still shows
+ *  (only the box's own cells replace the base). Returns a new array. */
 export function overlayRows(
   base: string[],
   overlay: OverlayModel,
@@ -35,7 +36,10 @@ export function overlayRows(
   for (let i = 0; i < boxLines.length; i += 1) {
     const rowIndex = top + i
     if (rowIndex >= 0 && rowIndex < rows) {
-      out[rowIndex] = ' '.repeat(left) + boxLines[i]
+      const baseRow = out[rowIndex] ?? ''
+      const leftPart = padCells(clipAnsi(baseRow, left), left)
+      const rightPart = sliceCellsFrom(baseRow, left + boxWidth)
+      out[rowIndex] = leftPart + boxLines[i] + rightPart
     }
   }
   return out

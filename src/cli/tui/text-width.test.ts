@@ -1,9 +1,31 @@
 import { describe, expect, it } from 'vitest'
-import { cellWidth, clipAnsi, fitCells, padCells } from './text-width'
+import { cellWidth, clipAnsi, fitCells, padCells, sliceCellsFrom } from './text-width'
 
 const ESC = '\x1b'
 const RED = `${ESC}[31m`
 const RESET = `${ESC}[0m`
+
+describe('sliceCellsFrom', () => {
+  it('returns the tail after N visible cells', () => {
+    expect(sliceCellsFrom('abcdef', 2)).toBe('cdef')
+  })
+
+  it('re-emits the active style at the cut so the tail stays styled', () => {
+    // "ab" then red "cdef"; cut at 4 → inside the red run → tail keeps red.
+    const line = `ab${RED}cdef${RESET}`
+    const tail = sliceCellsFrom(line, 4)
+    expect(tail.startsWith(RED)).toBe(true)
+    expect(clipAnsi(tail, 10).replace(new RegExp(`${ESC}\\[[0-9;]*m`, 'g'), '')).toBe('ef')
+  })
+
+  it('clip + slice partition a styled row losslessly in visible cells', () => {
+    const line = `${RED}hello world${RESET}`
+    const left = clipAnsi(line, 5)
+    const right = sliceCellsFrom(line, 5)
+    const strip = (s: string) => s.replace(new RegExp(`${ESC}\\[[0-9;]*m`, 'g'), '')
+    expect(strip(left) + strip(right)).toBe('hello world')
+  })
+})
 
 describe('cellWidth', () => {
   it('ignores ANSI escapes', () => {
