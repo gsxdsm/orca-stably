@@ -19,6 +19,8 @@ import { foldToolMessages } from './mobile-native-chat-blocks'
 import { MobileAgentWorkingIndicator } from './MobileAgentWorkingIndicator'
 import { MobileNativeChatComposer } from './MobileNativeChatComposer'
 import { MobileNativeChatMessage } from './MobileNativeChatMessage'
+import { MobileNativeChatAsk } from './MobileNativeChatAsk'
+import type { AskPrompt } from './mobile-native-chat-ask'
 import { MobileNativeChatPermission } from './MobileNativeChatPermission'
 import type { MobileChatPermission } from './mobile-native-chat-permission'
 import { MobileNativeChatQuestion } from './MobileNativeChatQuestion'
@@ -53,6 +55,10 @@ type Props = {
   onNeedFiles?: () => void
   /** A pending agent question/permission detected from live status, shown as a
    *  native card above the composer; answering sends text to the agent. */
+  /** Structured AskUserQuestion prompt parsed from the transcript (preferred over
+   *  the heuristic question card). */
+  ask?: AskPrompt | null
+  onAnswerAsk?: (text: string) => void
   question?: MobileChatQuestion | null
   onAnswerQuestion?: (text: string) => void
   permission?: MobileChatPermission | null
@@ -96,6 +102,8 @@ export function MobileNativeChatView({
   inputLocked,
   filePaths,
   onNeedFiles,
+  ask,
+  onAnswerAsk,
   question,
   onAnswerQuestion,
   permission,
@@ -325,8 +333,11 @@ export function MobileNativeChatView({
           ) : null}
         </GestureHandlerRootView>
       )}
-      {/* Pending agent prompt: permission takes precedence over a question. */}
-      {permission ? (
+      {/* Pending agent prompt: a structured AskUserQuestion wins, then a
+          heuristic permission, then a heuristic question. */}
+      {ask ? (
+        <MobileNativeChatAsk prompt={ask} onAnswer={(text) => onAnswerAsk?.(text)} />
+      ) : permission ? (
         <MobileNativeChatPermission
           permission={permission}
           onRespond={(send) => onRespondPermission?.(send)}

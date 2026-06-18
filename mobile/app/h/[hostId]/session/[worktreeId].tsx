@@ -186,6 +186,7 @@ import { useMobileNativeChatSession } from '../../../../src/session/use-mobile-n
 import { resolveMobileNativeChat } from '../../../../src/session/mobile-native-chat-eligibility'
 import { parseAgentQuestion } from '../../../../src/session/mobile-native-chat-question'
 import { detectAgentPermission } from '../../../../src/session/mobile-native-chat-permission'
+import { extractPendingAsk } from '../../../../src/session/mobile-native-chat-ask'
 import {
   getRepoIdFromMobileWorktreeId,
   isFileExistsErrorMessage,
@@ -1200,6 +1201,12 @@ export default function SessionScreen() {
     nativeChatBlocked && nativeChatStatus && !nativeChatPermission
       ? parseAgentQuestion(nativeChatStatus.lastAssistantMessage ?? '')
       : null
+  // Why: a structured AskUserQuestion in the transcript is the reliable signal —
+  // render it natively regardless of the heuristic status text.
+  const nativeChatAsk = useMemo(
+    () => (activeChatResolution != null ? extractPendingAsk(nativeChatSession.messages) : null),
+    [activeChatResolution, nativeChatSession.messages]
+  )
   const handleNativeChatOpenFile = useCallback(
     (relativePath: string) => {
       if (!client) {
@@ -4904,6 +4911,8 @@ export default function SessionScreen() {
                       agentWorking={nativeChatAgentWorking}
                       streamingText={nativeChatStreamingText}
                       onStop={handleNativeChatStop}
+                      ask={nativeChatAsk}
+                      onAnswerAsk={handleNativeChatSend}
                       question={nativeChatQuestion}
                       onAnswerQuestion={handleNativeChatSend}
                       permission={nativeChatPermission}
