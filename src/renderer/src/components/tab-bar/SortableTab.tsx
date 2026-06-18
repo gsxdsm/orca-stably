@@ -20,6 +20,7 @@ import {
   type DropIndicator
 } from './drop-indicator'
 import { preventMiddleButtonDefault } from './middle-button-default-guard'
+import { shouldToggleViewModeFromLongPress } from './tab-long-press-toggle'
 import { SortableTabContextMenu } from './SortableTabContextMenu'
 import { translate } from '@/i18n/i18n'
 import { TAB_CONTAINER_WIDTH_CLASSES, TAB_LABEL_WIDTH_CLASSES } from './tab-width-rules'
@@ -45,6 +46,12 @@ type SortableTabProps = {
   dragData: TabDragItemData
   dropIndicator?: DropIndicator
   includeTopTabBorder?: boolean
+  /** True when this tab is an agent terminal that can switch to the native chat
+   *  view. Drives the touch long-press gesture below. */
+  canToggleViewMode?: boolean
+  /** Toggle the tab between terminal and native chat view. Invoked by a touch/pen
+   *  long-press (which surfaces as a `contextmenu` event) on eligible agent tabs. */
+  onToggleViewMode?: () => void
 }
 
 export const CLOSE_ALL_CONTEXT_MENUS_EVENT = 'orca-close-all-context-menus'
@@ -68,8 +75,14 @@ export default function SortableTab({
   onToggleExpand,
   dragData,
   dropIndicator,
-  includeTopTabBorder = true
+  includeTopTabBorder = true,
+  canToggleViewMode = false,
+  onToggleViewMode
 }: SortableTabProps): React.JSX.Element {
+  // Why: the long-press toggle reuses the browser's touch `contextmenu` event, so
+  // we record the pointer type from the press that triggered it. A mouse
+  // right-click reports 'mouse' and keeps the normal context menu.
+  const lastPointerTypeRef = useRef<string>('')
   // Why: subscribe to the per-tab boolean directly so only the tab whose unread
   // status actually flipped re-renders. Reading the whole `unreadTerminalTabs`
   // map in TabBar would invalidate every SortableTab on every bell event
@@ -232,6 +245,9 @@ export default function SortableTab({
         handleRenameOpen()
       }}
       onPointerDown={(e) => {
+        // Record before the button/editing guards so a touch long-press
+        // (which later fires `contextmenu`) is recognized as touch-originated.
+        lastPointerTypeRef.current = e.pointerType
         if (isEditing || e.button !== 0) {
           return
         }
@@ -451,6 +467,16 @@ export default function SortableTab({
         className={TAB_CONTAINER_WIDTH_CLASSES}
         onContextMenuCapture={(event) => {
           event.preventDefault()
+          // Touch/pen long-press on an agent tab switches the chat/terminal view
+          // instead of opening the menu; mouse right-click keeps the menu.
+          if (
+            onToggleViewMode &&
+            shouldToggleViewModeFromLongPress(lastPointerTypeRef.current, canToggleViewMode)
+          ) {
+            window.dispatchEvent(new Event(CLOSE_ALL_CONTEXT_MENUS_EVENT))
+            onToggleViewMode()
+            return
+          }
           window.dispatchEvent(new Event(CLOSE_ALL_CONTEXT_MENUS_EVENT))
           setMenuPoint({ x: event.clientX, y: event.clientY })
           setMenuOpen(true)

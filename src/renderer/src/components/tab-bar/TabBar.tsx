@@ -29,6 +29,7 @@ import { useAppStore } from '../../store'
 import { buildStatusMap } from '../right-sidebar/status-display'
 import type { OpenFile } from '../../store/slices/editor'
 import SortableTab from './SortableTab'
+import { canToggleNativeChat } from '../native-chat/native-chat-availability'
 import EditorFileTab from './EditorFileTab'
 import BrowserTab, { getBrowserTabLabel } from './BrowserTab'
 import { QuickLaunchAgentMenuItems } from './QuickLaunchButton'
@@ -432,6 +433,22 @@ function TabBarInner({
     () => unifiedTabs.some((tab) => tab.contentType === 'simulator'),
     [unifiedTabs]
   )
+
+  // Why: gate the tab long-press view-mode toggle to agent terminals. A tab is
+  // eligible when it launched an agent or has a live agent-status entry on any of
+  // its panes (paneKey = `${unifiedTabId}:…`), mirroring the toggle button's gate.
+  const toggleTabViewMode = useAppStore((s) => s.toggleTabViewMode)
+  const agentStatusByPaneKey = useAppStore((s) => s.agentStatusByPaneKey)
+  const tabIdsWithLiveAgent = useMemo(() => {
+    const ids = new Set<string>()
+    for (const paneKey of Object.keys(agentStatusByPaneKey ?? {})) {
+      const separator = paneKey.indexOf(':')
+      if (separator > 0) {
+        ids.add(paneKey.slice(0, separator))
+      }
+    }
+    return ids
+  }, [agentStatusByPaneKey])
 
   // Why: Electron <webview> elements run in a separate process, so clicking
   // inside one never dispatches a pointerdown on the renderer document.
@@ -1076,6 +1093,14 @@ function TabBarInner({
                     item.data.title
                   )
                 }
+                const unifiedTabForItem = unifiedTabByVisibleId.get(item.id)
+                const canToggleViewMode =
+                  unifiedTabForItem !== undefined &&
+                  canToggleNativeChat({
+                    contentType: 'terminal',
+                    launchAgent: terminalTab.launchAgent,
+                    hasDetectedAgent: tabIdsWithLiveAgent.has(unifiedTabForItem.id)
+                  })
                 return (
                   <SortableTab
                     key={item.id}
@@ -1083,6 +1108,10 @@ function TabBarInner({
                     unifiedTabId={item.unifiedTabId}
                     groupId={resolvedGroupId}
                     tabCount={orderedItems.length}
+                    canToggleViewMode={canToggleViewMode}
+                    onToggleViewMode={
+                      unifiedTabForItem ? () => toggleTabViewMode(unifiedTabForItem.id) : undefined
+                    }
                     hasTabsToRight={index < orderedItems.length - 1}
                     isActive={
                       (activeTabType === 'terminal' || activeTabType === 'simulator') &&
