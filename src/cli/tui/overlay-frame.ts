@@ -45,6 +45,49 @@ export function overlayRows(
   return out
 }
 
+/** Geometry for a click while an overlay is open. Recomputes the same centered
+ *  box overlayRows draws, then classifies the click:
+ *   - help: any click dismisses
+ *   - confirm: the buttons row splits into yes (left half) / no (right half);
+ *     a click outside the box cancels; elsewhere inside is ignored
+ *   - prompt: a click outside cancels; inside is ignored (keyboard-driven) */
+export function overlayClick(
+  overlay: OverlayModel,
+  columns: number,
+  rows: number,
+  col: number,
+  row: number
+): 'confirm' | 'cancel' | 'dismiss' | null {
+  if (overlay.kind === 'none') {
+    return null
+  }
+  const box = boxFor(overlay)
+  const inner = Math.max(box.title.length + 2, ...box.lines.map((line) => cellWidth(line)))
+  const innerWidth = Math.min(columns - 4, inner)
+  const boxWidth = innerWidth + 4
+  const boxLines = drawBox(box, innerWidth, useColorIrrelevant)
+  const top = Math.max(0, Math.floor((rows - boxLines.length) / 2))
+  const left = Math.max(0, Math.floor((columns - boxWidth) / 2))
+  const inside = row >= top && row < top + boxLines.length && col >= left && col < left + boxWidth
+  if (overlay.kind === 'help') {
+    return 'dismiss'
+  }
+  if (overlay.kind === 'prompt') {
+    return inside ? null : 'cancel'
+  }
+  if (!inside) {
+    return 'cancel'
+  }
+  // confirm: last body line (just above the bottom border) holds the buttons.
+  if (row === top + boxLines.length - 2) {
+    return col < left + 2 + Math.floor(innerWidth / 2) ? 'confirm' : 'cancel'
+  }
+  return null
+}
+
+// drawBox styling is irrelevant to geometry; pass a constant for measurement.
+const useColorIrrelevant = false
+
 function boxFor(overlay: Exclude<OverlayModel, { kind: 'none' }>): Box {
   if (overlay.kind === 'help') {
     const lines = keybindingHelp(overlay.platform).map(

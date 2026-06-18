@@ -7,7 +7,8 @@ import {
   HIDE_CURSOR,
   SHOW_CURSOR
 } from './ansi-control'
-import { MOUSE_DISABLE, MOUSE_ENABLE, parseMouseEvents } from './mouse-input'
+import { MOUSE_DISABLE, MOUSE_ENABLE, parseMouseEvents, type MouseEvent } from './mouse-input'
+import { overlayClick } from './overlay-frame'
 import { decodeKey } from './tty-key-adapter'
 import { ScreenCompositor } from './screen-compositor'
 import { composeFrame, type FrameModel } from './compose-frame'
@@ -80,7 +81,7 @@ export class TuiScreenController {
     )
     this.files = new FileBrowserController(options.client, {
       worktreeId: () => this.selectedWorktreeId(),
-      bodyHeight: () => this.bodyHeight(),
+      bodyHeight: () => Math.max(1, this.size.rows - HEADER_ROWS - 1),
       onChange: () => this.render(),
       onOpened: (path) => void this.tabs.sync().then(() => this.tabs.focusOpened(path))
     })
@@ -116,10 +117,10 @@ export class TuiScreenController {
     worktreeRows: () => this.worktreeRows(),
     selected: () => this.worktreeRows()[this.selectedIndex] ?? null,
     selectedIndex: () => this.selectedIndex,
-    isNarrow: () => this.isNarrow(),
+    isNarrow: () => this.size.columns < NARROW_THRESHOLD,
     narrowView: () => this.narrow,
-    sidebarWidth: () => this.sidebarWidth(),
-    bodyHeight: () => this.bodyHeight(),
+    sidebarWidth: () => sidebarWidthFor(this.size.columns),
+    bodyHeight: () => Math.max(1, this.size.rows - HEADER_ROWS - 1),
     snapshot: () => this.snap.snapshot,
     resolveKind: (row) => this.indicators.kindFor(row),
     terminals: () => this.tabs.forSelected(),
@@ -154,7 +155,8 @@ export class TuiScreenController {
     const data = chunk.toString()
     const mouse = parseMouseEvents(data)
     if (mouse.length > 0) {
-      mouse.forEach((event) => handleMouse(this.host, event))
+      const active = this.overlay.kind !== 'none'
+      mouse.forEach((event) => (active ? this.overlayMouse(event) : handleMouse(this.host, event)))
       return
     }
     // An open dialog (confirm/prompt/help) captures keys regardless of terminal
@@ -222,12 +224,12 @@ export class TuiScreenController {
     // Mode-exclusive: in narrow, focus follows the view (so going back to the
     // list returns input to workspace navigation); the wide-only pane.focused
     // flag must not leak across a resize into the narrow list view.
-    return this.isNarrow() ? this.narrow === 'terminal' : this.pane.focused
+    return this.size.columns < NARROW_THRESHOLD ? this.narrow === 'terminal' : this.pane.focused
   }
 
   private exitTerminalFocus(): void {
     this.pane.exitInput()
-    if (this.isNarrow()) {
+    if (this.size.columns < NARROW_THRESHOLD) {
       this.narrow = 'list'
     }
     this.render()
@@ -245,22 +247,23 @@ export class TuiScreenController {
     this.render()
   }
 
-  private isNarrow(): boolean {
-    return this.size.columns < NARROW_THRESHOLD
-  }
-
-  private sidebarWidth(): number {
-    return sidebarWidthFor(this.size.columns)
-  }
-
-  private bodyHeight(): number {
-    return Math.max(1, this.size.rows - HEADER_ROWS - 1)
-  }
-
   /** Apply a state mutation, then re-render. */
   private update(mutate: () => void): void {
     mutate()
     this.render()
+  }
+
+  /** An open dialog captures clicks too: map a click to yes/no/dismiss and feed
+   *  the overlay key path (y confirms; anything else cancels/dismisses). */
+  private overlayMouse(event: MouseEvent): void {
+    if (event.type !== 'press' || event.button !== 'left') {
+      return
+    }
+    const model = toOverlayModel(this.overlay, this.input, this.platform)
+    const action = overlayClick(model, this.size.columns, this.size.rows, event.col, event.row)
+    if (action) {
+      handleKey(this.host, action === 'confirm' ? { type: 'char', value: 'y' } : { type: 'escape' })
+    }
   }
 
   private async runCommand(command: TuiCommand): Promise<void> {
@@ -288,7 +291,13 @@ export class TuiScreenController {
     setImmediate(() => {
       this.renderQueued = false
       if (!this.disposed) {
-        this.pane.fit(viewportCellDims(this.size.columns, this.bodyHeight(), this.isNarrow()))
+        this.pane.fit(
+          viewportCellDims(
+            this.size.columns,
+            Math.max(1, this.size.rows - HEADER_ROWS - 1),
+            this.size.columns < NARROW_THRESHOLD
+          )
+        )
         this.compositor.render(composeFrame(this.frameModel()))
       }
     })
@@ -301,13 +310,13 @@ export class TuiScreenController {
     return {
       columns: this.size.columns,
       rows: this.size.rows,
-      isNarrow: this.isNarrow(),
+      isNarrow: this.size.columns < NARROW_THRESHOLD,
       narrowView: this.narrow,
       snapshot: this.snap.snapshot,
       worktreeRows: rows,
       selectedIndex: this.selectedIndex,
       selectedName: selected?.displayName ?? '',
-      sidebarWidth: this.sidebarWidth(),
+      sidebarWidth: sidebarWidthFor(this.size.columns),
       tabs: this.tabs.forSelected(),
       tabsByWorktree: this.tabs.byWorktreeMap,
       tabsExpanded: this.tabsExpanded,
