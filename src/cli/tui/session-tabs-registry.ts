@@ -1,5 +1,5 @@
 import { toSessionTabs, type RawTab, type SessionTab } from './session-tab'
-import type { FocusedTerminalPane } from './focused-terminal-pane'
+import type { FocusedTabPane } from './focused-tab-pane'
 
 type ListAllResult = { snapshots?: { worktree?: string; tabs?: RawTab[] }[] }
 
@@ -18,7 +18,7 @@ export class SessionTabsRegistry {
 
   constructor(
     private readonly client: RpcClient,
-    private readonly pane: FocusedTerminalPane,
+    private readonly pane: FocusedTabPane,
     private readonly selectedWorktreeId: () => string | undefined,
     private readonly onChange: () => void
   ) {}

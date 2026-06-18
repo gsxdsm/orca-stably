@@ -31,7 +31,7 @@ function plainFrame(content: string): TerminalAnsiFrame {
  *  scroll offset, and (for terminals) input focus. Terminal tabs poll readAnsi
  *  live; file/markdown tabs read their content once; browser tabs show a URL —
  *  so the viewport can render any tab kind, not just terminals. */
-export class FocusedTerminalPane {
+export class FocusedTabPane {
   private tab: SessionTab | null = null
   private source: TerminalAnsiSource | null = null
   private frame: TerminalAnsiFrame = emptyAnsiFrame()

@@ -16,7 +16,7 @@ import { handleKey, type ControllerHost, type ControllerOverlay } from './tui-in
 import { handleMouse, routeOverlayClick } from './tui-mouse'
 import { WorktreeSnapshotSource, type WorktreeSnapshotState } from './worktree-snapshot-source'
 import { flattenWorktreeRows, type WorktreeRow } from './worktree-snapshot'
-import { FocusedTerminalPane } from './focused-terminal-pane'
+import { FocusedTabPane } from './focused-tab-pane'
 import { dispatchAction, type TuiCommand } from './action-dispatch'
 import { SessionTabsRegistry } from './session-tabs-registry'
 import { FileBrowserController } from './file-browser-controller'
@@ -53,7 +53,7 @@ export class TuiScreenController {
   private input = ''
   private error: string | null = null
   private readonly files: FileBrowserController
-  private readonly pane: FocusedTerminalPane
+  private readonly pane: FocusedTabPane
   private readonly tabs: SessionTabsRegistry
 
   private size = { columns: process.stdout.columns ?? 80, rows: process.stdout.rows ?? 24 }
@@ -72,7 +72,7 @@ export class TuiScreenController {
     this.source = new WorktreeSnapshotSource(options.client)
     this.compositor = new ScreenCompositor()
     this.snap = this.source.getState()
-    this.pane = new FocusedTerminalPane(options.client, () => this.render())
+    this.pane = new FocusedTabPane(options.client, () => this.render())
     this.tabs = new SessionTabsRegistry(
       options.client,
       this.pane,
