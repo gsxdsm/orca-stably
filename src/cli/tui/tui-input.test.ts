@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { handleKey, handleMouse, type ControllerHost, type ControllerOverlay } from './tui-input'
+import { handleKey, type ControllerHost, type ControllerOverlay } from './tui-input'
+import { handleMouse } from './tui-mouse'
 import { buildWorktreeSnapshot, flattenWorktreeRows } from './worktree-snapshot'
 import { worktreeIndicatorKind } from './agent-state-indicator'
 import { makePsResult, makeWorktreeSummary } from './worktree-snapshot-fixtures'
@@ -179,26 +180,62 @@ describe('handleMouse', () => {
     expect(host.selectIndex).not.toHaveBeenCalled()
   })
 
-  it('jumps to a nested tab when its sidebar line is clicked', () => {
-    const host = makeHost({
+  const expandedTabsHost = (over: Partial<ControllerHost> = {}) =>
+    makeHost({
       tabsExpanded: () => true,
+      focusedTabId: () => null,
       tabsByWorktree: () =>
         new Map([
           ['wt-1', [sessionTab('t1', 'shell')]],
           ['wt-2', [sessionTab('t2', 'shell', 'wt-2')]]
-        ])
+        ]),
+      ...over
     })
+
+  it('jumps to a nested tab when its sidebar line is clicked', () => {
+    const host = expandedTabsHost()
     // lines: header(0) spacer(1) group(2) row-wt1(3) tab-t1(4) row-wt2(5) tab-t2(6)
     // screenRow 5 → lineIndex 4 → the wt-1 tab.
     handleMouse(host, press(2, 5))
     expect(host.jumpToTab).toHaveBeenCalledWith(0, 't1')
   })
 
+  it('confirms closing a nested tab on right-click', () => {
+    const host = expandedTabsHost()
+    handleMouse(host, { type: 'press', button: 'right', col: 2, row: 5 })
+    expect(host.setOverlay).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'confirm',
+        command: expect.objectContaining({ kind: 'session.tabs.close', tabId: 't1' })
+      })
+    )
+    expect(host.jumpToTab).not.toHaveBeenCalled()
+  })
+
+  it('confirms removing a worktree on right-click in the sidebar', () => {
+    const host = expandedTabsHost()
+    // screenRow 4 → lineIndex 3 → row-wt1 (worktree index 0).
+    handleMouse(host, { type: 'press', button: 'right', col: 2, row: 4 })
+    expect(host.setOverlay).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'confirm',
+        command: expect.objectContaining({ kind: 'worktree.rm' })
+      })
+    )
+  })
+
   it('jumps to a tab when the tab strip is clicked', () => {
-    const host = makeHost()
+    const host = makeHost({ focusedTabId: () => null })
     // Tab strip starts at sidebarWidth + 2 = 32; first tab "❯ shell" spans it.
     handleMouse(host, press(34, 1))
     expect(host.jumpToTab).toHaveBeenCalledWith(0, 't1')
+  })
+
+  it('confirms closing the tab when the already-focused tab is clicked', () => {
+    const host = expandedTabsHost({ focusedTabId: () => 't1' })
+    handleMouse(host, press(34, 1))
+    expect(host.setOverlay).toHaveBeenCalledWith(expect.objectContaining({ kind: 'confirm' }))
+    expect(host.jumpToTab).not.toHaveBeenCalled()
   })
 
   it('opens the terminal view when a narrow list row is clicked', () => {

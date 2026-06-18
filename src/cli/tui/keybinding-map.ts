@@ -83,6 +83,8 @@ export function keybindingHelp(platform: Platform = currentPlatform()): KeyHelp[
     { keys: 'n', hint: 'new worktree' },
     { keys: 'c', hint: 'new terminal' },
     { keys: 't', hint: 'expand/collapse tabs' },
+    { keys: 'f', hint: 'files' },
+    { keys: 'right-click', hint: 'close tab / worktree' },
     { keys: 'x', hint: 'remove' },
     { keys: 'r', hint: 'refresh' },
     { keys: '?', hint: 'help' },

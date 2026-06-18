@@ -21,6 +21,7 @@ export type TuiCommand =
   | { kind: 'terminal.send'; terminal: string; text?: string; enter?: boolean; interrupt?: boolean }
   | { kind: 'terminal.split'; terminal: string; direction?: 'horizontal' | 'vertical' }
   | { kind: 'terminal.close'; terminal: string }
+  | { kind: 'session.tabs.close'; worktree: string; tabId: string }
   | { kind: 'terminal.rename'; terminal: string; title: string | null }
   | { kind: 'terminal.stop'; worktree: string }
   | { kind: 'terminal.focus'; terminal: string }
@@ -34,6 +35,7 @@ export type RpcCall = { method: string; params: Record<string, unknown> }
 const DESTRUCTIVE_KINDS = new Set<TuiCommand['kind']>([
   'worktree.rm',
   'terminal.close',
+  'session.tabs.close',
   'terminal.stop'
 ])
 
@@ -92,6 +94,11 @@ export function buildCall(command: TuiCommand): RpcCall {
       }
     case 'terminal.close':
       return { method: 'terminal.close', params: { terminal: command.terminal } }
+    case 'session.tabs.close':
+      return {
+        method: 'session.tabs.close',
+        params: { worktree: command.worktree, tabId: command.tabId }
+      }
     case 'terminal.rename':
       return {
         method: 'terminal.rename',

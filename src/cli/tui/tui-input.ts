@@ -1,20 +1,13 @@
 import { resolveAction, type TuiAction } from './keybinding-map'
 import { worktreeSelector, type TuiCommand } from './action-dispatch'
-import {
-  buildSidebarLines,
-  rowIndexAtScreenRow,
-  sidebarWindowStart,
-  tabAtScreenRow,
-  type SidebarLine
-} from './sidebar-lines'
-import { tabHandleAtColumn, tabRegions, truncateTabLabel } from './pane-layout'
-import { windowStart } from './navigation-state'
-import { tabGlyph, type SessionTab } from './session-tab'
-import { BACK_LABEL, HEADER_ROWS, STRIP_WIDTH, type NarrowView } from './tui-layout'
-import type { MouseEvent } from './mouse-input'
+import { type NarrowView } from './tui-layout'
+import type { SessionTab } from './session-tab'
 import type { LogicalKey } from './tty-key-adapter'
 import type { StatusIndicatorKind } from './agent-state-indicator'
 import type { WorktreeRow, WorktreeSnapshot } from './worktree-snapshot'
+
+// Mouse routing lives in ./tui-mouse; re-exported so callers import both here.
+export { handleMouse } from './tui-mouse'
 
 /** Controller overlay state, including the closures that turn user input into
  *  an RPC command (kept here so the input layer owns the command-building). */
@@ -69,9 +62,6 @@ export type ControllerHost = {
   refresh: () => void
   quit: () => void
 }
-
-/** Lines moved per scroll-wheel tick when scrolling the focused terminal. */
-const SCROLL_LINES = 3
 
 // ─── Keyboard ────────────────────────────────────────────────────────────────
 
@@ -191,129 +181,4 @@ function openPrompt(
 ): void {
   host.setInput('')
   host.setOverlay({ kind: 'prompt', label, build })
-}
-
-// ─── Mouse ───────────────────────────────────────────────────────────────────
-
-export function handleMouse(host: ControllerHost, event: MouseEvent): void {
-  if (event.type === 'scroll') {
-    // When the terminal is focused the wheel scrolls its history (up = older);
-    // otherwise it moves the worktree selection.
-    if (host.terminalFocused()) {
-      host.scrollTerminal(event.direction === 'up' ? SCROLL_LINES : -SCROLL_LINES)
-    } else {
-      host.move(event.direction === 'down' ? 1 : -1)
-    }
-    return
-  }
-  if (event.type !== 'press' || event.button !== 'left') {
-    return
-  }
-  if (host.fileBrowserOpen()) {
-    // Tapping the Files bar again closes it; clicking a row opens/expands it.
-    if (event.row === 0) {
-      host.toggleFiles()
-    } else {
-      host.clickFile(event.row)
-    }
-    return
-  }
-  // The header's right segment is the Files button.
-  if (event.row === 0) {
-    if (event.col >= host.sidebarWidth()) {
-      host.toggleFiles()
-    }
-    return
-  }
-  if (host.isNarrow()) {
-    routeNarrowMouse(host, event.col, event.row)
-    return
-  }
-  // Wide: a nested tab line jumps to that terminal; clicking a *different*
-  // workspace switches to it and focuses its terminal; clicking the
-  // already-selected workspace (or empty list space) focuses the workspace area.
-  // The tab row / viewport body always focus the terminal.
-  if (event.col < host.sidebarWidth()) {
-    const { lines, lineIndex } = sidebarHit(host, event.row)
-    const tab = tabAtScreenRow(lines, lineIndex)
-    if (tab) {
-      host.jumpToTab(tab.index, tab.id)
-      return
-    }
-    const target = rowIndexAtScreenRow(lines, lineIndex)
-    if (target === null || target === host.selectedIndex()) {
-      host.exitTerminalFocus()
-    } else {
-      host.selectIndex(target)
-      host.focusTerminal()
-    }
-  } else if (event.row === HEADER_ROWS) {
-    focusTabAt(host, host.sidebarWidth() + 2, event.col)
-    host.focusTerminal()
-  } else {
-    host.focusTerminal()
-  }
-}
-
-function routeNarrowMouse(host: ControllerHost, col: number, row: number): void {
-  if (host.narrowView() === 'list') {
-    const { lines, lineIndex } = sidebarHit(host, row)
-    const tab = tabAtScreenRow(lines, lineIndex)
-    if (tab) {
-      host.jumpToTab(tab.index, tab.id)
-      host.setNarrowView('terminal')
-      return
-    }
-    const target = rowIndexAtScreenRow(lines, lineIndex)
-    if (target !== null) {
-      host.selectIndex(target)
-      host.setNarrowView('terminal')
-    }
-    return
-  }
-  if (row === 0 && col < BACK_LABEL.length) {
-    host.setNarrowView('list')
-    return
-  }
-  if (col < STRIP_WIDTH) {
-    const total = host.worktreeRows().length
-    const start = windowStart(host.selectedIndex(), total, host.bodyHeight())
-    const index = start + (row - HEADER_ROWS)
-    if (index >= 0 && index < total) {
-      host.selectIndex(index)
-    }
-    return
-  }
-  if (row === HEADER_ROWS) {
-    focusTabAt(host, STRIP_WIDTH + 1, col)
-  }
-}
-
-/** Build the sidebar lines (with nested tabs) the same way the renderer does,
- *  and resolve which line a screen row hit — honoring the scroll window so the
- *  hit-test never drifts from what's drawn. */
-function sidebarHit(
-  host: ControllerHost,
-  screenRow: number
-): { lines: readonly SidebarLine[]; lineIndex: number } {
-  const lines = buildSidebarLines(host.snapshot(), host.resolveKind, {
-    tabsByWorktree: host.tabsByWorktree(),
-    expanded: host.tabsExpanded(),
-    focusedTabId: host.focusedTabId()
-  })
-  const start = sidebarWindowStart(lines, host.selectedIndex(), host.bodyHeight())
-  return { lines, lineIndex: start + (screenRow - HEADER_ROWS) }
-}
-
-/** Resolve a click on the right-pane tab strip to a tab and jump to it. The spec
- *  label includes the kind glyph so the click regions match the rendered tabs. */
-function focusTabAt(host: ControllerHost, originX: number, col: number): void {
-  const specs = host.terminals().map((tab) => ({
-    handle: tab.id,
-    label: `${tabGlyph(tab.kind)} ${truncateTabLabel(tab.title)}`
-  }))
-  const id = tabHandleAtColumn(tabRegions(specs, originX), col)
-  if (id) {
-    host.jumpToTab(host.selectedIndex(), id)
-  }
 }
