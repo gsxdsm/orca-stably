@@ -8,47 +8,57 @@ function editorWith(content: string): FileEditor {
   return editor
 }
 
-// A fake client: files.read returns `disk`, files.write records the call.
-function fakeClient(disk: string, writes: unknown[] = []) {
+// A fake client. files.writeIfUnchanged returns the runtime CAS verdict; the
+// non-overwrite path uses it, the overwrite path uses files.write.
+function fakeClient(
+  status: 'saved' | 'conflict',
+  calls: { method: string; params: unknown }[] = []
+) {
   return {
     call: vi.fn(async (method: string, params: unknown) => {
-      if (method === 'files.write') {
-        writes.push(params)
-      }
-      return { result: { content: disk } }
+      calls.push({ method, params })
+      return { result: method === 'files.writeIfUnchanged' ? { status } : {} }
     })
   }
 }
 
 describe('saveFileTab', () => {
-  it('writes and marks saved when the disk matches the loaded baseline', async () => {
-    const writes: unknown[] = []
+  it('compare-and-swaps with the loaded baseline and marks saved', async () => {
+    const calls: { method: string; params: unknown }[] = []
     const editor = editorWith('hello')
-    editor.handleKey({ type: 'char', value: '!' }) // buffer now "!hello", baseline "hello"
-    const client = fakeClient('hello', writes)
+    editor.handleKey({ type: 'char', value: '!' }) // buffer "!hello", baseline "hello"
+    const client = fakeClient('saved', calls)
     const result = await saveFileTab(client as never, 'id:wt', 'a.txt', editor, false)
     expect(result).toBe('saved')
-    expect(writes).toEqual([{ worktree: 'id:wt', relativePath: 'a.txt', content: '!hello' }])
+    expect(calls).toEqual([
+      {
+        method: 'files.writeIfUnchanged',
+        params: {
+          worktree: 'id:wt',
+          relativePath: 'a.txt',
+          content: '!hello',
+          expectedContent: 'hello'
+        }
+      }
+    ])
     expect(editor.dirty).toBe(false)
   })
 
-  it('reports a conflict (no write) when the disk changed since load', async () => {
-    const writes: unknown[] = []
+  it('reports a conflict when the runtime CAS rejects the write', async () => {
+    const calls: { method: string; params: unknown }[] = []
     const editor = editorWith('hello')
-    const client = fakeClient('hello — edited elsewhere', writes)
+    const client = fakeClient('conflict', calls)
     const result = await saveFileTab(client as never, 'id:wt', 'a.txt', editor, false)
     expect(result).toBe('conflict')
-    expect(writes).toHaveLength(0)
+    expect(calls.every((c) => c.method !== 'files.write')).toBe(true)
   })
 
-  it('overwrites without re-reading when allowOverwrite is set', async () => {
-    const writes: unknown[] = []
+  it('force-overwrites via files.write when allowOverwrite is set', async () => {
+    const calls: { method: string; params: unknown }[] = []
     const editor = editorWith('hello')
-    const client = fakeClient('changed', writes)
+    const client = fakeClient('saved', calls)
     const result = await saveFileTab(client as never, 'id:wt', 'a.txt', editor, true)
     expect(result).toBe('saved')
-    expect(writes).toHaveLength(1)
-    // files.read was skipped — only the write happened.
-    expect((client.call as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1)
+    expect(calls.map((c) => c.method)).toEqual(['files.write'])
   })
 })

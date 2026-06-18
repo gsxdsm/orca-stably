@@ -499,6 +499,50 @@ export class RuntimeFileCommands {
     return { ok: true }
   }
 
+  /** Compare-and-swap write: only writes when the file's current content still
+   *  matches `expectedContent`, narrowing the lost-update window to a single
+   *  read→compare→write inside the runtime (vs. a client round-trip). Returns
+   *  'conflict' when the file changed on disk since it was read. */
+  async writeFileExplorerFileIfUnchanged(
+    worktreeSelector: string,
+    relativePath: string,
+    content: string,
+    expectedContent: string
+  ): Promise<{ status: 'saved' | 'conflict' }> {
+    const target = await this.resolveFileExplorerPath(worktreeSelector, relativePath)
+    if (target.connectionId) {
+      const provider = getSshFilesystemProvider(target.connectionId)
+      if (!provider) {
+        throw new Error(SSH_FILESYSTEM_PROVIDER_UNAVAILABLE_MESSAGE)
+      }
+      const current = await provider.readFile(target.path)
+      if ((current.isBinary ? '' : current.content) !== expectedContent) {
+        return { status: 'conflict' }
+      }
+      await provider.writeFile(target.path, content)
+      return { status: 'saved' }
+    }
+
+    const filePath = await resolveAuthorizedPath(target.path, this.host.requireStore())
+    let current = ''
+    try {
+      const fileStats = await lstat(filePath)
+      if (fileStats.isDirectory()) {
+        throw new Error('Cannot write to a directory')
+      }
+      current = await readFile(filePath, 'utf-8')
+    } catch (error) {
+      if (!isENOENT(error)) {
+        throw error
+      }
+    }
+    if (current !== expectedContent) {
+      return { status: 'conflict' }
+    }
+    await writeFile(filePath, content, 'utf-8')
+    return { status: 'saved' }
+  }
+
   async writeFileExplorerFileBase64(
     worktreeSelector: string,
     relativePath: string,
