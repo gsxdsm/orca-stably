@@ -3,6 +3,7 @@ import { worktreeSelector, type TuiCommand } from './action-dispatch'
 import {
   buildSidebarLines,
   rowIndexAtScreenRow,
+  sidebarWindowStart,
   tabAtScreenRow,
   type SidebarLine
 } from './sidebar-lines'
@@ -103,7 +104,7 @@ export function handleKey(host: ControllerHost, key: LogicalKey): void {
       if (host.selected()) {
         host.setNarrowView('terminal')
       }
-    } else {
+    } else if (host.terminals().length > 0) {
       host.focusTerminal()
     }
     return
@@ -277,10 +278,7 @@ function sidebarHit(
     expanded: host.tabsExpanded(),
     focusedHandle: host.focusedHandle()
   })
-  const selectedLine = lines.findIndex(
-    (line) => line.kind === 'row' && line.index === host.selectedIndex()
-  )
-  const start = windowStart(Math.max(0, selectedLine), lines.length, host.bodyHeight())
+  const start = sidebarWindowStart(lines, host.selectedIndex(), host.bodyHeight())
   return { lines, lineIndex: start + (screenRow - HEADER_ROWS) }
 }
 

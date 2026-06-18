@@ -1,7 +1,12 @@
 import { style, type TextStyle } from './ansi-control'
 import { cellWidth, fitCells } from './text-width'
 import { indicatorFor } from './agent-state-indicator'
-import { buildSidebarLines, type SidebarLine, type SidebarTabsOptions } from './sidebar-lines'
+import {
+  buildSidebarLines,
+  sidebarWindowStart,
+  type SidebarLine,
+  type SidebarTabsOptions
+} from './sidebar-lines'
 import { windowStart } from './navigation-state'
 import { truncateTabLabel } from './pane-layout'
 import { statusBarHelp, type Platform } from './keybinding-map'
@@ -29,9 +34,12 @@ export function focusBar(
 ): string {
   const active: TextStyle = { bg: 'white', fg: 'black', bold: true }
   const idle: TextStyle = { bg: 'gray', fg: 'white' }
-  const leftSeg = style(fitCells(left, leftWidth), terminalFocused ? idle : active, useColor)
+  // Clamp so the two segments always sum to exactly totalWidth, even if the
+  // sidebar width somehow exceeds the screen.
+  const lw = Math.max(0, Math.min(leftWidth, totalWidth))
+  const leftSeg = style(fitCells(left, lw), terminalFocused ? idle : active, useColor)
   const rightSeg = style(
-    fitCells(right, Math.max(0, totalWidth - leftWidth)),
+    fitCells(right, totalWidth - lw),
     terminalFocused ? active : idle,
     useColor
   )
@@ -146,10 +154,7 @@ export function sidebarRows(
   if (!lines.some((line) => line.kind === 'row')) {
     return emptySidebar(height, width, useColor)
   }
-  const selectedLine = lines.findIndex(
-    (line) => line.kind === 'row' && line.index === selectedIndex
-  )
-  const start = windowStart(Math.max(0, selectedLine), lines.length, height)
+  const start = sidebarWindowStart(lines, selectedIndex, height)
   const out: string[] = []
   for (let i = 0; i < height; i += 1) {
     const line = lines[start + i]

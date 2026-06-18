@@ -14,6 +14,8 @@ export class DoubleEscapeDetector {
       return true
     }
     if (data !== '\x1b') {
+      // Any other input breaks the streak, so only two *consecutive* Escs exit.
+      this.lastEscAt = 0
       return false
     }
     if (now - this.lastEscAt < this.windowMs) {

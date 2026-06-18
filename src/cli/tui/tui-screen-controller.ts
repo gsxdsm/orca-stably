@@ -207,7 +207,10 @@ export class TuiScreenController {
   /** True when keystrokes/scroll target the terminal: the pane's explicit
    *  wide-mode focus, or implicitly whenever the narrow terminal view is open. */
   private inputFocused(): boolean {
-    return this.pane.focused || (this.isNarrow() && this.narrow === 'terminal')
+    // Mode-exclusive: in narrow, focus follows the view (so going back to the
+    // list returns input to workspace navigation); the wide-only pane.focused
+    // flag must not leak across a resize into the narrow list view.
+    return this.isNarrow() ? this.narrow === 'terminal' : this.pane.focused
   }
 
   private focusTerminal(): void {

@@ -1,5 +1,6 @@
 import { worktreeIndicatorKind, type StatusIndicatorKind } from './agent-state-indicator'
 import { formatBadges } from './worktree-badge-format'
+import { windowStart } from './navigation-state'
 import type { TerminalRef } from './tui-input'
 import type { WorktreeRow, WorktreeSnapshot } from './worktree-snapshot'
 
@@ -93,6 +94,20 @@ export function rowIndexAtScreenRow(
 ): number | null {
   const line = lines[screenRow]
   return line && line.kind === 'row' ? line.index : null
+}
+
+/** First visible line index for a sidebar of `height` rows that keeps the
+ *  selected worktree's row on screen. Shared by the renderer and the mouse
+ *  hit-test so the two never window differently (clicks would hit wrong rows). */
+export function sidebarWindowStart(
+  lines: readonly SidebarLine[],
+  selectedIndex: number,
+  height: number
+): number {
+  const selectedLine = lines.findIndex(
+    (line) => line.kind === 'row' && line.index === selectedIndex
+  )
+  return windowStart(Math.max(0, selectedLine), lines.length, height)
 }
 
 /** Map a 0-based screen row to the terminal tab it renders, or null. */
