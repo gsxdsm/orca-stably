@@ -15,6 +15,7 @@ export type TuiAction =
   | 'remove-worktree'
   | 'new-terminal'
   | 'toggle-tabs'
+  | 'files'
 
 export type Platform = 'mac' | 'other'
 
@@ -53,7 +54,8 @@ const BINDINGS: Binding[] = [
   { action: 'new-worktree', hint: 'new worktree', matches: isChar('n') },
   { action: 'new-terminal', hint: 'new terminal', matches: isChar('c') },
   { action: 'remove-worktree', hint: 'remove', matches: isChar('x') },
-  { action: 'toggle-tabs', hint: 'expand/collapse tabs', matches: isChar('t') }
+  { action: 'toggle-tabs', hint: 'expand/collapse tabs', matches: isChar('t') },
+  { action: 'files', hint: 'browse files', matches: isChar('f') }
 ]
 
 /** First action whose binding matches the key, or null. */

@@ -9,6 +9,7 @@ import {
   tabStripRow
 } from './chrome-frame'
 import { viewportRows } from './viewport-frame'
+import { fileBrowserRows, type FileBrowserState } from './file-browser'
 import { BACK_LABEL, STRIP_WIDTH } from './tui-layout'
 import { overlayRows, type OverlayModel } from './overlay-frame'
 import type { Platform } from './keybinding-map'
@@ -37,6 +38,7 @@ export type FrameModel = {
   focusedTabId: string | null
   /** True when keystrokes/scroll are captured by the terminal (input focus). */
   terminalFocused: boolean
+  fileBrowser: FileBrowserState
   viewport: TerminalAnsiFrame
   /** Lines scrolled back from the live bottom of the focused terminal. */
   scrollOffset: number
@@ -56,12 +58,23 @@ const BORDER = '│'
 export function composeFrame(model: FrameModel): string[] {
   const bodyHeight = Math.max(1, model.rows - 2)
   const base =
-    model.isNarrow && model.narrowView === 'terminal'
-      ? narrowTerminalFrame(model, bodyHeight)
-      : model.isNarrow
-        ? narrowListFrame(model, bodyHeight)
-        : wideFrame(model, bodyHeight)
+    model.isNarrow && model.fileBrowser.open
+      ? narrowFilesFrame(model, bodyHeight)
+      : model.isNarrow && model.narrowView === 'terminal'
+        ? narrowTerminalFrame(model, bodyHeight)
+        : model.isNarrow
+          ? narrowListFrame(model, bodyHeight)
+          : wideFrame(model, bodyHeight)
   return overlayRows(base, model.overlay, model.columns, model.rows, model.useColor)
+}
+
+/** Narrow single-column Files browser (full-width list). */
+function narrowFilesFrame(model: FrameModel, bodyHeight: number): string[] {
+  return [
+    headerRow(headerLabel(model), model.columns, model.useColor),
+    ...fileBrowserRows(model.fileBrowser, model.columns, bodyHeight, model.useColor),
+    statusFooter(model)
+  ]
 }
 
 function headerLabel(model: FrameModel): string {
@@ -111,7 +124,8 @@ function wideFrame(model: FrameModel, bodyHeight: number): string[] {
 function wideHeader(model: FrameModel): string {
   const count = model.worktreeRows.length
   const left = ` orca tui · ${count} ws`
-  const right = model.context ? ` ${model.context}` : ' terminal'
+  // The right segment doubles as the Files button (a header click opens it).
+  const right = `${model.context ? ` ${model.context}` : ' terminal'}   [ f Files ]`
   return focusBar(
     left,
     model.sidebarWidth,
@@ -140,7 +154,7 @@ function wideFooter(model: FrameModel): string {
       model.useColor
     )
   }
-  const nav = ' ↑↓ move · ⏎ focus · t tabs · n new · q quit'
+  const nav = ' ↑↓ move · ⏎ focus · t tabs · f files · n new · q quit'
   const term = ' ⎋⎋ or Ctrl-] nav · wheel scrolls · keys → terminal'
   return focusBar(
     nav,
@@ -196,6 +210,9 @@ function narrowTerminalFrame(model: FrameModel, bodyHeight: number): string[] {
 /** The right pane: tab strip on top, the focused terminal's verbatim output
  *  below — herdr-style tabs-over-terminal. */
 function rightColumn(model: FrameModel, width: number, bodyHeight: number): string[] {
+  if (model.fileBrowser.open) {
+    return fileBrowserRows(model.fileBrowser, width, bodyHeight, model.useColor)
+  }
   const tab = tabStripRow(model.tabs, model.focusedTabId, width, model.useColor)
   const body = viewportRows(model.viewport, width, Math.max(0, bodyHeight - 1), model.scrollOffset)
   return [tab, ...body]

@@ -5,6 +5,7 @@ import { buildWorktreeSnapshot, flattenWorktreeRows } from './worktree-snapshot'
 import { worktreeIndicatorKind } from './agent-state-indicator'
 import { makePsResult, makeWorktreeSummary } from './worktree-snapshot-fixtures'
 import { emptyAnsiFrame } from './terminal-ansi-source'
+import { emptyFileBrowser } from './file-browser'
 import { sidebarWidthFor } from './tui-layout'
 
 const snapshot = buildWorktreeSnapshot(
@@ -61,6 +62,7 @@ function model(overrides: Partial<FrameModel> = {}): FrameModel {
     tabsExpanded: false,
     focusedTabId: 't1',
     terminalFocused: false,
+    fileBrowser: emptyFileBrowser(),
     viewport: emptyAnsiFrame(),
     scrollOffset: 0,
     resolveKind: (row) => worktreeIndicatorKind(row.status, row.agents),

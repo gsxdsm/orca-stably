@@ -18,13 +18,8 @@ import { flattenWorktreeRows, type WorktreeRow } from './worktree-snapshot'
 import { FocusedTerminalPane } from './focused-terminal-pane'
 import { dispatchAction, type TuiCommand } from './action-dispatch'
 import { SessionTabsRegistry } from './session-tabs-registry'
-import type { SessionTab } from './session-tab'
+import { FileBrowserController } from './file-browser-controller'
 import { DoubleEscapeDetector } from './double-escape'
-
-/** Telnet-style escape (Ctrl-]) returns from terminal-input focus to navigation;
- *  it's effectively unused by interactive programs, so it won't clash with what
- *  we're forwarding to the PTY. */
-const FOCUS_ESCAPE = '\x1d'
 import { IndicatorDebounceMap } from './indicator-debounce-map'
 import { clampSelection, moveSelection } from './navigation-state'
 import { currentPlatform } from './keybinding-map'
@@ -56,6 +51,7 @@ export class TuiScreenController {
   private overlay: ControllerOverlay = { kind: 'none' }
   private input = ''
   private error: string | null = null
+  private readonly files: FileBrowserController
   private readonly pane: FocusedTerminalPane
   private readonly tabs: SessionTabsRegistry
 
@@ -76,30 +72,22 @@ export class TuiScreenController {
     this.compositor = new ScreenCompositor()
     this.snap = this.source.getState()
     this.pane = new FocusedTerminalPane(options.client, () => this.render())
-    this.tabs = new SessionTabsRegistry(options.client, () => this.render())
+    this.tabs = new SessionTabsRegistry(
+      options.client,
+      this.pane,
+      () => this.selectedWorktreeId(),
+      () => this.render()
+    )
+    this.files = new FileBrowserController(options.client, {
+      worktreeId: () => this.selectedWorktreeId(),
+      bodyHeight: () => this.bodyHeight(),
+      onChange: () => this.render(),
+      onOpened: (path) => void this.tabs.sync().then(() => this.tabs.focusOpened(path))
+    })
   }
 
   private selectedWorktreeId(): string | undefined {
     return this.worktreeRows()[this.selectedIndex]?.worktreeId
-  }
-
-  private selectedTabs(): SessionTab[] {
-    return this.tabs.forWorktree(this.selectedWorktreeId())
-  }
-
-  /** Reload every tab, then keep the focused tab valid for the selected worktree. */
-  private async syncTabs(): Promise<void> {
-    await this.tabs.reload()
-    this.ensureFocusedTab()
-  }
-
-  /** Keep the pane's tab pointing at a tab of the selected worktree (default the
-   *  first), or none when it has no tabs. */
-  private ensureFocusedTab(): void {
-    const refs = this.selectedTabs()
-    if (!refs.some((tab) => tab.id === this.pane.tabId)) {
-      this.pane.setTab(refs[0] ?? null)
-    }
   }
 
   run(): Promise<void> {
@@ -117,7 +105,7 @@ export class TuiScreenController {
       process.stdout.on('resize', this.onResize)
       this.source.subscribe((state) => this.handleSnapshot(state))
       this.source.start()
-      void this.syncTabs()
+      void this.tabs.sync()
       this.render()
     })
   }
@@ -134,7 +122,7 @@ export class TuiScreenController {
     bodyHeight: () => this.bodyHeight(),
     snapshot: () => this.snap.snapshot,
     resolveKind: (row) => this.indicators.kindFor(row),
-    terminals: () => this.selectedTabs(),
+    terminals: () => this.tabs.forSelected(),
     tabsByWorktree: () => this.tabs.byWorktreeMap,
     tabsExpanded: () => this.tabsExpanded,
     focusedTabId: () => this.pane.tabId,
@@ -149,6 +137,9 @@ export class TuiScreenController {
       this.render()
     },
     jumpToTab: (index, tabId) => this.jumpToTab(index, tabId),
+    openFiles: () => void this.files.open(),
+    fileBrowserOpen: () => this.files.isOpen,
+    clickFile: (screenRow) => this.files.clickRow(screenRow),
     selectIndex: (index) => this.selectIndex(index),
     move: (delta) =>
       this.selectIndex(moveSelection(this.selectedIndex, delta, this.worktreeRows().length)),
@@ -156,7 +147,7 @@ export class TuiScreenController {
       this.narrow = view
       this.render()
     },
-    cycleFocus: () => this.pane.cycle(this.selectedTabs()),
+    cycleFocus: () => this.pane.cycle(this.tabs.forSelected()),
     setOverlay: (overlay) => {
       this.overlay = overlay
       this.render()
@@ -177,11 +168,15 @@ export class TuiScreenController {
       mouse.forEach((event) => handleMouse(this.host, event))
       return
     }
+    if (this.files.isOpen) {
+      this.files.handleKey(data)
+      return
+    }
     // While the terminal is focused, forward raw keystrokes to the PTY verbatim
     // (so escapes/control chars pass through); Ctrl-] is the way back to nav.
     if (this.inputFocused()) {
-      // Ctrl-] (matched even when batched) or a double-Esc returns to nav.
-      if (data.includes(FOCUS_ESCAPE) || this.doubleEsc.test(data, Date.now())) {
+      // Ctrl-] (\x1d, matched even when batched) or a double-Esc returns to nav.
+      if (data.includes('\x1d') || this.doubleEsc.test(data, Date.now())) {
         this.exitTerminalFocus()
       } else {
         this.pane.sendKeys(data)
@@ -207,7 +202,7 @@ export class TuiScreenController {
     const rows = this.worktreeRows()
     const kept = keepId ? rows.findIndex((row) => row.worktreeId === keepId) : -1
     this.selectedIndex = kept >= 0 ? kept : clampSelection(this.selectedIndex, rows.length)
-    void this.syncTabs()
+    void this.tabs.sync()
     this.render()
   }
 
@@ -252,7 +247,7 @@ export class TuiScreenController {
       return
     }
     this.selectedIndex = next
-    this.ensureFocusedTab()
+    this.tabs.ensureFocused()
     this.render()
   }
 
@@ -317,11 +312,12 @@ export class TuiScreenController {
       selectedIndex: this.selectedIndex,
       selectedName: selected?.displayName ?? '',
       sidebarWidth: this.sidebarWidth(),
-      tabs: this.selectedTabs(),
+      tabs: this.tabs.forSelected(),
       tabsByWorktree: this.tabs.byWorktreeMap,
       tabsExpanded: this.tabsExpanded,
       focusedTabId: this.pane.tabId,
       terminalFocused: this.inputFocused(),
+      fileBrowser: this.files.current,
       viewport: this.pane.viewport,
       scrollOffset: this.pane.scrollOffset,
       resolveKind: this.indicators.kindFor,

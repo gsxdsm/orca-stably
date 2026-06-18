@@ -1,4 +1,5 @@
 import { toSessionTabs, type SessionTab } from './session-tab'
+import type { FocusedTerminalPane } from './focused-terminal-pane'
 
 type ListAllResult = { snapshots?: { worktree?: string; tabs?: unknown[] }[] }
 
@@ -8,14 +9,17 @@ type RpcClient = {
 }
 
 /** Polls session.tabs.listAll (every tab of every worktree — terminals, files,
- *  markdown, browser) and groups them by worktree id. Source for both the
- *  nested sidebar tab lines and the right-pane tab strip. */
+ *  markdown, browser), groups them by worktree id, and keeps the focused pane's
+ *  tab valid for the selected worktree. Source for both the nested sidebar tab
+ *  lines and the right-pane tab strip. */
 export class SessionTabsRegistry {
   private byWorktree = new Map<string, SessionTab[]>()
   private token = 0
 
   constructor(
     private readonly client: RpcClient,
+    private readonly pane: FocusedTerminalPane,
+    private readonly selectedWorktreeId: () => string | undefined,
     private readonly onChange: () => void
   ) {}
 
@@ -25,6 +29,35 @@ export class SessionTabsRegistry {
 
   forWorktree(worktreeId: string | undefined): SessionTab[] {
     return (worktreeId ? this.byWorktree.get(worktreeId) : undefined)?.slice() ?? []
+  }
+
+  /** The selected worktree's tabs (right-pane strip + nesting). */
+  forSelected(): SessionTab[] {
+    return this.forWorktree(this.selectedWorktreeId())
+  }
+
+  /** Reload all tabs, then keep the focused tab valid for the selected worktree. */
+  async sync(): Promise<void> {
+    await this.reload()
+    this.ensureFocused()
+  }
+
+  /** Keep the pane's tab pointing at a tab of the selected worktree (default the
+   *  first), or none when it has no tabs. */
+  ensureFocused(): void {
+    const refs = this.forSelected()
+    if (!refs.some((tab) => tab.id === this.pane.tabId)) {
+      this.pane.setTab(refs[0] ?? null)
+    }
+  }
+
+  /** Focus the (already-open) tab for a just-opened file path, if present. */
+  focusOpened(relativePath: string): void {
+    const opened = this.forSelected().find((tab) => tab.relativePath === relativePath)
+    if (opened) {
+      this.pane.setTab(opened)
+      this.pane.focusInput()
+    }
   }
 
   /** Find a tab across all worktrees by id (for resolving a jump target). */

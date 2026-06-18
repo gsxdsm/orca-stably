@@ -60,6 +60,9 @@ function makeHost(overrides: Partial<ControllerHost> = {}): ControllerHost {
     scrollTerminal: vi.fn(),
     toggleTabs: vi.fn(),
     jumpToTab: vi.fn(),
+    openFiles: vi.fn(),
+    fileBrowserOpen: () => false,
+    clickFile: vi.fn(),
     setOverlay: vi.fn((next: ControllerOverlay) => {
       overlay = next
     }),
