@@ -58,8 +58,8 @@ export type ControllerHost = {
   toggleTabs: () => void
   /** Select a worktree (by flattened index) and focus one of its tabs by id. */
   jumpToTab: (index: number, tabId: string) => void
-  /** Open the Files browser for the selected workspace. */
-  openFiles: () => void
+  /** Toggle the Files browser for the selected workspace (f / Files button). */
+  toggleFiles: () => void
   fileBrowserOpen: () => boolean
   /** Open the file at a clicked screen row in the Files browser. */
   clickFile: (screenRow: number) => void
@@ -151,7 +151,7 @@ function startAction(host: ControllerHost, action: TuiAction): void {
   } else if (action === 'toggle-tabs') {
     host.toggleTabs()
   } else if (action === 'files') {
-    host.openFiles()
+    host.toggleFiles()
   } else {
     startTargetedAction(host, action)
   }
@@ -210,13 +210,18 @@ export function handleMouse(host: ControllerHost, event: MouseEvent): void {
     return
   }
   if (host.fileBrowserOpen()) {
-    host.clickFile(event.row)
+    // Tapping the Files bar again closes it; clicking a row opens/expands it.
+    if (event.row === 0) {
+      host.toggleFiles()
+    } else {
+      host.clickFile(event.row)
+    }
     return
   }
   // The header's right segment is the Files button.
   if (event.row === 0) {
     if (event.col >= host.sidebarWidth()) {
-      host.openFiles()
+      host.toggleFiles()
     }
     return
   }

@@ -3,50 +3,101 @@ import { fitCells } from './text-width'
 
 export type FileEntry = { relativePath: string; basename: string }
 
-/** State of the Files browser panel: open flag, the worktree's file list, the
- *  type-to-filter query, and the selected (filtered) index. */
+/** A flattened, currently-visible tree row (a folder or a file). */
+export type TreeRow = { kind: 'dir' | 'file'; path: string; name: string; depth: number }
+
+/** State of the Files browser: the worktree's flat file list (from files.list),
+ *  the set of expanded folder paths, and the selected visible-row index. */
 export type FileBrowserState = {
   open: boolean
-  query: string
   files: FileEntry[]
+  expanded: Set<string>
   index: number
 }
 
 export function emptyFileBrowser(): FileBrowserState {
-  return { open: false, query: '', files: [], index: 0 }
+  return { open: false, files: [], expanded: new Set(), index: 0 }
 }
 
-/** Files matching the query (case-insensitive substring on the path), capped so
- *  a huge tree stays responsive. */
-export function filteredFiles(state: FileBrowserState, limit = 500): FileEntry[] {
-  const q = state.query.trim().toLowerCase()
-  const matches = q
-    ? state.files.filter((file) => file.relativePath.toLowerCase().includes(q))
-    : state.files
-  return matches.slice(0, limit)
+type Child = { name: string; path: string; isDir: boolean }
+
+/** Group every file path into its parent's child list, materializing the
+ *  intermediate folders. Folders sort before files, then alphabetically. */
+function childrenByParent(files: readonly FileEntry[]): Map<string, Child[]> {
+  const buckets = new Map<string, Map<string, Child>>()
+  const bucket = (parent: string): Map<string, Child> => {
+    const existing = buckets.get(parent)
+    if (existing) {
+      return existing
+    }
+    const created = new Map<string, Child>()
+    buckets.set(parent, created)
+    return created
+  }
+  for (const file of files) {
+    const parts = file.relativePath.split('/').filter(Boolean)
+    let parent = ''
+    parts.forEach((name, i) => {
+      const path = parent ? `${parent}/${name}` : name
+      const isDir = i < parts.length - 1
+      const into = bucket(parent)
+      if (!into.has(name)) {
+        into.set(name, { name, path, isDir })
+      }
+      parent = path
+    })
+  }
+  const out = new Map<string, Child[]>()
+  for (const [parent, children] of buckets) {
+    out.set(
+      parent,
+      [...children.values()].sort((a, b) =>
+        a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1
+      )
+    )
+  }
+  return out
 }
 
-/** Clamp an index into the filtered list. */
-export function clampFileIndex(state: FileBrowserState): number {
-  const count = filteredFiles(state).length
-  return count === 0 ? 0 : Math.min(Math.max(state.index, 0), count - 1)
+/** The visible rows: every top-level entry, descending into a folder only when
+ *  its path is in `expanded`. */
+export function visibleTreeRows(state: FileBrowserState): TreeRow[] {
+  const children = childrenByParent(state.files)
+  const rows: TreeRow[] = []
+  const walk = (parent: string, depth: number): void => {
+    for (const child of children.get(parent) ?? []) {
+      rows.push({ kind: child.isDir ? 'dir' : 'file', path: child.path, name: child.name, depth })
+      if (child.isDir && state.expanded.has(child.path)) {
+        walk(child.path, depth + 1)
+      }
+    }
+  }
+  walk('', 0)
+  return rows
 }
 
-/** The currently-selected file, or null. */
-export function selectedFile(state: FileBrowserState): FileEntry | null {
-  return filteredFiles(state)[clampFileIndex(state)] ?? null
+/** Clamp an index into the visible rows. */
+export function clampFileIndex(state: FileBrowserState, rows = visibleTreeRows(state)): number {
+  return rows.length === 0 ? 0 : Math.min(Math.max(state.index, 0), rows.length - 1)
 }
 
-/** Map a 0-based row within the panel body (below header + query) to a filtered
- *  file index, honoring the scroll window — for click-to-open. */
-export function fileIndexAtBodyRow(
+/** The currently-selected row, or null. */
+export function selectedRow(state: FileBrowserState): TreeRow | null {
+  const rows = visibleTreeRows(state)
+  return rows[clampFileIndex(state, rows)] ?? null
+}
+
+/** Map a 0-based row within the panel body (below the header) to a visible-row
+ *  index, honoring the scroll window — for click-to-open. */
+export function rowIndexAtBodyRow(
   state: FileBrowserState,
   bodyRow: number,
   bodyHeight: number
 ): number | null {
-  const start = windowStartFor(clampFileIndex(state), filteredFiles(state).length, bodyHeight)
+  const rows = visibleTreeRows(state)
+  const start = windowStartFor(clampFileIndex(state, rows), rows.length, bodyHeight)
   const index = start + bodyRow
-  return index >= 0 && index < filteredFiles(state).length ? index : null
+  return index >= 0 && index < rows.length ? index : null
 }
 
 function windowStartFor(selected: number, total: number, capacity: number): number {
@@ -57,32 +108,37 @@ function windowStartFor(selected: number, total: number, capacity: number): numb
 }
 
 /** Render the right-side Files panel as exactly `height` rows of `width` cells:
- *  a header, the filter query, then the windowed file list. */
+ *  a header, then the windowed, indented tree (▾/▸ folders, files plain). */
 export function fileBrowserRows(
   state: FileBrowserState,
   width: number,
   height: number,
   useColor: boolean
 ): string[] {
-  const files = filteredFiles(state)
-  const selected = clampFileIndex(state)
+  const tree = visibleTreeRows(state)
+  const selected = clampFileIndex(state, tree)
   const rows: string[] = [
-    style(fitCells(' Files', width), { bg: 'white', fg: 'black', bold: true }, useColor),
-    style(fitCells(` / ${state.query}▏`, width), { dim: true }, useColor)
+    style(
+      fitCells(' Files  (↑↓ move · → open · ← close · f exit)', width),
+      { bg: 'white', fg: 'black', bold: true },
+      useColor
+    )
   ]
   const bodyHeight = Math.max(0, height - rows.length)
-  const start = windowStartFor(selected, files.length, bodyHeight)
+  const start = windowStartFor(selected, tree.length, bodyHeight)
   for (let i = 0; i < bodyHeight; i += 1) {
-    const file = files[start + i]
-    if (!file) {
+    const row = tree[start + i]
+    if (!row) {
       rows.push(' '.repeat(width))
       continue
     }
+    const indent = ' '.repeat(2 + row.depth * 2)
+    const glyph = row.kind === 'dir' ? (state.expanded.has(row.path) ? '▾ ' : '▸ ') : '  '
     const isSel = start + i === selected
     rows.push(
       style(
-        fitCells(`  ${file.relativePath}`, width),
-        isSel ? { inverse: true, bold: true } : {},
+        fitCells(`${indent}${glyph}${row.name}`, width),
+        isSel ? { inverse: true, bold: true } : row.kind === 'dir' ? { bold: true } : {},
         useColor
       )
     )

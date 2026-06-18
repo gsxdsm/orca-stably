@@ -137,7 +137,7 @@ export class TuiScreenController {
       this.render()
     },
     jumpToTab: (index, tabId) => this.jumpToTab(index, tabId),
-    openFiles: () => void this.files.open(),
+    toggleFiles: () => this.files.toggle(),
     fileBrowserOpen: () => this.files.isOpen,
     clickFile: (screenRow) => this.files.clickRow(screenRow),
     selectIndex: (index) => this.selectIndex(index),
