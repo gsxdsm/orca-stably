@@ -29,7 +29,6 @@ import { useAppStore } from '../../store'
 import { buildStatusMap } from '../right-sidebar/status-display'
 import type { OpenFile } from '../../store/slices/editor'
 import SortableTab from './SortableTab'
-import { canToggleNativeChat } from '../native-chat/native-chat-availability'
 import EditorFileTab from './EditorFileTab'
 import BrowserTab, { getBrowserTabLabel } from './BrowserTab'
 import { QuickLaunchAgentMenuItems } from './QuickLaunchButton'
@@ -1109,6 +1108,7 @@ function TabBarInner({
                     groupId={resolvedGroupId}
                     tabCount={orderedItems.length}
                     canToggleViewMode={canToggleViewMode}
+                    isChatView={unifiedTabForItem?.viewMode === 'chat'}
                     onToggleViewMode={
                       unifiedTabForItem ? () => toggleTabViewMode(unifiedTabForItem.id) : undefined
                     }
