@@ -3,8 +3,9 @@
 // CLI loads via dynamic import(). Ink/yoga use top-level await, so the output
 // must stay ESM; bundling avoids migrating the whole CLI bin off CommonJS.
 import { build } from 'esbuild'
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const projectDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -46,6 +47,22 @@ async function main() {
     },
     logLevel: 'info'
   })
+
+  // Guard the exact failure mode the handler hits: tsc compiles the CLI to
+  // CommonJS, and the bundle must load from a CommonJS context via a native
+  // dynamic import. Verify that here so a regression fails the build, not the
+  // user at runtime.
+  verifyBundleLoadsFromCommonjs(path.join(projectDir, 'out/cli/tui/tui-bundle.mjs'))
+}
+
+function verifyBundleLoadsFromCommonjs(bundlePath) {
+  const url = pathToFileURL(bundlePath).href
+  const probe = `const importEsm = new Function('s', 'return import(s)');
+importEsm(${JSON.stringify(url)})
+  .then((m) => { if (typeof m.runTui !== 'function') { throw new Error('runTui export missing'); } })
+  .catch((err) => { console.error(err); process.exit(1); });`
+  execFileSync(process.execPath, ['-e', probe], { stdio: 'inherit' })
+  console.log('[cli-tui] verified bundle loads from CommonJS')
 }
 
 main().catch((error) => {

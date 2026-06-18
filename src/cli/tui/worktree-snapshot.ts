@@ -53,7 +53,9 @@ function toRow(summary: RuntimeWorktreePsSummary): WorktreeRow {
     displayName: summary.displayName,
     branch: summary.branch,
     status: summary.status,
-    agents: summary.agents,
+    // Defensive: the runtime may omit agents for shell-only worktrees; normalize
+    // to an array so consumers can always iterate.
+    agents: summary.agents ?? [],
     isActive: summary.isActive,
     isPinned: summary.isPinned,
     hasAttachedPty: summary.hasAttachedPty,
@@ -72,14 +74,29 @@ function toRow(summary: RuntimeWorktreePsSummary): WorktreeRow {
   }
 }
 
+/** Worktrees the dashboard hides: dormant ones with no agents and no live
+ *  terminals. An inactive worktree that still has a running terminal stays
+ *  visible so you don't lose access to it. */
+function isHiddenWorktree(summary: RuntimeWorktreePsSummary): boolean {
+  return (
+    summary.status === 'inactive' &&
+    (summary.agents?.length ?? 0) === 0 &&
+    summary.liveTerminalCount === 0
+  )
+}
+
 /** Normalize a worktree.ps result into a stable, repo-grouped view model.
  *  Repo order follows first appearance; worktree order within a repo follows
- *  the runtime's order (newest-state-first), so the sidebar can diff stably. */
+ *  the runtime's order (newest-state-first), so the sidebar can diff stably.
+ *  Dormant inactive worktrees are filtered out to keep the list focused. */
 export function buildWorktreeSnapshot(result: RuntimeWorktreePsResult): WorktreeSnapshot {
   const groups: WorktreeRepoGroup[] = []
   const byRepoId = new Map<string, WorktreeRepoGroup>()
 
   for (const summary of result.worktrees) {
+    if (isHiddenWorktree(summary)) {
+      continue
+    }
     let group = byRepoId.get(summary.repoId)
     if (!group) {
       group = { repoId: summary.repoId, repo: summary.repo, worktrees: [] }

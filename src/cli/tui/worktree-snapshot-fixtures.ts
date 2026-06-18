@@ -48,7 +48,7 @@ export function makeWorktreeSummary(
     hasAttachedPty: false,
     lastOutputAt: null,
     preview: '',
-    status: 'inactive',
+    status: 'active',
     agents: [],
     ...overrides
   }

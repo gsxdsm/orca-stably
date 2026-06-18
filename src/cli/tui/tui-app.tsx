@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Text, useApp, useInput, useStdin } from 'ink'
+import { Box, Text, useApp, useInput, useStdin, useStdout } from 'ink'
 import type { RunTuiOptions } from './tui-runtime-contract'
 import { WorktreeSnapshotSource, type WorktreeSnapshotState } from './worktree-snapshot-source'
 import { flattenWorktreeRows, type WorktreeRow, type WorktreeSnapshot } from './worktree-snapshot'
@@ -11,22 +11,21 @@ import {
   type StatusIndicatorKind
 } from './agent-state-indicator'
 import { WorktreeSidebar } from './worktree-sidebar'
-import { WorktreeDetailPane } from './worktree-detail-pane'
+import { TerminalPanes, type TerminalPaneData } from './terminal-panes'
 import { StatusBar } from './status-bar'
 import { HelpOverlay } from './help-overlay'
 import { ConfirmOverlay, PromptOverlay } from './tui-overlays'
 import { buildSidebarLines, rowIndexAtScreenRow } from './sidebar-lines'
+import { MAX_PANES, paneIndexAtRow } from './pane-layout'
 import { resolveTheme } from './theme'
 import { currentPlatform, resolveAction } from './keybinding-map'
 import { inkKeyToLogical } from './ink-key-bridge'
 import { clampSelection, moveSelection } from './navigation-state'
-import { MOUSE_DISABLE, MOUSE_ENABLE, parseMouseEvent } from './mouse-input'
+import { MOUSE_DISABLE, MOUSE_ENABLE, parseMouseEvents, type MouseEvent } from './mouse-input'
 import { TerminalReadTailStream } from './terminal-read-tail-stream'
 import type { TerminalTailState } from './terminal-stream'
 import { dispatchAction, worktreeSelector, type TuiCommand } from './action-dispatch'
 import type { RuntimeTerminalListResult } from '../../shared/runtime-types'
-
-const SIDEBAR_WIDTH = 32
 
 type Overlay =
   | { kind: 'none' }
@@ -34,10 +33,25 @@ type Overlay =
   | { kind: 'confirm'; message: string; command: TuiCommand }
   | { kind: 'prompt'; label: string; build: (text: string) => TuiCommand | null }
 
-/** Root TUI component: live worktree dashboard with keyboard + mouse control. */
+type TerminalRef = { handle: string; title: string }
+
+function sidebarWidthFor(columns: number): number {
+  return Math.max(16, Math.min(34, Math.floor(columns * 0.34)))
+}
+
+function padToWidth(label: string, width: number): string {
+  if (width <= 0) {
+    return label
+  }
+  return label.length >= width ? label.slice(0, width) : label + ' '.repeat(width - label.length)
+}
+
+/** Root TUI: a herdr-style dashboard — worktree sidebar (workspace switcher)
+ *  beside a main panel of vertically split terminal panes. */
 export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Element {
   const { exit } = useApp()
   const { stdin } = useStdin()
+  const { stdout } = useStdout()
   const theme = useMemo(() => resolveTheme(), [])
   const platform = currentPlatform()
   const source = useMemo(() => new WorktreeSnapshotSource(options.client), [options.client])
@@ -47,21 +61,36 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
   const [overlay, setOverlay] = useState<Overlay>({ kind: 'none' })
   const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [tail, setTail] = useState<TerminalTailState | null>(null)
+  const [terminals, setTerminals] = useState<TerminalRef[]>([])
+  const [tails, setTails] = useState<Map<string, TerminalTailState>>(new Map())
+  const [focusedHandle, setFocusedHandle] = useState<string | null>(null)
+  const [size, setSize] = useState({ columns: stdout?.columns ?? 80, rows: stdout?.rows ?? 24 })
 
   const rows = useMemo(() => (snap.snapshot ? flattenWorktreeRows(snap.snapshot) : []), [snap])
   const selected = rows[clampSelection(selectedIndex, rows.length)] ?? null
   const selectedWorktreeId = selected?.worktreeId ?? null
+  const sidebarWidth = sidebarWidthFor(size.columns)
 
-  // Refs let the mouse handler read the latest snapshot/row count without
-  // re-subscribing stdin (and re-emitting MOUSE_ENABLE/DISABLE) every poll.
+  const panes: TerminalPaneData[] = terminals.map((terminal) => ({
+    handle: terminal.handle,
+    title: terminal.title,
+    tail: tails.get(terminal.handle) ?? null
+  }))
+
+  // Refs so the mouse handler reads the latest state without re-subscribing
+  // stdin (which would churn MOUSE_ENABLE/DISABLE) on every poll.
   const snapshotRef = useRef<WorktreeSnapshot | null>(snap.snapshot)
   snapshotRef.current = snap.snapshot
   const rowCountRef = useRef(rows.length)
   rowCountRef.current = rows.length
+  const paneCountRef = useRef(panes.length)
+  paneCountRef.current = panes.length
+  const sidebarWidthRef = useRef(sidebarWidth)
+  sidebarWidthRef.current = sidebarWidth
+  const terminalsRef = useRef(terminals)
+  terminalsRef.current = terminals
 
-  // Per-worktree debounce state so the sidebar indicators don't strobe on
-  // working↔idle flips between polls.
+  // Per-worktree debounce so the sidebar indicators don't strobe between polls.
   const debounceRef = useRef(new Map<string, IndicatorDebounceState>())
   const [publishedKinds, setPublishedKinds] = useState<Map<string, StatusIndicatorKind>>(new Map())
 
@@ -80,7 +109,6 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
       debounceRef.current.set(row.worktreeId, result.state)
       next.set(row.worktreeId, result.published)
     }
-    // Drop debounce state for worktrees that left the herd.
     for (const id of debounceRef.current.keys()) {
       if (!seen.has(id)) {
         debounceRef.current.delete(id)
@@ -101,69 +129,118 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
     }
   }, [source])
 
+  // Track terminal size so the layout is responsive (matters on narrow panes).
+  useEffect(() => {
+    if (!stdout) {
+      return
+    }
+    const onResize = (): void => setSize({ columns: stdout.columns, rows: stdout.rows })
+    onResize()
+    stdout.on('resize', onResize)
+    return () => {
+      stdout.off('resize', onResize)
+    }
+  }, [stdout])
+
   useEffect(() => {
     setSelectedIndex((index) => clampSelection(index, rows.length))
   }, [rows.length])
 
-  // Resolve a terminal for the selected worktree and tail it. Keyed on the
-  // worktree id (stable across snapshot refreshes) rather than the row object.
+  // Selected worktree -> list its terminals -> tail each one as a pane.
   useEffect(() => {
     if (!selectedWorktreeId) {
-      setTail(null)
+      setTerminals([])
+      setTails(new Map())
+      setFocusedHandle(null)
       return
     }
-    let stream: TerminalReadTailStream | null = null
-    let unsubscribe: (() => void) | null = null
     let cancelled = false
+    const streams: TerminalReadTailStream[] = []
+    const unsubscribes: (() => void)[] = []
     void (async () => {
       try {
         const list = await options.client.call<RuntimeTerminalListResult>('terminal.list', {
           worktree: worktreeSelector(selectedWorktreeId)
         })
-        const handle = list.result.terminals[0]?.handle
-        if (cancelled || !handle) {
-          setTail(null)
+        if (cancelled) {
           return
         }
-        stream = new TerminalReadTailStream(options.client, handle, { isRemote: options.isRemote })
-        unsubscribe = stream.subscribe(setTail)
-        stream.start()
+        const refs: TerminalRef[] = list.result.terminals.slice(0, MAX_PANES).map((terminal) => ({
+          handle: terminal.handle,
+          title: terminal.title && terminal.title.length > 0 ? terminal.title : 'shell'
+        }))
+        setTerminals(refs)
+        setTails(new Map())
+        setFocusedHandle(refs[0]?.handle ?? null)
+        for (const ref of refs) {
+          const stream = new TerminalReadTailStream(options.client, ref.handle, {
+            isRemote: options.isRemote
+          })
+          const unsubscribe = stream.subscribe((state) => {
+            setTails((prev) => {
+              const next = new Map(prev)
+              next.set(ref.handle, state)
+              return next
+            })
+          })
+          stream.start()
+          streams.push(stream)
+          unsubscribes.push(unsubscribe)
+        }
       } catch {
         if (!cancelled) {
-          setTail(null)
+          setTerminals([])
+          setTails(new Map())
+          setFocusedHandle(null)
         }
       }
     })()
     return () => {
       cancelled = true
-      unsubscribe?.()
-      stream?.stop()
+      for (const unsubscribe of unsubscribes) {
+        unsubscribe()
+      }
+      for (const stream of streams) {
+        stream.stop()
+      }
     }
   }, [selectedWorktreeId, options.client, options.isRemote])
 
-  // Mouse: enable SGR reporting on mount, restore on unmount. Keyboard remains
-  // the guaranteed path, so a terminal without mouse support still works.
+  // Mouse: enable SGR reporting once per session; keyboard stays the guaranteed
+  // path. Latest state is read via refs so deps stay [stdin].
   useEffect(() => {
     if (!stdin || !process.stdout.isTTY) {
       return
     }
     process.stdout.write(MOUSE_ENABLE)
-    const onData = (chunk: Buffer | string): void => {
-      const event = parseMouseEvent(chunk.toString())
-      if (!event) {
-        return
-      }
+    const handleMouse = (event: MouseEvent): void => {
       if (event.type === 'scroll') {
         setSelectedIndex((index) =>
           moveSelection(index, event.direction === 'down' ? 1 : -1, rowCountRef.current)
         )
         return
       }
-      if (event.type === 'press' && event.button === 'left' && event.col < SIDEBAR_WIDTH) {
+      if (event.type !== 'press' || event.button !== 'left') {
+        return
+      }
+      if (event.col < sidebarWidthRef.current) {
         const target = rowIndexAtScreenRow(buildSidebarLines(snapshotRef.current), event.row)
         if (target !== null) {
           setSelectedIndex(target)
         }
+        return
+      }
+      // Click in the main panel focuses the pane under the pointer. Row 0 of the
+      // main column is the worktree header, so the panes start one row down.
+      const paneIndex = paneIndexAtRow(paneCountRef.current, size.rows - 1, event.row - 1)
+      const ref = terminalsRef.current[paneIndex]
+      if (ref) {
+        setFocusedHandle(ref.handle)
+      }
+    }
+    const onData = (chunk: Buffer | string): void => {
+      for (const event of parseMouseEvents(chunk.toString())) {
+        handleMouse(event)
       }
     }
     stdin.on('data', onData)
@@ -171,10 +248,7 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
       stdin.off('data', onData)
       process.stdout.write(MOUSE_DISABLE)
     }
-    // Deps intentionally only [stdin]: mouse reporting must be enabled once for
-    // the session, not torn down/re-enabled on every poll. Latest snapshot/row
-    // count are read via refs.
-  }, [stdin])
+  }, [stdin, size.rows])
 
   async function run(command: TuiCommand): Promise<void> {
     const result = await dispatchAction(options.client, command)
@@ -182,6 +256,15 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
     if (result.ok) {
       void source.refreshOnce()
     }
+  }
+
+  function cycleFocus(): void {
+    if (terminals.length === 0) {
+      return
+    }
+    const current = terminals.findIndex((terminal) => terminal.handle === focusedHandle)
+    const next = terminals[(current + 1) % terminals.length]
+    setFocusedHandle(next.handle)
   }
 
   function startAction(action: ReturnType<typeof resolveAction>): void {
@@ -231,12 +314,13 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
         build: (text) =>
           text ? { kind: 'worktree.create', repo: `id:${selected.repoId}`, name: text } : null
       })
-    } else if (action === 'send-input' && tail) {
+    } else if (action === 'send-input' && focusedHandle) {
+      const handle = focusedHandle
       setInput('')
       setOverlay({
         kind: 'prompt',
-        label: 'Send to terminal:',
-        build: (text) => ({ kind: 'terminal.send', terminal: tail.handle, text, enter: true })
+        label: 'Send to focused terminal:',
+        build: (text) => ({ kind: 'terminal.send', terminal: handle, text, enter: true })
       })
     }
   }
@@ -272,15 +356,43 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
       }
       return
     }
+    if (key.tab) {
+      cycleFocus()
+      return
+    }
     if (logical) {
       startAction(resolveAction(logical))
     }
   })
 
+  const bodyRows = Math.max(3, size.rows - 2)
+  const mainWidth = Math.max(10, size.columns - sidebarWidth - 2)
+  const branchLabel = selected ? selected.branch.replace(/^refs\/heads\//, '') : ''
+  // Avoid "name · name" when the display name already is the branch.
+  const showBranch = branchLabel.length > 0 && branchLabel !== selected?.displayName
+  const contextLabel = selected
+    ? showBranch
+      ? `${selected.displayName} · ${branchLabel}`
+      : selected.displayName
+    : ''
+
   return (
-    <Box flexDirection="column">
-      <Box>
-        <Box width={SIDEBAR_WIDTH} flexDirection="column">
+    <Box flexDirection="column" width={size.columns} height={size.rows}>
+      <Text backgroundColor="cyan" color="black" bold>
+        {padToWidth(
+          ` orca tui · ${rows.length} worktree${rows.length === 1 ? '' : 's'}`,
+          size.columns
+        )}
+      </Text>
+      <Box flexGrow={1}>
+        <Box
+          width={sidebarWidth}
+          flexDirection="column"
+          borderStyle="single"
+          borderTop={false}
+          borderBottom={false}
+          borderLeft={false}
+        >
           {snap.snapshot ? (
             <WorktreeSidebar
               snapshot={snap.snapshot}
@@ -292,8 +404,19 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
             <Text dimColor>Connecting…</Text>
           )}
         </Box>
-        <Box flexGrow={1} flexDirection="column">
-          <WorktreeDetailPane row={selected} tail={tail} />
+        <Box flexGrow={1} flexDirection="column" marginLeft={1}>
+          {selected ? (
+            <Text bold>
+              {selected.displayName}
+              {showBranch ? <Text dimColor>{` · ${branchLabel}`}</Text> : null}
+            </Text>
+          ) : null}
+          <TerminalPanes
+            panes={panes}
+            focusedHandle={focusedHandle}
+            availableRows={bodyRows}
+            availableWidth={mainWidth}
+          />
         </Box>
       </Box>
 
@@ -301,7 +424,12 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
       {overlay.kind === 'confirm' ? <ConfirmOverlay message={overlay.message} /> : null}
       {overlay.kind === 'prompt' ? <PromptOverlay label={overlay.label} value={input} /> : null}
 
-      <StatusBar platform={platform} disconnected={!snap.connected} error={error} />
+      <StatusBar
+        platform={platform}
+        disconnected={!snap.connected}
+        error={error}
+        context={contextLabel}
+      />
     </Box>
   )
 }

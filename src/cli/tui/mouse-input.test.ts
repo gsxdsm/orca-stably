@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MOUSE_DISABLE, MOUSE_ENABLE, parseMouseEvent } from './mouse-input'
+import { MOUSE_DISABLE, MOUSE_ENABLE, parseMouseEvent, parseMouseEvents } from './mouse-input'
 import { decodeKey } from './tty-key-adapter'
 
 describe('parseMouseEvent', () => {
@@ -39,5 +39,22 @@ describe('parseMouseEvent', () => {
   it('enable/disable sequences are inverse toggles', () => {
     expect(MOUSE_ENABLE).toContain('1006h')
     expect(MOUSE_DISABLE).toContain('1006l')
+  })
+})
+
+describe('parseMouseEvents', () => {
+  it('extracts every event from a batched chunk', () => {
+    const events = parseMouseEvents('\x1b[<0;10;5M\x1b[<0;10;5m\x1b[<65;1;1M')
+    expect(events.map((event) => event.type)).toEqual(['press', 'release', 'scroll'])
+  })
+
+  it('finds the mouse event when mixed with other bytes', () => {
+    const events = parseMouseEvents('q\x1b[<2;3;4M')
+    expect(events).toHaveLength(1)
+    expect(events[0]).toMatchObject({ type: 'press', button: 'right', col: 2, row: 3 })
+  })
+
+  it('returns nothing for input with no mouse reports', () => {
+    expect(parseMouseEvents('hello\x1b[A')).toEqual([])
   })
 })

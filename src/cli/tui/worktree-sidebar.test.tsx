@@ -66,7 +66,7 @@ describe('WorktreeSidebar', () => {
 
   it('lets the app override the indicator kind (debounced state)', () => {
     const snapshot = buildWorktreeSnapshot(
-      makePsResult([makeWorktreeSummary({ status: 'inactive' })])
+      makePsResult([makeWorktreeSummary({ status: 'done' })])
     )
     const { lastFrame } = render(
       <WorktreeSidebar

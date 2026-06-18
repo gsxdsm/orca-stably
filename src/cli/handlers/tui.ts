@@ -1,3 +1,4 @@
+import { existsSync } from 'fs'
 import path from 'path'
 import { pathToFileURL } from 'url'
 import type { CommandHandler, HandlerContext } from '../dispatch'
@@ -12,12 +13,29 @@ export type TuiCommandDeps = {
   writeStderr: (text: string) => void
 }
 
-// Why: the Ink/React app is ESM-only (top-level await in Ink/yoga) and ships as
-// an esbuild ESM bundle beside the tsc-built handler; we dynamic-import it by
-// file URL so the CommonJS CLI never statically imports an ESM-only module.
+// Why: tsc compiles this file to CommonJS, which rewrites a bare `import()` into
+// require() — and require() cannot load an ESM .mjs. Building the import through
+// the Function constructor hides it from tsc so the native dynamic import (which
+// can load ESM from CJS) survives transpilation.
+// eslint-disable-next-line no-new-func -- intentional native dynamic import shim
+const importEsmModule = new Function('specifier', 'return import(specifier)') as (
+  specifier: string
+) => Promise<unknown>
+
+// The Ink/React app is ESM-only (top-level await in Ink/yoga) and ships as an
+// esbuild ESM bundle beside the tsc-built handler; we dynamic-import it by file
+// URL so the CommonJS CLI never statically imports an ESM-only module.
 async function loadTuiBundle(): Promise<TuiBundle> {
   const bundlePath = path.join(__dirname, '..', 'tui', 'tui-bundle.mjs')
-  return (await import(pathToFileURL(bundlePath).href)) as TuiBundle
+  // The bundle is produced by the esbuild step in `build:cli`; a tsc-only build
+  // omits it. Fail with a clear instruction instead of a raw module error.
+  if (!existsSync(bundlePath)) {
+    throw new RuntimeClientError(
+      'tui_bundle_missing',
+      'The orca tui bundle is missing. Run `pnpm build:cli` (or `pnpm build`) to build it, then retry.'
+    )
+  }
+  return (await importEsmModule(pathToFileURL(bundlePath).href)) as TuiBundle
 }
 
 const DEFAULT_DEPS: TuiCommandDeps = {

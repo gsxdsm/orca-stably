@@ -16,6 +16,32 @@ describe('buildWorktreeSnapshot', () => {
     expect(snapshot.groups[1].worktrees.map((w) => w.worktreeId)).toEqual(['b'])
   })
 
+  it('hides dormant inactive worktrees (no agents, no live terminals)', () => {
+    const snapshot = buildWorktreeSnapshot(
+      makePsResult([
+        makeWorktreeSummary({ worktreeId: 'active', status: 'active' }),
+        makeWorktreeSummary({ worktreeId: 'dormant', status: 'inactive' })
+      ])
+    )
+    expect(flattenWorktreeRows(snapshot).map((w) => w.worktreeId)).toEqual(['active'])
+  })
+
+  it('keeps an inactive worktree that still has a live terminal', () => {
+    const snapshot = buildWorktreeSnapshot(
+      makePsResult([makeWorktreeSummary({ status: 'inactive', liveTerminalCount: 1 })])
+    )
+    expect(flattenWorktreeRows(snapshot)).toHaveLength(1)
+  })
+
+  it('normalizes a missing agents field to an empty array (shell-only worktrees)', () => {
+    // The runtime omits agents for shell-only worktrees even though the type
+    // says it is always present; a missing array must not crash consumers.
+    const snapshot = buildWorktreeSnapshot(
+      makePsResult([makeWorktreeSummary({ agents: undefined as never })])
+    )
+    expect(flattenWorktreeRows(snapshot)[0].agents).toEqual([])
+  })
+
   it('returns an empty-but-valid model for an empty worktree', () => {
     const snapshot = buildWorktreeSnapshot(makePsResult([]))
     expect(snapshot.groups).toEqual([])

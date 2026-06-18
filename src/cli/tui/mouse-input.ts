@@ -54,3 +54,31 @@ export function parseMouseEvent(data: string): MouseEvent | null {
   }
   return { type: 'press', button, col, row }
 }
+
+/** Extract every SGR mouse event in a stdin chunk. A single read can batch
+ *  multiple reports (and mix them with keystrokes), so we scan for each
+ *  `\x1b[<…M|m` run rather than requiring the whole chunk to be one report. */
+export function parseMouseEvents(data: string): MouseEvent[] {
+  const events: MouseEvent[] = []
+  let cursor = 0
+  while (cursor < data.length) {
+    const start = data.indexOf(SGR_MOUSE_PREFIX, cursor)
+    if (start === -1) {
+      break
+    }
+    const from = start + SGR_MOUSE_PREFIX.length
+    const pressEnd = data.indexOf('M', from)
+    const releaseEnd = data.indexOf('m', from)
+    const candidates = [pressEnd, releaseEnd].filter((index) => index !== -1)
+    if (candidates.length === 0) {
+      break
+    }
+    const end = Math.min(...candidates)
+    const event = parseMouseEvent(data.slice(start, end + 1))
+    if (event) {
+      events.push(event)
+    }
+    cursor = end + 1
+  }
+  return events
+}
