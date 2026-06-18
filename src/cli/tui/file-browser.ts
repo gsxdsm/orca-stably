@@ -21,9 +21,23 @@ export function emptyFileBrowser(): FileBrowserState {
 
 type Child = { name: string; path: string; isDir: boolean }
 
+// The file list only changes when files.list is re-fetched, so cache the built
+// tree by the list's identity — visibleTreeRows runs on every keystroke/click.
+const treeCache = new WeakMap<readonly FileEntry[], Map<string, Child[]>>()
+
+function childrenByParent(files: readonly FileEntry[]): Map<string, Child[]> {
+  const cached = treeCache.get(files)
+  if (cached) {
+    return cached
+  }
+  const built = buildChildrenByParent(files)
+  treeCache.set(files, built)
+  return built
+}
+
 /** Group every file path into its parent's child list, materializing the
  *  intermediate folders. Folders sort before files, then alphabetically. */
-function childrenByParent(files: readonly FileEntry[]): Map<string, Child[]> {
+function buildChildrenByParent(files: readonly FileEntry[]): Map<string, Child[]> {
   const buckets = new Map<string, Map<string, Child>>()
   const bucket = (parent: string): Map<string, Child> => {
     const existing = buckets.get(parent)

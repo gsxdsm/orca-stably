@@ -97,6 +97,17 @@ export class FocusedTerminalPane {
     this.onChange()
   }
 
+  /** Re-apply the latest metadata for the already-focused tab without resetting
+   *  scroll/editor state. Arms the live source for a terminal that just became
+   *  ready (its handle appears after the pending→ready transition). */
+  refresh(tab: SessionTab): void {
+    this.tab = tab
+    if (tab.kind === 'terminal' && tab.terminalHandle && !this.source) {
+      this.loadContent(tab)
+      this.onChange()
+    }
+  }
+
   /** Start the live readAnsi poll for a terminal tab, or fetch static content
    *  for a file/markdown/browser tab. */
   private loadContent(tab: SessionTab | null): void {

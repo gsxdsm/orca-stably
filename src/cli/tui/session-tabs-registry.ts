@@ -42,11 +42,15 @@ export class SessionTabsRegistry {
     this.ensureFocused()
   }
 
-  /** Keep the pane's tab pointing at a tab of the selected worktree (default the
-   *  first), or none when it has no tabs. */
+  /** Keep the pane's tab valid for the selected worktree. When the same tab is
+   *  still focused, refresh it (a terminal that just became ready needs its live
+   *  source armed). Never discard a dirty editor on a transient list drop. */
   ensureFocused(): void {
     const refs = this.forSelected()
-    if (!refs.some((tab) => tab.id === this.pane.tabId)) {
+    const current = refs.find((tab) => tab.id === this.pane.tabId)
+    if (current) {
+      this.pane.refresh(current)
+    } else if (!this.pane.isDirty) {
       this.pane.setTab(refs[0] ?? null)
     }
   }
