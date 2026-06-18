@@ -9,9 +9,12 @@ import {
   View
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowDown, ArrowUp, ChevronsDownUp, ChevronsUpDown, Square } from 'lucide-react-native'
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'
+import { runOnJS } from 'react-native-reanimated'
+import { ArrowDown, ChevronsDownUp, ChevronsUpDown, Square } from 'lucide-react-native'
 import type { NativeChatMessage } from '../../../src/shared/native-chat-types'
 import { colors } from '../theme/mobile-theme'
+import { clampFontScale } from './mobile-native-chat-message-text'
 import { styles } from './mobile-native-chat-view-styles'
 import { foldToolMessages } from './mobile-native-chat-blocks'
 import { MobileAgentWorkingIndicator } from './MobileAgentWorkingIndicator'
@@ -108,7 +111,26 @@ export function MobileNativeChatView({
   // never sits under the home indicator / nav bar (mirrors the terminal dock).
   const bottomPad = keyboardInset > 0 ? keyboardInset + insets.bottom : insets.bottom
   const [atBottom, setAtBottom] = useState(true)
-  const [scrolled, setScrolled] = useState(false)
+  // Pinch-to-zoom chat font. `fontScale` is the committed size; `pinchBase`
+  // anchors the live gesture so successive pinches compound rather than reset.
+  const [fontScale, setFontScale] = useState(1)
+  const fontScaleRef = useRef(1)
+  fontScaleRef.current = fontScale
+  const pinchBase = useRef(1)
+  const savePinchBase = useCallback(() => {
+    pinchBase.current = fontScaleRef.current
+  }, [])
+  const pinchGesture = useMemo(
+    () =>
+      Gesture.Pinch()
+        .onStart(() => {
+          runOnJS(savePinchBase)()
+        })
+        .onUpdate((e) => {
+          runOnJS(setFontScale)(clampFontScale(pinchBase.current * e.scale))
+        }),
+    [savePinchBase]
+  )
 
   // Fold each tool-result turn into the assistant turn it belongs to, then append
   // the route-owned optimistic "queued" messages at the tail.
@@ -194,7 +216,6 @@ export function MobileNativeChatView({
       const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent
       const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height)
       setAtBottom(distanceFromBottom < 80)
-      setScrolled(contentOffset.y > 80)
       // Near the top — page in older history.
       if (contentOffset.y < 60 && hasMore && !loadingEarlier) {
         onLoadEarlier?.()
@@ -203,16 +224,24 @@ export function MobileNativeChatView({
     [hasMore, loadingEarlier, onLoadEarlier]
   )
 
+  // Align a single message's top to the top of the viewport.
+  const onScrollToMessage = useCallback((index: number) => {
+    listRef.current?.scrollToIndex({ index, viewPosition: 0, animated: true })
+  }, [])
+
   const renderItem = useCallback(
-    ({ item }: { item: NativeChatMessage }) => (
+    ({ item, index }: { item: NativeChatMessage; index: number }) => (
       <MobileNativeChatMessage
         message={item}
         queued={pendingIds.has(item.id)}
         toolsExpanded={toolsExpanded}
+        fontScale={fontScale}
+        messageIndex={index}
+        onScrollToMessage={onScrollToMessage}
         onOpenFile={onOpenFile}
       />
     ),
-    [pendingIds, toolsExpanded, onOpenFile]
+    [pendingIds, toolsExpanded, fontScale, onScrollToMessage, onOpenFile]
   )
 
   const hint = statusHint(status, error)
@@ -225,62 +254,66 @@ export function MobileNativeChatView({
           <ActivityIndicator color={colors.textSecondary} />
         </View>
       ) : (
-        <View style={styles.listWrap}>
-          <FlatList
-            ref={listRef}
-            data={data}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
-            contentContainerStyle={styles.listContent}
-            onScroll={onScroll}
-            scrollEventThrottle={32}
-            onContentSizeChange={() => {
-              if (data.length > 0 && atBottom) {
-                listRef.current?.scrollToEnd({ animated: false })
-              }
-            }}
-            ListHeaderComponent={
-              hasMore ? (
-                <Pressable
-                  style={styles.loadEarlier}
-                  onPress={onLoadEarlier}
-                  disabled={loadingEarlier}
-                >
-                  {loadingEarlier ? (
-                    <ActivityIndicator size="small" color={colors.textMuted} />
-                  ) : (
-                    <Text style={styles.loadEarlierText}>Load earlier messages</Text>
-                  )}
-                </Pressable>
-              ) : null
-            }
-            ListEmptyComponent={
-              hint ? (
-                <View style={styles.center}>
-                  <Text style={styles.hint}>{hint}</Text>
-                </View>
-              ) : status === 'ready' ? (
-                <View style={styles.center}>
-                  <Text style={styles.hint}>No messages yet.</Text>
-                </View>
-              ) : null
-            }
-          />
-          {/* Jump controls: to top of conversation / to latest message. */}
-          {scrolled ? (
-            <Pressable
-              accessibilityLabel="Scroll to top"
-              style={[styles.fab, styles.fabTop]}
-              onPress={() => {
-                if (hasMore) {
-                  onLoadEarlier?.()
+        <GestureHandlerRootView style={styles.listWrap}>
+          <GestureDetector gesture={pinchGesture}>
+            <FlatList
+              ref={listRef}
+              data={data}
+              keyExtractor={(item) => item.id}
+              renderItem={renderItem}
+              contentContainerStyle={styles.listContent}
+              onScroll={onScroll}
+              scrollEventThrottle={32}
+              onContentSizeChange={() => {
+                if (data.length > 0 && atBottom) {
+                  listRef.current?.scrollToEnd({ animated: false })
                 }
-                listRef.current?.scrollToOffset({ offset: 0, animated: true })
               }}
-            >
-              <ArrowUp size={18} color={colors.textPrimary} strokeWidth={2.2} />
-            </Pressable>
-          ) : null}
+              // scrollToIndex can fail before an off-screen row is measured —
+              // fall back to an estimated offset, then retry once it's laid out.
+              onScrollToIndexFailed={(info) => {
+                listRef.current?.scrollToOffset({
+                  offset: info.averageItemLength * info.index,
+                  animated: true
+                })
+                setTimeout(() => {
+                  listRef.current?.scrollToIndex({
+                    index: info.index,
+                    viewPosition: 0,
+                    animated: true
+                  })
+                }, 120)
+              }}
+              ListHeaderComponent={
+                hasMore ? (
+                  <Pressable
+                    style={styles.loadEarlier}
+                    onPress={onLoadEarlier}
+                    disabled={loadingEarlier}
+                  >
+                    {loadingEarlier ? (
+                      <ActivityIndicator size="small" color={colors.textMuted} />
+                    ) : (
+                      <Text style={styles.loadEarlierText}>Load earlier messages</Text>
+                    )}
+                  </Pressable>
+                ) : null
+              }
+              ListEmptyComponent={
+                hint ? (
+                  <View style={styles.center}>
+                    <Text style={styles.hint}>{hint}</Text>
+                  </View>
+                ) : status === 'ready' ? (
+                  <View style={styles.center}>
+                    <Text style={styles.hint}>No messages yet.</Text>
+                  </View>
+                ) : null
+              }
+            />
+          </GestureDetector>
+          {/* Jump-to-latest control. The scroll-to-top affordance now lives
+              per-message (the up-arrow in each agent message's controls). */}
           {!atBottom ? (
             <Pressable
               accessibilityLabel="Scroll to latest"
@@ -290,7 +323,7 @@ export function MobileNativeChatView({
               <ArrowDown size={18} color={colors.textPrimary} strokeWidth={2.2} />
             </Pressable>
           ) : null}
-        </View>
+        </GestureHandlerRootView>
       )}
       {/* Pending agent prompt: permission takes precedence over a question. */}
       {permission ? (

@@ -14,6 +14,7 @@ import { foldToolMessages, splitNativeChatBlocks } from './native-chat-tool-fold
 import { isNearBottom, shouldShowJumpToLatest, type ScrollGeometry } from './native-chat-autoscroll'
 import { NativeChatToolRun } from './NativeChatToolRun'
 import { NativeChatWorkingIndicator } from './NativeChatWorkingIndicator'
+import { NativeChatCopyButton } from './NativeChatCopyButton'
 
 function geometryOf(el: HTMLElement): ScrollGeometry {
   return { scrollTop: el.scrollTop, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight }
@@ -65,15 +66,25 @@ function MessageRow({
     )
   }
 
+  // Plain assistant prose is the copyable unit; reasoning/system asides stay
+  // chrome-free. The button reveals on hover (and on keyboard focus-within).
+  const showCopy = !isReasoning && !isSystem && markdown.length > 0
+
   return (
     <div
       className={cn(
-        'max-w-full text-sm leading-relaxed text-foreground',
+        'group relative max-w-full text-sm leading-relaxed text-foreground',
         // Reasoning is the agent thinking aloud — quieter, italic, like an aside.
         isReasoning && 'border-l-2 border-border/60 pl-3 italic text-muted-foreground',
         isSystem && 'text-xs text-muted-foreground'
       )}
     >
+      {showCopy ? (
+        <NativeChatCopyButton
+          text={markdown}
+          className="absolute -top-1 right-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+        />
+      ) : null}
       {markdown ? (
         <CommentMarkdown content={markdown} variant="document" className="text-sm" />
       ) : null}
@@ -85,12 +96,15 @@ function MessageRow({
 export function NativeChatMessageList({
   session,
   isWorking,
-  expandSignal
+  expandSignal,
+  fontScale
 }: {
   session: NativeChatSession
   isWorking: boolean
   /** Toolbar-driven desired open state for every tool run; each flip re-syncs. */
   expandSignal: boolean
+  /** Chat-only text multiplier (1 = default), driven by the zoom shortcuts. */
+  fontScale: number
 }): React.JSX.Element {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const [stuckToBottom, setStuckToBottom] = useState(true)
@@ -168,7 +182,13 @@ export function NativeChatMessageList({
         onScroll={handleScroll}
         className="scrollbar-sleek h-full overflow-y-auto px-3 py-4 sm:px-4"
       >
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+        <div
+          className="mx-auto flex w-full max-w-3xl flex-col gap-3"
+          // Why: `zoom` scales the chat transcript's text and layout together,
+          // scoped to this container so the rest of the app is untouched. It's
+          // the desktop analog of the mobile pinch-zoom (Chromium/Electron only).
+          style={{ zoom: fontScale }}
+        >
           {messages.map((message) => (
             <MessageRow key={message.id} message={message} expandSignal={expandSignal} />
           ))}

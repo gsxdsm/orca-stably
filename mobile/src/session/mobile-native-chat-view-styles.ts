@@ -73,9 +73,6 @@ export const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.borderSubtle
   },
-  fabTop: {
-    top: spacing.md
-  },
   fabBottom: {
     bottom: spacing.md
   },

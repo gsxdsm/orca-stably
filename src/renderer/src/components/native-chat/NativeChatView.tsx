@@ -13,6 +13,7 @@ import { selectNativeChatViewState } from './native-chat-view-state'
 import { NativeChatMessageList } from './NativeChatMessageList'
 import { NativeChatComposer } from './NativeChatComposer'
 import { formatAgentTypeLabel } from '@/lib/agent-status'
+import { useNativeChatFontScale } from './use-native-chat-font-scale'
 
 export type NativeChatViewProps = {
   /** The terminal tab hosting the agent. paneKey is `${tabId}:${leafId}`. */
@@ -129,6 +130,10 @@ function NativeChatResolvedView({
   const isApproximate = sessionId === null
   const isConversation = viewState.kind === 'ready'
 
+  // Chat-only font zoom via Cmd/Ctrl +/-/0, gated to the live conversation so
+  // the chord is inert on the loading/empty/error states and elsewhere.
+  const fontScale = useNativeChatFontScale(isConversation)
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-background">
       <NativeChatHeader
@@ -149,6 +154,7 @@ function NativeChatResolvedView({
             session={session}
             isWorking={viewState.isWorking}
             expandSignal={toolsExpanded}
+            fontScale={fontScale.scale}
           />
         )}
       </div>
