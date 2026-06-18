@@ -38,9 +38,8 @@ export type FrameModel = {
   focusedTabId: string | null
   /** True when keystrokes/scroll are captured by the terminal (input focus). */
   terminalFocused: boolean
-  /** True when the focused tab is an editable file buffer. */
-  editing: boolean
-  editingDirty: boolean
+  /** Editor status for the focused tab (drives the editing footer hints). */
+  editState: 'none' | 'clean' | 'dirty' | 'conflict'
   fileBrowser: FileBrowserState
   viewport: TerminalAnsiFrame
   /** Lines scrolled back from the live bottom of the focused terminal. */
@@ -162,9 +161,12 @@ function wideFooter(model: FrameModel): string {
     )
   }
   const nav = ' ↑↓ move · ⏎ focus · t tabs · f files · n new · q quit'
-  const term = model.editing
-    ? ` ✎ editing${model.editingDirty ? ' ●' : ''} · Ctrl-S save · Ctrl-G discard · Ctrl-] exit`
-    : ' ⎋⎋ or Ctrl-] nav · wheel scrolls · keys → terminal'
+  const term =
+    model.editState === 'conflict'
+      ? ' ⚠ changed on disk — Ctrl-S overwrites · Ctrl-G discards · Ctrl-] exit'
+      : model.editState !== 'none'
+        ? ` ✎ editing${model.editState === 'dirty' ? ' ●' : ''} · Ctrl-S save · Ctrl-G discard · Ctrl-] exit`
+        : ' ⎋⎋ or Ctrl-] nav · wheel scrolls · keys → terminal'
   return focusBar(
     nav,
     model.sidebarWidth,

@@ -4,6 +4,7 @@ import { sendTerminalKeys } from './action-dispatch'
 import { renderMarkdown } from './render-markdown'
 import { FileEditor } from './file-editor'
 import { highlightLine, languageFromPath } from './syntax-highlight'
+import { saveFileTab } from './file-save'
 import { decodeKey } from './tty-key-adapter'
 import type { TuiRpcClient } from './tui-rpc-client'
 import type { SessionTab } from './session-tab'
@@ -43,6 +44,9 @@ export class FocusedTerminalPane {
   private editorTop = 0
   /** Syntax highlighter for the open file (identity until a file is loaded). */
   private highlight: (line: string) => string = (line) => line
+  /** Set when files.read shows the file changed on disk since load; a second
+   *  Ctrl-S then overwrites. */
+  private saveConflict = false
 
   constructor(
     private readonly client: TuiRpcClient,
@@ -71,13 +75,20 @@ export class FocusedTerminalPane {
     return this.inputFocused
   }
 
-  /** True when the focused tab is an editable file buffer. */
-  get isEditing(): boolean {
-    return this.editor !== null
-  }
-
   get isDirty(): boolean {
     return this.editor?.dirty ?? false
+  }
+
+  /** Editor status for the footer: none (not editing) / clean / dirty / conflict
+   *  (the file changed on disk since load — a second Ctrl-S overwrites). */
+  get editState(): 'none' | 'clean' | 'dirty' | 'conflict' {
+    if (!this.editor) {
+      return 'none'
+    }
+    if (this.saveConflict) {
+      return 'conflict'
+    }
+    return this.editor.dirty ? 'dirty' : 'clean'
   }
 
   setTab(tab: SessionTab | null): void {
@@ -91,6 +102,7 @@ export class FocusedTerminalPane {
     this.editor = null
     this.editorTop = 0
     this.highlight = (line) => line
+    this.saveConflict = false
     if (!tab) {
       this.inputFocused = false
     }
@@ -209,7 +221,8 @@ export class FocusedTerminalPane {
     if (this.editor) {
       // delta > 0 scrolls toward the top of the file (older lines), so the
       // window's top line moves up. The frame is unchanged — only the offset.
-      const top = clamp(this.editorTop - delta, 0, this.editorMaxTop())
+      const maxTop = Math.max(0, this.editor.lineCount - Math.max(1, this.fitRows))
+      const top = clamp(this.editorTop - delta, 0, maxTop)
       if (top === this.editorTop) {
         return
       }
@@ -246,7 +259,7 @@ export class FocusedTerminalPane {
       return
     }
     if (key.type === 'ctrl' && key.value === 's') {
-      void this.save(editor)
+      this.save(editor)
       return
     }
     if (key.type === 'ctrl' && key.value === 'g') {
@@ -259,26 +272,27 @@ export class FocusedTerminalPane {
     this.onChange()
   }
 
-  private async save(editor: FileEditor): Promise<void> {
+  /** Write the buffer; a conflicting external change flags saveConflict so the
+   *  footer warns and a second Ctrl-S (allowOverwrite) writes anyway. */
+  private save(editor: FileEditor): void {
     const tab = this.tab
     if (!tab?.relativePath) {
       return
     }
-    try {
-      await this.client.call('files.write', {
-        worktree: `id:${tab.worktreeId}`,
-        relativePath: tab.relativePath,
-        content: editor.content
-      })
-      editor.markSaved()
+    const id = tab.id
+    void saveFileTab(
+      this.client,
+      `id:${tab.worktreeId}`,
+      tab.relativePath,
+      editor,
+      this.saveConflict
+    ).then((result) => {
+      if (this.tab?.id !== id || result === 'failed') {
+        return
+      }
+      this.saveConflict = result === 'conflict'
       this.onChange()
-    } catch {
-      // Save failed; the buffer stays dirty so the user can retry.
-    }
-  }
-
-  private editorMaxTop(): number {
-    return this.editor ? Math.max(0, this.editor.lineCount - Math.max(1, this.fitRows)) : 0
+    })
   }
 
   /** Derive the viewport offset from editorTop (the tail-window the viewport
@@ -287,7 +301,8 @@ export class FocusedTerminalPane {
     if (!this.editor) {
       return
     }
-    this.editorTop = clamp(this.editorTop, 0, this.editorMaxTop())
+    const maxTop = Math.max(0, this.editor.lineCount - Math.max(1, this.fitRows))
+    this.editorTop = clamp(this.editorTop, 0, maxTop)
     this.scrollback = Math.max(
       0,
       this.editor.lineCount - Math.max(1, this.fitRows) - this.editorTop

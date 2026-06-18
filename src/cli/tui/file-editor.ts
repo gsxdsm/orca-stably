@@ -31,6 +31,11 @@ export class FileEditor {
     return this.content !== this.baseline
   }
 
+  /** The content as of the last load/save — for detecting external changes. */
+  get savedContent(): string {
+    return this.baseline
+  }
+
   get cursorRow(): number {
     return this.row
   }
