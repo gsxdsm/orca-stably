@@ -1,7 +1,7 @@
-import { toSessionTabs, type SessionTab } from './session-tab'
+import { toSessionTabs, type RawTab, type SessionTab } from './session-tab'
 import type { FocusedTerminalPane } from './focused-terminal-pane'
 
-type ListAllResult = { snapshots?: { worktree?: string; tabs?: unknown[] }[] }
+type ListAllResult = { snapshots?: { worktree?: string; tabs?: RawTab[] }[] }
 
 /** A minimal RPC surface; RuntimeClient satisfies it structurally. */
 type RpcClient = {
@@ -105,7 +105,7 @@ export class SessionTabsRegistry {
       for (const snapshot of result.snapshots ?? []) {
         const worktreeId = typeof snapshot.worktree === 'string' ? snapshot.worktree : ''
         if (worktreeId) {
-          map.set(worktreeId, toSessionTabs(worktreeId, (snapshot.tabs ?? []) as never[]))
+          map.set(worktreeId, toSessionTabs(worktreeId, snapshot.tabs ?? []))
         }
       }
       this.byWorktree = map

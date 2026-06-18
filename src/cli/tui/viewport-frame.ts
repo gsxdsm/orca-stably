@@ -41,10 +41,24 @@ export function viewportRows(
   return rows
 }
 
+// terminalLineCount and viewportRows both derive lines from the same frame on a
+// scroll/render tick; cache by frame identity so the split+sanitize runs once.
+const linesCache = new WeakMap<TerminalAnsiFrame, string[]>()
+
 /** The terminal's screen lines, newest last. Trailing blank lines are dropped so
  *  the live output sits at the bottom of the viewport (where a shell prompt is)
  *  rather than scrolled up by the serializer's full-height padding. */
 function frameLines(frame: TerminalAnsiFrame): string[] {
+  const cached = linesCache.get(frame)
+  if (cached) {
+    return cached
+  }
+  const lines = computeFrameLines(frame)
+  linesCache.set(frame, lines)
+  return lines
+}
+
+function computeFrameLines(frame: TerminalAnsiFrame): string[] {
   if (frame.data !== null) {
     // Split into screen lines without a control-char regex (lint: no-control-regex),
     // then reduce each to SGR + text so replay-only escapes can't corrupt layout.

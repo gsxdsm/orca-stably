@@ -18,7 +18,7 @@ export type SessionTab = {
 
 /** A raw tab from session.tabs.list(All) — loosely typed; we read only the
  *  fields we need and tolerate the rest. */
-type RawTab = {
+export type RawTab = {
   type?: string
   id?: unknown
   title?: unknown
