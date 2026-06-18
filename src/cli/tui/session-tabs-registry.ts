@@ -51,10 +51,29 @@ export class SessionTabsRegistry {
     }
   }
 
+  /** Resolve a tab by id and tell the runtime it's now active (so the desktop
+   *  app / other clients stay in sync), returning it for the pane to show. */
+  focus(tabId: string): SessionTab | null {
+    const tab = this.find(tabId) ?? null
+    if (tab) {
+      this.activate(tab)
+    }
+    return tab
+  }
+
+  private activate(tab: SessionTab): void {
+    void this.client
+      .call('session.tabs.activate', { worktree: `id:${tab.worktreeId}`, tabId: tab.id })
+      .catch(() => {
+        // Best-effort sync; the TUI still shows the tab locally if it fails.
+      })
+  }
+
   /** Focus the (already-open) tab for a just-opened file path, if present. */
   focusOpened(relativePath: string): void {
     const opened = this.forSelected().find((tab) => tab.relativePath === relativePath)
     if (opened) {
+      this.activate(opened)
       this.pane.setTab(opened)
       this.pane.focusInput()
     }

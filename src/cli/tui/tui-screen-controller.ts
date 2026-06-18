@@ -114,7 +114,7 @@ export class TuiScreenController {
 
   private readonly host: ControllerHost = {
     worktreeRows: () => this.worktreeRows(),
-    selected: () => this.selected(),
+    selected: () => this.worktreeRows()[this.selectedIndex] ?? null,
     selectedIndex: () => this.selectedIndex,
     isNarrow: () => this.isNarrow(),
     narrowView: () => this.narrow,
@@ -132,10 +132,7 @@ export class TuiScreenController {
     focusTerminal: () => this.pane.focusInput(),
     exitTerminalFocus: () => this.exitTerminalFocus(),
     scrollTerminal: (delta) => this.pane.scroll(delta),
-    toggleTabs: () => {
-      this.tabsExpanded = !this.tabsExpanded
-      this.render()
-    },
+    toggleTabs: () => this.update(() => (this.tabsExpanded = !this.tabsExpanded)),
     jumpToTab: (index, tabId) => this.jumpToTab(index, tabId),
     toggleFiles: () => this.files.toggle(),
     fileBrowserOpen: () => this.files.isOpen,
@@ -144,19 +141,10 @@ export class TuiScreenController {
     selectIndex: (index) => this.selectIndex(index),
     move: (delta) =>
       this.selectIndex(moveSelection(this.selectedIndex, delta, this.worktreeRows().length)),
-    setNarrowView: (view) => {
-      this.narrow = view
-      this.render()
-    },
+    setNarrowView: (view) => this.update(() => (this.narrow = view)),
     cycleFocus: () => this.pane.cycle(this.tabs.forSelected()),
-    setOverlay: (overlay) => {
-      this.overlay = overlay
-      this.render()
-    },
-    setInput: (value) => {
-      this.input = value
-      this.render()
-    },
+    setOverlay: (overlay) => this.update(() => (this.overlay = overlay)),
+    setInput: (value) => this.update(() => (this.input = value)),
     runCommand: (command) => void this.runCommand(command),
     refresh: () => void this.source.refreshOnce(),
     quit: () => this.quit()
@@ -167,6 +155,15 @@ export class TuiScreenController {
     const mouse = parseMouseEvents(data)
     if (mouse.length > 0) {
       mouse.forEach((event) => handleMouse(this.host, event))
+      return
+    }
+    // An open dialog (confirm/prompt/help) captures keys regardless of terminal
+    // or editor focus, so y/n reaches the close dialog while a tab is focused.
+    if (this.overlay.kind !== 'none') {
+      const overlayKey = decodeKey(data)
+      if (overlayKey) {
+        handleKey(this.host, overlayKey)
+      }
       return
     }
     if (this.files.isOpen) {
@@ -213,7 +210,7 @@ export class TuiScreenController {
 
   private jumpToTab(index: number, tabId: string): void {
     this.selectIndex(index)
-    this.pane.setTab(this.tabs.find(tabId) ?? null)
+    this.pane.setTab(this.tabs.focus(tabId))
     this.pane.focusInput()
   }
 
@@ -260,8 +257,10 @@ export class TuiScreenController {
     return Math.max(1, this.size.rows - HEADER_ROWS - 1)
   }
 
-  private selected(): WorktreeRow | null {
-    return this.worktreeRows()[this.selectedIndex] ?? null
+  /** Apply a state mutation, then re-render. */
+  private update(mutate: () => void): void {
+    mutate()
+    this.render()
   }
 
   private async runCommand(command: TuiCommand): Promise<void> {

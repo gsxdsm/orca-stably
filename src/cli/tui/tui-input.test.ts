@@ -201,28 +201,18 @@ describe('handleMouse', () => {
     expect(host.jumpToTab).toHaveBeenCalledWith(0, 't1')
   })
 
-  it('confirms closing a nested tab on right-click', () => {
+  it('does not close from the sidebar — a nested-tab right-click just jumps', () => {
     const host = expandedTabsHost()
     handleMouse(host, { type: 'press', button: 'right', col: 2, row: 5 })
-    expect(host.setOverlay).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: 'confirm',
-        command: expect.objectContaining({ kind: 'session.tabs.close', tabId: 't1' })
-      })
-    )
-    expect(host.jumpToTab).not.toHaveBeenCalled()
+    expect(host.jumpToTab).toHaveBeenCalledWith(0, 't1')
+    expect(host.setOverlay).not.toHaveBeenCalled()
   })
 
-  it('confirms removing a worktree on right-click in the sidebar', () => {
+  it('does not close a worktree from a sidebar right-click', () => {
     const host = expandedTabsHost()
     // screenRow 4 → lineIndex 3 → row-wt1 (worktree index 0).
     handleMouse(host, { type: 'press', button: 'right', col: 2, row: 4 })
-    expect(host.setOverlay).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: 'confirm',
-        command: expect.objectContaining({ kind: 'worktree.rm' })
-      })
-    )
+    expect(host.setOverlay).not.toHaveBeenCalled()
   })
 
   it('jumps to a tab when the tab strip is clicked', () => {

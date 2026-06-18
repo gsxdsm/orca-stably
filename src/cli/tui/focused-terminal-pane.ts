@@ -133,7 +133,7 @@ export class FocusedTerminalPane {
       return
     }
     void this.client
-      .call<{ content?: string }>('files.read', {
+      .call<{ content?: string; truncated?: boolean }>('files.read', {
         worktree: `id:${tab.worktreeId}`,
         relativePath: tab.relativePath
       })
@@ -145,6 +145,14 @@ export class FocusedTerminalPane {
         if (tab.kind === 'markdown') {
           // Markdown renders read-only with basic formatting.
           this.frame = linesToFrame(renderMarkdown(content))
+        } else if (result.truncated) {
+          // The runtime caps files.read; editing + a full-overwrite save would
+          // truncate the file on disk, so show large files read-only.
+          this.frame = linesToFrame([
+            '(file too large to edit — showing the first part, read-only)',
+            '',
+            ...content.split('\n')
+          ])
         } else {
           // Other files open in an editable buffer.
           this.editor = new FileEditor()
@@ -181,6 +189,18 @@ export class FocusedTerminalPane {
   }
 
   scroll(delta: number): void {
+    if (this.editor) {
+      // delta > 0 scrolls toward the top of the file (older lines), so the
+      // window's top line moves up. The frame is unchanged — only the offset.
+      const top = clamp(this.editorTop - delta, 0, this.editorMaxTop())
+      if (top === this.editorTop) {
+        return
+      }
+      this.editorTop = top
+      this.syncEditorScroll()
+      this.onChange()
+      return
+    }
     const max = Math.max(0, terminalLineCount(this.frame) - 1)
     const next = Math.min(Math.max(this.scrollback + delta, 0), max)
     if (next === this.scrollback) {
@@ -217,6 +237,7 @@ export class FocusedTerminalPane {
     } else if (!editor.handleKey(key)) {
       return
     }
+    this.revealCursor()
     this.frame = linesToFrame(editor.renderLines())
     this.onChange()
   }
@@ -239,22 +260,45 @@ export class FocusedTerminalPane {
     }
   }
 
-  /** Keep the cursor on screen: choose the top buffer line so the tail-window
-   *  the viewport draws starts exactly at editorTop (so clicks map back cleanly). */
-  private scrollEditorToCursor(editor: FileEditor, height: number): void {
-    const total = editor.lineCount
-    const top = clamp(editor.cursorRow - Math.floor(height / 2), 0, Math.max(0, total - height))
-    this.editorTop = top
-    this.scrollback = Math.max(0, total - height - top)
-    this.frame = linesToFrame(editor.renderLines())
+  private editorMaxTop(): number {
+    return this.editor ? Math.max(0, this.editor.lineCount - Math.max(1, this.fitRows)) : 0
+  }
+
+  /** Derive the viewport offset from editorTop (the tail-window the viewport
+   *  draws then starts exactly at editorTop, so clicks map back cleanly). */
+  private syncEditorScroll(): void {
+    if (!this.editor) {
+      return
+    }
+    this.editorTop = clamp(this.editorTop, 0, this.editorMaxTop())
+    this.scrollback = Math.max(
+      0,
+      this.editor.lineCount - Math.max(1, this.fitRows) - this.editorTop
+    )
+  }
+
+  /** Scroll the window just enough to show the cursor — only when it moves, so
+   *  passive renders don't yank the view back (the wheel can scroll away). */
+  private revealCursor(): void {
+    if (!this.editor) {
+      return
+    }
+    const height = Math.max(1, this.fitRows)
+    if (this.editor.cursorRow < this.editorTop) {
+      this.editorTop = this.editor.cursorRow
+    } else if (this.editor.cursorRow >= this.editorTop + height) {
+      this.editorTop = this.editor.cursorRow - height + 1
+    }
+    this.syncEditorScroll()
   }
 
   /** Set the editing cursor from a viewport click at (bodyRow, col). */
   clickAt(bodyRow: number, col: number): void {
-    if (!this.editor) {
+    if (!this.editor || bodyRow < 0) {
       return
     }
     this.editor.setCursor(this.editorTop + bodyRow, col)
+    this.revealCursor()
     this.frame = linesToFrame(this.editor.renderLines())
     this.onChange()
   }
@@ -263,7 +307,10 @@ export class FocusedTerminalPane {
    *  updateViewport path — no input-floor side effect. No-op when unchanged. */
   fit({ cols, rows }: { cols: number; rows: number }): void {
     if (this.editor) {
-      this.scrollEditorToCursor(this.editor, Math.max(1, rows))
+      // Passive render: keep the user's scroll position, just re-derive the
+      // offset for the current height. Cursor reveal happens on edit/click only.
+      this.fitRows = Math.max(1, rows)
+      this.syncEditorScroll()
       return
     }
     const handle = this.handle
