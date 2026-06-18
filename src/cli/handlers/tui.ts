@@ -60,10 +60,17 @@ export async function runTuiCommand(
 
   const status = await ctx.client.getCliStatus()
   if (!status.result.runtime.reachable) {
-    throw new RuntimeClientError(
-      'runtime_unreachable',
-      'Orca runtime is not reachable. Start Orca (orca open) or pair a remote runtime first.'
-    )
+    if (ctx.client.isRemote) {
+      // A remote runtime can't be launched from here — it must be paired/started.
+      throw new RuntimeClientError(
+        'runtime_unreachable',
+        'Remote Orca runtime is not reachable. Pair or start it, then retry.'
+      )
+    }
+    // No local runtime yet: launch Orca and wait for it (openOrca connects when
+    // it comes up and throws on timeout; it no-ops when already reachable).
+    deps.writeStderr('Orca is not running — starting it…\n')
+    await ctx.client.openOrca()
   }
 
   const options: RunTuiOptions = {

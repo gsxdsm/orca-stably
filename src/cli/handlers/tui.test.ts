@@ -7,6 +7,7 @@ import { RuntimeClientError } from '../runtime-client'
 type FakeClient = {
   isRemote: boolean
   getCliStatus: () => Promise<{ result: { runtime: { reachable: boolean } } }>
+  openOrca?: () => Promise<unknown>
 }
 
 function makeCtx(
@@ -78,10 +79,24 @@ describe('runTuiCommand', () => {
     expect(stderr.join('')).toContain('interactive terminal')
   })
 
-  it('throws when the runtime is unreachable and never loads the bundle', async () => {
-    const { deps, runTui } = makeDeps()
+  it('starts Orca when the local runtime is unreachable, then launches the TUI', async () => {
+    const { deps, runTui, stderr } = makeDeps()
+    const openOrca = vi.fn<() => Promise<unknown>>().mockResolvedValue(undefined)
     const unreachable: FakeClient = {
       isRemote: false,
+      getCliStatus: async () => ({ result: { runtime: { reachable: false } } }),
+      openOrca
+    }
+    await runTuiCommand(makeCtx(unreachable), deps)
+    expect(openOrca).toHaveBeenCalledTimes(1)
+    expect(stderr.join('')).toContain('starting')
+    expect(runTui).toHaveBeenCalledTimes(1)
+  })
+
+  it('throws when a remote runtime is unreachable and never loads the bundle', async () => {
+    const { deps, runTui } = makeDeps()
+    const unreachable: FakeClient = {
+      isRemote: true,
       getCliStatus: async () => ({ result: { runtime: { reachable: false } } })
     }
     await expect(runTuiCommand(makeCtx(unreachable), deps)).rejects.toBeInstanceOf(
