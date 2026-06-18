@@ -11,7 +11,7 @@ import {
   type StatusIndicatorKind
 } from './agent-state-indicator'
 import { WorktreeSidebar } from './worktree-sidebar'
-import { TerminalPanes, type TerminalPaneData } from './terminal-panes'
+import { TerminalPanes } from './terminal-panes'
 import { StatusBar } from './status-bar'
 import { HelpOverlay } from './help-overlay'
 import { ConfirmOverlay, PromptOverlay } from './tui-overlays'
@@ -22,8 +22,8 @@ import { currentPlatform, resolveAction } from './keybinding-map'
 import { inkKeyToLogical } from './ink-key-bridge'
 import { clampSelection, moveSelection } from './navigation-state'
 import { MOUSE_DISABLE, MOUSE_ENABLE, parseMouseEvents, type MouseEvent } from './mouse-input'
-import { TerminalReadTailStream } from './terminal-read-tail-stream'
-import type { TerminalTailState } from './terminal-stream'
+import { TerminalScreenStream } from './terminal-screen-stream'
+import { emptyScreenState, type TerminalScreenState } from './terminal-screen'
 import { dispatchAction, worktreeSelector, type TuiCommand } from './action-dispatch'
 import type { RuntimeTerminalListResult } from '../../shared/runtime-types'
 
@@ -62,8 +62,8 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
   const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [terminals, setTerminals] = useState<TerminalRef[]>([])
-  const [tails, setTails] = useState<Map<string, TerminalTailState>>(new Map())
   const [focusedHandle, setFocusedHandle] = useState<string | null>(null)
+  const [screen, setScreen] = useState<TerminalScreenState>(emptyScreenState())
   const [size, setSize] = useState({ columns: stdout?.columns ?? 80, rows: stdout?.rows ?? 24 })
 
   const rows = useMemo(() => (snap.snapshot ? flattenWorktreeRows(snap.snapshot) : []), [snap])
@@ -71,11 +71,6 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
   const selectedWorktreeId = selected?.worktreeId ?? null
   const sidebarWidth = sidebarWidthFor(size.columns)
 
-  const panes: TerminalPaneData[] = terminals.map((terminal) => ({
-    handle: terminal.handle,
-    title: terminal.title,
-    tail: tails.get(terminal.handle) ?? null
-  }))
   const tabSpecs = terminals.map((terminal) => ({
     handle: terminal.handle,
     label: truncateTabLabel(terminal.title)
@@ -148,17 +143,14 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
     setSelectedIndex((index) => clampSelection(index, rows.length))
   }, [rows.length])
 
-  // Selected worktree -> list its terminals -> tail each one as a pane.
+  // Selected worktree -> list its terminals (one per tab).
   useEffect(() => {
     if (!selectedWorktreeId) {
       setTerminals([])
-      setTails(new Map())
       setFocusedHandle(null)
       return
     }
     let cancelled = false
-    const streams: TerminalReadTailStream[] = []
-    const unsubscribes: (() => void)[] = []
     void (async () => {
       try {
         const list = await options.client.call<RuntimeTerminalListResult>('terminal.list', {
@@ -172,44 +164,33 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
           title: terminal.title && terminal.title.length > 0 ? terminal.title : 'shell'
         }))
         setTerminals(refs)
-        setTails(new Map())
         setFocusedHandle(refs[0]?.handle ?? null)
-        for (const ref of refs) {
-          const stream = new TerminalReadTailStream(options.client, ref.handle, {
-            isRemote: options.isRemote,
-            // Fetch a full screen's worth so the panel shows real terminal
-            // output, not just the short uncursored preview.
-            limit: 500
-          })
-          const unsubscribe = stream.subscribe((state) => {
-            setTails((prev) => {
-              const next = new Map(prev)
-              next.set(ref.handle, state)
-              return next
-            })
-          })
-          stream.start()
-          streams.push(stream)
-          unsubscribes.push(unsubscribe)
-        }
       } catch {
         if (!cancelled) {
           setTerminals([])
-          setTails(new Map())
           setFocusedHandle(null)
         }
       }
     })()
     return () => {
       cancelled = true
-      for (const unsubscribe of unsubscribes) {
-        unsubscribe()
-      }
-      for (const stream of streams) {
-        stream.stop()
-      }
     }
-  }, [selectedWorktreeId, options.client, options.isRemote])
+  }, [selectedWorktreeId, options.client])
+
+  // Focused terminal -> stream its colored screen (ANSI snapshot polling).
+  useEffect(() => {
+    setScreen(emptyScreenState())
+    if (!focusedHandle) {
+      return
+    }
+    const stream = new TerminalScreenStream(options.client, focusedHandle)
+    const unsubscribe = stream.subscribe(setScreen)
+    stream.start()
+    return () => {
+      unsubscribe()
+      stream.stop()
+    }
+  }, [focusedHandle, options.client])
 
   // Mouse: enable SGR reporting once per session; keyboard stays the guaranteed
   // path. Latest state is read via refs so deps stay [stdin].
@@ -411,7 +392,12 @@ export function TuiApp({ options }: { options: RunTuiOptions }): React.JSX.Eleme
           )}
         </Box>
         <Box flexGrow={1} flexDirection="column" marginLeft={1}>
-          <TerminalPanes panes={panes} focusedHandle={focusedHandle} availableRows={bodyRows} />
+          <TerminalPanes
+            tabs={terminals}
+            focusedHandle={focusedHandle}
+            screen={screen}
+            availableRows={bodyRows}
+          />
         </Box>
       </Box>
 
