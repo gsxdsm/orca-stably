@@ -24,6 +24,7 @@ import { flattenWorktreeRows, type WorktreeRow } from './worktree-snapshot'
 import { FocusedTerminalPane } from './focused-terminal-pane'
 import { dispatchAction, type TuiCommand } from './action-dispatch'
 import { groupTerminalsByWorktree } from './terminals-by-worktree'
+import { DoubleEscapeDetector } from './double-escape'
 
 /** Telnet-style escape (Ctrl-]) returns from terminal-input focus to navigation;
  *  it's effectively unused by interactive programs, so it won't clash with what
@@ -34,7 +35,13 @@ import { clampSelection, moveSelection } from './navigation-state'
 import { MAX_PANES } from './pane-layout'
 import { currentPlatform } from './keybinding-map'
 import { resolveTheme } from './theme'
-import { HEADER_ROWS, NARROW_THRESHOLD, sidebarWidthFor, type NarrowView } from './tui-layout'
+import {
+  HEADER_ROWS,
+  NARROW_THRESHOLD,
+  sidebarWidthFor,
+  viewportCellDims,
+  type NarrowView
+} from './tui-layout'
 import type { RunTuiOptions } from './tui-runtime-contract'
 import type { RuntimeTerminalListResult } from '../../shared/runtime-types'
 
@@ -68,6 +75,7 @@ export class TuiScreenController {
   private renderQueued = false
   private resolveExit: (() => void) | null = null
   private disposed = false
+  private readonly doubleEsc = new DoubleEscapeDetector()
 
   private readonly onData = (chunk: Buffer | string): void => this.handleStdin(chunk)
   private readonly onResize = (): void => this.handleResize()
@@ -159,7 +167,8 @@ export class TuiScreenController {
     // While the terminal is focused, forward raw keystrokes to the PTY verbatim
     // (so escapes/control chars pass through); Ctrl-] is the way back to nav.
     if (this.inputFocused()) {
-      if (data === FOCUS_ESCAPE) {
+      // Ctrl-] (matched even when batched) or a double-Esc returns to nav.
+      if (data.includes(FOCUS_ESCAPE) || this.doubleEsc.test(data, Date.now())) {
         this.exitTerminalFocus()
       } else {
         this.pane.sendKeys(data)
@@ -299,6 +308,7 @@ export class TuiScreenController {
     setImmediate(() => {
       this.renderQueued = false
       if (!this.disposed) {
+        this.pane.fit(viewportCellDims(this.size.columns, this.bodyHeight(), this.isNarrow()))
         this.compositor.render(composeFrame(this.frameModel()))
       }
     })

@@ -16,6 +16,28 @@ export function headerRow(label: string, width: number, useColor: boolean): stri
   return style(fitCells(label, width), { bg: 'cyan', fg: 'black', bold: true }, useColor)
 }
 
+/** A two-segment bar split at the sidebar divider: the focused side is blue, the
+ *  other white. Used for both the top and bottom bars so which pane has focus —
+ *  workspaces (left) or terminal (right) — reads at a glance. */
+export function focusBar(
+  left: string,
+  leftWidth: number,
+  right: string,
+  totalWidth: number,
+  terminalFocused: boolean,
+  useColor: boolean
+): string {
+  const active: TextStyle = { bg: 'blue', fg: 'white', bold: true }
+  const idle: TextStyle = { bg: 'white', fg: 'black' }
+  const leftSeg = style(fitCells(left, leftWidth), terminalFocused ? idle : active, useColor)
+  const rightSeg = style(
+    fitCells(right, Math.max(0, totalWidth - leftWidth)),
+    terminalFocused ? active : idle,
+    useColor
+  )
+  return leftSeg + rightSeg
+}
+
 /** The vertical column of worktree status glyphs for the narrow terminal view. */
 export function statusStripRows(
   rows: readonly WorktreeRow[],
@@ -140,9 +162,9 @@ function emptySidebar(height: number, width: number, useColor: boolean): string[
   const out: string[] = []
   for (let i = 0; i < height; i += 1) {
     if (i === 0) {
-      out.push(style(fitCells('WORKTREES', width), { bold: true }, useColor))
+      out.push(style(fitCells('WORKSPACES', width), { bold: true }, useColor))
     } else if (i === 2) {
-      out.push(style(fitCells('No worktrees yet.', width), { dim: true }, useColor))
+      out.push(style(fitCells('No workspaces yet.', width), { dim: true }, useColor))
     } else {
       out.push(' '.repeat(width))
     }
@@ -157,7 +179,7 @@ function renderSidebarLine(
   useColor: boolean
 ): string {
   if (line.kind === 'header') {
-    return style(fitCells('WORKTREES', width), { bold: true }, useColor)
+    return style(fitCells('WORKSPACES', width), { bold: true }, useColor)
   }
   if (line.kind === 'spacer') {
     return ' '.repeat(width)

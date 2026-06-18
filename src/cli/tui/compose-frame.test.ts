@@ -70,6 +70,14 @@ describe('composeFrame', () => {
     expect(frame.join('\n')).toContain('Confirm')
   })
 
+  it('shows split focus bars: brand on top, nav + terminal hints on the footer', () => {
+    const frame = composeFrame(model())
+    expect(frame[0]).toContain('orca tui')
+    const joined = frame.join('\n')
+    expect(joined).toContain('move')
+    expect(joined).toContain('terminal')
+  })
+
   it('marks the divider with a heavy bar when the terminal is focused', () => {
     expect(composeFrame(model({ terminalFocused: false })).some((r) => r.includes('┃'))).toBe(false)
     expect(composeFrame(model({ terminalFocused: true })).some((r) => r.includes('┃'))).toBe(true)

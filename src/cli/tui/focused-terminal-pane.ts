@@ -4,6 +4,16 @@ import { sendTerminalKeys } from './action-dispatch'
 import type { TuiRpcClient } from './tui-rpc-client'
 import type { TerminalRef } from './tui-input'
 
+/** terminal.updateViewport viewport bounds (runtime schema). */
+const FIT_MIN_COLS = 20
+const FIT_MAX_COLS = 240
+const FIT_MIN_ROWS = 8
+const FIT_MAX_ROWS = 120
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value))
+}
+
 /** Owns the focused terminal: which handle is shown, its polled ANSI frame, the
  *  scrollback offset, and whether keystrokes are captured (wide-mode input
  *  focus). Pulled out of the controller so that file stays focused on layout and
@@ -14,6 +24,8 @@ export class FocusedTerminalPane {
   private frame: TerminalAnsiFrame = emptyAnsiFrame()
   private scrollback = 0
   private inputFocused = false
+  private fitCols = 0
+  private fitRows = 0
 
   constructor(
     private readonly client: TuiRpcClient,
@@ -44,6 +56,8 @@ export class FocusedTerminalPane {
     }
     this.handleId = handle
     this.scrollback = 0
+    this.fitCols = 0
+    this.fitRows = 0
     if (!handle) {
       this.inputFocused = false
     }
@@ -99,6 +113,29 @@ export class FocusedTerminalPane {
     if (this.handleId) {
       void sendTerminalKeys(this.client, this.handleId, data)
     }
+  }
+
+  /** Resize the focused PTY to the viewport so its content reflows to the pane —
+   *  the TUI's size overrides the terminal's own. Uses updateViewport's desktop
+   *  path, which resizes directly WITHOUT taking the mobile input "floor" (that
+   *  gated keystrokes when we tried resizeForClient). No-op when unchanged. */
+  fit({ cols, rows }: { cols: number; rows: number }): void {
+    const c = clamp(cols, FIT_MIN_COLS, FIT_MAX_COLS)
+    const r = clamp(rows, FIT_MIN_ROWS, FIT_MAX_ROWS)
+    if (!this.handleId || (c === this.fitCols && r === this.fitRows)) {
+      return
+    }
+    this.fitCols = c
+    this.fitRows = r
+    void this.client
+      .call('terminal.updateViewport', {
+        terminal: this.handleId,
+        client: { id: 'orca-tui', type: 'desktop' },
+        viewport: { cols: c, rows: r }
+      })
+      .catch(() => {
+        // Older runtimes lack updateViewport; the pane still clips to width.
+      })
   }
 
   stop(): void {

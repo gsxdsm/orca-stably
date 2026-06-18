@@ -16,3 +16,14 @@ export type NarrowView = 'list' | 'terminal'
 export function sidebarWidthFor(columns: number): number {
   return Math.max(16, Math.min(34, Math.floor(columns * 0.34)))
 }
+
+/** The terminal viewport's cell dimensions for the current layout — the size the
+ *  focused PTY is fit to. The tab strip takes the first body row. */
+export function viewportCellDims(
+  columns: number,
+  bodyHeight: number,
+  isNarrow: boolean
+): { cols: number; rows: number } {
+  const cols = isNarrow ? columns - STRIP_WIDTH - 1 : columns - sidebarWidthFor(columns) - 2
+  return { cols: Math.max(1, cols), rows: Math.max(1, bodyHeight - 1) }
+}

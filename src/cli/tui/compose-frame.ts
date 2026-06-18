@@ -1,6 +1,13 @@
 import { style } from './ansi-control'
 import { fitCells } from './text-width'
-import { headerRow, sidebarRows, statusRow, statusStripRows, tabStripRow } from './chrome-frame'
+import {
+  focusBar,
+  headerRow,
+  sidebarRows,
+  statusRow,
+  statusStripRows,
+  tabStripRow
+} from './chrome-frame'
 import { viewportRows } from './viewport-frame'
 import { BACK_LABEL, STRIP_WIDTH } from './tui-layout'
 import { overlayRows, type OverlayModel } from './overlay-frame'
@@ -85,17 +92,63 @@ function wideFrame(model: FrameModel, bodyHeight: number): string[] {
     sidebarTabsOptions(model)
   )
   const right = rightColumn(model, viewportWidth, bodyHeight)
-  // A heavy cyan divider marks the right pane as input-focused; a dim thin one
-  // means navigation has focus.
+  // A heavy divider marks the input-focused side; blue when the terminal holds
+  // focus, matching the top/bottom focus bars.
   const sep = model.terminalFocused
-    ? `${style('┃', { fg: 'cyan', bold: true }, model.useColor)} `
+    ? `${style('┃', { fg: 'blue', bold: true }, model.useColor)} `
     : `${style(BORDER, { dim: true }, model.useColor)} `
-  const rows = [headerRow(headerLabel(model), model.columns, model.useColor)]
+  const rows = [wideHeader(model)]
   for (let i = 0; i < bodyHeight; i += 1) {
     rows.push(`${left[i]}${sep}${right[i]}`)
   }
-  rows.push(statusFooter(model))
+  rows.push(wideFooter(model))
   return rows
+}
+
+/** Top focus bar (wide): brand + count on the workspace side, the selected
+ *  workspace/branch on the terminal side, the focused side blue. */
+function wideHeader(model: FrameModel): string {
+  const count = model.worktreeRows.length
+  const left = ` orca tui · ${count} ws`
+  const right = model.context ? ` ${model.context}` : ' terminal'
+  return focusBar(
+    left,
+    model.sidebarWidth,
+    right,
+    model.columns,
+    model.terminalFocused,
+    model.useColor
+  )
+}
+
+/** Bottom focus bar (wide): nav hints on the workspace side, terminal hints on
+ *  the terminal side, the focused side blue. Errors/disconnects take the whole
+ *  bar so they aren't missed. */
+function wideFooter(model: FrameModel): string {
+  if (model.error) {
+    return style(
+      fitCells(` ${model.error}`, model.columns),
+      { bg: 'red', fg: 'white', bold: true },
+      model.useColor
+    )
+  }
+  if (model.disconnected) {
+    return style(
+      fitCells(' runtime disconnected — reconnecting…', model.columns),
+      { bg: 'yellow', fg: 'black' },
+      model.useColor
+    )
+  }
+  const nav = ' ↑↓ move · ⏎ focus · t tabs · n new · q quit'
+  const term = ' ⎋⎋ or Ctrl-] nav · wheel scrolls · keys → terminal'
+  return focusBar(
+    nav,
+    model.sidebarWidth,
+    term,
+    model.columns,
+    model.terminalFocused,
+    model.useColor
+  )
 }
 
 function narrowListFrame(model: FrameModel, bodyHeight: number): string[] {
