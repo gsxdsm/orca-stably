@@ -18,8 +18,8 @@ export function truncateTabLabel(title: string, max: number = TAB_MAX_LABEL): st
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean
 }
 
-/** The strip label for a tab (kind glyph + truncated title), without the single
- *  trailing space of padding that the renderer and tabRegions add. */
+/** The strip label for a tab (kind glyph + truncated title), without the one
+ *  space of padding each side that the renderer and tabRegions add. */
 export function tabStripLabel(tab: SessionTab): string {
   return `${tabGlyph(tab.kind)} ${truncateTabLabel(tab.title)}`
 }
@@ -44,7 +44,7 @@ export function tabStripStart(
     let used = 0
     let end = start
     for (let i = start; i < tabs.length; i += 1) {
-      const w = cellWidth(tabStripLabel(tabs[i])) + 1
+      const w = cellWidth(tabStripLabel(tabs[i])) + 2
       if (used + w > width) {
         break
       }
@@ -59,14 +59,14 @@ export function tabStripStart(
   return start
 }
 
-/** Each tab renders as `label ` (one trailing space) starting flush at
+/** Each tab renders as ` label ` (one space of padding each side) starting at
  *  `originX`; returns the clickable x-range per tab so a press resolves to a
  *  handle. Labels must already be truncated via {@link truncateTabLabel}. */
 export function tabRegions(tabs: readonly TabSpec[], originX: number): TabRegion[] {
   const regions: TabRegion[] = []
   let x = originX
   for (const tab of tabs) {
-    const width = tab.label.length + 1
+    const width = tab.label.length + 2
     regions.push({ handle: tab.handle, x, width })
     x += width
   }

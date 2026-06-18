@@ -45,25 +45,25 @@ describe('truncateTabLabel', () => {
 })
 
 describe('tabRegions / tabHandleAtColumn', () => {
-  // `a ` (2) + `bb ` (3) starting flush at x=20: a -> [20,22), bb -> [22,25).
+  // ` a ` (3) + ` bb ` (4) starting at x=20: a -> [20,23), bb -> [23,27).
   const tabs = [
     { handle: 'a', label: 'a' },
     { handle: 'bb', label: 'bb' }
   ]
 
-  it('lays tabs out left to right flush, with one trailing space each', () => {
+  it('lays tabs out left to right with one space of padding', () => {
     expect(tabRegions(tabs, 20)).toEqual([
-      { handle: 'a', x: 20, width: 2 },
-      { handle: 'bb', x: 22, width: 3 }
+      { handle: 'a', x: 20, width: 3 },
+      { handle: 'bb', x: 23, width: 4 }
     ])
   })
 
   it('resolves a click column to the tab under it', () => {
     const regions = tabRegions(tabs, 20)
-    expect(tabHandleAtColumn(regions, 20)).toBe('a')
-    expect(tabHandleAtColumn(regions, 22)).toBe('bb')
-    expect(tabHandleAtColumn(regions, 24)).toBe('bb')
-    expect(tabHandleAtColumn(regions, 25)).toBeNull()
+    expect(tabHandleAtColumn(regions, 21)).toBe('a')
+    expect(tabHandleAtColumn(regions, 23)).toBe('bb')
+    expect(tabHandleAtColumn(regions, 26)).toBe('bb')
+    expect(tabHandleAtColumn(regions, 27)).toBeNull()
     expect(tabHandleAtColumn(regions, 5)).toBeNull()
   })
 })
