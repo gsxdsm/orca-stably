@@ -64,6 +64,7 @@ function makeHost(overrides: Partial<ControllerHost> = {}): ControllerHost {
     toggleFiles: vi.fn(),
     fileBrowserOpen: () => false,
     clickFile: vi.fn(),
+    editorClick: vi.fn(),
     setOverlay: vi.fn((next: ControllerOverlay) => {
       overlay = next
     }),

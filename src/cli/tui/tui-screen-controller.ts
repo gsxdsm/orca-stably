@@ -129,7 +129,7 @@ export class TuiScreenController {
     overlay: () => this.overlay,
     inputValue: () => this.input,
     terminalFocused: () => this.inputFocused(),
-    focusTerminal: () => this.focusTerminal(),
+    focusTerminal: () => this.pane.focusInput(),
     exitTerminalFocus: () => this.exitTerminalFocus(),
     scrollTerminal: (delta) => this.pane.scroll(delta),
     toggleTabs: () => {
@@ -140,6 +140,7 @@ export class TuiScreenController {
     toggleFiles: () => this.files.toggle(),
     fileBrowserOpen: () => this.files.isOpen,
     clickFile: (screenRow) => this.files.clickRow(screenRow),
+    editorClick: (bodyRow, col) => this.pane.clickAt(bodyRow, col),
     selectIndex: (index) => this.selectIndex(index),
     move: (delta) =>
       this.selectIndex(moveSelection(this.selectedIndex, delta, this.worktreeRows().length)),
@@ -213,7 +214,7 @@ export class TuiScreenController {
   private jumpToTab(index: number, tabId: string): void {
     this.selectIndex(index)
     this.pane.setTab(this.tabs.find(tabId) ?? null)
-    this.focusTerminal()
+    this.pane.focusInput()
   }
 
   // ─── Terminal input focus (delegated to the pane) ──────────────────────────
@@ -225,10 +226,6 @@ export class TuiScreenController {
     // list returns input to workspace navigation); the wide-only pane.focused
     // flag must not leak across a resize into the narrow list view.
     return this.isNarrow() ? this.narrow === 'terminal' : this.pane.focused
-  }
-
-  private focusTerminal(): void {
-    this.pane.focusInput()
   }
 
   private exitTerminalFocus(): void {
@@ -317,6 +314,8 @@ export class TuiScreenController {
       tabsExpanded: this.tabsExpanded,
       focusedTabId: this.pane.tabId,
       terminalFocused: this.inputFocused(),
+      editing: this.pane.isEditing,
+      editingDirty: this.pane.isDirty,
       fileBrowser: this.files.current,
       viewport: this.pane.viewport,
       scrollOffset: this.pane.scrollOffset,

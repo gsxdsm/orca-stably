@@ -81,6 +81,9 @@ function routeWideMouse(host: ControllerHost, col: number, row: number, right: b
     focusTabAt(host, host.sidebarWidth() + 2, col, right)
   } else if (!right) {
     host.focusTerminal()
+    // Body click → editor cursor (body starts below header+tab strip; right pane
+    // at sidebarWidth + 2). No-op unless this tab is an editable file.
+    host.editorClick(row - HEADER_ROWS - 1, col - host.sidebarWidth() - 2)
   }
 }
 

@@ -2,6 +2,8 @@ import { TerminalAnsiSource, emptyAnsiFrame, type TerminalAnsiFrame } from './te
 import { terminalLineCount } from './viewport-frame'
 import { sendTerminalKeys } from './action-dispatch'
 import { renderMarkdown } from './render-markdown'
+import { FileEditor } from './file-editor'
+import { decodeKey } from './tty-key-adapter'
 import type { TuiRpcClient } from './tui-rpc-client'
 import type { SessionTab } from './session-tab'
 
@@ -15,15 +17,12 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
+function linesToFrame(lines: string[]): TerminalAnsiFrame {
+  return { data: null, cols: 0, rows: 0, plainLines: lines, connected: true, plainFallback: true }
+}
+
 function plainFrame(content: string): TerminalAnsiFrame {
-  return {
-    data: null,
-    cols: 0,
-    rows: 0,
-    plainLines: content.split('\n'),
-    connected: true,
-    plainFallback: true
-  }
+  return linesToFrame(content.split('\n'))
 }
 
 /** Owns the focused tab: which tab is shown, the content frame it renders, the
@@ -38,6 +37,9 @@ export class FocusedTerminalPane {
   private inputFocused = false
   private fitCols = 0
   private fitRows = 0
+  private editor: FileEditor | null = null
+  /** First buffer line shown while editing, so a click maps to the right line. */
+  private editorTop = 0
 
   constructor(
     private readonly client: TuiRpcClient,
@@ -66,6 +68,15 @@ export class FocusedTerminalPane {
     return this.inputFocused
   }
 
+  /** True when the focused tab is an editable file buffer. */
+  get isEditing(): boolean {
+    return this.editor !== null
+  }
+
+  get isDirty(): boolean {
+    return this.editor?.dirty ?? false
+  }
+
   setTab(tab: SessionTab | null): void {
     if (tab?.id === this.tab?.id) {
       return
@@ -74,6 +85,8 @@ export class FocusedTerminalPane {
     this.scrollback = 0
     this.fitCols = 0
     this.fitRows = 0
+    this.editor = null
+    this.editorTop = 0
     if (!tab) {
       this.inputFocused = false
     }
@@ -125,15 +138,20 @@ export class FocusedTerminalPane {
         relativePath: tab.relativePath
       })
       .then(({ result }) => {
-        if (this.tab?.id === tab.id) {
-          const content = result.content ?? ''
-          // Markdown tabs render with basic formatting; other files show raw text.
-          this.frame =
-            tab.kind === 'markdown'
-              ? { ...plainFrame(''), plainLines: renderMarkdown(content) }
-              : plainFrame(content)
-          this.onChange()
+        if (this.tab?.id !== tab.id) {
+          return
         }
+        const content = result.content ?? ''
+        if (tab.kind === 'markdown') {
+          // Markdown renders read-only with basic formatting.
+          this.frame = linesToFrame(renderMarkdown(content))
+        } else {
+          // Other files open in an editable buffer.
+          this.editor = new FileEditor()
+          this.editor.load(content)
+          this.frame = linesToFrame(this.editor.renderLines())
+        }
+        this.onChange()
       })
       .catch(() => {
         if (this.tab?.id === tab.id) {
@@ -172,16 +190,82 @@ export class FocusedTerminalPane {
     this.onChange()
   }
 
+  /** Route input: editor keys when editing a file (Ctrl-S saves, Ctrl-G
+   *  discards), otherwise raw bytes to the focused terminal. */
   sendKeys(data: string): void {
+    if (this.editor) {
+      this.editKey(data, this.editor)
+      return
+    }
     const handle = this.handle
     if (handle) {
       void sendTerminalKeys(this.client, handle, data)
     }
   }
 
+  private editKey(data: string, editor: FileEditor): void {
+    const key = decodeKey(data)
+    if (!key) {
+      return
+    }
+    if (key.type === 'ctrl' && key.value === 's') {
+      void this.save(editor)
+      return
+    }
+    if (key.type === 'ctrl' && key.value === 'g') {
+      editor.revert()
+    } else if (!editor.handleKey(key)) {
+      return
+    }
+    this.frame = linesToFrame(editor.renderLines())
+    this.onChange()
+  }
+
+  private async save(editor: FileEditor): Promise<void> {
+    const tab = this.tab
+    if (!tab?.relativePath) {
+      return
+    }
+    try {
+      await this.client.call('files.write', {
+        worktree: `id:${tab.worktreeId}`,
+        relativePath: tab.relativePath,
+        content: editor.content
+      })
+      editor.markSaved()
+      this.onChange()
+    } catch {
+      // Save failed; the buffer stays dirty so the user can retry.
+    }
+  }
+
+  /** Keep the cursor on screen: choose the top buffer line so the tail-window
+   *  the viewport draws starts exactly at editorTop (so clicks map back cleanly). */
+  private scrollEditorToCursor(editor: FileEditor, height: number): void {
+    const total = editor.lineCount
+    const top = clamp(editor.cursorRow - Math.floor(height / 2), 0, Math.max(0, total - height))
+    this.editorTop = top
+    this.scrollback = Math.max(0, total - height - top)
+    this.frame = linesToFrame(editor.renderLines())
+  }
+
+  /** Set the editing cursor from a viewport click at (bodyRow, col). */
+  clickAt(bodyRow: number, col: number): void {
+    if (!this.editor) {
+      return
+    }
+    this.editor.setCursor(this.editorTop + bodyRow, col)
+    this.frame = linesToFrame(this.editor.renderLines())
+    this.onChange()
+  }
+
   /** Resize the focused PTY to the viewport (terminal tabs only) via the desktop
    *  updateViewport path — no input-floor side effect. No-op when unchanged. */
   fit({ cols, rows }: { cols: number; rows: number }): void {
+    if (this.editor) {
+      this.scrollEditorToCursor(this.editor, Math.max(1, rows))
+      return
+    }
     const handle = this.handle
     const c = clamp(cols, FIT_MIN_COLS, FIT_MAX_COLS)
     const r = clamp(rows, FIT_MIN_ROWS, FIT_MAX_ROWS)

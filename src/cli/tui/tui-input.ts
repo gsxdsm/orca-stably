@@ -56,6 +56,8 @@ export type ControllerHost = {
   fileBrowserOpen: () => boolean
   /** Open the file at a clicked screen row in the Files browser. */
   clickFile: (screenRow: number) => void
+  /** Place the edit cursor from a body-relative click (no-op unless editing). */
+  editorClick: (bodyRow: number, col: number) => void
   setOverlay: (overlay: ControllerOverlay) => void
   setInput: (value: string) => void
   runCommand: (command: TuiCommand) => void

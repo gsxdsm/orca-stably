@@ -62,6 +62,8 @@ function model(overrides: Partial<FrameModel> = {}): FrameModel {
     tabsExpanded: false,
     focusedTabId: 't1',
     terminalFocused: false,
+    editing: false,
+    editingDirty: false,
     fileBrowser: emptyFileBrowser(),
     viewport: emptyAnsiFrame(),
     scrollOffset: 0,
