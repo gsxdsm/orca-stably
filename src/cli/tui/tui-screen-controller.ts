@@ -120,6 +120,7 @@ export class TuiScreenController {
     isNarrow: () => this.size.columns < NARROW_THRESHOLD,
     narrowView: () => this.narrow,
     sidebarWidth: () => sidebarWidthFor(this.size.columns),
+    columns: () => this.size.columns,
     bodyHeight: () => Math.max(1, this.size.rows - HEADER_ROWS - 1),
     snapshot: () => this.snap.snapshot,
     resolveKind: (row) => this.indicators.kindFor(row),

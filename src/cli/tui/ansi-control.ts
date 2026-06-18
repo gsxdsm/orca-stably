@@ -34,6 +34,7 @@ export type ColorName =
   | 'cyan'
   | 'white'
   | 'gray'
+  | 'orange'
 
 const FG: Record<ColorName, number> = {
   black: 30,
@@ -44,8 +45,13 @@ const FG: Record<ColorName, number> = {
   magenta: 35,
   cyan: 36,
   white: 37,
-  gray: 90
+  gray: 90,
+  orange: 33 // unused: orange uses the 256-color path below
 }
+
+// Colors with no 16-color slot, emitted via the 256-color palette (38;5;n /
+// 48;5;n) instead of the base 30-37 / 40-47 codes.
+const XTERM_256: Partial<Record<ColorName, number>> = { orange: 208 }
 
 export type TextStyle = {
   fg?: ColorName
@@ -69,10 +75,12 @@ export function style(text: string, spec: TextStyle, useColor = true): string {
     codes.push(7)
   }
   if (useColor && spec.fg) {
-    codes.push(FG[spec.fg])
+    const x = XTERM_256[spec.fg]
+    codes.push(...(x === undefined ? [FG[spec.fg]] : [38, 5, x]))
   }
   if (useColor && spec.bg) {
-    codes.push(FG[spec.bg] + 10)
+    const x = XTERM_256[spec.bg]
+    codes.push(...(x === undefined ? [FG[spec.bg] + 10] : [48, 5, x]))
   }
   if (codes.length === 0) {
     return text

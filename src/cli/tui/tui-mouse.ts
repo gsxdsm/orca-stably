@@ -10,9 +10,9 @@ import {
   tabAtScreenRow,
   type SidebarLine
 } from './sidebar-lines'
-import { tabHandleAtColumn, tabRegions, truncateTabLabel } from './pane-layout'
+import { tabHandleAtColumn, tabRegions, tabStripLabel, tabStripStart } from './pane-layout'
 import { windowStart } from './navigation-state'
-import { tabGlyph, type SessionTab } from './session-tab'
+import type { SessionTab } from './session-tab'
 import { BACK_LABEL, HEADER_ROWS, STRIP_WIDTH } from './tui-layout'
 import type { ControllerHost } from './tui-input'
 import type { MouseEvent } from './mouse-input'
@@ -159,13 +159,12 @@ function sidebarHit(
   return { lines, lineIndex: start + (screenRow - HEADER_ROWS) }
 }
 
-/** Resolve a click on the right-pane tab strip to a tab. The spec label includes
- *  the kind glyph so the click regions match the rendered tabs. */
+/** Resolve a click on the right-pane tab strip to a tab, windowed the same way
+ *  the renderer scrolls the strip so a click lands on the visible tab. */
 function focusTabAt(host: ControllerHost, originX: number, col: number, right: boolean): void {
-  const specs = host.terminals().map((tab) => ({
-    handle: tab.id,
-    label: `${tabGlyph(tab.kind)} ${truncateTabLabel(tab.title)}`
-  }))
+  const tabs = host.terminals()
+  const start = tabStripStart(tabs, host.focusedTabId(), host.columns() - originX)
+  const specs = tabs.slice(start).map((tab) => ({ handle: tab.id, label: tabStripLabel(tab) }))
   const id = tabHandleAtColumn(tabRegions(specs, originX), col)
   if (id) {
     tabClick(host, host.selectedIndex(), id, right)

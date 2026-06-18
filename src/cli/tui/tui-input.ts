@@ -24,6 +24,8 @@ export type ControllerHost = {
   isNarrow: () => boolean
   narrowView: () => NarrowView
   sidebarWidth: () => number
+  /** Total screen columns (for sizing the horizontally-scrolled tab strip). */
+  columns: () => number
   bodyHeight: () => number
   snapshot: () => WorktreeSnapshot | null
   resolveKind: (row: WorktreeRow) => StatusIndicatorKind

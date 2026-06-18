@@ -126,9 +126,9 @@ function wideFrame(model: FrameModel, bodyHeight: number): string[] {
 function wideHeader(model: FrameModel): string {
   const count = model.worktreeRows.length
   const left = ` orca tui · ${count} ws`
-  // Pin the Files button to the far-right corner: fill the right segment with
-  // the context label, then place the button flush against the right edge.
-  const button = '[ f Files ]'
+  // Pin the Files button to the far-right corner, leaving one trailing column so
+  // its closing bracket isn't flush against the screen edge.
+  const button = '[ f Files ] '
   const segWidth = Math.max(0, model.columns - model.sidebarWidth)
   const label = model.context ? ` ${model.context}` : ' terminal'
   const right = fitCells(label, Math.max(0, segWidth - cellWidth(button))) + button

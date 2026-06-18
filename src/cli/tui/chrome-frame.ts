@@ -8,7 +8,7 @@ import {
   type SidebarTabsOptions
 } from './sidebar-lines'
 import { windowStart } from './navigation-state'
-import { truncateTabLabel } from './pane-layout'
+import { tabStripLabel, tabStripStart, truncateTabLabel } from './pane-layout'
 import { statusBarHelp, type Platform } from './keybinding-map'
 import { tabGlyph, type SessionTab } from './session-tab'
 import type { StatusIndicatorKind } from './agent-state-indicator'
@@ -90,15 +90,18 @@ export function tabStripRow(
     )
   }
   const focused = focusedTabId ?? tabs[0].id
+  // Scroll the strip horizontally so the focused tab is on screen.
+  const start = tabStripStart(tabs, focusedTabId, width)
   let out = ''
   let used = 0
-  for (const tab of tabs) {
-    const label = ` ${tabGlyph(tab.kind)} ${truncateTabLabel(tab.title)} `
+  for (let i = start; i < tabs.length; i += 1) {
+    const tab = tabs[i]
+    const label = ` ${tabStripLabel(tab)} `
     if (used + cellWidth(label) > width) {
       break
     }
-    const isFocused = tab.id === focused
-    const spec: TextStyle = isFocused ? { bg: 'white', fg: 'black', bold: true } : { dim: true }
+    const spec: TextStyle =
+      tab.id === focused ? { bg: 'orange', fg: 'black', bold: true } : { dim: true }
     out += style(label, spec, useColor)
     used += cellWidth(label)
   }

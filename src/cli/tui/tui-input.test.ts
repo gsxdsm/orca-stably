@@ -42,6 +42,7 @@ function makeHost(overrides: Partial<ControllerHost> = {}): ControllerHost {
     isNarrow: () => false,
     narrowView: () => 'list',
     sidebarWidth: () => 30,
+    columns: () => 100,
     bodyHeight: () => 20,
     snapshot: () => snapshot,
     resolveKind: (row) => worktreeIndicatorKind(row.status, row.agents),
