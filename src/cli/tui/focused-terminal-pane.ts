@@ -1,6 +1,7 @@
 import { TerminalAnsiSource, emptyAnsiFrame, type TerminalAnsiFrame } from './terminal-ansi-source'
 import { terminalLineCount } from './viewport-frame'
 import { sendTerminalKeys } from './action-dispatch'
+import { renderMarkdown } from './render-markdown'
 import type { TuiRpcClient } from './tui-rpc-client'
 import type { SessionTab } from './session-tab'
 
@@ -125,7 +126,12 @@ export class FocusedTerminalPane {
       })
       .then(({ result }) => {
         if (this.tab?.id === tab.id) {
-          this.frame = plainFrame(result.content ?? '')
+          const content = result.content ?? ''
+          // Markdown tabs render with basic formatting; other files show raw text.
+          this.frame =
+            tab.kind === 'markdown'
+              ? { ...plainFrame(''), plainLines: renderMarkdown(content) }
+              : plainFrame(content)
           this.onChange()
         }
       })
