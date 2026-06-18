@@ -192,12 +192,11 @@ export function handleMouse(host: ControllerHost, event: MouseEvent): void {
     routeNarrowMouse(host, event.col, event.row)
     return
   }
-  // Wide: selecting a workspace focuses its terminal; so do the tab row and the
-  // viewport body. (Ctrl-] is the way back to navigation.)
+  // Wide: clicking the sidebar selects a workspace and returns to navigation;
+  // clicking the tab row or the viewport body focuses the terminal for input.
   if (event.col < host.sidebarWidth()) {
-    if (selectSidebarRow(host, event.row, false)) {
-      host.focusTerminal()
-    }
+    selectSidebarRow(host, event.row, false)
+    host.exitTerminalFocus()
   } else if (event.row === HEADER_ROWS) {
     focusTabAt(host, host.sidebarWidth() + 2, event.col)
     host.focusTerminal()

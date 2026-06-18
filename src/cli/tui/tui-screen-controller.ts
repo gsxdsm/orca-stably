@@ -33,13 +33,7 @@ import { clampSelection, moveSelection } from './navigation-state'
 import { MAX_PANES } from './pane-layout'
 import { currentPlatform } from './keybinding-map'
 import { resolveTheme } from './theme'
-import {
-  HEADER_ROWS,
-  NARROW_THRESHOLD,
-  sidebarWidthFor,
-  viewportCellDims,
-  type NarrowView
-} from './tui-layout'
+import { HEADER_ROWS, NARROW_THRESHOLD, sidebarWidthFor, type NarrowView } from './tui-layout'
 import type { RunTuiOptions } from './tui-runtime-contract'
 import type { RuntimeTerminalListResult } from '../../shared/runtime-types'
 
@@ -299,7 +293,6 @@ export class TuiScreenController {
     setImmediate(() => {
       this.renderQueued = false
       if (!this.disposed) {
-        this.pane.fit(viewportCellDims(this.size.columns, this.bodyHeight(), this.isNarrow()))
         this.compositor.render(composeFrame(this.frameModel()))
       }
     })
