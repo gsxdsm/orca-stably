@@ -153,7 +153,8 @@ describe('scanWorkspacePorts attribution work', () => {
 
   it('normalizes worktree paths once per scan instead of once per port phase', async () => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin')
-    const resolveSpy = vi.spyOn(path, 'resolve')
+    const win32ResolveSpy = vi.spyOn(path.win32, 'resolve')
+    const posixResolveSpy = vi.spyOn(path.posix, 'resolve')
     const invokeCallback = (callback: unknown, stdout: string): void => {
       if (typeof callback !== 'function') {
         throw new Error('missing execFile callback')
@@ -194,10 +195,14 @@ describe('scanWorkspacePorts attribution work', () => {
     })
 
     expect(scan.ports.filter((port) => port.kind === 'workspace')).toHaveLength(2)
-    const worktreePathResolveCalls = resolveSpy.mock.calls.filter(
+    const win32WorktreePathResolveCalls = win32ResolveSpy.mock.calls.filter(
       ([input]) => input === '/repo' || input === '/repo/worktrees/feature'
     )
-    expect(worktreePathResolveCalls).toHaveLength(worktrees.length)
+    const posixWorktreePathResolveCalls = posixResolveSpy.mock.calls.filter(
+      ([input]) => input === '/repo' || input === '/repo/worktrees/feature'
+    )
+    expect(win32WorktreePathResolveCalls).toHaveLength(0)
+    expect(posixWorktreePathResolveCalls).toHaveLength(worktrees.length)
   })
 })
 

@@ -14,6 +14,11 @@ import type { PtyBufferSnapshot, PtyConnectResult } from './pty-transport'
 import { createIpcPtyTransport } from './pty-transport'
 import { createRemoteRuntimePtyTransport } from './remote-runtime-pty-transport'
 import { getConnectionId } from '@/lib/connection-context'
+import { getLocalProjectExecutionRuntimeContext } from '@/lib/local-preflight-context'
+import {
+  getCachedWindowsTerminalCapabilities,
+  hasCachedWindowsTerminalCapabilities
+} from '@/lib/windows-terminal-capabilities'
 import { shouldSeedCacheTimerOnInitialTitle } from './cache-timer-seeding'
 import type { PtyConnectionDeps } from './pty-connection-types'
 import { safeFit } from '@/lib/pane-manager/pane-tree-ops'
@@ -90,6 +95,7 @@ import {
 import { getRuntimeEnvironmentIdForWorktree } from '@/lib/worktree-runtime-owner'
 import { CLIENT_PLATFORM } from '@/lib/new-workspace'
 import { buildAgentResumeStartupPlan } from '@/lib/tui-agent-startup'
+import { resolveAgentStatusTerminalTitle } from '@/lib/agent-status-terminal-title'
 import {
   resolveTuiAgentLaunchArgs,
   resolveTuiAgentLaunchEnv
@@ -1631,6 +1637,16 @@ export function connectPanePty(
       : null) ?? (tab?.ptyId ? getRemoteRuntimePtyEnvironmentId(tab.ptyId) : null)
   const runtimeEnvironmentId =
     remoteRuntimeOwnerForTransport ?? getRuntimeEnvironmentIdForWorktree(state, deps.worktreeId)
+  const localWindowsTerminalCapabilities = hasCachedWindowsTerminalCapabilities()
+    ? getCachedWindowsTerminalCapabilities()
+    : null
+  const projectRuntime =
+    !connectionId && runtimeEnvironmentId === null
+      ? getLocalProjectExecutionRuntimeContext(state, deps.worktreeId, undefined, {
+          wslAvailable: localWindowsTerminalCapabilities?.wslAvailable,
+          availableWslDistros: localWindowsTerminalCapabilities?.wslDistros ?? null
+        })
+      : undefined
   const shouldOwnAgentStatusInRenderer = runtimeEnvironmentId !== null
   const shouldDeliverStartupViaTerminalPaste = paneStartup?.delivery === 'terminal-paste'
   const hadExistingPaneTransportAtConnect = deps.paneTransportsRef.current.size > 0
@@ -1660,6 +1676,7 @@ export function connectPanePty(
     leafId: pane.leafId,
     activate: deps.isActiveRef.current && deps.isVisibleRef.current,
     ...(shellOverride ? { shellOverride } : {}),
+    ...(projectRuntime ? { projectRuntime } : {}),
     ...(paneStartup?.telemetry ? { telemetry: paneStartup.telemetry } : {}),
     onPtyExit: onExit,
     onTitleChange,
@@ -1682,7 +1699,11 @@ export function connectPanePty(
             // be stored against a title that was never paired with it.
             const currentState = useAppStore.getState()
             const title = currentState.runtimePaneTitlesByTabId?.[deps.tabId]?.[pane.id]
-            currentState.setAgentStatus(cacheKey, payload, title)
+            currentState.setAgentStatus(
+              cacheKey,
+              payload,
+              resolveAgentStatusTerminalTitle(payload, title)
+            )
             if (syncAgentTaskCompleteTrackingEnabled()) {
               const storedStatus = useAppStore.getState().agentStatusByPaneKey[cacheKey]
               const notificationPayload =
@@ -1981,6 +2002,12 @@ export function connectPanePty(
       deps.onShowSessionRestoredBanner(pane.id)
     }
     const getColdRestoreAgentResumePlatform = (): NodeJS.Platform => {
+      if (projectRuntime?.status === 'repair-required') {
+        return projectRuntime.repair.preferredRuntime.kind === 'wsl' ? 'linux' : CLIENT_PLATFORM
+      }
+      if (projectRuntime?.status === 'resolved' && projectRuntime.runtime.kind === 'wsl') {
+        return 'linux'
+      }
       if (connectionId || (worktree?.path && isWslUncPath(worktree.path))) {
         return 'linux'
       }

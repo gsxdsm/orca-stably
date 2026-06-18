@@ -434,6 +434,20 @@ function createWebPreloadApi(): Partial<PreloadApi> {
       pickFloatingMarkdownDocument: () => Promise.resolve(null),
       pickFloatingWorkspaceDirectory: () => Promise.resolve(null)
     },
+    starNag: {
+      onShow: () => noopUnsubscribe,
+      onHide: () => noopUnsubscribe,
+      dismiss: () => Promise.resolve(),
+      later: () => Promise.resolve(),
+      complete: () => Promise.resolve(),
+      disable: () => Promise.resolve(),
+      openWeb: () => Promise.resolve(),
+      starOrca: () => Promise.resolve(false),
+      forceShow: () => Promise.resolve(),
+      agentValueMoment: () => Promise.resolve({ status: 'skipped' }),
+      showAgentValueMoment: () => Promise.resolve(),
+      onboardingCompleted: () => Promise.resolve()
+    },
     platform: {
       get: () => ({
         platform: getBrowserPlatform(),
@@ -1988,6 +2002,7 @@ function createWebUiApi(): NonNullable<Partial<PreloadApi>['ui']> {
     onOpenTasks: () => noopUnsubscribe,
     onOpenNewWorkspace: () => noopUnsubscribe,
     onDeleteCurrentWorkspace: () => noopUnsubscribe,
+    onOpenWorkspaceBoard: () => noopUnsubscribe,
     onJumpToWorktreeIndex: () => noopUnsubscribe,
     onJumpToTabIndex: () => noopUnsubscribe,
     onWorktreeHistoryNavigate: () => noopUnsubscribe,
@@ -2145,6 +2160,7 @@ function createAgentHooksApi(): NonNullable<Partial<PreloadApi>['agentHooks']> {
       | 'grok'
       | 'copilot'
       | 'hermes'
+      | 'devin'
   ) =>
     Promise.resolve({
       agent,
@@ -2165,7 +2181,8 @@ function createAgentHooksApi(): NonNullable<Partial<PreloadApi>['agentHooks']> {
     commandCodeStatus: () => status('command-code'),
     grokStatus: () => status('grok'),
     copilotStatus: () => status('copilot'),
-    hermesStatus: () => status('hermes')
+    hermesStatus: () => status('hermes'),
+    devinStatus: () => status('devin')
   }
 }
 
@@ -2251,6 +2268,9 @@ function createRateLimitsApi(): NonNullable<Partial<PreloadApi>['rateLimits']> {
     get: () => Promise.resolve(empty),
     refresh: () => Promise.resolve(empty),
     refreshCodexForTarget: () => Promise.resolve(empty),
+    // Why: web clients do not own local Codex auth, so reset-credit
+    // redemption remains desktop-only and reports the safe no-credit outcome.
+    consumeCodexResetCredit: () => Promise.resolve({ outcome: 'noCredit', state: empty }),
     refreshClaudeForTarget: () => Promise.resolve(empty),
     setPollingInterval: () => Promise.resolve(),
     fetchInactiveClaudeAccounts: () => Promise.resolve(),

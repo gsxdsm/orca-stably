@@ -37,6 +37,7 @@ import { normalizeAutomationPrecheck } from '../shared/automation-precheck'
 import type {
   PersistedState,
   Project,
+  ProjectUpdateArgs,
   ProjectHostSetup,
   ProjectHostSetupCreateArgs,
   ProjectHostSetupCreateResult,
@@ -66,6 +67,10 @@ import type {
   WorkspaceSessionPatch,
   WorkspaceSessionState
 } from '../shared/types'
+import {
+  deriveGlobalWindowsRuntimeDefaultFromLegacySettings,
+  normalizeProjectRuntimePreference
+} from '../shared/project-execution-runtime'
 import { projectHostSetupProjectionFromRepos } from '../shared/project-host-setup-projection'
 import {
   buildTaskSourceContextFromRepo,
@@ -160,6 +165,10 @@ import {
   projectSourceControlAiToLegacyCommitMessageAi,
   sourceControlAiSettingsFromLegacy
 } from '../shared/source-control-ai'
+import {
+  DEFAULT_SOURCE_CONTROL_ACTION_COMMAND_TEMPLATES,
+  SOURCE_CONTROL_TEXT_ACTION_IDS
+} from '../shared/source-control-ai-actions'
 import { normalizeDisabledTuiAgents } from '../shared/tui-agent-selection'
 import {
   DEFAULT_TUI_AGENT_ARGS,
@@ -226,6 +235,47 @@ function encryptOptionalSecret(value: string | null | undefined): string | null 
 
 function decryptOptionalSecret(value: string | null | undefined): string | null {
   return value ? decrypt(value) : null
+}
+
+function retireLegacyInstructionsForClearedTextActionRecipes(
+  sourceControlAi: GlobalSettings['sourceControlAi'],
+  previousSettings: GlobalSettings
+): GlobalSettings['sourceControlAi'] {
+  if (!sourceControlAi?.actions) {
+    return sourceControlAi
+  }
+
+  const previousSourceControlAi = normalizeSourceControlAiSettings(
+    previousSettings.sourceControlAi,
+    previousSettings.commitMessageAi
+  )
+  let instructionsByOperation = sourceControlAi.instructionsByOperation
+  let changed = false
+  for (const actionId of SOURCE_CONTROL_TEXT_ACTION_IDS) {
+    if (
+      sourceControlAi.actions[actionId]?.commandInputTemplate !==
+      DEFAULT_SOURCE_CONTROL_ACTION_COMMAND_TEMPLATES[actionId]
+    ) {
+      continue
+    }
+    if (
+      previousSourceControlAi.actions?.[actionId]?.commandInputTemplate ===
+        DEFAULT_SOURCE_CONTROL_ACTION_COMMAND_TEMPLATES[actionId] ||
+      instructionsByOperation?.[actionId] !==
+        previousSourceControlAi.instructionsByOperation[actionId]
+    ) {
+      continue
+    }
+    if (instructionsByOperation?.[actionId] === '') {
+      continue
+    }
+    // Why: `{basePrompt}` is the explicit clear state; an empty instruction
+    // shadows rollback `commitMessageAi.customPrompt` during normalize/project.
+    instructionsByOperation = { ...instructionsByOperation, [actionId]: '' }
+    changed = true
+  }
+
+  return changed ? { ...sourceControlAi, instructionsByOperation } : sourceControlAi
 }
 
 // Why: the data-file path must not be a module-level constant. Module-level
@@ -1910,6 +1960,9 @@ function mergeProjectHostSetupCompatibilityState(
   repos: readonly Repo[]
 ): Pick<PersistedState, 'projects' | 'projectHostSetups'> {
   const projection = projectHostSetupProjectionFromRepos(repos)
+  const existingProjectsById = new Map(
+    (state.projects ?? []).map((project) => [project.id, project])
+  )
   const currentRepoIds = new Set(repos.map((repo) => repo.id))
   const projectedProjectIds = new Set(projection.projects.map((project) => project.id))
   const projectedSetupIds = new Set(projection.setups.map((setup) => setup.id))
@@ -1930,8 +1983,18 @@ function mergeProjectHostSetupCompatibilityState(
       ...project,
       sourceRepoIds: project.sourceRepoIds.filter((repoId) => currentRepoIds.has(repoId))
     }))
+  const projectedProjects = projection.projects.map((project) => {
+    const existingProject = existingProjectsById.get(project.id)
+    return existingProject?.localWindowsRuntimePreference
+      ? {
+          ...project,
+          localWindowsRuntimePreference: existingProject.localWindowsRuntimePreference,
+          updatedAt: Math.max(project.updatedAt, existingProject.updatedAt)
+        }
+      : project
+  })
   return {
-    projects: [...projection.projects, ...independentProjects],
+    projects: [...projectedProjects, ...independentProjects],
     projectHostSetups: [...projection.setups, ...independentSetups]
   }
 }
@@ -2567,6 +2630,16 @@ export class Store {
         ) {
           migratedDisabledTuiAgents.push('claude-agent-teams')
         }
+        const migratedWindowsRuntimeDefault =
+          parsed.settings?.localWindowsRuntimeDefault === undefined
+            ? deriveGlobalWindowsRuntimeDefaultFromLegacySettings(parsed.settings).defaultRuntime
+            : parsed.settings.localWindowsRuntimeDefault
+        if (
+          parsed.settings?.localWindowsRuntimeDefault === undefined &&
+          migratedWindowsRuntimeDefault.kind === 'wsl'
+        ) {
+          this.loadNeedsSave = true
+        }
         if (!autoRenameBranchFromWorkDefaultedOn) {
           this.loadNeedsSave = true
         }
@@ -2625,6 +2698,7 @@ export class Store {
             experimentalCompactWorktreeCards: undefined,
             terminalMacOptionAsAlt: migratedOptionAsAlt,
             terminalMacOptionAsAltMigrated: true,
+            localWindowsRuntimeDefault: migratedWindowsRuntimeDefault,
             floatingTerminalEnabled: migratedFloatingTerminalEnabled,
             floatingTerminalDefaultedForAllUsers: true,
             floatingTerminalCwd: migratedFloatingTerminalCwd,
@@ -3130,6 +3204,25 @@ export class Store {
 
   getProjects(): Project[] {
     return [...this.state.projects]
+  }
+
+  updateProject(id: string, updates: ProjectUpdateArgs['updates']): Project | null {
+    const project = this.state.projects.find((entry) => entry.id === id)
+    if (!project) {
+      return null
+    }
+    if ('localWindowsRuntimePreference' in updates) {
+      if (updates.localWindowsRuntimePreference === undefined) {
+        delete project.localWindowsRuntimePreference
+      } else {
+        project.localWindowsRuntimePreference = normalizeProjectRuntimePreference(
+          updates.localWindowsRuntimePreference
+        )
+      }
+    }
+    project.updatedAt = Date.now()
+    this.scheduleSave()
+    return { ...project }
   }
 
   getProjectHostSetups(): ProjectHostSetup[] {
@@ -4463,6 +4556,10 @@ export class Store {
         ? { ...this.state.settings.telemetry, ...sanitizedUpdates.telemetry }
         : this.state.settings.telemetry
     if ('sourceControlAi' in sanitizedUpdates) {
+      sanitizedUpdates.sourceControlAi = retireLegacyInstructionsForClearedTextActionRecipes(
+        sanitizedUpdates.sourceControlAi,
+        this.state.settings
+      )
       const normalizedSourceControlAi = normalizeSourceControlAiSettings(
         sanitizedUpdates.sourceControlAi,
         this.state.settings.commitMessageAi
@@ -4527,6 +4624,7 @@ export class Store {
       workspaceBoardColumnWidth: clampWorkspaceBoardColumnWidth(
         this.state.ui?.workspaceBoardColumnWidth
       ),
+      syncTaskStatusFromWorkspaceBoard: this.state.ui?.syncTaskStatusFromWorkspaceBoard === true,
       markdownTocPanelWidth: clampMarkdownTocPanelWidth(this.state.ui?.markdownTocPanelWidth),
       visibleWorkspaceHostIds: normalizeVisibleExecutionHostIds(
         this.state.ui?.visibleWorkspaceHostIds
@@ -4599,6 +4697,10 @@ export class Store {
       workspaceBoardColumnWidth: clampWorkspaceBoardColumnWidth(
         sanitizedUpdates.workspaceBoardColumnWidth ?? this.state.ui?.workspaceBoardColumnWidth
       ),
+      syncTaskStatusFromWorkspaceBoard:
+        sanitizedUpdates.syncTaskStatusFromWorkspaceBoard !== undefined
+          ? sanitizedUpdates.syncTaskStatusFromWorkspaceBoard === true
+          : this.state.ui?.syncTaskStatusFromWorkspaceBoard === true,
       markdownTocPanelWidth: clampMarkdownTocPanelWidth(
         sanitizedUpdates.markdownTocPanelWidth ?? this.state.ui?.markdownTocPanelWidth
       ),
