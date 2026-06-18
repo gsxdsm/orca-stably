@@ -10,7 +10,8 @@ import {
   tabAtScreenRow,
   type SidebarLine
 } from './sidebar-lines'
-import { tabHandleAtColumn, tabRegions, tabStripLabel, tabStripStart } from './pane-layout'
+import { tabStripLabel, tabStripStart } from './pane-layout'
+import { cellWidth } from './text-width'
 import { windowStart } from './navigation-state'
 import type { SessionTab } from './session-tab'
 import { BACK_LABEL, HEADER_ROWS, STRIP_WIDTH } from './tui-layout'
@@ -159,15 +160,20 @@ function sidebarHit(
   return { lines, lineIndex: start + (screenRow - HEADER_ROWS) }
 }
 
-/** Resolve a click on the right-pane tab strip to a tab, windowed the same way
- *  the renderer scrolls the strip so a click lands on the visible tab. */
+/** Resolve a click on the right-pane tab strip to a tab, mirroring the renderer:
+ *  the strip scrolls to the focused tab, the first visible tab is flush (one
+ *  trailing pad), and later tabs add a leading pad — so clicks stay aligned. */
 function focusTabAt(host: ControllerHost, originX: number, col: number, right: boolean): void {
   const tabs = host.terminals()
   const start = tabStripStart(tabs, host.focusedTabId(), host.columns() - originX)
-  const specs = tabs.slice(start).map((tab) => ({ handle: tab.id, label: tabStripLabel(tab) }))
-  const id = tabHandleAtColumn(tabRegions(specs, originX), col)
-  if (id) {
-    tabClick(host, host.selectedIndex(), id, right)
+  let x = originX
+  for (let i = start; i < tabs.length; i += 1) {
+    const w = cellWidth(tabStripLabel(tabs[i])) + (i === start ? 1 : 2)
+    if (col >= x && col < x + w) {
+      tabClick(host, host.selectedIndex(), tabs[i].id, right)
+      return
+    }
+    x += w
   }
 }
 

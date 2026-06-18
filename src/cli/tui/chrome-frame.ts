@@ -96,7 +96,9 @@ export function tabStripRow(
   let used = 0
   for (let i = start; i < tabs.length; i += 1) {
     const tab = tabs[i]
-    const label = ` ${tabStripLabel(tab)} `
+    // First visible tab is flush at the box edge (no leading pad); later tabs
+    // keep a leading space so the gap between tabs stays. All get one trailing.
+    const label = `${i === start ? '' : ' '}${tabStripLabel(tab)} `
     if (used + cellWidth(label) > width) {
       break
     }
