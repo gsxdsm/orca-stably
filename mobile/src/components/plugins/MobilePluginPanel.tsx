@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { WebView, type WebViewMessageEvent } from 'react-native-webview'
 import type { RpcClient } from '../../transport/rpc-client'
+import { buildInjectedUiMessage, extractPluginUiMessage } from './mobile-plugin-bridge'
 
 // NEEDS-RUNTIME-VERIFY: plugin HTML is fetched from the relay host (plugin.getEntry),
-// not served on-device, because no Node runs on the phone. UI messages round-trip
-// to the relay-hosted backend via plugin.bridge.
+// not served on-device, because no Node runs on the phone. The async bridge runs
+// the trusted backend on the relay: activate on open, post outbound webview
+// messages via plugin.postUi, and inject inbound plugin.uiMessage payloads back
+// into the WebView so the in-page ui-bridge-client can match reqIds.
 
 type Props = { client: RpcClient; pluginId: string }
 
@@ -14,6 +17,7 @@ type GetEntryResult = { ok?: boolean; html?: string }
 export function MobilePluginPanel({ client, pluginId }: Props): React.JSX.Element {
   const [html, setHtml] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
+  const webViewRef = useRef<WebView>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -28,6 +32,8 @@ export function MobilePluginPanel({ client, pluginId }: Props): React.JSX.Elemen
         const result = response.ok ? (response.result as GetEntryResult) : undefined
         if (result?.ok && typeof result.html === 'string') {
           setHtml(result.html)
+          // Start the trusted backend child on the relay host for this plugin.
+          void client.sendRequest('plugin.activate', { pluginId })
         } else {
           setFailed(true)
         }
@@ -42,10 +48,21 @@ export function MobilePluginPanel({ client, pluginId }: Props): React.JSX.Elemen
     }
   }, [client, pluginId])
 
+  // Deliver backend -> UI messages into the WebView. The relay pushes them as
+  // plugin.uiMessage notifications; we inject only this plugin's traffic.
+  useEffect(() => {
+    return client.onNotification('plugin.uiMessage', (params) => {
+      const match = extractPluginUiMessage(params, pluginId)
+      if (match.matched) {
+        webViewRef.current?.injectJavaScript(buildInjectedUiMessage(match.message))
+      }
+    })
+  }, [client, pluginId])
+
   const onMessage = (event: WebViewMessageEvent): void => {
     try {
-      const request = JSON.parse(event.nativeEvent.data)
-      void client.sendRequest('plugin.bridge', { pluginId, request })
+      const message = JSON.parse(event.nativeEvent.data)
+      void client.sendRequest('plugin.postUi', { pluginId, message })
     } catch {
       // Ignore non-JSON messages from the plugin UI.
     }
@@ -67,6 +84,7 @@ export function MobilePluginPanel({ client, pluginId }: Props): React.JSX.Elemen
   }
   return (
     <WebView
+      ref={webViewRef}
       originWhitelist={['*']}
       source={{ html }}
       onMessage={onMessage}
