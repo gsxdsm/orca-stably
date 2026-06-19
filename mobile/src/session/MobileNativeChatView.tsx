@@ -42,6 +42,11 @@ type Props = {
   loadingEarlier?: boolean
   onLoadEarlier?: () => void
   onSend: (text: string) => void
+  /** Resolved agent id; drives the composer's Mode/Thinking/Model dropdowns. */
+  agent?: string | null
+  /** Send a control payload outside the message body — raw bytes (Shift+Tab to
+   *  cycle mode) when `enter` is false, or a `/model …` line when true. */
+  onControlSend?: (payload: string, enter: boolean) => void
   /** Optimistic queued sends (owned by the route so they survive view switches). */
   pending: Array<{ id: string; text: string }>
   /** Controlled composer text (owned by the route so dictation can write to it). */
@@ -93,6 +98,8 @@ export function MobileNativeChatView({
   loadingEarlier,
   onLoadEarlier,
   onSend,
+  agent,
+  onControlSend,
   pending,
   composerText,
   onComposerTextChange,
@@ -414,6 +421,8 @@ export function MobileNativeChatView({
         value={composerText}
         onChangeText={onComposerTextChange}
         onSend={handleSend}
+        agent={agent}
+        onControlSend={onControlSend}
         onAttachImage={onAttachImage}
         isAttaching={isAttaching}
         onMicPress={onMicPress}
