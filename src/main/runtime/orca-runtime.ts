@@ -17437,9 +17437,19 @@ export class OrcaRuntimeService {
       const title = leafTitle ?? ptyTitle ?? syncedTab?.title ?? tab.title
       const liveTitleEvidence = leafTitle ?? ptyTitle
       const liveTitleEvidenceClassification = classifyAgentTitle(liveTitleEvidence)
+      // Why: keep the rich hook-driven status when the agent has a live
+      // interactive prompt or an active tool — those are authoritative agent
+      // activity even if the terminal's title isn't agent-classified (e.g. it
+      // shows a task/branch name). Otherwise the mobile/web client falls back to
+      // the OSC-title-only status and never sees interactivePrompt (the question
+      // card never renders).
+      const hasLiveAgentSignal =
+        tab.agentStatus?.interactivePrompt != null || tab.agentStatus?.toolName != null
       const agentStatus =
         tab.agentStatus &&
-        (liveTitleEvidence === null || liveTitleEvidenceClassification === 'agent')
+        (liveTitleEvidence === null ||
+          liveTitleEvidenceClassification === 'agent' ||
+          hasLiveAgentSignal)
           ? { agentStatus: tab.agentStatus }
           : null
       // Why: web/mobile clients hold these handles across renderer graph syncs;
