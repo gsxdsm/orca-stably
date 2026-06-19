@@ -116,4 +116,29 @@ describe('validatePluginManifest', () => {
     expect(validatePluginManifest(null).ok).toBe(false)
     expect(validatePluginManifest('nope').ok).toBe(false)
   })
+
+  it('rejects an unsafe id (path traversal) at the trust boundary', () => {
+    for (const id of ['../../../tmp/evil', '/etc/x', 'a/b']) {
+      const result = validatePluginManifest(validRaw({ id }))
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.errors.join('\n')).toContain('id:')
+      }
+    }
+  })
+
+  it('rejects prototype-pollution ids (__proto__, constructor, prototype)', () => {
+    for (const id of ['__proto__', 'constructor', 'prototype']) {
+      expect(validatePluginManifest(validRaw({ id })).ok).toBe(false)
+    }
+  })
+
+  it('rejects a non-object contributes.settings', () => {
+    const result = validatePluginManifest(
+      validRaw({
+        contributes: { sidebar: { title: 'S', icon: 'Activity', ui: 'i.html' }, settings: true }
+      })
+    )
+    expect(result.ok).toBe(false)
+  })
 })

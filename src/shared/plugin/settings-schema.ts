@@ -72,8 +72,9 @@ function validate(value: unknown, schema: JsonSchema, path: string, errors: stri
         }
       }
     }
-    if (schema.additionalProperties === false && schema.properties) {
-      const allowed = new Set(Object.keys(schema.properties))
+    if (schema.additionalProperties === false) {
+      // With no `properties` declared, every key is "additional" and rejected.
+      const allowed = new Set(Object.keys(schema.properties ?? {}))
       for (const key of Object.keys(obj)) {
         if (!allowed.has(key)) {
           errors.push(`${path}.${key}: additional property not allowed`)

@@ -82,4 +82,20 @@ describe('discoverPlugins', () => {
     expect(result.invalid.some((i) => i.errors.join().includes('process:exec'))).toBe(true)
     expect(result.invalid.some((i) => i.errors.join().includes('no plugin.json'))).toBe(true)
   })
+
+  it('treats a malformed plugin.json as an invalid plugin, not a crash', () => {
+    const dir = join(tmp, 'broken')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'plugin.json'), '{ not valid json')
+    const result = discoverPlugins(tmp)
+    expect(result.valid).toEqual([])
+    expect(result.invalid).toHaveLength(1)
+  })
+
+  it('rejects an unsafe id (path traversal) during discovery', () => {
+    writePluginDir('traverse', validManifest({ id: '../../escape' }))
+    const result = discoverPlugins(tmp)
+    expect(result.valid).toEqual([])
+    expect(result.invalid.some((i) => i.errors.join().includes('id:'))).toBe(true)
+  })
 })

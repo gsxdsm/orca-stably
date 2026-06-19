@@ -6,7 +6,7 @@
 // bearing stores (plugin settings that may hold tokens) use the secure-file /
 // Windows-ACL path in a later unit.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 
 // Where a plugin came from. v1a ships local-folder install; registry/git/
@@ -23,7 +23,26 @@ export type PluginStateEntry = {
 
 type PersistedState = { version: 1; plugins: Record<string, PluginStateEntry> }
 
-const EMPTY_STATE: PersistedState = { version: 1, plugins: {} }
+// Fresh empty state with a null-prototype plugins map so a plugin id used as a
+// key can never reach Object.prototype (prototype-pollution defense-in-depth;
+// ids are also validated safe at the manifest boundary).
+function emptyState(): PersistedState {
+  return { version: 1, plugins: Object.create(null) as Record<string, PluginStateEntry> }
+}
+
+// A persisted entry must carry the fields list()/get() consumers rely on; a
+// hand-edited or partial state file is filtered rather than trusted wholesale.
+function isValidEntry(value: unknown): value is PluginStateEntry {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const entry = value as Record<string, unknown>
+  return (
+    typeof entry.id === 'string' &&
+    typeof entry.version === 'string' &&
+    typeof entry.active === 'boolean'
+  )
+}
 
 export class PluginStore {
   private state: PersistedState
@@ -35,25 +54,34 @@ export class PluginStore {
   private load(): PersistedState {
     try {
       if (!existsSync(this.stateFilePath)) {
-        return { version: 1, plugins: {} }
+        return emptyState()
       }
       const parsed: unknown = JSON.parse(readFileSync(this.stateFilePath, 'utf8'))
-      if (
-        parsed &&
-        typeof parsed === 'object' &&
-        typeof (parsed as PersistedState).plugins === 'object'
-      ) {
-        return { version: 1, plugins: { ...(parsed as PersistedState).plugins } }
+      const parsedPlugins =
+        parsed && typeof parsed === 'object' ? (parsed as PersistedState).plugins : undefined
+      if (parsedPlugins && typeof parsedPlugins === 'object') {
+        const state = emptyState()
+        // Copy only well-formed entries into the null-prototype map.
+        for (const [id, entry] of Object.entries(parsedPlugins)) {
+          if (isValidEntry(entry)) {
+            state.plugins[id] = entry
+          }
+        }
+        return state
       }
     } catch {
       // Corrupt/unreadable state resets to empty rather than crashing the host.
     }
-    return { version: 1, plugins: {} }
+    return emptyState()
   }
 
+  // Atomic write: stage to a temp file then rename, so a crash mid-write never
+  // truncates the live state file (which load() would then silently reset).
   private persist(): void {
     mkdirSync(dirname(this.stateFilePath), { recursive: true })
-    writeFileSync(this.stateFilePath, JSON.stringify(this.state, null, 2), 'utf8')
+    const tmp = `${this.stateFilePath}.tmp`
+    writeFileSync(tmp, JSON.stringify(this.state, null, 2), 'utf8')
+    renameSync(tmp, this.stateFilePath)
   }
 
   list(): PluginStateEntry[] {
@@ -78,7 +106,17 @@ export class PluginStore {
       installedAt: prior?.installedAt ?? entry.installedAt ?? new Date().toISOString()
     }
     this.state.plugins[entry.id] = stored
-    this.persist()
+    try {
+      this.persist()
+    } catch (error) {
+      // Roll back the in-memory mutation so memory and disk never diverge.
+      if (prior) {
+        this.state.plugins[entry.id] = prior
+      } else {
+        delete this.state.plugins[entry.id]
+      }
+      throw error
+    }
     return stored
   }
 
@@ -88,19 +126,29 @@ export class PluginStore {
     if (!entry || entry.active === active) {
       return false
     }
+    const previous = entry.active
     entry.active = active
-    this.persist()
+    try {
+      this.persist()
+    } catch {
+      entry.active = previous
+      return false
+    }
     return true
   }
 
   remove(id: string): boolean {
-    if (!this.state.plugins[id]) {
+    const removed = this.state.plugins[id]
+    if (!removed) {
       return false
     }
     delete this.state.plugins[id]
-    this.persist()
+    try {
+      this.persist()
+    } catch {
+      this.state.plugins[id] = removed
+      return false
+    }
     return true
   }
 }
-
-export { EMPTY_STATE }

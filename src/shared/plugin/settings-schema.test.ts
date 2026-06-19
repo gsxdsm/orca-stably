@@ -66,4 +66,15 @@ describe('validateAgainstSchema', () => {
   it('treats integers as valid numbers', () => {
     expect(validateAgainstSchema(3, { type: 'number' }).ok).toBe(true)
   })
+
+  it('rejects all extra keys when additionalProperties is false and no properties are declared', () => {
+    const result = validateAgainstSchema(
+      { anything: 1 },
+      { type: 'object', additionalProperties: false }
+    )
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.errors.join()).toContain('anything')
+    }
+  })
 })

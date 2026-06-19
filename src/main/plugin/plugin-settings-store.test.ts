@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { isSafePluginId, PluginSettingsStore, pluginSettingsPath } from './plugin-settings-store'
 
 const SCHEMA = {
@@ -75,5 +75,13 @@ describe('PluginSettingsStore', () => {
     store.delete('a')
     expect(store.get('a')).toBeUndefined()
     expect(existsSync(pluginSettingsPath(pluginsDir, 'acme.foo'))).toBe(true)
+  })
+
+  it('recovers to empty when the settings file is corrupt', () => {
+    const path = pluginSettingsPath(pluginsDir, 'acme.foo')
+    mkdirSync(dirname(path), { recursive: true })
+    writeFileSync(path, 'not json{{{')
+    const store = new PluginSettingsStore(pluginsDir, 'acme.foo')
+    expect(store.getAll()).toEqual({})
   })
 })

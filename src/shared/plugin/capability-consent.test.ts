@@ -9,7 +9,7 @@ import { PLUGIN_CAPABILITIES } from './manifest'
 describe('capability consent copy', () => {
   it('has copy for every capability', () => {
     for (const cap of PLUGIN_CAPABILITIES) {
-      expect(CAPABILITY_CONSENT_COPY[cap]).toBeTruthy()
+      expect(CAPABILITY_CONSENT_COPY[cap].trim().length).toBeGreaterThan(10)
     }
   })
 

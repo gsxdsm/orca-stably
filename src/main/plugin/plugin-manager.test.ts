@@ -93,4 +93,16 @@ describe('PluginManager', () => {
     const discovered = manager.discover()
     expect(discovered.valid.map((p) => p.manifest.id)).toEqual(['acme.foo'])
   })
+
+  it('deactivate flips an active plugin inactive, is idempotent, and false for unknown', () => {
+    const manager = new PluginManager(config)
+    manager.installLocal(makeSource())
+    manager.activate('acme.foo')
+    expect(manager.deactivate('acme.foo')).toBe(true)
+    expect(manager.get('acme.foo')?.active).toBe(false)
+    expect(manager.deactivate('acme.foo')).toBe(false) // already inactive
+    expect(manager.deactivate('nope')).toBe(false)
+    // persisted across a simulated restart
+    expect(new PluginManager(config).get('acme.foo')?.active).toBe(false)
+  })
 })

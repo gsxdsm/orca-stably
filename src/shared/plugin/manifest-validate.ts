@@ -4,6 +4,7 @@
 
 import {
   isPluginCapability,
+  isSafePluginId,
   SUPPORTED_HOST_API_MAJOR,
   type PluginManifest,
   type PluginContributes
@@ -127,6 +128,15 @@ export function validatePluginManifest(raw: unknown): ManifestValidationResult {
   const record = raw as Record<string, unknown>
 
   requireString(record, 'id', errors)
+  // The id is used both as a directory name and as an object-map key, so it
+  // must be a safe path segment AND a safe key (no traversal / prototype keys).
+  // This is the single trust boundary — install, manager, store, and settings
+  // store all rely on it rather than re-checking.
+  if (typeof record.id === 'string' && record.id.length > 0 && !isSafePluginId(record.id)) {
+    errors.push(
+      "id: must start alphanumeric and contain only letters, digits, '.', '-', '_' (no '..', no reserved keys like __proto__/constructor)"
+    )
+  }
   requireString(record, 'name', errors)
   requireString(record, 'version', errors)
   requireString(record, 'main', errors)
@@ -143,5 +153,33 @@ export function validatePluginManifest(raw: unknown): ManifestValidationResult {
   if (errors.length > 0) {
     return { ok: false, errors }
   }
-  return { ok: true, manifest: record as unknown as PluginManifest }
+
+  // Construct the typed manifest field-by-field from validated values rather
+  // than a blanket `as unknown as` cast. Adding a required field to
+  // PluginManifest now forces a compile error here if the validator omits it.
+  const contributes = record.contributes as Record<string, unknown>
+  const sidebar = contributes.sidebar as Record<string, unknown>
+  const built: PluginContributes = {
+    sidebar: {
+      title: sidebar.title as string,
+      icon: sidebar.icon as string,
+      ui: sidebar.ui as string
+    }
+  }
+  if (contributes.settings) {
+    built.settings = { ui: (contributes.settings as Record<string, unknown>).ui as string }
+  }
+  const manifest: PluginManifest = {
+    id: record.id as string,
+    name: record.name as string,
+    version: record.version as string,
+    hostApiVersion: record.hostApiVersion as string,
+    main: record.main as string,
+    contributes: built,
+    capabilities: record.capabilities as PluginManifest['capabilities']
+  }
+  if (record.settingsSchema !== undefined) {
+    manifest.settingsSchema = record.settingsSchema as Record<string, unknown>
+  }
+  return { ok: true, manifest }
 }

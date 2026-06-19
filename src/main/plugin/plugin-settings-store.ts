@@ -7,22 +7,14 @@
 // trusted, with full Node access) — documented in the security notes; users
 // should not store cross-sensitive secrets in plugin settings.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { validateAgainstSchema, type SchemaValidation } from '../../shared/plugin/settings-schema'
+import { isSafePluginId } from '../../shared/plugin/manifest'
 
-// A plugin id must be a single safe path segment (no separators / traversal) so
-// it cannot escape its own directory. Plugin ids look like `acme.foo`.
-export function isSafePluginId(id: string): boolean {
-  return (
-    id.length > 0 &&
-    !id.includes('/') &&
-    !id.includes('\\') &&
-    id !== '.' &&
-    id !== '..' &&
-    !id.includes('..')
-  )
-}
+// Re-exported for callers that path-build by id; the canonical safe-id check
+// lives at the manifest trust boundary in src/shared/plugin/manifest.ts.
+export { isSafePluginId }
 
 export function pluginSettingsPath(pluginsDir: string, id: string): string {
   if (!isSafePluginId(id)) {
@@ -59,9 +51,13 @@ export class PluginSettingsStore {
     return {}
   }
 
+  // Atomic write: stage to a temp file then rename, so a crash mid-write never
+  // truncates the live settings file (which read() would then silently reset).
   private write(settings: Record<string, unknown>): void {
     mkdirSync(dirname(this.filePath), { recursive: true })
-    writeFileSync(this.filePath, JSON.stringify(settings, null, 2), 'utf8')
+    const tmp = `${this.filePath}.tmp`
+    writeFileSync(tmp, JSON.stringify(settings, null, 2), 'utf8')
+    renameSync(tmp, this.filePath)
   }
 
   getAll(): Record<string, unknown> {
@@ -80,7 +76,13 @@ export class PluginSettingsStore {
     if (!validation.ok) {
       return validation
     }
-    this.write(next)
+    try {
+      this.write(next)
+    } catch (error) {
+      // Surface the disk error to the caller instead of throwing through the
+      // host IPC handler; the live file is intact (atomic write).
+      return { ok: false, errors: [error instanceof Error ? error.message : String(error)] }
+    }
     return { ok: true }
   }
 

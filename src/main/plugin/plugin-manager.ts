@@ -42,12 +42,20 @@ export class PluginManager {
   // Install from a local folder and record it (inactive) in the store.
   installLocal(sourceDir: string): InstallResult {
     const result = installFromLocalFolder(sourceDir, this.config.pluginsDir)
-    if (result.ok) {
+    if (!result.ok) {
+      return result
+    }
+    try {
       this.store.recordInstalled({
         id: result.id,
         version: result.version,
         source: { kind: 'local', path: sourceDir }
       })
+    } catch (error) {
+      // State write failed — remove the copied dir so we never leave an
+      // installed-but-unrecorded plugin behind.
+      rmSync(join(this.config.pluginsDir, result.id), { recursive: true, force: true })
+      return { ok: false, errors: [error instanceof Error ? error.message : String(error)] }
     }
     return result
   }

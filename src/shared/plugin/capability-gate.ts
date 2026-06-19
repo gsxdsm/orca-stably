@@ -6,11 +6,10 @@
 
 import {
   BRIDGE_METHOD_CAPABILITY,
-  HOST_COMMANDS,
   isBridgeMethod,
   isHostCommand,
-  WORKSPACE_SNAPSHOT_KEYS,
   type BridgeErrorCode,
+  type HostCommand,
   type WorkspaceSnapshot
 } from './api-contract'
 import type { PluginCapability } from './manifest'
@@ -42,21 +41,29 @@ export function validateHostCommand(name: unknown, params: unknown): HostCommand
   if (!isHostCommand(name)) {
     return { ok: false, error: 'unknown_method' }
   }
-  if (name === 'open-external-url') {
-    const url =
-      typeof params === 'object' && params !== null ? (params as { url?: unknown }).url : params
-    if (typeof url !== 'string' || !isHttpUrl(url)) {
-      return { ok: false, error: 'invalid_params' }
+  const command: HostCommand = name
+  switch (command) {
+    case 'open-external-url': {
+      const url =
+        typeof params === 'object' && params !== null ? (params as { url?: unknown }).url : params
+      return typeof url === 'string' && isHttpUrl(url)
+        ? { ok: true }
+        : { ok: false, error: 'invalid_params' }
+    }
+    case 'copy-to-clipboard': {
+      const text =
+        typeof params === 'object' && params !== null ? (params as { text?: unknown }).text : params
+      return typeof text === 'string' ? { ok: true } : { ok: false, error: 'invalid_params' }
+    }
+    default: {
+      // Exhaustiveness guard: adding a HostCommand without a case here is a
+      // compile error, preventing a new command from being silently allowed
+      // with no param validation.
+      const exhaustive: never = command
+      void exhaustive
+      return { ok: false, error: 'unknown_method' }
     }
   }
-  if (name === 'copy-to-clipboard') {
-    const text =
-      typeof params === 'object' && params !== null ? (params as { text?: unknown }).text : params
-    if (typeof text !== 'string') {
-      return { ok: false, error: 'invalid_params' }
-    }
-  }
-  return { ok: true }
 }
 
 function isHttpUrl(value: string): boolean {
@@ -84,7 +91,3 @@ export function projectWorkspaceSnapshot(raw: unknown): WorkspaceSnapshot {
         : 0
   }
 }
-
-// Re-exported so callers can assert/iterate the allowlist + projected keys
-// without reaching back into the contract module.
-export { HOST_COMMANDS, WORKSPACE_SNAPSHOT_KEYS }

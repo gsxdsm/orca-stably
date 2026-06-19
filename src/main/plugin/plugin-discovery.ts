@@ -41,7 +41,15 @@ export function discoverPlugins(pluginsDir: string): DiscoveryResult {
   }
   for (const name of readdirSync(pluginsDir)) {
     const dir = join(pluginsDir, name)
-    if (!statSync(dir).isDirectory()) {
+    let isDirectory = false
+    try {
+      isDirectory = statSync(dir).isDirectory()
+    } catch {
+      // A dangling symlink (ENOENT) or unreadable entry (EACCES) must not abort
+      // the whole scan — skip it.
+      continue
+    }
+    if (!isDirectory) {
       continue
     }
     const raw = readManifestRaw(dir)

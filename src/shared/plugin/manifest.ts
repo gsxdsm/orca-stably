@@ -30,6 +30,32 @@ export function isPluginCapability(value: unknown): value is PluginCapability {
   return typeof value === 'string' && (PLUGIN_CAPABILITIES as readonly string[]).includes(value)
 }
 
+// Object keys that would corrupt a plain-object map (prototype pollution) if a
+// plugin id were used as a property key.
+const DANGEROUS_PLUGIN_IDS = new Set(['__proto__', 'prototype', 'constructor'])
+
+// A plugin id must be a single safe path segment AND a safe object key, because
+// it is used both as a directory name (`join(pluginsDir, id)`) and as a map key
+// (`state.plugins[id]`). Enforced at the manifest trust boundary so install,
+// the manager, the store, and the settings store all receive safe ids. Plugin
+// ids look like `acme.foo`. Lives in `src/shared/` so the electron-free
+// validator and the main-process settings store share one definition.
+export function isSafePluginId(id: string): boolean {
+  if (typeof id !== 'string') {
+    return false
+  }
+  // Must start alphanumeric, then alphanumerics / dot / dash / underscore.
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(id)) {
+    return false
+  }
+  // `..` is a path-traversal segment even though its characters are allowed.
+  if (id.includes('..')) {
+    return false
+  }
+  // `constructor` is alphanumeric and would pass the charset check.
+  return !DANGEROUS_PLUGIN_IDS.has(id)
+}
+
 // A plugin's right-sidebar contribution. `icon` is a Lucide icon name (string)
 // rather than an arbitrary image, so the activity bar stays visually
 // consistent; `ui` is a single self-contained HTML file relative to the plugin

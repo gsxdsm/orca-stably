@@ -75,4 +75,20 @@ describe('PluginSupervisor', () => {
     sup.reset('p')
     expect(sup.getState('p')).toBe('inactive')
   })
+
+  it('rejects an empty backoff schedule (would index [-1] -> undefined delay)', () => {
+    expect(() => new PluginSupervisor({ backoffMs: [] })).toThrow()
+  })
+
+  it('rejects a negative maxRestarts', () => {
+    expect(() => new PluginSupervisor({ maxRestarts: -1 })).toThrow()
+  })
+
+  it('treats an exit for an untracked plugin as inactive (no phantom restart)', () => {
+    const sup = new PluginSupervisor()
+    expect(sup.markExited('never-ran', { crashed: true })).toEqual({
+      restart: false,
+      state: 'inactive'
+    })
+  })
 })

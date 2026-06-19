@@ -29,6 +29,14 @@ export function installFromLocalFolder(sourceDir: string, pluginsDir: string): I
   if (existsSync(dest)) {
     rmSync(dest, { recursive: true, force: true })
   }
-  cpSync(sourceDir, dest, { recursive: true })
+  try {
+    cpSync(sourceDir, dest, { recursive: true })
+  } catch (error) {
+    // A mid-copy failure (disk full, permissions) already removed the prior
+    // install above — clean up the partial copy so discovery never sees a
+    // half-installed directory, and report the failure instead of throwing.
+    rmSync(dest, { recursive: true, force: true })
+    return { ok: false, errors: [error instanceof Error ? error.message : String(error)] }
+  }
   return { ok: true, id, version, dir: dest }
 }
