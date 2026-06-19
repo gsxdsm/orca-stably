@@ -58,7 +58,6 @@ type Props = {
    *  native card above the composer; answering sends text to the agent. */
   /** Structured AskUserQuestion prompt parsed from the transcript (preferred over
    *  the heuristic question card). */
-  debug?: string
   ask?: AskPrompt | null
   onAnswerAsk?: (text: string) => void
   question?: MobileChatQuestion | null
@@ -104,7 +103,6 @@ export function MobileNativeChatView({
   inputLocked,
   filePaths,
   onNeedFiles,
-  debug,
   ask,
   onAnswerAsk,
   question,
@@ -399,7 +397,6 @@ export function MobileNativeChatView({
             )}
             <Text style={styles.chromeToggleLabel}>{toolsExpanded ? 'Collapse' : 'Tools'}</Text>
           </Pressable>
-          {debug ? <Text style={{ color: colors.textMuted, fontSize: 10 }}>{debug}</Text> : null}
         </View>
         {agentWorking ? (
           <Pressable
