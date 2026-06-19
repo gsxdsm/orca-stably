@@ -11570,6 +11570,10 @@
     "panel": {
       "loading": "Loading plugin…",
       "loadError": "This plugin failed to load."
+    },
+    "nav": {
+      "title": "Plugins",
+      "description": "Install and manage Orca plugins."
     }
   }
 }
