@@ -183,7 +183,6 @@ import {
 import { TerminalPaneView } from '../../../../src/session/TerminalPaneView'
 import { MobileNativeChatView } from '../../../../src/session/MobileNativeChatView'
 import { useMobileNativeChatSession } from '../../../../src/session/use-mobile-native-chat-session'
-import { sendMobileNativeChatControl } from '../../../../src/session/mobile-native-chat-control-send'
 import { resolveMobileNativeChat } from '../../../../src/session/mobile-native-chat-eligibility'
 import { parseAgentQuestion } from '../../../../src/session/mobile-native-chat-question'
 import {
@@ -1305,18 +1304,6 @@ export default function SessionScreen() {
       // Optimistic echo so the prompt shows immediately as "queued".
       chatPendingCounter.current += 1
       setChatPending((prev) => [...prev, { id: `pending-${chatPendingCounter.current}`, text }])
-    },
-    [client]
-  )
-  // Agent control payloads (Shift+Tab to cycle mode, or `/model …`).
-  const handleNativeChatControlSend = useCallback(
-    (payload: string, enter: boolean) => {
-      sendMobileNativeChatControl({
-        client,
-        terminal: activeHandleRef.current,
-        deviceToken: deviceTokenRef.current,
-        payload, enter
-      })
     },
     [client]
   )
@@ -4959,8 +4946,6 @@ export default function SessionScreen() {
                       loadingEarlier={nativeChatSession.loadingEarlier}
                       onLoadEarlier={nativeChatSession.loadEarlier}
                       onSend={handleNativeChatSend}
-                      agent={activeChatResolution?.agent ?? null}
-                      onControlSend={handleNativeChatControlSend}
                       pending={chatPending}
                       composerText={chatComposerText}
                       onComposerTextChange={setChatComposerText}

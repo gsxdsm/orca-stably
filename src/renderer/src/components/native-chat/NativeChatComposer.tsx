@@ -8,15 +8,6 @@ import { isRemoteRuntimePtyId, sendRuntimePtyInput } from '@/runtime/runtime-ter
 import { getSettingsForAgentTabRuntimeOwner } from '@/lib/agent-paste-draft'
 import { sendNativeChatMessage } from './native-chat-runtime-send'
 import { getAgentSlashCommands } from './native-chat-agent-commands'
-import { NativeChatControlBar } from './NativeChatControlBar'
-import {
-  applyThinkingPrefix,
-  defaultNativeChatControlSelection,
-  resolveNativeChatAgentControls,
-  thinkingPrefixForSelection,
-  type NativeChatControl,
-  type NativeChatControlSelection
-} from './native-chat-agent-controls'
 import { emitNativeChatMessageSent } from '@/lib/native-chat-telemetry'
 import {
   applyMentionSuggestion,
@@ -79,19 +70,6 @@ export function NativeChatComposer({
   const [notice, setNotice] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Resolve the agent's control set (Mode / Thinking / Model) once per agent and
-  // seed each control's default selection.
-  const controls = useMemo(() => resolveNativeChatAgentControls(agent), [agent])
-  const [controlSelection, setControlSelection] = useState<NativeChatControlSelection>(() =>
-    defaultNativeChatControlSelection(controls)
-  )
-  // Reset selection to the new agent's defaults when the resolved agent changes.
-  const prevAgentRef = useRef(agent)
-  if (prevAgentRef.current !== agent) {
-    prevAgentRef.current = agent
-    setControlSelection(defaultNativeChatControlSelection(controls))
-  }
-
   const agentCommands = useMemo(() => getAgentSlashCommands(agent), [agent])
   const autocomplete = useMemo(
     () => deriveComposerAutocomplete(draft, caret, agentCommands),
@@ -125,18 +103,12 @@ export function NativeChatComposer({
     if (!target) {
       return
     }
-    // Thinking level (RELIABLE): prepend the keyword to the draft at SEND time so
-    // it integrates with this one message instead of firing a separate command.
-    const prefixed = applyThinkingPrefix(
-      thinkingPrefixForSelection(controls, controlSelection),
-      text
-    )
     // Two-write send (body, then a delayed Enter) so the agent TUI submits the
     // message instead of leaving it in its input box (R6: works for SSH panes).
-    sendNativeChatMessage(target.settings, target.ptyId, prefixed)
+    sendNativeChatMessage(target.settings, target.ptyId, text)
     // Optimistic "queued" echo (mobile parity): show the prompt immediately,
     // pruned once its real user turn lands in the transcript.
-    onOptimisticSend?.(prefixed)
+    onOptimisticSend?.(text)
     // Why: U10 telemetry — record adoption + local-vs-remote runtime split. The
     // agent prop is the loose AgentType; the emitter narrows unknowns to 'other'.
     emitNativeChatMessageSent({
@@ -147,37 +119,7 @@ export function NativeChatComposer({
     setDraft('')
     setCaret(0)
     setNotice(null)
-  }, [agent, draft, disabled, resolveTarget, onOptimisticSend, controls, controlSelection])
-
-  // Handle a control-bar pick. Thinking only updates state (applied at send).
-  // Mode (raw, e.g. Shift+Tab) and Model (a `/model …` command line) fire their
-  // payload immediately through the send path on selection.
-  const selectControl = useCallback(
-    (control: NativeChatControl, optionId: string) => {
-      setControlSelection((prev) => ({ ...prev, [control.kind]: optionId }))
-      if (control.mechanism === 'prepend') {
-        return
-      }
-      const target = resolveTarget()
-      if (!target || disabled) {
-        return
-      }
-      const option = control.options.find((o) => o.id === optionId)
-      if (!option) {
-        return
-      }
-      if (control.mechanism === 'raw') {
-        // Raw control bytes (Shift+Tab \x1b[Z to cycle permission mode): written
-        // as-is so the agent reads them as a keystroke.
-        sendRuntimePtyInput(target.settings, target.ptyId, option.payload)
-        return
-      }
-      // command: a standalone line (e.g. `/model opus`) submitted via the framed
-      // body + delayed Enter send, exactly like a typed message.
-      sendNativeChatMessage(target.settings, target.ptyId, option.payload)
-    },
-    [resolveTarget, disabled]
-  )
+  }, [agent, draft, disabled, resolveTarget, onOptimisticSend])
 
   const interrupt = useCallback(() => {
     const target = resolveTarget()
@@ -331,59 +273,43 @@ export function NativeChatComposer({
             <span>{notice}</span>
           </div>
         ) : null}
-        {/* Enlarged composer box: the agent control toolbar (Mode / Thinking /
-            Model) sits above the text input + Send, all in one rounded frame so
-            the controls feel part of the prompt rather than chrome. */}
-        <div
-          className={cn(
-            'flex flex-col gap-2 rounded-xl border border-input bg-transparent p-2 shadow-xs transition-colors dark:bg-input/30',
-            'focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50'
-          )}
-        >
-          <NativeChatControlBar
-            controls={controls}
-            selection={controlSelection}
+        <div className="flex items-end gap-2">
+          <textarea
+            ref={textareaRef}
+            value={draft}
             disabled={disabled}
-            onSelect={selectControl}
+            rows={1}
+            onChange={(e) => {
+              setDraft(e.target.value)
+              setHistory((prev) => ({ entries: prev.entries, index: null }))
+              syncCaret(e.target)
+              setActiveSuggestion(0)
+            }}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            onSelect={(e) => syncCaret(e.currentTarget)}
+            placeholder={composerPlaceholder(hasPty, canSend)}
+            // Why: coarse-pointer (touch) min-height meets the 44px tap-target
+            // convention used elsewhere (size-11) so the composer is usable with
+            // the on-screen keyboard on the mobile driver (U9/R8).
+            className={cn(
+              'min-h-9 max-h-40 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none pointer-coarse:min-h-11',
+              'placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+              'disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30'
+            )}
           />
-          <div className="flex items-end gap-2">
-            <textarea
-              ref={textareaRef}
-              value={draft}
-              disabled={disabled}
-              rows={1}
-              onChange={(e) => {
-                setDraft(e.target.value)
-                setHistory((prev) => ({ entries: prev.entries, index: null }))
-                syncCaret(e.target)
-                setActiveSuggestion(0)
-              }}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
-              onSelect={(e) => syncCaret(e.currentTarget)}
-              placeholder={composerPlaceholder(hasPty, canSend)}
-              // Why: coarse-pointer (touch) min-height meets the 44px tap-target
-              // convention used elsewhere (size-11) so the composer is usable with
-              // the on-screen keyboard on the mobile driver (U9/R8).
-              className={cn(
-                'min-h-9 max-h-40 w-full resize-none bg-transparent px-1 py-1 text-sm outline-none pointer-coarse:min-h-11',
-                'placeholder:text-muted-foreground/60',
-                'disabled:cursor-not-allowed disabled:opacity-50'
-              )}
-            />
-            <button
-              type="button"
-              aria-label={translate('components.native-chat.composer.send', 'Send')}
-              disabled={disabled || draft.trim() === ''}
-              onClick={send}
-              className={cn(
-                'flex size-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors pointer-coarse:size-11',
-                'hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50'
-              )}
-            >
-              <ArrowUp className="size-4" />
-            </button>
-          </div>
+          <button
+            type="button"
+            aria-label={translate('components.native-chat.composer.send', 'Send')}
+            disabled={disabled || draft.trim() === ''}
+            onClick={send}
+            className={cn(
+              'flex size-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors pointer-coarse:size-11',
+              'hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50'
+            )}
+          >
+            <ArrowUp className="size-4" />
+          </button>
         </div>
       </div>
     </div>

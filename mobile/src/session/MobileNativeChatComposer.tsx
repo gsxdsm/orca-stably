@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Pressable,
@@ -15,15 +15,6 @@ import {
   detectAutocompleteTrigger,
   rankSuggestions
 } from './mobile-native-chat-autocomplete'
-import { MobileNativeChatControlBar } from './MobileNativeChatControlBar'
-import {
-  applyThinkingPrefix,
-  defaultNativeChatControlSelection,
-  resolveNativeChatAgentControls,
-  thinkingPrefixForSelection,
-  type NativeChatControl,
-  type NativeChatControlSelection
-} from './mobile-native-chat-agent-controls'
 
 // Common agent slash commands offered as autocomplete; sending them is just text
 // to the agent's terminal, so the set is intentionally provider-agnostic.
@@ -45,14 +36,6 @@ type Props = {
   value: string
   onChangeText: (text: string) => void
   onSend: (text: string) => void
-  /** Resolved agent id; drives which control dropdowns (Mode/Thinking/Model) show. */
-  agent?: string | null
-  /**
-   * Fire a control payload that is NOT part of the message body: raw control
-   * bytes (Shift+Tab to cycle mode) or a standalone command line (`/model …`).
-   * `enter` true submits the line (commands); false writes bytes as-is (raw).
-   */
-  onControlSend?: (payload: string, enter: boolean) => void
   onAttachImage?: () => void
   isAttaching?: boolean
   onMicPress?: () => void
@@ -67,8 +50,6 @@ export function MobileNativeChatComposer({
   value,
   onChangeText,
   onSend,
-  agent,
-  onControlSend,
   onAttachImage,
   isAttaching = false,
   onMicPress,
@@ -81,30 +62,6 @@ export function MobileNativeChatComposer({
   const [cursor, setCursor] = useState(0)
   const trimmed = value.trim()
   const canSend = trimmed.length > 0 && !disabled
-
-  // Resolve the agent's control set (Mode/Thinking/Model) and seed defaults.
-  const controls = useMemo(() => resolveNativeChatAgentControls(agent ?? ''), [agent])
-  const [controlSelection, setControlSelection] = useState<NativeChatControlSelection>(() =>
-    defaultNativeChatControlSelection(controls)
-  )
-  const prevAgentRef = useRef(agent)
-  if (prevAgentRef.current !== agent) {
-    prevAgentRef.current = agent
-    setControlSelection(defaultNativeChatControlSelection(controls))
-  }
-
-  const handleControlSelect = (control: NativeChatControl, optionId: string): void => {
-    setControlSelection((prev) => ({ ...prev, [control.kind]: optionId }))
-    if (control.mechanism === 'prepend' || disabled) {
-      return
-    }
-    const option = control.options.find((o) => o.id === optionId)
-    if (!option || !onControlSend) {
-      return
-    }
-    // raw (Shift+Tab) writes bytes as-is; command (`/model …`) submits the line.
-    onControlSend(option.payload, control.mechanism === 'command')
-  }
 
   const trigger = useMemo(() => detectAutocompleteTrigger(value, cursor), [value, cursor])
   const suggestions = useMemo(() => {
@@ -137,9 +94,7 @@ export function MobileNativeChatComposer({
     if (!canSend) {
       return
     }
-    // Thinking level (RELIABLE): prepend the keyword to this message at SEND.
-    const prefix = thinkingPrefixForSelection(controls, controlSelection)
-    onSend(applyThinkingPrefix(prefix, trimmed))
+    onSend(trimmed)
     onChangeText('')
     setCursor(0)
   }
@@ -163,14 +118,6 @@ export function MobileNativeChatComposer({
           </ScrollView>
         </View>
       ) : null}
-      {/* Agent control chips (Mode / Thinking / Model) sit in the composer box
-          above the input — the enlarged composer per the desktop parity. */}
-      <MobileNativeChatControlBar
-        controls={controls}
-        selection={controlSelection}
-        disabled={disabled}
-        onSelect={handleControlSelect}
-      />
       <View style={styles.bar}>
         {onAttachImage ? (
           <Pressable
