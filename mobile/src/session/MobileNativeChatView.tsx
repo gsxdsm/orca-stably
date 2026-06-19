@@ -115,6 +115,12 @@ export function MobileNativeChatView({
   const insets = useSafeAreaInsets()
   const listRef = useRef<FlatList<NativeChatMessage>>(null)
   const [toolsExpanded, setToolsExpanded] = useState(false)
+  // Dismiss the question card as soon as it's answered; the live status lingers
+  // briefly (the agent emits a post-tool event with the same prompt), so hide it
+  // until a genuinely different question arrives.
+  const askKey = ask ? `${ask.questions.length}:${ask.questions[0]?.question ?? ''}` : null
+  const [dismissedAskKey, setDismissedAskKey] = useState<string | null>(null)
+  const showAsk = ask != null && askKey !== dismissedAskKey
   // Lift the composer clear of the keyboard, plus the bottom safe-area so it
   // never sits under the home indicator / nav bar (mirrors the terminal dock).
   const bottomPad = keyboardInset > 0 ? keyboardInset + insets.bottom : insets.bottom
@@ -336,8 +342,14 @@ export function MobileNativeChatView({
       )}
       {/* Pending agent prompt: a structured AskUserQuestion wins, then a
           heuristic permission, then a heuristic question. */}
-      {ask ? (
-        <MobileNativeChatAsk prompt={ask} onAnswer={(text) => onAnswerAsk?.(text)} />
+      {showAsk && ask ? (
+        <MobileNativeChatAsk
+          prompt={ask}
+          onAnswer={(text) => {
+            setDismissedAskKey(askKey)
+            onAnswerAsk?.(text)
+          }}
+        />
       ) : permission ? (
         <MobileNativeChatPermission
           permission={permission}
