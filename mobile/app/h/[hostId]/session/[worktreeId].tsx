@@ -1307,6 +1307,40 @@ export default function SessionScreen() {
     },
     [client]
   )
+  // Answer a structured AskUserQuestion: each question must be answered and
+  // submitted in turn, so send one line (question) at a time with its own Enter,
+  // spaced out. A single multi-line paste only answers the first question and
+  // then stalls the prompt (the reported hang).
+  const handleNativeChatAnswerAsk = useCallback(
+    (text: string) => {
+      const handle = activeHandleRef.current
+      if (!client || !handle) {
+        return
+      }
+      const clientMeta = deviceTokenRef.current
+        ? { client: { id: deviceTokenRef.current, type: 'mobile' as const } }
+        : {}
+      const lines = text
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0)
+      lines.forEach((line, i) => {
+        setTimeout(() => {
+          void client
+            .sendRequest('terminal.send', {
+              terminal: handle,
+              text: line,
+              enter: true,
+              ...clientMeta
+            })
+            .catch(() => {})
+        }, i * 350)
+      })
+      chatPendingCounter.current += 1
+      setChatPending((prev) => [...prev, { id: `pending-${chatPendingCounter.current}`, text }])
+    },
+    [client]
+  )
   const canSend =
     connState === 'connected' &&
     activeHandle != null &&
@@ -4936,7 +4970,7 @@ export default function SessionScreen() {
                       streamingText={nativeChatStreamingText}
                       onStop={handleNativeChatStop}
                       ask={nativeChatAsk}
-                      onAnswerAsk={handleNativeChatSend}
+                      onAnswerAsk={handleNativeChatAnswerAsk}
                       question={nativeChatQuestion}
                       onAnswerQuestion={handleNativeChatSend}
                       permission={nativeChatPermission}
