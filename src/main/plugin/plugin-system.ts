@@ -1,15 +1,16 @@
 // NEEDS-RUNTIME-VERIFY: the main-process composition root for the plugin
-// system. Builds the manager + runtime against Electron paths and wires the
-// host command implementations (open-external-url / copy-to-clipboard) and the
-// asset protocol. Unit-tested pieces (manager, runtime, gate, handler) are
-// composed here; this glue runs only in the app.
+// system. Builds the manager + runtime against Electron paths, wires the host
+// command implementations (open-external-url / copy-to-clipboard), the asset
+// protocol, and multi-source install (installFromSource + lockfile). Unit-tested
+// pieces (manager, runtime, gate, handler, installer) are composed here; this
+// glue runs only in the app.
 //
-// Remaining wiring this enables (each a small, explicit step):
-//   - call registerPluginScheme() from app bootstrap BEFORE app.whenReady()
-//   - on ready: createPluginSystem(), then registerPluginAssetProtocol()
-//   - register the IPC handlers (src/main/ipc/plugins.ts) in register-core-handlers
-//   - add the plugin-host-entry build target to electron.vite.config
-//   - expose window.api.plugins in the preload
+// The boot wiring this enables is now in place: index.ts calls
+// registerPluginScheme() before app.whenReady(), then createPluginSystem() +
+// registerAssetProtocol() + registerPluginHandlers() on ready; the
+// plugin-host-entry build target is in electron.vite.config; and the preload
+// exposes window.api.plugins. What remains is mobile/relay (v1c) and launching
+// the app to verify runtime behavior.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
