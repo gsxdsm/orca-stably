@@ -15,7 +15,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { discoverPlugins } from '../main/plugin/plugin-discovery'
+import { discoverPlugins, type DiscoveryResult } from '../main/plugin/plugin-discovery'
 import { isSafePluginId } from '../shared/plugin/manifest'
 import type { WorkspaceSnapshot } from '../shared/plugin/api-contract'
 import type { PluginHostFactory } from '../main/plugin/plugin-runtime'
@@ -45,25 +45,37 @@ export type RelayPluginConfig = {
   stateFilePath?: string
   stagingDir?: string
   hostFactory?: PluginHostFactory
+  // Injectable for tests so a counting fake makes the discovery-cache scan count
+  // observable; defaults to the real disk scanner.
+  discover?: (pluginsDir: string) => DiscoveryResult
 }
 
 type PluginMeta = { id: string; title: string; icon: string; version: string; ui: string }
-
-// Boundary validation: the id must be structurally safe AND match an installed,
-// validated manifest. Both gates run before any activation/messaging so a client
-// can't name an arbitrary id (closes the confused-deputy concern for the backend
-// path), and so traversal-shaped ids never reach the runtime.
-function isInstalledPlugin(pluginsDir: string, pluginId: string): boolean {
-  if (!isSafePluginId(pluginId)) {
-    return false
-  }
-  return discoverPlugins(pluginsDir).valid.some((p) => p.manifest.id === pluginId)
-}
 
 export function registerRelayPluginHandlers(
   dispatcher: RelayDispatcherLike,
   config: RelayPluginConfig
 ): { stopAll: () => Promise<void>; stopAllSync: () => void } {
+  // Discovery is a full plugins-dir scan + per-manifest validate; memoize it so
+  // back-to-back requests don't re-scan. The installed set only changes via
+  // plugin.provision, which invalidates the cache on success (see below).
+  const discover = config.discover ?? discoverPlugins
+  let cachedDiscovery: DiscoveryResult | null = null
+  const getDiscovered = (): DiscoveryResult => (cachedDiscovery ??= discover(config.pluginsDir))
+  const invalidateDiscovery = (): void => {
+    cachedDiscovery = null
+  }
+
+  // Boundary validation: the id must be structurally safe AND match an installed,
+  // validated manifest. The isSafePluginId gate runs first so a client can't name
+  // an arbitrary id (confused-deputy) and traversal-shaped ids never reach the
+  // runtime or the cache lookup.
+  const isInstalledPlugin = (pluginId: string): boolean => {
+    if (!isSafePluginId(pluginId)) {
+      return false
+    }
+    return getDiscovered().valid.some((p) => p.manifest.id === pluginId)
+  }
   // Which clients have opened each plugin. A backend response carries one
   // client's data (settings, workspace snapshot), so it must be routed only to
   // the clients that opened that plugin — never broadcast to every client.
@@ -128,7 +140,7 @@ export function registerRelayPluginHandlers(
   })
 
   dispatcher.onRequest('plugin.list', async () => {
-    const result = discoverPlugins(config.pluginsDir)
+    const result = getDiscovered()
     const plugins: PluginMeta[] = result.valid.map((p) => ({
       id: p.manifest.id,
       title: p.manifest.contributes.sidebar.title,
@@ -144,7 +156,7 @@ export function registerRelayPluginHandlers(
   // single self-contained file).
   dispatcher.onRequest('plugin.getEntry', async (params) => {
     const pluginId = String(params.pluginId ?? '')
-    const found = discoverPlugins(config.pluginsDir).valid.find((p) => p.manifest.id === pluginId)
+    const found = getDiscovered().valid.find((p) => p.manifest.id === pluginId)
     if (!found) {
       return { ok: false, error: 'unknown_plugin' }
     }
@@ -165,16 +177,23 @@ export function registerRelayPluginHandlers(
     // interleave (the event loop is blocked through each call) — no per-id lock
     // needed. Staging defaults to a same-volume sibling of the plugins dir so the
     // final rename is atomic.
-    return provisionPlugin(params.bundle, {
+    const result = provisionPlugin(params.bundle, {
       pluginsDir: config.pluginsDir,
       stagingDir: config.stagingDir ?? `${config.pluginsDir}-staging`
     })
+    // A successful provision changed the installed set on disk — drop the cache
+    // so a following plugin.activate discovers the new plugin (not stale
+    // unknown_plugin). A failed provision left the dir untouched: keep the cache.
+    if (result.ok) {
+      invalidateDiscovery()
+    }
+    return result
   })
 
   // Start the trusted backend child on the relay host.
   dispatcher.onRequest('plugin.activate', async (params, context) => {
     const pluginId = String(params.pluginId ?? '')
-    if (!isInstalledPlugin(config.pluginsDir, pluginId)) {
+    if (!isInstalledPlugin(pluginId)) {
       return { ok: false, error: 'unknown_plugin' }
     }
     subscribe(pluginId, context.clientId)
@@ -196,7 +215,7 @@ export function registerRelayPluginHandlers(
   // ahead of an explicit activate still reaches a running child.
   dispatcher.onRequest('plugin.postUi', async (params, context) => {
     const pluginId = String(params.pluginId ?? '')
-    if (!isInstalledPlugin(config.pluginsDir, pluginId)) {
+    if (!isInstalledPlugin(pluginId)) {
       return { ok: false, error: 'unknown_plugin' }
     }
     subscribe(pluginId, context.clientId)

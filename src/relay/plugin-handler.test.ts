@@ -310,3 +310,87 @@ describe('relay plugin handlers', () => {
 })
 
 const b64 = (s: string): string => Buffer.from(s, 'utf8').toString('base64')
+
+describe('relay plugin discovery cache', () => {
+  // Register a fresh handler set whose discovery scans are counted, so cache
+  // hits/invalidations are assertable without real-filesystem churn.
+  function registerCounting(): { scans: () => number } {
+    let scans = 0
+    registerRelayPluginHandlers(fakeDispatcher(), {
+      pluginsDir: tmp,
+      stateFilePath: join(tmp, 'state.json'),
+      getWorkspaceSnapshot: () => ({
+        workspaceName: 'w',
+        currentBranch: 'main',
+        isDirty: false,
+        openFileCount: 1
+      }),
+      hostFactory: fakeHostFactory,
+      discover: (dir) => {
+        scans++
+        return discoverPlugins(dir)
+      }
+    })
+    return { scans: () => scans }
+  }
+
+  it('scans once for back-to-back list/activate/getEntry (cache hit)', async () => {
+    installFixture()
+    const counter = registerCounting()
+    await handlers.get('plugin.list')!({}, {})
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(1))
+    await handlers.get('plugin.getEntry')!({ pluginId: 'acme.foo' }, {})
+    expect(counter.scans()).toBe(1)
+  })
+
+  it('invalidates on a successful provision so the new plugin activates', async () => {
+    installFixture('acme.foo')
+    const counter = registerCounting()
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(1)) // scan 1, cached
+    const bundle = serializePluginBundle('acme.bar', [
+      { path: 'plugin.json', dataBase64: b64(JSON.stringify(manifest({ id: 'acme.bar' }))) },
+      { path: 'index.html', dataBase64: b64('<!doctype html>') }
+    ])
+    const provisioned = (await handlers.get('plugin.provision')!({ bundle }, {})) as { ok: boolean }
+    expect(provisioned.ok).toBe(true)
+    const activated = (await handlers.get('plugin.activate')!(
+      { pluginId: 'acme.bar' },
+      ctx(1)
+    )) as { ok: boolean }
+    expect(activated.ok).toBe(true) // not a stale unknown_plugin
+    expect(counter.scans()).toBe(2) // cache was cleared by the provision
+  })
+
+  it('does not invalidate on a failed provision', async () => {
+    installFixture()
+    const counter = registerCounting()
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(1)) // scan 1, cached
+    const failed = (await handlers.get('plugin.provision')!({ bundle: null }, {})) as {
+      ok: boolean
+    }
+    expect(failed.ok).toBe(false)
+    await handlers.get('plugin.list')!({}, {}) // cache read, no re-scan
+    expect(counter.scans()).toBe(1)
+  })
+
+  it('rejects an unsafe pluginId before touching discovery (id-safety gate first)', async () => {
+    const counter = registerCounting()
+    const result = (await handlers.get('plugin.activate')!({ pluginId: '../evil' }, ctx(1))) as {
+      ok: boolean
+      error?: string
+    }
+    expect(result).toEqual({ ok: false, error: 'unknown_plugin' })
+    expect(counter.scans()).toBe(0) // discovery never ran
+  })
+
+  it('keeps a fresh cache per handler instance (no cross-instance leakage)', async () => {
+    installFixture()
+    const first = registerCounting()
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(1))
+    expect(first.scans()).toBe(1)
+    // A second registration starts cold and must scan on its own first read.
+    const second = registerCounting()
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(1))
+    expect(second.scans()).toBe(1)
+  })
+})
