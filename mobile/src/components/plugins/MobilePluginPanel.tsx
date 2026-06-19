@@ -1,0 +1,86 @@
+import { useEffect, useState } from 'react'
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
+import { WebView, type WebViewMessageEvent } from 'react-native-webview'
+import type { RpcClient } from '../../transport/rpc-client'
+
+// NEEDS-RUNTIME-VERIFY: renders a plugin's single-file UI on mobile. Fetches the
+// HTML over the relay (plugin.getEntry — no on-device server, no relative-asset
+// resolution) and feeds it to react-native-webview as { html }. UI messages
+// round-trip to the relay-hosted backend via plugin.bridge. The backend runs on
+// the relay host (where the workspace lives), so a plugin works on the phone
+// without Node on the device.
+
+type Props = { client: RpcClient; pluginId: string }
+
+type GetEntryResult = { ok?: boolean; html?: string }
+
+export function MobilePluginPanel({ client, pluginId }: Props): React.JSX.Element {
+  const [html, setHtml] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setHtml(null)
+    setFailed(false)
+    client
+      .sendRequest('plugin.getEntry', { pluginId })
+      .then((response) => {
+        if (cancelled) {
+          return
+        }
+        const result = response.ok ? (response.result as GetEntryResult) : undefined
+        if (result?.ok && typeof result.html === 'string') {
+          setHtml(result.html)
+        } else {
+          setFailed(true)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFailed(true)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [client, pluginId])
+
+  const onMessage = (event: WebViewMessageEvent): void => {
+    try {
+      const request = JSON.parse(event.nativeEvent.data)
+      void client.sendRequest('plugin.bridge', { pluginId, request })
+    } catch {
+      // Ignore non-JSON messages from the plugin UI.
+    }
+  }
+
+  if (failed) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.error}>This plugin failed to load.</Text>
+      </View>
+    )
+  }
+  if (html === null) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator />
+      </View>
+    )
+  }
+  return (
+    <WebView
+      originWhitelist={['*']}
+      source={{ html }}
+      onMessage={onMessage}
+      javaScriptEnabled
+      style={styles.webview}
+    />
+  )
+}
+
+const styles = StyleSheet.create({
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
+  error: { color: '#ff6b6b', fontSize: 13 },
+  webview: { flex: 1, backgroundColor: 'transparent' }
+})
