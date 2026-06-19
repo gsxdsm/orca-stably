@@ -13,7 +13,6 @@ import { orderNativeChatMessages } from './native-chat-message-grouping'
 import { foldToolMessages, splitNativeChatBlocks } from './native-chat-tool-fold'
 import { isNearBottom, shouldShowJumpToLatest, type ScrollGeometry } from './native-chat-autoscroll'
 import { NativeChatToolRun } from './NativeChatToolRun'
-import { NativeChatWorkingIndicator } from './NativeChatWorkingIndicator'
 import { NativeChatCopyButton } from './NativeChatCopyButton'
 
 function geometryOf(el: HTMLElement): ScrollGeometry {
@@ -294,7 +293,6 @@ export function NativeChatMessageList({
               isPending={pendingMessageIds?.has(message.id) ?? false}
             />
           ))}
-          {isWorking ? <NativeChatWorkingIndicator /> : null}
         </div>
       </div>
       {showJump ? (
