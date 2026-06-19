@@ -15,6 +15,20 @@ export function relayPluginsDir(): string {
   return join(homedir(), RELAY_USERDATA_DIR_NAME, 'plugins')
 }
 
+// Per-plugin active/installed state, alongside the plugins dir.
+export function relayPluginStateFilePath(): string {
+  return join(homedir(), RELAY_USERDATA_DIR_NAME, 'plugins-state.json')
+}
+
+// The built plugin-host-entry the trusted child runs. Provisioning this file to
+// the relay host is deferred (NEEDS-RUNTIME-VERIFY); the path is overridable so
+// provisioning can place it wherever it lands. Default sits alongside the relay
+// userData so plugins + entry are provisioned together.
+export function relayPluginHostEntryPath(): string {
+  const override = process.env.ORCA_RELAY_PLUGIN_HOST_ENTRY?.trim()
+  return override || join(homedir(), RELAY_USERDATA_DIR_NAME, 'plugin-host-entry.js')
+}
+
 // The relay no longer tracks a live workspace root (RelayContext.registerRoot is
 // a no-op), so the only workspace:read surface returns a bounded empty snapshot.
 // NEEDS-RUNTIME-VERIFY: the remote-provisioning tier replaces this with a real
