@@ -50,14 +50,29 @@ function defaultDelay(ms: number): Promise<void> {
   })
 }
 
-// Resolve to the work result, or RELAY_TIMEOUT if the deadline wins first. A
-// rejection from `work` propagates (the caller maps it to a typed error).
+// A rejection from `work` propagates so the caller maps it to a typed error.
 function raceWithTimeout<T>(
   work: Promise<T>,
   timeoutMs: number,
   delay: (ms: number) => Promise<void>
 ): Promise<T | typeof RELAY_TIMEOUT> {
   return Promise.race([work, delay(timeoutMs).then((): typeof RELAY_TIMEOUT => RELAY_TIMEOUT)])
+}
+
+// Narrow an unknown relay activate response to a typed result without an `as`
+// cast that would bypass the unknown boundary.
+function readActivateResult(raw: unknown): ActivationResult {
+  if (raw === null || typeof raw !== 'object' || !('ok' in raw)) {
+    return { ok: false, error: 'no_response' }
+  }
+  const payload = raw as { ok?: unknown; error?: unknown }
+  if (typeof payload.ok !== 'boolean') {
+    return { ok: false, error: 'no_response' }
+  }
+  if (payload.ok) {
+    return { ok: true }
+  }
+  return { ok: false, error: typeof payload.error === 'string' ? payload.error : 'activate_failed' }
 }
 
 // Local workspaces activate in-process unchanged. Remote workspaces package the
@@ -103,33 +118,33 @@ export async function activatePluginForWorkspace(
     return { ok: false, error: provisioned.error ?? 'provision_failed' }
   }
 
-  // Provision committed the bundle to the relay. If activate then fails by any
-  // means (reject, ok:false, no_response, timeout), the relay may hold a
-  // forked-but-unacknowledged backend — fire a best-effort plugin.deactivate to
-  // reclaim it. Its own rejection is swallowed so it never masks the real error.
-  let activateError: string
+  let activateResult: ActivationResult
   try {
-    const result = await raceWithTimeout(
+    const raw = await raceWithTimeout(
       deps.relayRequest('plugin.activate', { pluginId: params.pluginId }),
       timeoutMs,
       delay
     )
-    if (result === RELAY_TIMEOUT) {
-      activateError = 'activate_timeout'
-    } else {
-      const payload = result as { ok?: boolean; error?: string } | null | undefined
-      if (!payload || typeof payload.ok !== 'boolean') {
-        activateError = 'no_response'
-      } else if (payload.ok) {
-        return { ok: true }
-      } else {
-        activateError = payload.error ?? 'activate_failed'
-      }
-    }
+    activateResult =
+      raw === RELAY_TIMEOUT ? { ok: false, error: 'activate_timeout' } : readActivateResult(raw)
   } catch (error) {
-    activateError = error instanceof Error ? error.message : 'activate_failed'
+    activateResult = {
+      ok: false,
+      error: error instanceof Error ? error.message : 'activate_failed'
+    }
+  }
+  if (activateResult.ok) {
+    return { ok: true }
   }
 
-  await deps.relayRequest('plugin.deactivate', { pluginId: params.pluginId }).catch(() => {})
-  return { ok: false, error: activateError }
+  // Activate failed after a committed provision — the relay may hold a
+  // forked-but-unacknowledged backend. Best-effort, deadline-bounded deactivate
+  // to reclaim it; swallowed (and timed) so it never masks or outlasts the
+  // original activate failure.
+  await raceWithTimeout(
+    deps.relayRequest('plugin.deactivate', { pluginId: params.pluginId }),
+    timeoutMs,
+    delay
+  ).catch(() => {})
+  return activateResult
 }

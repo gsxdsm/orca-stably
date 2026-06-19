@@ -14,10 +14,9 @@ export function coalesceByKey<T>(
   }
   const created = factory()
   map.set(key, created)
-  // Clear the entry once settled so a later call re-runs the factory; guard
-  // against deleting a newer entry that replaced this one for the same key. The
-  // trailing catch swallows only this bookkeeping chain's rejection — the
-  // caller still receives `created` and observes its real outcome.
+  // Clear on settle so a later call re-runs; the `=== created` guard avoids
+  // evicting a newer entry, and the catch keeps this bookkeeping chain (not the
+  // caller's `created`) from surfacing an unhandled rejection.
   void created
     .finally(() => {
       if (map.get(key) === created) {

@@ -104,7 +104,10 @@ export class PluginSystem {
   // descriptor + a configured resolveRelayRequest; default is local, unchanged.
   activateForWorkspace(pluginId: string, remote?: RemoteDescriptor): Promise<ActivationResult> {
     const descriptor = remote ?? null
-    return coalesceByKey(this.activationsInFlight, pluginId, () =>
+    // Key by tier+id so a local and a remote activation of the same plugin don't
+    // coalesce into each other's result (they run different code paths).
+    const key = `${descriptor?.isRemote ? 'remote' : 'local'}:${pluginId}`
+    return coalesceByKey(this.activationsInFlight, key, () =>
       activatePluginForWorkspace(
         { pluginId, remote: descriptor },
         {

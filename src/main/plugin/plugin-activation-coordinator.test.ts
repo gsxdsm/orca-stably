@@ -94,16 +94,20 @@ describe('activatePluginForWorkspace', () => {
     expect(calls).toEqual([])
   })
 
-  it('maps a rejected remote activate to a typed failure (not a throw)', async () => {
-    const request: ActivationDeps['relayRequest'] = (method) =>
-      method === 'plugin.provision'
+  it('maps a rejected remote activate to a typed failure and still compensates', async () => {
+    const calls: string[] = []
+    const request: ActivationDeps['relayRequest'] = (method) => {
+      calls.push(method)
+      return method === 'plugin.provision'
         ? Promise.resolve({ ok: true })
         : Promise.reject(new Error('relay disconnected'))
+    }
     const result = await activatePluginForWorkspace(
       { pluginId: 'acme.foo', remote: { isRemote: true } },
       deps({ relayRequest: request })
     )
     expect(result).toEqual({ ok: false, error: 'relay disconnected' })
+    expect(calls).toEqual(['plugin.provision', 'plugin.activate', 'plugin.deactivate'])
   })
 
   it('reports a relay activate that returns ok:false', async () => {
@@ -232,6 +236,22 @@ describe('activatePluginForWorkspace', () => {
         return neverResolves() // hangs → times out
       }
       return Promise.resolve(undefined)
+    }
+    const result = await activatePluginForWorkspace(
+      { pluginId: 'acme.foo', remote: { isRemote: true } },
+      deps({ relayRequest: request, delay: immediateDelay })
+    )
+    expect(result).toEqual({ ok: false, error: 'activate_timeout' })
+    expect(calls).toEqual(['plugin.provision', 'plugin.activate', 'plugin.deactivate'])
+  })
+
+  it('returns activate_timeout without hanging even when the compensating deactivate also hangs', async () => {
+    const calls: string[] = []
+    const request: ActivationDeps['relayRequest'] = (method) => {
+      calls.push(method)
+      // provision succeeds; activate AND the compensating deactivate both hang.
+      // The deadline-bounded deactivate must not stall the overall activation.
+      return method === 'plugin.provision' ? Promise.resolve({ ok: true }) : neverResolves()
     }
     const result = await activatePluginForWorkspace(
       { pluginId: 'acme.foo', remote: { isRemote: true } },
