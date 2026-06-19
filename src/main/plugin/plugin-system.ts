@@ -13,6 +13,7 @@ import {
   type RemoteDescriptor
 } from './plugin-activation-coordinator'
 import type { RelayRequest } from './plugin-remote-provision'
+import { coalesceByKey } from './in-flight-coalesce'
 import { registerPluginAssetProtocol } from './plugin-asset-protocol'
 import { readManifestRaw } from './plugin-discovery'
 import { validatePluginManifest } from '../../shared/plugin/manifest-validate'
@@ -70,6 +71,10 @@ export class PluginSystem {
   private readonly lockfilePath: string
   private readonly stagingDir: string
   private readonly resolveRelayRequest: (remote: RemoteDescriptor) => RelayRequest
+  // Per-pluginId in-flight activations: concurrent calls for the same id share
+  // one activation (a plugin's relay bundle dir is keyed by id, not workspace),
+  // so they can't race the relay's non-atomic bundle swap.
+  private readonly activationsInFlight = new Map<string, Promise<ActivationResult>>()
 
   constructor(deps: PluginSystemDeps = {}) {
     this.pluginsDir = join(app.getPath('userData'), 'plugins')
@@ -99,16 +104,18 @@ export class PluginSystem {
   // descriptor + a configured resolveRelayRequest; default is local, unchanged.
   activateForWorkspace(pluginId: string, remote?: RemoteDescriptor): Promise<ActivationResult> {
     const descriptor = remote ?? null
-    return activatePluginForWorkspace(
-      { pluginId, remote: descriptor },
-      {
-        pluginsDir: this.pluginsDir,
-        localActivate: (id) => this.runtime.activate(id),
-        // Resolve the relay request fn lazily — only when the coordinator takes
-        // the remote path and actually issues a call — so a future resolver that
-        // opens an SSH/relay session never runs on a local activation.
-        relayRequest: (method, params) => this.resolveRelayRequest(descriptor)(method, params)
-      }
+    return coalesceByKey(this.activationsInFlight, pluginId, () =>
+      activatePluginForWorkspace(
+        { pluginId, remote: descriptor },
+        {
+          pluginsDir: this.pluginsDir,
+          localActivate: (id) => this.runtime.activate(id),
+          // Resolve the relay request fn lazily — only when the coordinator takes
+          // the remote path and actually issues a call — so a future resolver that
+          // opens an SSH/relay session never runs on a local activation.
+          relayRequest: (method, params) => this.resolveRelayRequest(descriptor)(method, params)
+        }
+      )
     )
   }
 

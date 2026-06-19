@@ -28,6 +28,36 @@ export type ActivationDeps = {
   relayRequest: RelayRequest
   // Injectable for tests; defaults to the real disk reader.
   readBundle?: (pluginsDir: string, pluginId: string) => PluginBundle
+  // Per-relay-request deadline + the delay primitive backing it. Injected so
+  // tests assert timeout behavior deterministically (a delay that resolves
+  // immediately, or never) without real waiting.
+  timeoutMs?: number
+  delay?: (ms: number) => Promise<void>
+}
+
+// A stuck relay must not hang activation forever; 20s mirrors the relay
+// protocol's idle keepalive budget without coupling to it.
+const RELAY_REQUEST_TIMEOUT_MS = 20_000
+
+// Unique marker for "the timeout won the race" — distinguishable from any relay
+// payload (which is a plain object / null / undefined).
+const RELAY_TIMEOUT = Symbol('relay_timeout')
+
+function defaultDelay(ms: number): Promise<void> {
+  // main-process only: unref so a losing timer never keeps the app alive.
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms).unref()
+  })
+}
+
+// Resolve to the work result, or RELAY_TIMEOUT if the deadline wins first. A
+// rejection from `work` propagates (the caller maps it to a typed error).
+function raceWithTimeout<T>(
+  work: Promise<T>,
+  timeoutMs: number,
+  delay: (ms: number) => Promise<void>
+): Promise<T | typeof RELAY_TIMEOUT> {
+  return Promise.race([work, delay(timeoutMs).then((): typeof RELAY_TIMEOUT => RELAY_TIMEOUT)])
 }
 
 // Local workspaces activate in-process unchanged. Remote workspaces package the
@@ -56,24 +86,50 @@ export async function activatePluginForWorkspace(
     return { ok: false, error: error instanceof Error ? error.message : 'bundle_read_failed' }
   }
 
-  const provisioned = await provisionToRelay(deps.relayRequest, bundle)
+  const timeoutMs = deps.timeoutMs ?? RELAY_REQUEST_TIMEOUT_MS
+  const delay = deps.delay ?? defaultDelay
+
+  // provisionToRelay never rejects (it returns a typed failure), so we only
+  // race it against the deadline.
+  const provisioned = await raceWithTimeout(
+    provisionToRelay(deps.relayRequest, bundle),
+    timeoutMs,
+    delay
+  )
+  if (provisioned === RELAY_TIMEOUT) {
+    return { ok: false, error: 'provision_timeout' }
+  }
   if (!provisioned.ok) {
     return { ok: false, error: provisioned.error ?? 'provision_failed' }
   }
 
-  // Intentional no-cleanup contract: if provision succeeds but activate fails,
-  // the relay is left with inert files and no backend. Re-provision is
-  // idempotent (atomic swap), so v1a does not issue a compensating deactivate.
+  // Provision committed the bundle to the relay. If activate then fails by any
+  // means (reject, ok:false, no_response, timeout), the relay may hold a
+  // forked-but-unacknowledged backend — fire a best-effort plugin.deactivate to
+  // reclaim it. Its own rejection is swallowed so it never masks the real error.
+  let activateError: string
   try {
-    const result = (await deps.relayRequest('plugin.activate', { pluginId: params.pluginId })) as
-      | { ok?: boolean; error?: string }
-      | null
-      | undefined
-    if (!result || typeof result.ok !== 'boolean') {
-      return { ok: false, error: 'no_response' }
+    const result = await raceWithTimeout(
+      deps.relayRequest('plugin.activate', { pluginId: params.pluginId }),
+      timeoutMs,
+      delay
+    )
+    if (result === RELAY_TIMEOUT) {
+      activateError = 'activate_timeout'
+    } else {
+      const payload = result as { ok?: boolean; error?: string } | null | undefined
+      if (!payload || typeof payload.ok !== 'boolean') {
+        activateError = 'no_response'
+      } else if (payload.ok) {
+        return { ok: true }
+      } else {
+        activateError = payload.error ?? 'activate_failed'
+      }
     }
-    return result.ok ? { ok: true } : { ok: false, error: result.error ?? 'activate_failed' }
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : 'activate_failed' }
+    activateError = error instanceof Error ? error.message : 'activate_failed'
   }
+
+  await deps.relayRequest('plugin.deactivate', { pluginId: params.pluginId }).catch(() => {})
+  return { ok: false, error: activateError }
 }
