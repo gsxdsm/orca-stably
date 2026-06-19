@@ -1,23 +1,25 @@
 import type { NativeChatBlock, NativeChatMessage } from '../../../src/shared/native-chat-types'
+import type {
+  AskOption,
+  AskPrompt,
+  AskQuestion,
+  InteractiveQuestionParser
+} from '../../../src/shared/native-chat-ask-types'
 
 // Why: Claude's AskUserQuestion tool records its full structured prompt (question
 // text + options) in the transcript as a tool-call block. Since the mobile chat
 // already streams the transcript, we render that structure natively instead of
 // heuristically parsing status text. A prompt is "pending" while its tool-call is
 // the most recent tool activity with no following tool-result.
+//
+// Why: the Ask question parser (parseQuestionsShape/parseOptions/the
+// QUESTION_TOOL_PARSERS registry/parseToolInput/formatAskAnswer) is a byte-for-byte
+// mirror of desktop's `native-chat-interactive-prompt.ts` — Metro can't import these
+// runtime values from src/shared (types are shared via `import type` above), so both
+// copies must stay in sync; parity is asserted by
+// `src/shared/native-chat-ask-parser-parity.test.ts`.
 
-export type AskOption = { label: string; description?: string }
-export type AskQuestion = {
-  question: string
-  header?: string
-  multiSelect: boolean
-  options: AskOption[]
-}
-export type AskPrompt = { questions: AskQuestion[] }
-
-/** A parser turns one agent's interactive-question tool input into the normalized
- *  AskPrompt the card renders. */
-export type InteractiveQuestionParser = (input: unknown) => AskPrompt | null
+export type { AskOption, AskPrompt, AskQuestion, InteractiveQuestionParser }
 
 // Registry of question-tool parsers keyed by the tool name the agent reports.
 // To support a new terminal/agent's question tool, register its parser here (or
@@ -28,8 +30,9 @@ export function registerQuestionTool(toolName: string, parser: InteractiveQuesti
   QUESTION_TOOL_PARSERS.set(toolName, parser)
 }
 
-/** Claude's AskUserQuestion shape: `{ questions: [{ question, header, multiSelect,
- *  options: [{ label, description }] }] }`. Also the de-facto default shape. */
+/** Claude's AskUserQuestion shape: `{ questions: [{ question, header,
+ *  multiSelect, options: [{ label, description }] }] }`. Also the de-facto
+ *  default shape, so a new agent that reuses it works without registration. */
 function parseQuestionsShape(input: unknown): AskPrompt | null {
   if (!input || typeof input !== 'object') {
     return null
@@ -45,27 +48,7 @@ function parseQuestionsShape(input: unknown): AskPrompt | null {
     }
     const q = raw as Record<string, unknown>
     const question = typeof q.question === 'string' ? q.question : ''
-    const options = Array.isArray(q.options)
-      ? q.options
-          .map((o): AskOption | null => {
-            if (typeof o === 'string') {
-              return { label: o }
-            }
-            if (
-              o &&
-              typeof o === 'object' &&
-              typeof (o as { label?: unknown }).label === 'string'
-            ) {
-              const obj = o as { label: string; description?: unknown }
-              return {
-                label: obj.label,
-                description: typeof obj.description === 'string' ? obj.description : undefined
-              }
-            }
-            return null
-          })
-          .filter((o): o is AskOption => o !== null)
-      : []
+    const options = parseOptions(q.options)
     if (question || options.length > 0) {
       questions.push({
         question,
@@ -76,6 +59,27 @@ function parseQuestionsShape(input: unknown): AskPrompt | null {
     }
   }
   return questions.length > 0 ? { questions } : null
+}
+
+function parseOptions(raw: unknown): AskOption[] {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  return raw
+    .map((o): AskOption | null => {
+      if (typeof o === 'string') {
+        return { label: o }
+      }
+      if (o && typeof o === 'object' && typeof (o as { label?: unknown }).label === 'string') {
+        const obj = o as { label: string; description?: unknown }
+        return {
+          label: obj.label,
+          description: typeof obj.description === 'string' ? obj.description : undefined
+        }
+      }
+      return null
+    })
+    .filter((o): o is AskOption => o !== null)
 }
 
 // Claude's AskUserQuestion (and aliases) ship the canonical questions shape.

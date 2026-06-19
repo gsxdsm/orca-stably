@@ -31,7 +31,12 @@ export type AssembleNativeChatSessionInput = {
 // We dedup on an explicit `turnId` when present; otherwise fall back to
 // role + normalized text so the same logical turn collapses to one message.
 // Normalization lowercases and collapses whitespace so cosmetic ANSI/scrape
-// differences don't defeat the match.
+// differences don't defeat the match. The fallback only ever merges records of
+// DIFFERENT sources (gated in mergeOne), so two identical SAME-source prompts
+// stay distinct (#10). Timestamp is deliberately NOT folded into the key: a
+// scrape copy of a turn often has a null timestamp while the transcript copy
+// has a real one, and folding it would wrongly stop that legitimate
+// cross-source pair from collapsing.
 function turnKey(message: NativeChatMessage): string {
   if (message.turnId) {
     return `turn:${message.turnId}`
@@ -119,23 +124,7 @@ export function assembleNativeChatSession(
   const byTurn = new Map<string, NativeChatMessage>()
 
   for (const message of ordered) {
-    const existingById = byId.get(message.id)
-    if (existingById) {
-      if (supersedes(message, existingById)) {
-        replace(byId, byTurn, existingById, message)
-      }
-      continue
-    }
-    const key = turnKey(message)
-    const existingByTurn = byTurn.get(key)
-    if (existingByTurn) {
-      if (supersedes(message, existingByTurn)) {
-        replace(byId, byTurn, existingByTurn, message)
-      }
-      continue
-    }
-    byId.set(message.id, message)
-    byTurn.set(key, message)
+    mergeOne(byId, byTurn, message)
   }
 
   const messages = Array.from(byId.values()).sort(compareMessages)
@@ -149,6 +138,43 @@ export function assembleNativeChatSession(
     agent,
     ...(error ? { error } : {})
   }
+}
+
+/**
+ * The single per-message merge rule, shared by the full rebuild and the
+ * incremental assembler so there is exactly one copy of the dedup logic.
+ * Dedups by `id`, then by `turnKey` — but the turnKey fallback only merges a
+ * candidate against an existing message of a DIFFERENT source (#10): the text
+ * fallback exists for cross-source dedup, so two distinct same-source records
+ * with identical text must never collapse. The explicit-`turnId` path is
+ * cross-source identity and is unaffected (it never collides within a source).
+ */
+export function mergeOne(
+  byId: Map<string, NativeChatMessage>,
+  byTurn: Map<string, NativeChatMessage>,
+  message: NativeChatMessage
+): void {
+  const existingById = byId.get(message.id)
+  if (existingById) {
+    if (supersedes(message, existingById)) {
+      replace(byId, byTurn, existingById, message)
+    }
+    return
+  }
+  const key = turnKey(message)
+  const existingByTurn = byTurn.get(key)
+  if (existingByTurn && existingByTurn.source !== message.source) {
+    if (supersedes(message, existingByTurn)) {
+      replace(byId, byTurn, existingByTurn, message)
+    }
+    return
+  }
+  // No id match and no cross-source turn match: a distinct record. Indexing it
+  // under its turnKey may overwrite a same-source entry that shares the key —
+  // that's fine, the turn index only needs one representative per key for the
+  // cross-source pass; both distinct records still live in `byId`.
+  byId.set(message.id, message)
+  byTurn.set(key, message)
 }
 
 function replace(

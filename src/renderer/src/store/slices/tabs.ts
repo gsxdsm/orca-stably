@@ -217,6 +217,27 @@ function mirrorTabPinnedToHost(state: AppState, tabId: string, isPinned: boolean
   )
 }
 
+// Why: viewMode is host-tracked like color/pin, so mirror the local toggle/set to
+// the host or it's lost on reconnect/restart and never reaches paired clients.
+// Only the user/RPC-set action path mirrors — never the reconcile that applies a
+// host value — so the echoed snapshot can't re-trigger an outbound RPC (no loop).
+function mirrorTabViewModeToHost(state: AppState, tabId: string, viewMode: 'terminal' | 'chat'): void {
+  const found = findTabAndWorktree(state.unifiedTabsByWorktree, tabId)
+  // Why: only terminal tab viewMode is persisted host-side; skip the RPC for other
+  // types instead of a no-op round trip.
+  if (
+    !found ||
+    found.tab.contentType !== 'terminal' ||
+    !getRuntimeEnvironmentIdForWorktree(state, found.worktreeId)
+  ) {
+    return
+  }
+  const worktreeId = found.worktreeId
+  void import('@/runtime/web-runtime-session').then(({ setWebRuntimeTabProps }) =>
+    setWebRuntimeTabProps({ worktreeId, tabId, viewMode })
+  )
+}
+
 function buildSplitNode(
   existingGroupId: string,
   newGroupId: string,
@@ -1044,6 +1065,7 @@ export const createTabsSlice: StateCreator<AppState, [], [], TabsSlice> = (set, 
 
   setTabViewMode: (tabId, mode) => {
     set((state) => patchTab(state.unifiedTabsByWorktree, tabId, { viewMode: mode }) ?? {})
+    mirrorTabViewModeToHost(get(), tabId, mode)
   },
 
   toggleTabViewMode: (tabId) => {
@@ -1072,8 +1094,14 @@ export const createTabsSlice: StateCreator<AppState, [], [], TabsSlice> = (set, 
       return patchTab(state.unifiedTabsByWorktree, tabId, { viewMode: nextMode }) ?? {}
     })
     // Why: emit after the state write so the event reflects the committed mode.
-    if (toggled) {
-      emitNativeChatToggled(toggled)
+    const committed = toggled as {
+      from: 'terminal' | 'chat'
+      to: 'terminal' | 'chat'
+      agent: TuiAgent | null
+    } | null
+    if (committed) {
+      emitNativeChatToggled(committed)
+      mirrorTabViewModeToHost(get(), tabId, committed.to)
     }
   },
 

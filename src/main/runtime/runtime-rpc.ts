@@ -973,6 +973,9 @@ export class OrcaRuntimeRpcServer {
       await this.dispatcher.dispatchStreaming(request, reply, {
         connectionId,
         clientId: token,
+        // Why: gates the mobile-only payload diet (native-chat char clipping) so
+        // full-screen web/desktop runtime clients aren't truncated.
+        clientKind: device.scope,
         signal: abortRegistration?.signal,
         sendBinary,
         registerBinaryStreamHandler: (streamId, handler) =>

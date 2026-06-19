@@ -700,6 +700,7 @@ export function setWebRuntimeTabProps(args: {
   tabId: string
   color?: string | null
   isPinned?: boolean
+  viewMode?: 'terminal' | 'chat'
 }): boolean {
   const environmentId =
     getRuntimeEnvironmentIdForWorktree(useAppStore.getState(), args.worktreeId) ?? null
@@ -722,7 +723,8 @@ export function setWebRuntimeTabProps(args: {
           worktree: toRuntimeWorktreeSelector(args.worktreeId),
           tabId: hostTabId,
           ...(args.color !== undefined ? { color: args.color } : {}),
-          ...(args.isPinned !== undefined ? { isPinned: args.isPinned } : {})
+          ...(args.isPinned !== undefined ? { isPinned: args.isPinned } : {}),
+          ...(args.viewMode !== undefined ? { viewMode: args.viewMode } : {})
         },
         timeoutMs: 15_000
       })

@@ -267,9 +267,17 @@ function NativeChatInteractiveCard({
   const interactivePrompt = useAppStore(
     (s) => s.agentStatusByPaneKey[paneKey]?.interactivePrompt ?? null
   )
+  // Thread the sibling `toolName` from the same status entry so the question
+  // parser can dispatch through the tool's registered parser (mobile parity).
+  const interactiveToolName = useAppStore(
+    (s) => s.agentStatusByPaneKey[paneKey]?.toolName ?? null
+  )
   const { sendAnswer, sendRaw, cancel } = send
 
-  const card = useMemo(() => parseInteractivePrompt(interactivePrompt), [interactivePrompt])
+  const card = useMemo(
+    () => parseInteractivePrompt(interactivePrompt, interactiveToolName ?? undefined),
+    [interactivePrompt, interactiveToolName]
+  )
   const cardKey = useMemo(() => nativeChatCardDismissKey(card), [card])
   const [dismissedKey, setDismissedKey] = useState<string | null>(null)
 

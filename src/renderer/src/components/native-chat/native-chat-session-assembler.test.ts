@@ -154,6 +154,82 @@ describe('assembleNativeChatSession', () => {
     expect(session.messages.map((m) => m.id)).toEqual(['tc-1', 'tc-2'])
   })
 
+  it('keeps two identical consecutive user prompts (distinct ids) — #10', () => {
+    // Same role, identical text, distinct ids: two genuinely distinct turns that
+    // happen to share a prompt. Same source (transcript), so the text fallback
+    // must NOT collapse them.
+    const first = msg({
+      id: 'u-1',
+      role: 'user',
+      timestamp: 100,
+      blocks: [{ type: 'text', text: 'run the tests' }]
+    })
+    const second = msg({
+      id: 'u-2',
+      role: 'user',
+      timestamp: 200,
+      blocks: [{ type: 'text', text: 'run the tests' }]
+    })
+
+    const session = assembleNativeChatSession({
+      sources: { transcript: [first, second] },
+      sessionId: 's1',
+      agent: 'claude'
+    })
+
+    expect(session.messages.map((m) => m.id)).toEqual(['u-1', 'u-2'])
+  })
+
+  it('keeps identical same-source prompts even at the SAME timestamp — #10', () => {
+    const first = msg({
+      id: 'u-1',
+      role: 'user',
+      timestamp: 100,
+      blocks: [{ type: 'text', text: 'go' }]
+    })
+    const second = msg({
+      id: 'u-2',
+      role: 'user',
+      timestamp: 100,
+      blocks: [{ type: 'text', text: 'go' }]
+    })
+
+    const session = assembleNativeChatSession({
+      sources: { transcript: [first, second] },
+      sessionId: 's1',
+      agent: 'claude'
+    })
+
+    // Same source, so the source-gate keeps both even though text+timestamp match.
+    expect(session.messages.map((m) => m.id).sort()).toEqual(['u-1', 'u-2'])
+  })
+
+  it('still collapses a cross-source same turn by text+timestamp, transcript wins', () => {
+    const hook = msg({
+      id: 'hook-1',
+      source: 'hook',
+      role: 'assistant',
+      timestamp: 100,
+      blocks: [{ type: 'text', text: 'the answer' }]
+    })
+    const transcript = msg({
+      id: 'transcript-1',
+      source: 'transcript',
+      role: 'assistant',
+      timestamp: 100,
+      blocks: [{ type: 'text', text: 'the answer' }]
+    })
+
+    const session = assembleNativeChatSession({
+      sources: { transcript: [transcript], hook: [hook] },
+      sessionId: 's1',
+      agent: 'claude'
+    })
+
+    expect(session.messages).toHaveLength(1)
+    expect(session.messages[0].source).toBe('transcript')
+  })
+
   it('carries an error message when provided', () => {
     const session = assembleNativeChatSession({
       sources: {},

@@ -10,6 +10,7 @@ import type {
   NativeChatAppendedMessages
 } from '../../../preload/api-types'
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
+import { buildNativeChatUnsubscribe } from '../../../shared/native-chat-stream-unsubscribe'
 import type {
   ComputerUsePermissionSetupResult,
   ComputerUsePermissionStatusResult
@@ -1025,6 +1026,14 @@ function createNativeChatApi(): NativeChatApi {
                 onAppended(result.messages)
               }
             }
+          },
+          {
+            // Why: send nativeChat.unsubscribe on teardown so the server reaps
+            // the transcript fs-watcher on view-toggle, not just on socket close
+            // (the watcher-leak fix). Uses the same agent:sessionId cleanup token
+            // mobile sends, via the shared key-builder so it can't drift.
+            buildUnsubscribe: () =>
+              buildNativeChatUnsubscribe(args.agent, args.sessionId)
           }
         )
         .then((h) => {

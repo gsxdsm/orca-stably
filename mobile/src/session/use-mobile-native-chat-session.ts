@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { NativeChatMessage } from '../../../src/shared/native-chat-types'
 import type { RpcClient } from '../transport/rpc-client'
-import { mergeNativeChatMessages } from './mobile-native-chat-merge'
+import {
+  applyAppend,
+  createNativeChatMerger,
+  replaceList
+} from './mobile-native-chat-merge'
 
 export type MobileNativeChatStatus = 'idle' | 'loading' | 'waiting-session' | 'ready' | 'error'
 
@@ -39,15 +43,20 @@ export function useMobileNativeChatSession(args: {
   const [error, setError] = useState<string | undefined>(undefined)
   const [hasMore, setHasMore] = useState(false)
   const [loadingEarlier, setLoadingEarlier] = useState(false)
-  const messagesRef = useRef<NativeChatMessage[]>([])
+  // Stateful id-dedup merger: caches the id→index map so each live append frame
+  // costs O(incoming), not O(existing+incoming) (#18). `replaceList` resets the
+  // base (read / loadEarlier ordered tails); `applyAppend` folds live frames in.
+  const mergerRef = useRef(createNativeChatMerger())
   const limitRef = useRef(INITIAL_LIMIT)
   // Tracks the live session so a late loadEarlier resolve can detect a swap.
   const sessionIdRef = useRef<string | null>(sessionId)
   sessionIdRef.current = sessionId
 
-  const setList = useCallback((next: NativeChatMessage[]) => {
-    messagesRef.current = next
-    setMessages(next)
+  // Replace the base list (read results are an ordered tail). Resets the merger
+  // cache so the index is rebuilt once over the new base.
+  const setList = useCallback((next: readonly NativeChatMessage[]) => {
+    replaceList(mergerRef.current, next)
+    setMessages(mergerRef.current.list)
   }, [])
 
   useEffect(() => {
@@ -108,8 +117,9 @@ export function useMobileNativeChatSession(args: {
       if (cancelled || frame.type !== 'appended' || !Array.isArray(frame.messages)) {
         return
       }
-      // Live turns merge by id (appended at the end) onto the current window.
-      setList(mergeNativeChatMessages(messagesRef.current, frame.messages))
+      // Live turns merge by id (appended at the end) onto the current window;
+      // the cached index keeps this O(incoming).
+      setMessages(applyAppend(mergerRef.current, frame.messages))
       setStatus('ready')
     })
 

@@ -2,18 +2,23 @@
 // host captures from the agent's hook). It resolves to either a structured
 // question prompt (AskUserQuestion) or a tool-approval (PermissionRequest), the
 // two interactive cards the native chat renders just above the composer. Kept
-// pure (no React/IO) so the envelope rules are unit-testable. Mirrors the mobile
-// parsers (mobile-native-chat-ask.ts / mobile-native-chat-permission.ts) but
-// shares no code with them.
+// pure (no React/IO) so the envelope rules are unit-testable.
+//
+// Why: the Ask question parser (parseQuestionsShape/parseOptions/the
+// QUESTION_TOOL_PARSERS registry/parseToolInput/formatAskAnswer) is a byte-for-byte
+// mirror of mobile's `mobile-native-chat-ask.ts` — Metro can't import these runtime
+// values from src/shared, so both copies must stay in sync; parity is asserted by
+// `src/shared/native-chat-ask-parser-parity.test.ts`. The approval-card logic below
+// (ChatApproval/parseApprovalFromStatus/ESCAPE) is desktop-only.
 
-export type AskOption = { label: string; description?: string }
-export type AskQuestion = {
-  question: string
-  header?: string
-  multiSelect: boolean
-  options: AskOption[]
-}
-export type AskPrompt = { questions: AskQuestion[] }
+import type {
+  AskOption,
+  AskPrompt,
+  AskQuestion,
+  InteractiveQuestionParser
+} from '../../../../shared/native-chat-ask-types'
+
+export type { AskOption, AskPrompt, AskQuestion, InteractiveQuestionParser }
 
 /** A detected tool-approval, rendered as an Allow/Deny card. Each option's
  *  `send` is the literal string written back to the agent's PTY when chosen
@@ -34,6 +39,15 @@ export type InteractivePromptCard =
 // ESC interrupts the agent over the PTY (matches how the composer forwards
 // Escape), so "Cancel"/"Deny" sends this byte.
 const ESCAPE = String.fromCharCode(27)
+
+// Registry of question-tool parsers keyed by the tool name the agent reports.
+// To support a new terminal/agent's question tool, register its parser here (or
+// via registerQuestionTool) — the renderer and wiring stay unchanged.
+const QUESTION_TOOL_PARSERS = new Map<string, InteractiveQuestionParser>()
+
+export function registerQuestionTool(toolName: string, parser: InteractiveQuestionParser): void {
+  QUESTION_TOOL_PARSERS.set(toolName, parser)
+}
 
 /** Claude's AskUserQuestion shape: `{ questions: [{ question, header,
  *  multiSelect, options: [{ label, description }] }] }`. Also the de-facto
@@ -87,13 +101,32 @@ function parseOptions(raw: unknown): AskOption[] {
     .filter((o): o is AskOption => o !== null)
 }
 
-/** Parse the `{ questions: [...] }` envelope into an AskPrompt, or null. */
-export function parseAskFromStatus(interactivePrompt: string | undefined | null): AskPrompt | null {
+// Claude's AskUserQuestion (and aliases) ship the canonical questions shape.
+for (const name of ['AskUserQuestion', 'ask_user_question', 'askUserQuestion']) {
+  QUESTION_TOOL_PARSERS.set(name, parseQuestionsShape)
+}
+
+/** Resolve an interactive-prompt payload to an AskPrompt: try the tool's
+ *  registered parser first, then fall back to the canonical questions shape so a
+ *  new agent that happens to use the same structure works without registration. */
+function parseToolInput(toolName: string | undefined, input: unknown): AskPrompt | null {
+  const parser = toolName ? QUESTION_TOOL_PARSERS.get(toolName) : undefined
+  return (parser ? parser(input) : null) ?? parseQuestionsShape(input)
+}
+
+/** Parse the live `agentStatus.interactivePrompt` (the agent's untruncated
+ *  question-tool input as JSON) into an AskPrompt, or null. Dispatches through
+ *  the tool's registered parser (keyed by `toolName`) with the canonical
+ *  questions shape as the fallback. */
+export function parseAskFromStatus(
+  interactivePrompt: string | undefined | null,
+  toolName?: string
+): AskPrompt | null {
   if (!interactivePrompt) {
     return null
   }
   try {
-    return parseQuestionsShape(JSON.parse(interactivePrompt))
+    return parseToolInput(toolName, JSON.parse(interactivePrompt))
   } catch {
     return null
   }
@@ -137,11 +170,13 @@ export function parseApprovalFromStatus(
 }
 
 /** Resolve the live `interactivePrompt` to the single card to render. A question
- *  takes precedence over an approval. */
+ *  takes precedence over an approval. `toolName` is forwarded to the Ask branch
+ *  for registry dispatch; the approval branch ignores it. */
 export function parseInteractivePrompt(
-  interactivePrompt: string | undefined | null
+  interactivePrompt: string | undefined | null,
+  toolName?: string
 ): InteractivePromptCard {
-  const prompt = parseAskFromStatus(interactivePrompt)
+  const prompt = parseAskFromStatus(interactivePrompt, toolName)
   if (prompt) {
     return { kind: 'question', prompt }
   }

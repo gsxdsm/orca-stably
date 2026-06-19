@@ -534,6 +534,13 @@ function buildMirroredTerminalTabs(
     const isPinned = existing
       ? existing.isPinned === true
       : surfaces.some((surface) => surface.isPinned)
+    // Why: viewMode echoes back through host snapshots like color/pin, so prefer
+    // the client's own record during the optimistic echo window and adopt the host
+    // value only when this client has no prior tab (first reconcile / other client).
+    const hostViewModeSurface = surfaces.find((surface) => surface.viewMode)
+    const viewMode = existing
+      ? existing.viewMode
+      : hostViewModeSurface?.viewMode
     return {
       tab: {
         id: localTabId,
@@ -545,6 +552,7 @@ function buildMirroredTerminalTabs(
         customTitle: existing?.customTitle ?? null,
         color,
         isPinned,
+        ...(viewMode ? { viewMode } : {}),
         sortOrder: sortOffset + index,
         createdAt: existing?.createdAt ?? now + index,
         // Why: launchAgent is host-owned lifecycle metadata. If the host stops
@@ -670,9 +678,10 @@ function buildMirroredAgentStatusPatch(
 function buildTerminalUnifiedTab(
   tab: TerminalTab,
   groupId: string,
-  // Why: viewMode (terminal vs native chat) is a client-local view preference
-  // the host doesn't track; preserve it across host pushes so toggling to chat
-  // doesn't immediately revert when the next session-graph sync rebuilds tabs.
+  // Why: viewMode (terminal vs native chat) is host-tracked, but the client's
+  // optimistic toggle must win during the echo window. Callers pass the reconciled
+  // value (host value falling back to the captured client value) so toggling to
+  // chat doesn't revert when the next session-graph sync rebuilds tabs.
   viewMode?: Tab['viewMode']
 ): Tab {
   return {
@@ -1759,7 +1768,9 @@ export function applyWebSessionTabsSnapshot(
     buildTerminalUnifiedTab(
       entry.tab,
       hostGroupIdByTabId.get(entry.hostTabId) ?? targetGroupId,
-      existingViewModeByTabId.get(entry.tab.id)
+      // Prefer the reconciled mirrored value (already client-wins during the echo
+      // window); fall back to the captured client value when the entry omits it.
+      entry.tab.viewMode ?? existingViewModeByTabId.get(entry.tab.id)
     )
   )
   const mirroredBrowserUnifiedTabs = mirroredBrowserTabs.map((entry) => entry.unifiedTab)

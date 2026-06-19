@@ -3276,6 +3276,7 @@ export class OrcaRuntimeService {
             ...(layout ? { parentLayout: this.cloneTerminalLayoutSnapshot(layout) } : {}),
             ...(tab.color != null ? { color: tab.color } : {}),
             ...(tab.isPinned ? { isPinned: true } : {}),
+            ...(tab.viewMode ? { viewMode: tab.viewMode } : {}),
             isActive: this.isPersistedTerminalLeafActive(worktreeId, tab.id, leafId, layout)
           }
         })
@@ -4136,7 +4137,12 @@ export class OrcaRuntimeService {
   // was never persisted. Persist to the workspace session + live snapshot.
   async setMobileSessionTabProps(
     worktreeSelector: string,
-    args: { tabId: string; color?: string | null; isPinned?: boolean }
+    args: {
+      tabId: string
+      color?: string | null
+      isPinned?: boolean
+      viewMode?: 'terminal' | 'chat'
+    }
   ): Promise<{ updated: true }> {
     const explicitWorktreeId = getExplicitWorktreeIdSelector(worktreeSelector)
     const worktreeId =
@@ -4158,7 +4164,7 @@ export class OrcaRuntimeService {
   private persistHeadlessSessionTabProps(
     worktreeId: string,
     tabId: string,
-    props: { color?: string | null; isPinned?: boolean }
+    props: { color?: string | null; isPinned?: boolean; viewMode?: 'terminal' | 'chat' }
   ): void {
     const session = this.store?.getWorkspaceSession?.()
     if (!session || !this.store?.setWorkspaceSession) {
@@ -4176,7 +4182,8 @@ export class OrcaRuntimeService {
             ? {
                 ...tab,
                 ...(props.color !== undefined ? { color: props.color } : {}),
-                ...(props.isPinned !== undefined ? { isPinned: props.isPinned } : {})
+                ...(props.isPinned !== undefined ? { isPinned: props.isPinned } : {}),
+                ...(props.viewMode !== undefined ? { viewMode: props.viewMode } : {})
               }
             : tab
         )
@@ -4209,7 +4216,7 @@ export class OrcaRuntimeService {
   private applyHeadlessSessionTabPropsToSnapshot(
     worktreeId: string,
     tabId: string,
-    props: { color?: string | null; isPinned?: boolean }
+    props: { color?: string | null; isPinned?: boolean; viewMode?: 'terminal' | 'chat' }
   ): void {
     const snapshot = this.mobileSessionTabsByWorktree.get(worktreeId)
     if (!snapshot) {
@@ -4224,7 +4231,8 @@ export class OrcaRuntimeService {
       return {
         ...tab,
         ...(props.color !== undefined ? { color: props.color } : {}),
-        ...(props.isPinned !== undefined ? { isPinned: props.isPinned } : {})
+        ...(props.isPinned !== undefined ? { isPinned: props.isPinned } : {}),
+        ...(props.viewMode !== undefined ? { viewMode: props.viewMode } : {})
       }
     })
     if (!changed) {
@@ -17483,6 +17491,7 @@ export class OrcaRuntimeService {
         ...(tab.parentLayout ? { parentLayout: tab.parentLayout } : {}),
         ...(tab.color != null ? { color: tab.color } : {}),
         ...(tab.isPinned ? { isPinned: true } : {}),
+        ...(tab.viewMode ? { viewMode: tab.viewMode } : {}),
         isActive: tab.isActive,
         ...(terminalHandle
           ? { status: 'ready' as const, terminal: terminalHandle }
