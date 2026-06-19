@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { useAppStore } from '../../store'
 import { sendRuntimePtyInput } from '@/runtime/runtime-terminal-inspection'
 import { getSettingsForAgentTabRuntimeOwner } from '@/lib/agent-paste-draft'
-import { sendNativeChatMessage } from './native-chat-runtime-send'
+import { sendNativeChatAnswer } from './native-chat-runtime-send'
 
 // ESC is the agent-TUI interrupt/cancel key over the PTY (matches how the
 // composer forwards Escape). Used to cancel a question or deny an approval.
@@ -46,13 +46,14 @@ export function useNativeChatInteractiveSend(terminalTabId: string): NativeChatI
       if (!ptyId) {
         return
       }
-      // Send the framed answer body as ONE bracketed paste, then a SINGLE Enter
-      // as a separate, slightly-delayed write. Bundling the `\r` into the paste
-      // write made the agent TUI treat it as paste text (never submitting), so
-      // the answer sat unsent. Splitting per-line with their own Enter is also
-      // wrong — the structured prompt resolves on the first submit, so extra
-      // Enters leak as fresh prompts. One body + one delayed Enter is correct.
-      sendNativeChatMessage(getSettingsForAgentTabRuntimeOwner(terminalTabId), ptyId, text)
+      // Claude Code's AskUserQuestion is a MULTI-STEP prompt: one question per
+      // step, each Enter advances to the next, the final Enter submits. So a
+      // multi-line answer (one line per question, as `formatAskAnswer` builds
+      // it) must be sent as a per-question sequence — body then its own Enter,
+      // paced so each Enter lands on its rendered question and only the last
+      // submits. A single-line answer stays one body + one delayed Enter.
+      const lines = text.split('\n')
+      sendNativeChatAnswer(getSettingsForAgentTabRuntimeOwner(terminalTabId), ptyId, lines)
     },
     [terminalTabId]
   )

@@ -16,6 +16,34 @@ import { buildNativeChatPasteBytes, NATIVE_CHAT_SUBMIT } from './native-chat-sen
 // writeTerminalAction({enter:true}), so match it here.
 export const NATIVE_CHAT_SUBMIT_DELAY_MS = 500
 
+// Why: Claude Code's AskUserQuestion is a MULTI-STEP prompt — it renders one
+// question at a time and each Enter advances to the next (the final Enter
+// submits the whole thing). After firing a question's Enter we must let the TUI
+// render the next question before writing its body, or that body lands on the
+// wrong (or no) active question. This buffer is added ON TOP of the body→Enter
+// gap; a previous attempt that spaced Enters only ~350ms apart fired them faster
+// than the next question rendered, leaking answers as fresh prompts.
+export const NATIVE_CHAT_ADVANCE_BUFFER_MS = 300
+
+/** Per-question wall-clock cadence: body→Enter gap plus the advance buffer that
+ *  lets the next AskUserQuestion step render before its body is written. */
+export const NATIVE_CHAT_QUESTION_STEP_MS =
+  NATIVE_CHAT_SUBMIT_DELAY_MS + NATIVE_CHAT_ADVANCE_BUFFER_MS
+
+/** Pure scheduling math for a per-question answer sequence. For question index
+ *  `i` (0-based) returns the offsets (ms from the start of the send) at which to
+ *  write its framed body and its Enter. Body for question 0 fires at 0; each
+ *  later question starts a full step after the previous, so its body is never
+ *  written until the previous question's Enter has fired plus the advance
+ *  buffer. Exactly one Enter per question; the last Enter submits the prompt. */
+export function nativeChatQuestionOffsets(index: number): {
+  bodyAt: number
+  enterAt: number
+} {
+  const bodyAt = index * NATIVE_CHAT_QUESTION_STEP_MS
+  return { bodyAt, enterAt: bodyAt + NATIVE_CHAT_SUBMIT_DELAY_MS }
+}
+
 /**
  * Send a native-chat message through the verified runtime pty path: framed body
  * first, then a separate delayed Enter. `sendRuntimePtyInput` branches local
@@ -30,4 +58,33 @@ export function sendNativeChatMessage(
   setTimeout(() => {
     sendRuntimePtyInput(settings, ptyId, NATIVE_CHAT_SUBMIT)
   }, NATIVE_CHAT_SUBMIT_DELAY_MS)
+}
+
+/**
+ * Send an AskUserQuestion answer that may span multiple questions. Each line is
+ * one question's answer (exactly how `formatAskAnswer` builds it). A single line
+ * is just `sendNativeChatMessage` (no behavior change). For multiple lines we
+ * write each question's framed body then its Enter as a per-question sequence,
+ * paced by `NATIVE_CHAT_QUESTION_STEP_MS` so each Enter lands on its own
+ * rendered question and the LAST Enter submits — exactly N Enters for N lines,
+ * never a trailing one.
+ */
+export function sendNativeChatAnswer(
+  settings: ReturnType<typeof getSettingsForAgentTabRuntimeOwner>,
+  ptyId: string,
+  lines: string[]
+): void {
+  if (lines.length <= 1) {
+    sendNativeChatMessage(settings, ptyId, lines[0] ?? '')
+    return
+  }
+  lines.forEach((line, index) => {
+    const { bodyAt, enterAt } = nativeChatQuestionOffsets(index)
+    setTimeout(() => {
+      sendRuntimePtyInput(settings, ptyId, buildNativeChatPasteBytes(line))
+    }, bodyAt)
+    setTimeout(() => {
+      sendRuntimePtyInput(settings, ptyId, NATIVE_CHAT_SUBMIT)
+    }, enterAt)
+  })
 }

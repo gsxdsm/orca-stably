@@ -9,7 +9,11 @@ vi.mock('@/runtime/runtime-terminal-inspection', () => ({
 
 import {
   sendNativeChatMessage,
-  NATIVE_CHAT_SUBMIT_DELAY_MS
+  sendNativeChatAnswer,
+  nativeChatQuestionOffsets,
+  NATIVE_CHAT_SUBMIT_DELAY_MS,
+  NATIVE_CHAT_QUESTION_STEP_MS,
+  NATIVE_CHAT_ADVANCE_BUFFER_MS
 } from './native-chat-runtime-send'
 import { buildNativeChatPasteBytes, NATIVE_CHAT_SUBMIT } from './native-chat-send'
 
@@ -53,5 +57,107 @@ describe('sendNativeChatMessage', () => {
 
   it('matches orca-runtime writeTerminalAction Enter gap (500ms)', () => {
     expect(NATIVE_CHAT_SUBMIT_DELAY_MS).toBe(500)
+  })
+})
+
+describe('nativeChatQuestionOffsets', () => {
+  it('paces each question a full step apart, Enter 500ms after its body', () => {
+    expect(NATIVE_CHAT_QUESTION_STEP_MS).toBe(800)
+    expect(NATIVE_CHAT_ADVANCE_BUFFER_MS).toBe(300)
+    expect(nativeChatQuestionOffsets(0)).toEqual({ bodyAt: 0, enterAt: 500 })
+    expect(nativeChatQuestionOffsets(1)).toEqual({ bodyAt: 800, enterAt: 1300 })
+    expect(nativeChatQuestionOffsets(2)).toEqual({ bodyAt: 1600, enterAt: 2100 })
+  })
+})
+
+describe('sendNativeChatAnswer', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    sendRuntimePtyInput.mockClear()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('single-line answer behaves exactly like sendNativeChatMessage', () => {
+    sendNativeChatAnswer(SETTINGS, PTY, ['only one'])
+    expect(sendRuntimePtyInput).toHaveBeenCalledTimes(1)
+    expect(sendRuntimePtyInput).toHaveBeenCalledWith(
+      SETTINGS,
+      PTY,
+      buildNativeChatPasteBytes('only one')
+    )
+    vi.advanceTimersByTime(NATIVE_CHAT_SUBMIT_DELAY_MS)
+    expect(sendRuntimePtyInput).toHaveBeenCalledTimes(2)
+    expect(sendRuntimePtyInput).toHaveBeenLastCalledWith(SETTINGS, PTY, NATIVE_CHAT_SUBMIT)
+  })
+
+  it('multi-line: 3 bodies + 3 Enters in order, each Enter 500ms after its body, next body only after prior Enter+buffer', () => {
+    const lines = ['answer one', 'answer two', 'answer three']
+    sendNativeChatAnswer(SETTINGS, PTY, lines)
+
+    // Nothing fires synchronously: even question 0's body is scheduled (setTimeout 0).
+    expect(sendRuntimePtyInput).toHaveBeenCalledTimes(0)
+
+    // t=0: question 0 body.
+    vi.advanceTimersByTime(0)
+    expect(sendRuntimePtyInput).toHaveBeenCalledTimes(1)
+    expect(sendRuntimePtyInput).toHaveBeenLastCalledWith(
+      SETTINGS,
+      PTY,
+      buildNativeChatPasteBytes('answer one')
+    )
+
+    // t=500: question 0 Enter (500ms after its body); question 1 body NOT yet.
+    vi.advanceTimersByTime(NATIVE_CHAT_SUBMIT_DELAY_MS)
+    expect(sendRuntimePtyInput).toHaveBeenCalledTimes(2)
+    expect(sendRuntimePtyInput).toHaveBeenLastCalledWith(SETTINGS, PTY, NATIVE_CHAT_SUBMIT)
+
+    // Question 1 body must wait the advance buffer past question 0's Enter.
+    vi.advanceTimersByTime(NATIVE_CHAT_ADVANCE_BUFFER_MS - 1)
+    expect(sendRuntimePtyInput).toHaveBeenCalledTimes(2)
+
+    // t=800: question 1 body.
+    vi.advanceTimersByTime(1)
+    expect(sendRuntimePtyInput).toHaveBeenCalledTimes(3)
+    expect(sendRuntimePtyInput).toHaveBeenLastCalledWith(
+      SETTINGS,
+      PTY,
+      buildNativeChatPasteBytes('answer two')
+    )
+
+    // t=1300: question 1 Enter.
+    vi.advanceTimersByTime(NATIVE_CHAT_SUBMIT_DELAY_MS)
+    expect(sendRuntimePtyInput).toHaveBeenCalledTimes(4)
+    expect(sendRuntimePtyInput).toHaveBeenLastCalledWith(SETTINGS, PTY, NATIVE_CHAT_SUBMIT)
+
+    // t=1600: question 2 body.
+    vi.advanceTimersByTime(NATIVE_CHAT_ADVANCE_BUFFER_MS)
+    expect(sendRuntimePtyInput).toHaveBeenCalledTimes(5)
+    expect(sendRuntimePtyInput).toHaveBeenLastCalledWith(
+      SETTINGS,
+      PTY,
+      buildNativeChatPasteBytes('answer three')
+    )
+
+    // t=2100: question 2 Enter — the final submit. No trailing writes after.
+    vi.advanceTimersByTime(NATIVE_CHAT_SUBMIT_DELAY_MS)
+    expect(sendRuntimePtyInput).toHaveBeenCalledTimes(6)
+    expect(sendRuntimePtyInput).toHaveBeenLastCalledWith(SETTINGS, PTY, NATIVE_CHAT_SUBMIT)
+
+    // Exactly 3 bodies + 3 Enters; running all timers adds nothing more.
+    vi.runAllTimers()
+    expect(sendRuntimePtyInput).toHaveBeenCalledTimes(6)
+
+    // Verify body/Enter ordering across the whole sequence.
+    const calls = sendRuntimePtyInput.mock.calls.map((c) => c[2])
+    expect(calls).toEqual([
+      buildNativeChatPasteBytes('answer one'),
+      NATIVE_CHAT_SUBMIT,
+      buildNativeChatPasteBytes('answer two'),
+      NATIVE_CHAT_SUBMIT,
+      buildNativeChatPasteBytes('answer three'),
+      NATIVE_CHAT_SUBMIT
+    ])
   })
 })
