@@ -17444,7 +17444,12 @@ export class OrcaRuntimeService {
       // the OSC-title-only status and never sees interactivePrompt (the question
       // card never renders).
       const hasLiveAgentSignal =
-        tab.agentStatus?.interactivePrompt != null || tab.agentStatus?.toolName != null
+        tab.agentStatus?.interactivePrompt != null ||
+        tab.agentStatus?.toolName != null ||
+        // A detected agent type keeps the rich status so the mobile/web client can
+        // still offer the native-chat toggle even when the agent is idle and the
+        // terminal title shows a task/branch name rather than the agent.
+        tab.agentStatus?.agentType != null
       const agentStatus =
         tab.agentStatus &&
         (liveTitleEvidence === null ||
