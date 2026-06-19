@@ -14,6 +14,10 @@ import { NativeChatMessageList } from './NativeChatMessageList'
 import { NativeChatComposer } from './NativeChatComposer'
 import { formatAgentTypeLabel } from '@/lib/agent-status'
 import { useNativeChatFontScale } from './use-native-chat-font-scale'
+import { parseInteractivePrompt } from './native-chat-interactive-prompt'
+import { NativeChatQuestionCard } from './NativeChatQuestionCard'
+import { NativeChatApprovalCard } from './NativeChatApprovalCard'
+import { useNativeChatInteractiveSend } from './use-native-chat-interactive-send'
 
 export type NativeChatViewProps = {
   /** The terminal tab hosting the agent. paneKey is `${tabId}:${leafId}`. */
@@ -158,12 +162,51 @@ function NativeChatResolvedView({
           />
         )}
       </div>
+      {/* Live interactive cards (question / approval) render just above the
+          composer while the agent's interactivePrompt is present (mobile parity). */}
+      <NativeChatInteractiveCard
+        paneKey={paneKey}
+        terminalTabId={terminalTabId}
+        canSend={canSend}
+      />
       {/* canSend reflects the mobile presence-lock: when a mobile client holds
           the pty, the composer shows its guarded state instead of racing the
           mobile driver (R8). */}
       <NativeChatComposer terminalTabId={terminalTabId} agent={agent} canSend={canSend} />
     </div>
   )
+}
+
+/**
+ * Render the live interactive card for the pane while the agent's
+ * `interactivePrompt` is present: a question wizard (precedence) or a tool
+ * approval. Cleared by the host once the agent moves on, so it disappears
+ * automatically. Sends through the composer's verified runtime path (R8/R6):
+ * answers as bracketed-paste + Enter; cancel/deny as ESC. Guarded by `canSend`
+ * so a mobile presence-lock blocks desktop sends the same way it guards xterm.
+ */
+function NativeChatInteractiveCard({
+  paneKey,
+  terminalTabId,
+  canSend
+}: {
+  paneKey: string
+  terminalTabId: string
+  canSend: boolean
+}): React.JSX.Element | null {
+  const interactivePrompt = useAppStore(
+    (s) => s.agentStatusByPaneKey[paneKey]?.interactivePrompt ?? null
+  )
+  const { sendAnswer, sendRaw, cancel } = useNativeChatInteractiveSend(terminalTabId)
+
+  const card = useMemo(() => parseInteractivePrompt(interactivePrompt), [interactivePrompt])
+  if (!card || !canSend) {
+    return null
+  }
+  if (card.kind === 'question') {
+    return <NativeChatQuestionCard prompt={card.prompt} onAnswer={sendAnswer} onCancel={cancel} />
+  }
+  return <NativeChatApprovalCard approval={card.approval} onChoose={sendRaw} />
 }
 
 function NativeChatHeader({
