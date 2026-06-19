@@ -436,6 +436,16 @@ async function callWebRuntimeSessionTabMethod(
     return false
   }
 
+  if (method === 'session.tabs.close') {
+    // Why: the caller prunes the local mirror synchronously, but the precise
+    // host id resolution below sits behind an async import. A host snapshot
+    // published in that gap would re-materialize the just-closed tab before any
+    // intent exists to suppress it (the immediate "flash back"). Record a
+    // best-effort intent synchronously now — the resolved-id record below then
+    // covers any id the static decode couldn't recover.
+    recordWebSessionCloseIntent(args.worktreeId, toHostSessionTabId(args.tabId), Date.now())
+  }
+
   try {
     const { resolveHostSessionTabIdForWebSessionTab } = await import('./web-session-tabs-sync')
     const state = useAppStore.getState()

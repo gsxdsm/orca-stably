@@ -662,7 +662,14 @@ function buildMirroredAgentStatusPatch(
   }
 }
 
-function buildTerminalUnifiedTab(tab: TerminalTab, groupId: string): Tab {
+function buildTerminalUnifiedTab(
+  tab: TerminalTab,
+  groupId: string,
+  // Why: viewMode (terminal vs native chat) is a client-local view preference
+  // the host doesn't track; preserve it across host pushes so toggling to chat
+  // doesn't immediately revert when the next session-graph sync rebuilds tabs.
+  viewMode?: Tab['viewMode']
+): Tab {
   return {
     id: tab.id,
     entityId: tab.id,
@@ -677,7 +684,8 @@ function buildTerminalUnifiedTab(tab: TerminalTab, groupId: string): Tab {
     sortOrder: tab.sortOrder,
     createdAt: tab.createdAt,
     isPreview: false,
-    isPinned: tab.isPinned === true
+    isPinned: tab.isPinned === true,
+    ...(viewMode ? { viewMode } : {})
   }
 }
 
@@ -1731,8 +1739,17 @@ export function applyWebSessionTabsSnapshot(
     }
     return !mirroredTerminalIds.has(tab.entityId) && !mirroredTerminalIds.has(tab.id)
   })
+  const existingViewModeByTabId = new Map(
+    currentUnifiedTabs
+      .filter((tab) => tab.contentType === 'terminal' && tab.viewMode)
+      .map((tab) => [tab.id, tab.viewMode] as const)
+  )
   const mirroredTerminalUnifiedTabs = mirroredTerminalTabs.map((entry) =>
-    buildTerminalUnifiedTab(entry.tab, hostGroupIdByTabId.get(entry.hostTabId) ?? targetGroupId)
+    buildTerminalUnifiedTab(
+      entry.tab,
+      hostGroupIdByTabId.get(entry.hostTabId) ?? targetGroupId,
+      existingViewModeByTabId.get(entry.tab.id)
+    )
   )
   const mirroredBrowserUnifiedTabs = mirroredBrowserTabs.map((entry) => entry.unifiedTab)
   const mirroredEditorUnifiedTabs = mirroredEditorTabs.map((entry) => entry.unifiedTab)
