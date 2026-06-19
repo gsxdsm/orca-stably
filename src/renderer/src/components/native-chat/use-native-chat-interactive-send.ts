@@ -39,17 +39,14 @@ export function useNativeChatInteractiveSend(terminalTabId: string): NativeChatI
 
   const sendAnswer = useCallback(
     (text: string) => {
-      // A structured AskUserQuestion answers one question at a time: each line
-      // (question) must be submitted with its own Enter so the prompt advances.
-      // Sending all lines as one paste only answered the first question, so send
-      // each line separately and spaced out, with its own submit.
-      const lines = text
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0)
-      lines.forEach((line, i) => {
-        setTimeout(() => sendRaw(buildNativeChatSendBytes(line)), i * 350)
-      })
+      if (text.trim() === '') {
+        return
+      }
+      // Send as ONE bracketed paste + a single Enter. Splitting into per-line
+      // sends with their own Enter leaked the later answers as new prompts: the
+      // structured prompt resolves on the first submit, so any extra Enter lands
+      // as a fresh message.
+      sendRaw(buildNativeChatSendBytes(text))
     },
     [sendRaw]
   )
