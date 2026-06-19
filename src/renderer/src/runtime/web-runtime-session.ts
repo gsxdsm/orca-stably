@@ -21,6 +21,7 @@ import { parseRemoteRuntimePtyId } from './runtime-terminal-stream'
 import { toRuntimeWorktreeSelector } from './runtime-worktree-selector'
 import { recordWebSessionFocusIntent } from './web-session-focus-intent'
 import { recordWebSessionCloseIntent } from './web-session-close-intent'
+import { recordWebSessionReorderIntent } from './web-session-reorder-intent'
 import { isWebTerminalSurfaceTabId, toHostSessionTabId } from './web-terminal-surface-id'
 
 export {
@@ -339,6 +340,14 @@ export async function moveWebRuntimeSessionTab(
     null
   if (!environmentId || !isWebRuntimeSessionActive(environmentId)) {
     return false
+  }
+
+  if (args.kind === 'reorder') {
+    // Why: record the intended LOCAL order synchronously, before the async host
+    // resolution below, so an in-flight pre-move snapshot carrying the old order
+    // can't snap the tab back. The reconcile applies this until the host echoes
+    // the new order. (tabOrder here is already local unified tab ids.)
+    recordWebSessionReorderIntent(args.worktreeId, args.targetGroupId, args.tabOrder, Date.now())
   }
 
   try {

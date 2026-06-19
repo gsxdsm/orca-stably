@@ -1,7 +1,14 @@
 /* eslint-disable max-lines -- Why: the web preload adapter is the browser-side
    replacement for Electron preload, so the compatibility surface is necessarily
    centralized at this boundary. */
-import type { PreloadApi, PreflightStatus, RefreshAgentsResult } from '../../../preload/api-types'
+import type {
+  PreloadApi,
+  PreflightStatus,
+  RefreshAgentsResult,
+  NativeChatApi,
+  NativeChatReadSessionResult,
+  NativeChatAppendedMessages
+} from '../../../preload/api-types'
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import type {
   ComputerUsePermissionSetupResult,
@@ -591,6 +598,7 @@ function createWebPreloadApi(): Partial<PreloadApi> {
       }
     },
     runtime: createRuntimeApi(),
+    nativeChat: createNativeChatApi(),
     runtimeEnvironments: createRuntimeEnvironmentsApi(),
     repos: createReposApi(),
     worktrees: createWorktreesApi(),
@@ -972,6 +980,52 @@ function createWebKeybindingsApi(): WebKeybindingsApi {
       return () => {
         webKeybindingListeners.delete(callback)
         window.removeEventListener('storage', onStorage)
+      }
+    }
+  }
+}
+
+// Why: the desktop reads native-chat transcripts over IPC; the web client has
+// no IPC, so route readSession/subscribe through the runtime RPC (the same
+// methods the mobile app uses). Without this, window.api.nativeChat was
+// undefined on web and the chat view showed no messages.
+function createNativeChatApi(): NativeChatApi {
+  return {
+    readSession: (agent, sessionId) =>
+      callRuntimeResult<NativeChatReadSessionResult>('nativeChat.readSession', { agent, sessionId }),
+    subscribe: (args, onAppended) => {
+      let handle: { unsubscribe: () => void } | null = null
+      let cancelled = false
+      void getClientForEnvironment(requireActiveEnvironment())
+        .subscribe(
+          'nativeChat.subscribe',
+          { agent: args.agent, sessionId: args.sessionId },
+          {
+            onResponse: (response) => {
+              if (cancelled || !response.ok) {
+                return
+              }
+              const result = response.result as {
+                type?: string
+                messages?: NativeChatAppendedMessages
+              }
+              if (result?.type === 'appended' && Array.isArray(result.messages)) {
+                onAppended(result.messages)
+              }
+            }
+          }
+        )
+        .then((h) => {
+          if (cancelled) {
+            h.unsubscribe()
+          } else {
+            handle = h
+          }
+        })
+        .catch(() => {})
+      return () => {
+        cancelled = true
+        handle?.unsubscribe()
       }
     }
   }

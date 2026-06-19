@@ -51,6 +51,10 @@ import {
   reconcileWebSessionCloseIntents
 } from './web-session-close-intent'
 import {
+  clearWebSessionReorderIntentsForWorktree,
+  resolveWebSessionReorderedOrder
+} from './web-session-reorder-intent'
+import {
   beginWebRuntimeWakeTerminalRespawn,
   clearAllWebRuntimeWakeTerminalRespawn,
   clearWebRuntimeWakeTerminalRespawnForWorktree,
@@ -284,6 +288,7 @@ function clearWebSessionTabsTrackingForWorktree(environmentId: string, worktreeI
   latestSessionTabsSnapshotByWorktree.delete(key)
   lastHostTerminalTabCountByWorktree.delete(key)
   clearWebRuntimeWakeTerminalRespawnForWorktree(worktreeId)
+  clearWebSessionReorderIntentsForWorktree(worktreeId)
   const keyPrefix = `${environmentId}:${worktreeId}:`
   for (const key of hostSessionTabIdByLocalKey.keys()) {
     if (key.startsWith(keyPrefix)) {
@@ -1112,6 +1117,7 @@ function buildMirroredHostGroups({
   hostToLocalTabId,
   mirroredUnifiedIds,
   nextActiveUnifiedTabId,
+  now,
   validUnifiedTabIds,
   worktreeId
 }: {
@@ -1120,6 +1126,7 @@ function buildMirroredHostGroups({
   hostToLocalTabId: ReadonlyMap<string, string>
   mirroredUnifiedIds: ReadonlySet<string>
   nextActiveUnifiedTabId: string | null
+  now: number
   validUnifiedTabIds: ReadonlySet<string>
   worktreeId: string
 }): TabGroup[] | null {
@@ -1142,10 +1149,13 @@ function buildMirroredHostGroups({
     const localHostOrder = hostGroup.tabOrder
       .map((tabId) => hostToLocalTabId.get(tabId))
       .filter((tabId): tabId is string => tabId !== undefined && validUnifiedTabIds.has(tabId))
-    const tabOrder = [
+    const hostTabOrder = [
       ...(existing?.tabOrder.filter((tabId) => !localHostOrder.includes(tabId)) ?? []),
       ...localHostOrder
     ]
+    // Why: a pending client reorder for this group wins over a stale pre-move
+    // host order until the host echoes the move (or membership changes).
+    const tabOrder = resolveWebSessionReorderedOrder(worktreeId, hostGroup.id, hostTabOrder, now)
     if (tabOrder.length === 0) {
       continue
     }
@@ -1551,12 +1561,13 @@ export function applyWebSessionTabsSnapshot(
   // pre-close snapshot can still list the tab and flash it back. Drop any tab
   // the client is closing until the host confirms removal; reconcile the intents
   // against the full snapshot first so confirmed (absent) closes clear.
+  // Why: must match the id the close path records as the intent. The close RPC
+  // resolves to the host session tab id (terminal parentTabId; otherwise tab.id)
+  // — keying browser on browserPageId instead never matched, so browser closes
+  // were never suppressed and reconcile cleared the intent on the still-present
+  // snapshot. The host also addresses tabs by session id, not page id.
   const snapshotHostTabId = (tab: RuntimeMobileSessionTabsResult['tabs'][number]): string =>
-    tab.type === 'terminal'
-      ? tab.parentTabId
-      : tab.type === 'browser'
-        ? (tab.browserPageId ?? tab.id)
-        : tab.id
+    tab.type === 'terminal' ? tab.parentTabId : tab.id
   reconcileWebSessionCloseIntents(
     worktreeId,
     new Set(rawSnapshot.tabs.map((tab) => snapshotHostTabId(tab)))
@@ -1900,6 +1911,7 @@ export function applyWebSessionTabsSnapshot(
         hostToLocalTabId,
         mirroredUnifiedIds,
         nextActiveUnifiedTabId,
+        now,
         validUnifiedTabIds,
         worktreeId
       })
