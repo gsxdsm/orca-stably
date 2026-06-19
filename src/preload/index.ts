@@ -402,6 +402,17 @@ document.addEventListener(
 
 // Custom APIs for renderer
 const api = {
+  // Plugin system surface — see registerPluginHandlers (src/main/ipc/plugins.ts).
+  plugins: {
+    list: () => ipcRenderer.invoke('plugins:list'),
+    installLocal: (sourceDir: string) => ipcRenderer.invoke('plugins:install-local', sourceDir),
+    activate: (pluginId: string) => ipcRenderer.invoke('plugins:activate', pluginId),
+    deactivate: (pluginId: string) => ipcRenderer.invoke('plugins:deactivate', pluginId),
+    remove: (pluginId: string) => ipcRenderer.invoke('plugins:remove', pluginId),
+    getOutput: (pluginId: string) => ipcRenderer.invoke('plugins:get-output', pluginId),
+    sendUiMessage: (pluginId: string, message: unknown) =>
+      ipcRenderer.invoke('plugins:ui-message', pluginId, message)
+  },
   app: {
     getIdentity: (): Promise<AppIdentity> => ipcRenderer.invoke('app:getIdentity'),
     getFeatureWallAssetBaseUrl: (): Promise<string> =>
