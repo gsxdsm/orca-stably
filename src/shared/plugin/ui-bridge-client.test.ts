@@ -12,6 +12,8 @@ function fakeWindow(overrides: Record<string, unknown> = {}): Record<string, unk
     },
     // test helper to emit a message
     __emit: (data: unknown) => (listeners.message ?? []).forEach((l) => l({ data })),
+    // test helper: how many 'message' listeners are currently registered
+    __listenerCount: () => (listeners.message ?? []).length,
     ...overrides
   }
 }
@@ -93,24 +95,26 @@ describe('ui-bridge-client request()', () => {
     }
   })
 
-  it('rejects after the timeout and removes its listener (no leak)', async () => {
+  it('rejects after the timeout and actually removes its message listener (no leak)', async () => {
     vi.useFakeTimers()
     try {
-      const removeSpy = vi.fn()
       const post = vi.fn()
-      const win = fakeWindow({ parent: { postMessage: post }, removeEventListener: removeSpy })
+      const win = fakeWindow({ parent: { postMessage: post } })
       const bridge = createUiBridge(win)
       const rejected = bridge.request({ method: 'x' }, { timeoutMs: 500 }).catch((e: Error) => e)
+      expect((win.__listenerCount as () => number)()).toBe(1)
       vi.advanceTimersByTime(500)
       expect(await rejected).toBeInstanceOf(Error)
-      expect(removeSpy).toHaveBeenCalled()
+      // The listener is genuinely unregistered, not merely neutralized by a flag.
+      expect((win.__listenerCount as () => number)()).toBe(0)
     } finally {
       vi.useRealTimers()
     }
   })
 
-  it('clears the timeout on resolve so no late rejection fires', async () => {
+  it('clears the timeout on resolve so the timer callback never fires reject', async () => {
     vi.useFakeTimers()
+    const clearSpy = vi.spyOn(globalThis, 'clearTimeout')
     try {
       const post = vi.fn()
       const win = fakeWindow({ parent: { postMessage: post } })
@@ -118,9 +122,13 @@ describe('ui-bridge-client request()', () => {
       const promise = bridge.request({ method: 'x' }, { timeoutMs: 1000 })
       ;(win.__emit as (d: unknown) => void)({ reqId: postedReqId(post), ok: true })
       await expect(promise).resolves.toMatchObject({ ok: true })
-      // Advancing past the timeout must not throw an unhandled late rejection.
+      // The resolve path cleared the timer (not just relied on the settled guard),
+      // and the listener was removed.
+      expect(clearSpy).toHaveBeenCalled()
+      expect((win.__listenerCount as () => number)()).toBe(0)
       vi.advanceTimersByTime(2000)
     } finally {
+      clearSpy.mockRestore()
       vi.useRealTimers()
     }
   })

@@ -268,4 +268,23 @@ describe('relay plugin handlers', () => {
     expect(result.ok).toBe(true)
     expect(hosts).toHaveLength(0)
   })
+
+  it('deactivate by a non-subscriber leaves another client’s child running', async () => {
+    installFixture()
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(1))
+    // Client 2 never activated this plugin; its deactivate must not stop client 1's child.
+    await handlers.get('plugin.deactivate')!({ pluginId: 'acme.foo' }, ctx(2))
+    expect(hosts[0].stopped).toBe(false)
+  })
+
+  it('detaching a client releases every plugin it had open', async () => {
+    installFixture('acme.foo')
+    installFixture('acme.bar')
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(1))
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.bar' }, ctx(1))
+    expect(hosts).toHaveLength(2)
+    detachListeners.forEach((fn) => fn(1))
+    await Promise.resolve()
+    expect(hosts.every((h) => h.stopped)).toBe(true)
+  })
 })

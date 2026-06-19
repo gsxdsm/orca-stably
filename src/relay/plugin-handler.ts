@@ -96,6 +96,8 @@ export function registerRelayPluginHandlers(
   // Drop one client's subscription; stop the shared backend child only when the
   // last subscriber for that plugin leaves (refcount). A missing clientId means
   // a full stop (clears the set and deactivates regardless).
+  // Note: a crash-restart that fires between the last subscriber dropping and the
+  // deactivate is a narrow message-loss window, not an orphan (bounded restarts).
   const releasePlugin = async (pluginId: string, clientId: number | undefined): Promise<void> => {
     const set = subscribers.get(pluginId)
     if (clientId !== undefined && set) {
@@ -113,7 +115,11 @@ export function registerRelayPluginHandlers(
   dispatcher.onClientDetached((clientId) => {
     for (const [pluginId, set] of subscribers) {
       if (set.has(clientId)) {
-        void releasePlugin(pluginId, clientId)
+        // Fire-and-forget: surface a failed deactivate rather than dropping it
+        // as an unhandled rejection (the relay only logs those).
+        releasePlugin(pluginId, clientId).catch((error: unknown) => {
+          process.stderr.write(`[relay] plugin '${pluginId}' release failed: ${String(error)}\n`)
+        })
       }
     }
   })

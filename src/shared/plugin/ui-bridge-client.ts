@@ -72,19 +72,10 @@ export function createUiBridge(win: ReactNativeWebViewWindow): UiBridge {
     const reqId = `ui-${++reqCounter}`
     const timeoutMs = options?.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS
     return new Promise<unknown>((resolve, reject) => {
+      // Declare finish before off/timer so neither callback can reference it in a
+      // temporal dead zone even if a substrate ever delivers a message synchronously.
       let settled = false
-      const off = onMessage((incoming) => {
-        if (
-          typeof incoming === 'object' &&
-          incoming !== null &&
-          (incoming as { reqId?: unknown }).reqId === reqId
-        ) {
-          finish(() => resolve(incoming))
-        }
-      })
-      const timer = setTimeout(() => {
-        finish(() => reject(new Error(`plugin bridge request '${reqId}' timed out`)))
-      }, timeoutMs)
+      let timer: ReturnType<typeof setTimeout>
       const finish = (settle: () => void): void => {
         if (settled) {
           return
@@ -94,6 +85,18 @@ export function createUiBridge(win: ReactNativeWebViewWindow): UiBridge {
         off()
         settle()
       }
+      const off = onMessage((incoming) => {
+        if (
+          typeof incoming === 'object' &&
+          incoming !== null &&
+          (incoming as { reqId?: unknown }).reqId === reqId
+        ) {
+          finish(() => resolve(incoming))
+        }
+      })
+      timer = setTimeout(() => {
+        finish(() => reject(new Error(`plugin bridge request '${reqId}' timed out`)))
+      }, timeoutMs)
       postMessage({ ...message, reqId })
     })
   }

@@ -368,6 +368,9 @@ async function main(): Promise<void> {
     cleanupOwnedSocket()
     process.exit(code)
   }
+  // Expose cleanup to the module-level main().catch safety net (REL-02), so a
+  // late-startup rejection that escapes the in-main guards still stops children.
+  relayCleanupOnFatal = cleanupOwnedSocket
 
   // Why: After an uncaught exception Node's internal state may be corrupted
   // (e.g. half-written buffers, broken invariants). Logging and continuing
@@ -375,8 +378,7 @@ async function main(): Promise<void> {
   // and then exit so the client can detect the disconnect and reconnect cleanly.
   process.on('uncaughtException', (err) => {
     process.stderr.write(`[relay] Uncaught exception: ${err.message}\n${err.stack}\n`)
-    cleanupOwnedSocket()
-    process.exit(1)
+    exitWithCleanup(1)
   })
 
   process.on('unhandledRejection', (reason) => {
@@ -989,8 +991,7 @@ async function main(): Promise<void> {
     if (socketServer && ownsCurrentSocketPath()) {
       socketServer.close()
     }
-    cleanupOwnedSocket()
-    process.exit(0)
+    exitWithCleanup(0)
   }
 
   process.on('SIGTERM', shutdown)
@@ -1026,9 +1027,14 @@ function cleanupSocket(sockPath: string): void {
   }
 }
 
+// Assigned by main() once cleanup is wired, so a late-startup rejection that
+// escapes main()'s own guards still stops plugin backend children before exit.
+let relayCleanupOnFatal: (() => void) | null = null
+
 void main().catch((err) => {
   process.stderr.write(
     `[relay] Fatal startup error: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`
   )
+  relayCleanupOnFatal?.()
   process.exit(1)
 })
