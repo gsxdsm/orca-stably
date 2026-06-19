@@ -361,6 +361,14 @@ async function main(): Promise<void> {
     ownedSocketIdentity = null
   }
 
+  // Fatal exit that first runs socket + plugin-backend cleanup. Use on exit paths
+  // that run after the plugin handlers register, so a backend child started in
+  // that window isn't orphaned (a bare process.exit would skip cleanup).
+  const exitWithCleanup = (code: number): never => {
+    cleanupOwnedSocket()
+    process.exit(code)
+  }
+
   // Why: After an uncaught exception Node's internal state may be corrupted
   // (e.g. half-written buffers, broken invariants). Logging and continuing
   // would risk silent data corruption or zombie PTYs. We log for diagnostics
@@ -894,7 +902,8 @@ async function main(): Promise<void> {
     // cannot poison the active relay's hook coordinates.
     hookServer.publishEndpointFile()
   } catch {
-    process.exit(1)
+    // Runs after registerRelayPluginHandlers — clean up plugin children too.
+    exitWithCleanup(1)
   }
 
   // ── stdin/stdout transport (initial connection) ─────────────────────

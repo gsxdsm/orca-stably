@@ -15,7 +15,15 @@
 export type UiBridge = {
   postMessage(message: unknown): void
   onMessage(handler: (message: unknown) => void): () => void
+  // Correlated request/response: stamps a reqId, resolves on the matching
+  // response, and rejects after timeoutMs so a dropped connection can't leave a
+  // pending call hanging forever. Built on postMessage/onMessage.
+  request(message: object, options?: { timeoutMs?: number }): Promise<unknown>
 }
+
+// Default ceiling for a bridge round-trip; mirrors the mobile rpc-client request
+// timeout so a stalled relay surfaces as a rejection in a comparable window.
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000
 
 type ReactNativeWebViewWindow = {
   ReactNativeWebView?: { postMessage(data: string): void }
@@ -59,5 +67,36 @@ export function createUiBridge(win: ReactNativeWebViewWindow): UiBridge {
     return () => win.removeEventListener?.('message', listener)
   }
 
-  return { postMessage, onMessage }
+  let reqCounter = 0
+  const request = (message: object, options?: { timeoutMs?: number }): Promise<unknown> => {
+    const reqId = `ui-${++reqCounter}`
+    const timeoutMs = options?.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS
+    return new Promise<unknown>((resolve, reject) => {
+      let settled = false
+      const off = onMessage((incoming) => {
+        if (
+          typeof incoming === 'object' &&
+          incoming !== null &&
+          (incoming as { reqId?: unknown }).reqId === reqId
+        ) {
+          finish(() => resolve(incoming))
+        }
+      })
+      const timer = setTimeout(() => {
+        finish(() => reject(new Error(`plugin bridge request '${reqId}' timed out`)))
+      }, timeoutMs)
+      const finish = (settle: () => void): void => {
+        if (settled) {
+          return
+        }
+        settled = true
+        clearTimeout(timer)
+        off()
+        settle()
+      }
+      postMessage({ ...message, reqId })
+    })
+  }
+
+  return { postMessage, onMessage, request }
 }

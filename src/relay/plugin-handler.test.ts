@@ -219,7 +219,7 @@ describe('relay plugin handlers', () => {
     expect(notifications).toHaveLength(0)
   })
 
-  it('plugin.deactivate stops the backend', async () => {
+  it('plugin.deactivate stops the backend for the only subscriber', async () => {
     installFixture()
     await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(1))
     const result = (await handlers.get('plugin.deactivate')!({ pluginId: 'acme.foo' }, ctx(1))) as {
@@ -227,5 +227,45 @@ describe('relay plugin handlers', () => {
     }
     expect(result.ok).toBe(true)
     expect(hosts[0].stopped).toBe(true)
+  })
+
+  it('keeps the shared backend running until the last subscriber deactivates', async () => {
+    installFixture()
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(1))
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(2))
+    // One shared child for both clients.
+    expect(hosts).toHaveLength(1)
+    await handlers.get('plugin.deactivate')!({ pluginId: 'acme.foo' }, ctx(1))
+    expect(hosts[0].stopped).toBe(false)
+    await handlers.get('plugin.deactivate')!({ pluginId: 'acme.foo' }, ctx(2))
+    expect(hosts[0].stopped).toBe(true)
+  })
+
+  it('stops the child only when the last subscriber detaches', async () => {
+    installFixture()
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(1))
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(2))
+    detachListeners.forEach((fn) => fn(1))
+    await Promise.resolve()
+    expect(hosts[0].stopped).toBe(false)
+    detachListeners.forEach((fn) => fn(2))
+    await Promise.resolve()
+    expect(hosts[0].stopped).toBe(true)
+  })
+
+  it('plugin.deactivate with no clientId fully stops the backend', async () => {
+    installFixture()
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(1))
+    await handlers.get('plugin.deactivate')!({ pluginId: 'acme.foo' }, {})
+    expect(hosts[0].stopped).toBe(true)
+  })
+
+  it('plugin.deactivate on a never-activated plugin is a no-op success', async () => {
+    installFixture()
+    const result = (await handlers.get('plugin.deactivate')!({ pluginId: 'acme.foo' }, ctx(1))) as {
+      ok: boolean
+    }
+    expect(result.ok).toBe(true)
+    expect(hosts).toHaveLength(0)
   })
 })

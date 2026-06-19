@@ -76,11 +76,6 @@ export function registerRelayPluginHandlers(
     }
     set.add(clientId)
   }
-  dispatcher.onClientDetached((clientId) => {
-    for (const set of subscribers.values()) {
-      set.delete(clientId)
-    }
-  })
 
   const { runtime } = createRelayPluginRuntime({
     pluginsDir: config.pluginsDir,
@@ -96,6 +91,31 @@ export function registerRelayPluginHandlers(
       }
     },
     hostFactory: config.hostFactory
+  })
+
+  // Drop one client's subscription; stop the shared backend child only when the
+  // last subscriber for that plugin leaves (refcount). A missing clientId means
+  // a full stop (clears the set and deactivates regardless).
+  const releasePlugin = async (pluginId: string, clientId: number | undefined): Promise<void> => {
+    const set = subscribers.get(pluginId)
+    if (clientId !== undefined && set) {
+      set.delete(clientId)
+      if (set.size > 0) {
+        return
+      }
+    }
+    subscribers.delete(pluginId)
+    await runtime.deactivate(pluginId)
+  }
+
+  // A dropped client releases every plugin it had open. releasePlugin only ever
+  // deletes the current pluginId key, which Map for-of tolerates.
+  dispatcher.onClientDetached((clientId) => {
+    for (const [pluginId, set] of subscribers) {
+      if (set.has(clientId)) {
+        void releasePlugin(pluginId, clientId)
+      }
+    }
   })
 
   dispatcher.onRequest('plugin.list', async () => {
@@ -139,13 +159,13 @@ export function registerRelayPluginHandlers(
   })
 
   // Stop the backend child.
-  dispatcher.onRequest('plugin.deactivate', async (params) => {
+  dispatcher.onRequest('plugin.deactivate', async (params, context) => {
     const pluginId = String(params.pluginId ?? '')
     if (!isSafePluginId(pluginId)) {
       return { ok: false, error: 'invalid_params' }
     }
-    await runtime.deactivate(pluginId)
-    subscribers.delete(pluginId)
+    // Refcounted: stops the child only when this was the last subscriber.
+    await releasePlugin(pluginId, context.clientId)
     return { ok: true }
   })
 
