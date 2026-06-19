@@ -16,9 +16,20 @@ import { app, clipboard, shell } from 'electron'
 import { PluginManager } from './plugin-manager'
 import { PluginRuntime } from './plugin-runtime'
 import { registerPluginAssetProtocol } from './plugin-asset-protocol'
+import { readManifestRaw } from './plugin-discovery'
+import { validatePluginManifest } from '../../shared/plugin/manifest-validate'
 import type { HostCommand, WorkspaceSnapshot } from '../../shared/plugin/api-contract'
-import type { PluginStateEntry } from './plugin-store'
 import type { OutputLine } from './plugin-output-buffer'
+
+// What the renderer needs to render a plugin's activity-bar tab + list row.
+export type RendererPluginEntry = {
+  id: string
+  version: string
+  active: boolean
+  title: string
+  // Lucide icon name from the manifest (falls back to a default in the UI).
+  icon: string
+}
 
 export type WorkspaceSnapshotProvider = () => WorkspaceSnapshot | Promise<WorkspaceSnapshot>
 
@@ -73,8 +84,20 @@ export class PluginSystem {
     registerPluginAssetProtocol(this.pluginsDir, (id) => this.runtime.isRunning(id))
   }
 
-  list(): PluginStateEntry[] {
-    return this.manager.list()
+  // Enrich each installed plugin's state with its manifest title/icon so the
+  // renderer can build activity-bar tabs without a second round-trip.
+  list(): RendererPluginEntry[] {
+    return this.manager.list().map((entry) => {
+      const validated = validatePluginManifest(readManifestRaw(join(this.pluginsDir, entry.id)))
+      const sidebar = validated.ok ? validated.manifest.contributes.sidebar : undefined
+      return {
+        id: entry.id,
+        version: entry.version,
+        active: entry.active,
+        title: sidebar?.title ?? entry.id,
+        icon: sidebar?.icon ?? 'Plug'
+      }
+    })
   }
 
   getOutput(pluginId: string): OutputLine[] {
