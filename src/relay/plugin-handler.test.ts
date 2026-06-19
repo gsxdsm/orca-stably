@@ -3,6 +3,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { registerRelayPluginHandlers, type RelayDispatcherLike } from './plugin-handler'
+import type { PluginHostConfig } from '../main/plugin/plugin-host-process'
+import type { PluginHostLike } from '../main/plugin/plugin-runtime'
 
 function manifest(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -17,31 +19,56 @@ function manifest(overrides: Record<string, unknown> = {}): Record<string, unkno
   }
 }
 
+type Handler = (params: Record<string, unknown>, ctx: unknown) => Promise<unknown>
+type FakeHost = PluginHostLike & { config: PluginHostConfig; posted: unknown[] }
+
 let tmp: string
-let handlers: Map<string, (params: Record<string, unknown>, ctx: unknown) => Promise<unknown>>
+let handlers: Map<string, Handler>
+let notifications: { method: string; params?: Record<string, unknown> }[]
+let hosts: FakeHost[]
 
 function fakeDispatcher(): RelayDispatcherLike {
   handlers = new Map()
-  return { onRequest: (method, handler) => handlers.set(method, handler) }
+  notifications = []
+  return {
+    onRequest: (method, handler) => handlers.set(method, handler),
+    notify: (method, params) => notifications.push({ method, params })
+  }
 }
 
-function installFixture(): void {
-  const dir = join(tmp, 'acme.foo')
+function fakeHostFactory(config: PluginHostConfig): FakeHost {
+  const host: FakeHost = {
+    config,
+    posted: [],
+    start: () => Promise.resolve(),
+    stop: () => Promise.resolve(),
+    isRunning: () => true,
+    postUi: (message) => host.posted.push(message)
+  }
+  hosts.push(host)
+  return host
+}
+
+function installFixture(id = 'acme.foo'): void {
+  const dir = join(tmp, id)
   mkdirSync(dir, { recursive: true })
-  writeFileSync(join(dir, 'plugin.json'), JSON.stringify(manifest()))
+  writeFileSync(join(dir, 'plugin.json'), JSON.stringify(manifest({ id })))
   writeFileSync(join(dir, 'index.html'), '<!doctype html><body>hi</body>')
 }
 
 beforeEach(() => {
   tmp = mkdtempSync(join(tmpdir(), 'relay-plugin-'))
+  hosts = []
   registerRelayPluginHandlers(fakeDispatcher(), {
     pluginsDir: tmp,
+    stateFilePath: join(tmp, 'state.json'),
     getWorkspaceSnapshot: () => ({
       workspaceName: 'w',
       currentBranch: 'main',
       isDirty: false,
       openFileCount: 1
-    })
+    }),
+    hostFactory: fakeHostFactory
   })
 })
 afterEach(() => {
@@ -72,33 +99,7 @@ describe('relay plugin handlers', () => {
     expect(result.ok).toBe(false)
   })
 
-  it('plugin.bridge gates workspace.getSnapshot and returns a projected snapshot', async () => {
-    installFixture()
-    const ok = (await handlers.get('plugin.bridge')!(
-      { pluginId: 'acme.foo', request: { reqId: 'r1', method: 'workspace.getSnapshot' } },
-      null
-    )) as { ok: boolean; result?: Record<string, unknown> }
-    expect(ok.ok).toBe(true)
-    expect(Object.keys(ok.result ?? {}).sort()).toEqual([
-      'currentBranch',
-      'isDirty',
-      'openFileCount',
-      'workspaceName'
-    ])
-  })
-
-  it('plugin.bridge denies an undeclared capability', async () => {
-    installFixture()
-    const denied = (await handlers.get('plugin.bridge')!(
-      { pluginId: 'acme.foo', request: { reqId: 'r1', method: 'settings.get' } },
-      null
-    )) as { ok: boolean; error?: string }
-    expect(denied.ok).toBe(false)
-    expect(denied.error).toBe('capability_denied')
-  })
-
   it('plugin.getEntry reports entry_missing when the UI file is absent', async () => {
-    // Manifest present, but no index.html written alongside it.
     const dir = join(tmp, 'acme.foo')
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, 'plugin.json'), JSON.stringify(manifest()))
@@ -106,46 +107,72 @@ describe('relay plugin handlers', () => {
       ok: boolean
       error?: string
     }
-    expect(result.ok).toBe(false)
-    expect(result.error).toBe('entry_missing')
+    expect(result).toEqual({ ok: false, error: 'entry_missing' })
   })
 
-  it('plugin.bridge rejects a malformed request with invalid_params', async () => {
+  it('plugin.activate starts the backend for an installed plugin', async () => {
     installFixture()
-    const noRequest = (await handlers.get('plugin.bridge')!({ pluginId: 'acme.foo' }, null)) as {
+    const result = (await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, null)) as {
+      ok: boolean
+    }
+    expect(result.ok).toBe(true)
+    expect(hosts).toHaveLength(1)
+    expect(hosts[0].config.pluginId).toBe('acme.foo')
+  })
+
+  it('plugin.activate rejects an unknown id before forking', async () => {
+    const result = (await handlers.get('plugin.activate')!({ pluginId: 'nope' }, null)) as {
       ok: boolean
       error?: string
     }
-    expect(noRequest).toEqual({ ok: false, error: 'invalid_params' })
-    const badReqId = (await handlers.get('plugin.bridge')!(
-      { pluginId: 'acme.foo', request: { reqId: 42, method: 'workspace.getSnapshot' } },
+    expect(result).toEqual({ ok: false, error: 'unknown_plugin' })
+    expect(hosts).toHaveLength(0)
+  })
+
+  it('plugin.activate rejects a traversal-shaped id before forking', async () => {
+    const result = (await handlers.get('plugin.activate')!({ pluginId: '../evil' }, null)) as {
+      ok: boolean
+    }
+    expect(result.ok).toBe(false)
+    expect(hosts).toHaveLength(0)
+  })
+
+  it('plugin.postUi lazily activates and forwards the message to the child', async () => {
+    installFixture()
+    const result = (await handlers.get('plugin.postUi')!(
+      { pluginId: 'acme.foo', message: { reqId: 'r1', method: 'settings.get' } },
+      null
+    )) as { ok: boolean }
+    expect(result.ok).toBe(true)
+    expect(hosts).toHaveLength(1)
+    expect(hosts[0].posted).toEqual([{ reqId: 'r1', method: 'settings.get' }])
+  })
+
+  it('plugin.postUi rejects an unknown id', async () => {
+    const result = (await handlers.get('plugin.postUi')!(
+      { pluginId: 'nope', message: {} },
       null
     )) as { ok: boolean; error?: string }
-    expect(badReqId).toEqual({ ok: false, error: 'invalid_params' })
+    expect(result).toEqual({ ok: false, error: 'unknown_plugin' })
   })
 
-  it('plugin.bridge returns an unknown_plugin BridgeResponse for an unregistered id', async () => {
-    const result = (await handlers.get('plugin.bridge')!(
-      { pluginId: 'does.not.exist', request: { reqId: 'r1', method: 'workspace.getSnapshot' } },
-      null
-    )) as { reqId: string; ok: boolean; error?: string }
-    expect(result).toEqual({ reqId: 'r1', ok: false, error: 'unknown_plugin' })
+  it('pushes child outbound messages to the client as plugin.uiMessage notifications', async () => {
+    installFixture()
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, null)
+    // Simulate the child posting a bridge response back out.
+    hosts[0].config.onUiMessage!({ reqId: 'r1', ok: true, result: null })
+    expect(notifications).toContainEqual({
+      method: 'plugin.uiMessage',
+      params: { pluginId: 'acme.foo', message: { reqId: 'r1', ok: true, result: null } }
+    })
   })
 
-  it('plugin.bridge returns internal for a gate-granted method the relay cannot fulfil', async () => {
-    // commands.invokeHost is granted by the 'commands' capability, but the relay
-    // has no trusted backend yet, so the deferred path returns 'internal'.
-    const dir = join(tmp, 'acme.cmd')
-    mkdirSync(dir, { recursive: true })
-    writeFileSync(
-      join(dir, 'plugin.json'),
-      JSON.stringify(manifest({ id: 'acme.cmd', capabilities: ['commands'] }))
-    )
-    writeFileSync(join(dir, 'index.html'), '<!doctype html>')
-    const result = (await handlers.get('plugin.bridge')!(
-      { pluginId: 'acme.cmd', request: { reqId: 'r1', method: 'commands.invokeHost' } },
-      null
-    )) as { reqId: string; ok: boolean; error?: string }
-    expect(result).toEqual({ reqId: 'r1', ok: false, error: 'internal' })
+  it('plugin.deactivate stops the backend', async () => {
+    installFixture()
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, null)
+    const result = (await handlers.get('plugin.deactivate')!({ pluginId: 'acme.foo' }, null)) as {
+      ok: boolean
+    }
+    expect(result.ok).toBe(true)
   })
 })

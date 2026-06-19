@@ -346,7 +346,13 @@ async function main(): Promise<void> {
       sameSocketIdentity(currentIdentity, ownedSocketIdentity)
     )
   }
+  // Assigned once the plugin handlers register (below); null-guarded so an early
+  // exception during setup can't hit it in the temporal dead zone.
+  let stopPluginBackends: (() => Promise<void>) | null = null
   const cleanupOwnedSocket = (): void => {
+    // Best-effort: stop any running plugin backend children so they aren't
+    // orphaned when the relay exits.
+    void stopPluginBackends?.()
     if (ownsCurrentSocketPath()) {
       cleanupSocket(sockPath)
     }
@@ -445,12 +451,14 @@ async function main(): Promise<void> {
   void _workspaceSessionHandler
 
   // Right-sidebar plugin system (mobile path): list installed plugins, serve a
-  // plugin's single UI HTML, and route capability-gated bridge calls — all where
-  // the workspace lives. Plugin state lives under $HOME/.orca-relay/plugins.
-  registerRelayPluginHandlers(dispatcher, {
+  // plugin's single UI HTML, run the trusted backend child on the relay host,
+  // and round-trip UI<->backend messages. Plugin state + host-entry live under
+  // $HOME/.orca-relay. Stopped on socket cleanup so children aren't orphaned.
+  const pluginHandlers = registerRelayPluginHandlers(dispatcher, {
     pluginsDir: relayPluginsDir(),
     getWorkspaceSnapshot: defaultRelayWorkspaceSnapshot
   })
+  stopPluginBackends = pluginHandlers.stopAll
 
   dispatcher.onRequest('orca.cli', async (params, context) => {
     return await dispatcher.requestAnyClient('orca.cli', params, {

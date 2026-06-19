@@ -1,49 +1,73 @@
 // NEEDS-RUNTIME-VERIFY: relay-side plugin host (mobile path). Registers plugin.*
 // JSON-RPC methods so the mobile app can list plugins, fetch a plugin's single
-// UI HTML, and route UI->backend bridge calls — all running where the workspace
-// lives (the relay host, possibly remote over SSH). Reuses the SHARED, electron-
-// free capability gate so the relay and the desktop main path enforce identical
-// decisions (KTD3); it does NOT import electron or src/main glue.
+// UI HTML, run the trusted backend child on the relay host, and round-trip
+// UI<->backend messages — all where the workspace lives (the relay host,
+// possibly remote over SSH).
 //
-// v1c scope: list + getEntry + gated workspace snapshot. Running the trusted
-// backend child on the relay host and the host commands (open-url/clipboard,
-// which must round-trip to the device) are the follow-on remote-provisioning
-// work the plan flags as the hardest tier.
+// The backend bridge is asynchronous message-passing (mirroring the desktop):
+// inbound webview messages are posted into the child via plugin.postUi; the
+// child answers with its own capability-gated handler and posts responses back,
+// which we push to the mobile client as plugin.uiMessage notifications. The
+// in-webview ui-bridge-client correlates reqIds, so settings/workspace round
+// trips work without the relay parsing the payload. Host commands
+// (open-url/clipboard) act on the device and are denied by the runtime (device
+// round-trip deferred).
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { discoverPlugins } from '../main/plugin/plugin-discovery'
-import { gateBridgeMethod, projectWorkspaceSnapshot } from '../shared/plugin/capability-gate'
-import type {
-  BridgeRequest,
-  BridgeResponse,
-  WorkspaceSnapshot
-} from '../shared/plugin/api-contract'
-import type { PluginCapability } from '../shared/plugin/manifest'
+import { isSafePluginId } from '../shared/plugin/manifest'
+import type { WorkspaceSnapshot } from '../shared/plugin/api-contract'
+import type { PluginHostFactory } from '../main/plugin/plugin-runtime'
+import { createRelayPluginRuntime } from './relay-plugin-runtime'
 
 export type RelayDispatcherLike = {
   onRequest(
     method: string,
     handler: (params: Record<string, unknown>, context: unknown) => Promise<unknown>
   ): void
+  notify(method: string, params?: Record<string, unknown>): void
 }
 
 export type RelayPluginConfig = {
   pluginsDir: string
   getWorkspaceSnapshot: () => WorkspaceSnapshot | Promise<WorkspaceSnapshot>
+  // Optional overrides (tests / provisioning): the built host-entry path, the
+  // state file, and an injectable host factory to avoid forking real processes.
+  entryPath?: string
+  stateFilePath?: string
+  hostFactory?: PluginHostFactory
 }
 
 type PluginMeta = { id: string; title: string; icon: string; version: string; ui: string }
 
-function capabilitiesFor(pluginsDir: string, pluginId: string): PluginCapability[] | null {
-  const found = discoverPlugins(pluginsDir).valid.find((p) => p.manifest.id === pluginId)
-  return found ? found.manifest.capabilities : null
+// Boundary validation: the id must be structurally safe AND match an installed,
+// validated manifest. Both gates run before any activation/messaging so a client
+// can't name an arbitrary id (closes the confused-deputy concern for the backend
+// path), and so traversal-shaped ids never reach the runtime.
+function isInstalledPlugin(pluginsDir: string, pluginId: string): boolean {
+  if (!isSafePluginId(pluginId)) {
+    return false
+  }
+  return discoverPlugins(pluginsDir).valid.some((p) => p.manifest.id === pluginId)
 }
 
 export function registerRelayPluginHandlers(
   dispatcher: RelayDispatcherLike,
   config: RelayPluginConfig
-): void {
+): { stopAll: () => Promise<void> } {
+  const { runtime } = createRelayPluginRuntime({
+    pluginsDir: config.pluginsDir,
+    entryPath: config.entryPath,
+    stateFilePath: config.stateFilePath,
+    getWorkspaceSnapshot: config.getWorkspaceSnapshot,
+    // Child outbound messages (bridge responses + lifecycle events) are pushed
+    // to the mobile client; the webview's ui-bridge-client matches reqIds.
+    onUiMessage: (pluginId, message) =>
+      dispatcher.notify('plugin.uiMessage', { pluginId, message }),
+    hostFactory: config.hostFactory
+  })
+
   dispatcher.onRequest('plugin.list', async () => {
     const result = discoverPlugins(config.pluginsDir)
     const plugins: PluginMeta[] = result.valid.map((p) => ({
@@ -74,35 +98,41 @@ export function registerRelayPluginHandlers(
     return { ok: true, html: readFileSync(htmlPath, 'utf8') }
   })
 
-  // UI -> backend bridge, capability-gated by the SHARED gate.
-  // SECURITY: pluginId comes from the client and only selects which validated
-  // manifest's declared capabilities gate the call. That is safe today because
-  // the only fulfilled method is workspace.getSnapshot (bounded empty snapshot);
-  // commands/settings return 'internal'. Before the deferred remote tier wires
-  // commands/settings here, bind pluginId to the authenticated relay session
-  // (per api-contract.ts) so a client can't name another plugin's capabilities.
-  dispatcher.onRequest('plugin.bridge', async (params) => {
+  // Start the trusted backend child on the relay host.
+  dispatcher.onRequest('plugin.activate', async (params) => {
     const pluginId = String(params.pluginId ?? '')
-    const request = params.request as BridgeRequest | undefined
-    if (!request || typeof request.reqId !== 'string') {
-      return { ok: false, error: 'invalid_params' } satisfies
-        | BridgeResponse
-        | { ok: false; error: string }
+    if (!isInstalledPlugin(config.pluginsDir, pluginId)) {
+      return { ok: false, error: 'unknown_plugin' }
     }
-    const declared = capabilitiesFor(config.pluginsDir, pluginId)
-    if (!declared) {
-      return { reqId: request.reqId, ok: false, error: 'unknown_plugin' } satisfies BridgeResponse
-    }
-    const decision = gateBridgeMethod(declared, request.method)
-    if (!decision.granted) {
-      return { reqId: request.reqId, ok: false, error: decision.error } satisfies BridgeResponse
-    }
-    if (request.method === 'workspace.getSnapshot') {
-      const snapshot = projectWorkspaceSnapshot(await config.getWorkspaceSnapshot())
-      return { reqId: request.reqId, ok: true, result: snapshot } satisfies BridgeResponse
-    }
-    // commands/settings on the relay require the trusted backend + device
-    // round-trip (deferred); deny cleanly for now rather than half-acting.
-    return { reqId: request.reqId, ok: false, error: 'internal' } satisfies BridgeResponse
+    return runtime.activate(pluginId)
   })
+
+  // Stop the backend child.
+  dispatcher.onRequest('plugin.deactivate', async (params) => {
+    const pluginId = String(params.pluginId ?? '')
+    if (!isSafePluginId(pluginId)) {
+      return { ok: false, error: 'invalid_params' }
+    }
+    await runtime.deactivate(pluginId)
+    return { ok: true }
+  })
+
+  // Inbound webview -> backend message. Lazily activates so a message that races
+  // ahead of an explicit activate still reaches a running child.
+  dispatcher.onRequest('plugin.postUi', async (params) => {
+    const pluginId = String(params.pluginId ?? '')
+    if (!isInstalledPlugin(config.pluginsDir, pluginId)) {
+      return { ok: false, error: 'unknown_plugin' }
+    }
+    if (!runtime.isRunning(pluginId)) {
+      const activated = await runtime.activate(pluginId)
+      if (!activated.ok) {
+        return { ok: false, error: 'activation_failed' }
+      }
+    }
+    runtime.postUi(pluginId, params.message)
+    return { ok: true }
+  })
+
+  return { stopAll: () => runtime.stopAll() }
 }
