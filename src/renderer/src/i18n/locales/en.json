@@ -4393,10 +4393,10 @@
           "5f5142a62a": "Previous icon"
         },
         "AppearancePane": {
+          "3057983501": "Unassigned",
           "872af9556e": "System Tray",
           "2edf606c46": "Minimize to Tray on Close",
           "b707773a0d": "When enabled, closing the window keeps Orca running in the system tray instead of quitting.",
-          "3057983501": "Unassigned",
           "0cd9b8228f": "Choose the app icon shown in the Dock and window switcher.",
           "ca1590d42f": "App Icon",
           "61d842eca0": "Show the Orca Mobile shortcut in the sidebar. It remains available from Toolbox.",
@@ -11552,6 +11552,24 @@
           "91b5c8d7e6": "GitLab"
         }
       }
+    }
+  },
+  "plugins": {
+    "pane": {
+      "installFailed": "Install failed",
+      "trustWarning": "Plugins run with full access to your computer (files, network, processes). Only install plugins you trust.",
+      "installFromFolder": "Install from a local folder",
+      "install": "Install",
+      "empty": "No plugins installed yet.",
+      "deactivate": "Deactivate",
+      "activate": "Activate",
+      "remove": "Remove",
+      "sourcePlaceholder": "/path/to/plugin",
+      "idVersion": "{{id}} · v{{version}}"
+    },
+    "panel": {
+      "loading": "Loading plugin…",
+      "loadError": "This plugin failed to load."
     }
   }
 }

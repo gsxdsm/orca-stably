@@ -11553,5 +11553,23 @@
         }
       }
     }
+  },
+  "plugins": {
+    "pane": {
+      "installFailed": "Install failed",
+      "trustWarning": "Plugins run with full access to your computer (files, network, processes). Only install plugins you trust.",
+      "installFromFolder": "Install from a local folder",
+      "install": "Install",
+      "empty": "No plugins installed yet.",
+      "deactivate": "Deactivate",
+      "activate": "Activate",
+      "remove": "Remove",
+      "sourcePlaceholder": "/path/to/plugin",
+      "idVersion": "{{id}} · v{{version}}"
+    },
+    "panel": {
+      "loading": "Loading plugin…",
+      "loadError": "This plugin failed to load."
+    }
   }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { translate } from '@/i18n/i18n'
 
 // NEEDS-RUNTIME-VERIFY: renders a plugin's sandboxed UI in an imperatively
 // created <webview> (the repo manages webviews imperatively, not via JSX). The
@@ -61,10 +62,14 @@ export function PluginPanel({ pluginId }: PluginPanelProps): React.JSX.Element {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {status === 'loading' && (
-        <div className="text-muted-foreground p-3 text-xs">Loading plugin…</div>
+        <div className="text-muted-foreground p-3 text-xs">
+          {translate('plugins.panel.loading', 'Loading plugin…')}
+        </div>
       )}
       {status === 'error' && (
-        <div className="text-destructive p-3 text-xs">This plugin failed to load.</div>
+        <div className="text-destructive p-3 text-xs">
+          {translate('plugins.panel.loadError', 'This plugin failed to load.')}
+        </div>
       )}
       <div ref={containerRef} className="min-h-0 flex-1" />
     </div>
