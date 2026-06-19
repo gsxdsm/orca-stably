@@ -3,12 +3,9 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 import { WebView, type WebViewMessageEvent } from 'react-native-webview'
 import type { RpcClient } from '../../transport/rpc-client'
 
-// NEEDS-RUNTIME-VERIFY: renders a plugin's single-file UI on mobile. Fetches the
-// HTML over the relay (plugin.getEntry — no on-device server, no relative-asset
-// resolution) and feeds it to react-native-webview as { html }. UI messages
-// round-trip to the relay-hosted backend via plugin.bridge. The backend runs on
-// the relay host (where the workspace lives), so a plugin works on the phone
-// without Node on the device.
+// NEEDS-RUNTIME-VERIFY: plugin HTML is fetched from the relay host (plugin.getEntry),
+// not served on-device, because no Node runs on the phone. UI messages round-trip
+// to the relay-hosted backend via plugin.bridge.
 
 type Props = { client: RpcClient; pluginId: string }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { ChevronLeft, Plug } from 'lucide-react-native'
 import type { RpcClient } from '../../transport/rpc-client'
@@ -6,12 +6,8 @@ import { colors, radii, spacing, typography } from '../../theme/mobile-theme'
 import { MobilePluginPanel } from './MobilePluginPanel'
 import { parsePluginListResult, type MobilePluginRow } from './mobile-plugin-list'
 
-// NEEDS-RUNTIME-VERIFY: the mobile entry point for the right-sidebar plugin
-// system. Lists installed plugins (plugin.list over the relay) and, on tap,
-// renders that plugin's UI via MobilePluginPanel. Mirrors the embedded-panel
-// shape of MobilePrViewPanel (header + close, dark theme). Mobile typecheck and
-// the Expo build can't run here (react-native deps absent); verified by oxlint +
-// pure-logic tests, with the on-device flow flagged for an Expo pass.
+// NEEDS-RUNTIME-VERIFY: follows MobilePrViewPanel's embedded-panel contract; the
+// JSX/navigation wiring can't run here (Expo deps absent), only the pure parser is tested.
 
 type Props = { client: RpcClient | null; embedded?: boolean; onRequestClose?: () => void }
 
@@ -24,20 +20,37 @@ export function MobilePluginListPanel({
   const [failed, setFailed] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
 
+  // Track the in-flight request so a late response from a replaced client (or
+  // after unmount) can't overwrite fresh state. Mirrors MobilePluginPanel.
+  const requestSeq = useRef(0)
+
   const load = useCallback(() => {
     if (!client) {
       return
     }
+    const seq = ++requestSeq.current
     setRows(null)
     setFailed(false)
     client
       .sendRequest('plugin.list')
-      .then((response) => setRows(parsePluginListResult(response)))
-      .catch(() => setFailed(true))
+      .then((response) => {
+        if (seq === requestSeq.current) {
+          setRows(parsePluginListResult(response))
+        }
+      })
+      .catch(() => {
+        if (seq === requestSeq.current) {
+          setFailed(true)
+        }
+      })
   }, [client])
 
   useEffect(() => {
     load()
+    return () => {
+      // Invalidate any in-flight request on client change / unmount.
+      requestSeq.current++
+    }
   }, [load])
 
   // A selected plugin takes over the panel; back returns to the list.

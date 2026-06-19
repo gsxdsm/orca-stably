@@ -65,7 +65,9 @@ export function registerRelayPluginHandlers(
     if (!found) {
       return { ok: false, error: 'unknown_plugin' }
     }
-    const htmlPath = join(config.pluginsDir, pluginId, found.manifest.contributes.sidebar.ui)
+    // Use the discovered dir, not a re-join of the client-supplied pluginId, so
+    // the served path is anchored to a validated manifest's own directory.
+    const htmlPath = join(found.dir, found.manifest.contributes.sidebar.ui)
     if (!existsSync(htmlPath)) {
       return { ok: false, error: 'entry_missing' }
     }
@@ -73,6 +75,12 @@ export function registerRelayPluginHandlers(
   })
 
   // UI -> backend bridge, capability-gated by the SHARED gate.
+  // SECURITY: pluginId comes from the client and only selects which validated
+  // manifest's declared capabilities gate the call. That is safe today because
+  // the only fulfilled method is workspace.getSnapshot (bounded empty snapshot);
+  // commands/settings return 'internal'. Before the deferred remote tier wires
+  // commands/settings here, bind pluginId to the authenticated relay session
+  // (per api-contract.ts) so a client can't name another plugin's capabilities.
   dispatcher.onRequest('plugin.bridge', async (params) => {
     const pluginId = String(params.pluginId ?? '')
     const request = params.request as BridgeRequest | undefined

@@ -10,10 +10,9 @@ import type { WorkspaceSnapshot } from '../shared/plugin/api-contract'
 // Why: mirror the $HOME/.orca-relay convention (see agent-hook-server.ts) so all
 // relay-side state lives in one predictable per-user place.
 const RELAY_USERDATA_DIR_NAME = '.orca-relay'
-const PLUGINS_SUBDIR = 'plugins'
 
 export function relayPluginsDir(): string {
-  return join(homedir(), RELAY_USERDATA_DIR_NAME, PLUGINS_SUBDIR)
+  return join(homedir(), RELAY_USERDATA_DIR_NAME, 'plugins')
 }
 
 // The relay no longer tracks a live workspace root (RelayContext.registerRoot is

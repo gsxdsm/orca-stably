@@ -96,4 +96,56 @@ describe('relay plugin handlers', () => {
     expect(denied.ok).toBe(false)
     expect(denied.error).toBe('capability_denied')
   })
+
+  it('plugin.getEntry reports entry_missing when the UI file is absent', async () => {
+    // Manifest present, but no index.html written alongside it.
+    const dir = join(tmp, 'acme.foo')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'plugin.json'), JSON.stringify(manifest()))
+    const result = (await handlers.get('plugin.getEntry')!({ pluginId: 'acme.foo' }, null)) as {
+      ok: boolean
+      error?: string
+    }
+    expect(result.ok).toBe(false)
+    expect(result.error).toBe('entry_missing')
+  })
+
+  it('plugin.bridge rejects a malformed request with invalid_params', async () => {
+    installFixture()
+    const noRequest = (await handlers.get('plugin.bridge')!({ pluginId: 'acme.foo' }, null)) as {
+      ok: boolean
+      error?: string
+    }
+    expect(noRequest).toEqual({ ok: false, error: 'invalid_params' })
+    const badReqId = (await handlers.get('plugin.bridge')!(
+      { pluginId: 'acme.foo', request: { reqId: 42, method: 'workspace.getSnapshot' } },
+      null
+    )) as { ok: boolean; error?: string }
+    expect(badReqId).toEqual({ ok: false, error: 'invalid_params' })
+  })
+
+  it('plugin.bridge returns an unknown_plugin BridgeResponse for an unregistered id', async () => {
+    const result = (await handlers.get('plugin.bridge')!(
+      { pluginId: 'does.not.exist', request: { reqId: 'r1', method: 'workspace.getSnapshot' } },
+      null
+    )) as { reqId: string; ok: boolean; error?: string }
+    expect(result).toEqual({ reqId: 'r1', ok: false, error: 'unknown_plugin' })
+  })
+
+  it('plugin.bridge returns internal for a gate-granted method the relay cannot fulfil', async () => {
+    // commands.invokeHost is granted by the 'commands' capability, but the relay
+    // has no trusted backend yet, so the deferred path returns 'internal'.
+    const dir = join(tmp, 'acme.cmd')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(
+      join(dir, 'plugin.json'),
+      JSON.stringify(manifest({ id: 'acme.cmd', capabilities: ['commands'] }))
+    )
+    writeFileSync(join(dir, 'index.html'), '<!doctype html>')
+    const result = (await handlers.get('plugin.bridge')!(
+      { pluginId: 'acme.cmd', request: { reqId: 'r1', method: 'commands.invokeHost' } },
+      null
+    )) as { reqId: string; ok: boolean; error?: string }
+    expect(result).toEqual({ reqId: 'r1', ok: false, error: 'internal' })
+  })
 })
