@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MessageSquare, TriangleAlert } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../../store'
-import { getDriverForPty, onDriverChange } from '@/lib/pane-manager/mobile-driver-state'
-import { deriveNativeChatCanSend } from './native-chat-send-eligibility'
-import { translate } from '@/i18n/i18n'
-import type { AgentStatusEntry } from '../../../../shared/agent-status-types'
 import type { TuiAgent } from '../../../../shared/types'
 import type { NativeChatSession } from '../../../../shared/native-chat-types'
 import { resolveNativeChatSession } from './native-chat-pane-resolution'
@@ -12,17 +8,14 @@ import { useNativeChatLiveSession } from './use-native-chat-live-session'
 import { selectNativeChatViewState } from './native-chat-view-state'
 import { NativeChatMessageList } from './NativeChatMessageList'
 import { NativeChatComposer } from './NativeChatComposer'
-import { formatAgentTypeLabel } from '@/lib/agent-status'
 import { useNativeChatFontScale } from './use-native-chat-font-scale'
-import { parseInteractivePrompt } from './native-chat-interactive-prompt'
-import { nativeChatCardDismissKey } from './native-chat-dismiss-key'
-import { NativeChatQuestionCard } from './NativeChatQuestionCard'
-import { NativeChatApprovalCard } from './NativeChatApprovalCard'
+import { useNativeChatCanSend } from './use-native-chat-can-send'
+import { NativeChatInteractiveCard } from './NativeChatInteractiveCard'
+import { NativeChatHeader } from './NativeChatHeader'
+import { NativeChatEmptyState } from './NativeChatEmptyState'
 import { NativeChatChromeRow } from './NativeChatChromeRow'
-import {
-  useNativeChatInteractiveSend,
-  type NativeChatInteractiveSend
-} from './use-native-chat-interactive-send'
+import { useNativeChatInteractiveSend } from './use-native-chat-interactive-send'
+import { findTabAgentEntry } from './native-chat-tab-agent-entry'
 import {
   pendingSendsAsMessages,
   prunePendingSends,
@@ -34,23 +27,6 @@ export type NativeChatViewProps = {
   terminalTabId: string
   /** Launch-time agent hint from the TerminalTab, when Orca started one. */
   launchAgent?: TuiAgent | null
-}
-
-/** Pick the live agent-status entry for this tab. A tab's panes are keyed
- *  `${tabId}:${leafId}`; the single active agent pane is the one whose paneKey
- *  carries this tab id. (Split-aware resolution refines per-leaf in U8/U9; the
- *  view today resolves the tab's agent pane.) */
-function findTabAgentEntry(
-  agentStatusByPaneKey: Record<string, AgentStatusEntry>,
-  terminalTabId: string
-): AgentStatusEntry | undefined {
-  const prefix = `${terminalTabId}:`
-  for (const [paneKey, entry] of Object.entries(agentStatusByPaneKey)) {
-    if (paneKey.startsWith(prefix)) {
-      return entry
-    }
-  }
-  return undefined
 }
 
 /**
@@ -65,20 +41,23 @@ export default function NativeChatView({
   terminalTabId,
   launchAgent
 }: NativeChatViewProps): React.JSX.Element {
-  const agentStatusByPaneKey = useAppStore((s) => s.agentStatusByPaneKey)
+  // Select only this tab's status entry (shallow-compared) so an unrelated
+  // pane's status tick doesn't re-render this view or re-run the resolution.
+  const tabAgentEntry = useAppStore(
+    useShallow((s) => findTabAgentEntry(s.agentStatusByPaneKey, terminalTabId))
+  )
 
   const resolution = useMemo(() => {
-    const entry = findTabAgentEntry(agentStatusByPaneKey, terminalTabId)
     // paneKey: prefer the live entry's key; fall back to the tab id so the hook
     // still has a stable key to select live status by before any pane reports.
-    const paneKey = entry?.paneKey ?? `${terminalTabId}:`
+    const paneKey = tabAgentEntry?.paneKey ?? `${terminalTabId}:`
     return resolveNativeChatSession({
       paneKey,
       launchAgent,
-      ...(entry ? { agentStatusEntry: entry } : {}),
+      ...(tabAgentEntry ? { agentStatusEntry: tabAgentEntry } : {}),
       ptyId: null
     })
-  }, [agentStatusByPaneKey, terminalTabId, launchAgent])
+  }, [tabAgentEntry, terminalTabId, launchAgent])
 
   if (!resolution) {
     return <NativeChatEmptyState kind="not-agent" />
@@ -92,33 +71,6 @@ export default function NativeChatView({
       terminalTabId={terminalTabId}
     />
   )
-}
-
-/**
- * Track the mobile presence-lock for this tab's live pty and derive the
- * composer's `canSend` (R8). The driver Map lives outside React for perf, so we
- * subscribe to its change events and re-read on each flip. A pty held by a
- * mobile client guards desktop sends exactly as it guards xterm input.
- */
-function useNativeChatCanSend(terminalTabId: string): boolean {
-  const ptyId = useAppStore((s) => s.ptyIdsByTabId[terminalTabId]?.[0] ?? null)
-  const [driverTick, setDriverTick] = useState(0)
-  // Why: the driver event fires for every pty; only re-derive when it targets
-  // this pane's pty. ptyId is a dep so the listener re-binds on a pty swap.
-  useEffect(
-    () =>
-      onDriverChange((event) => {
-        if (event.ptyId !== ptyId) {
-          return
-        }
-        setDriverTick((n) => n + 1)
-      }),
-    [ptyId]
-  )
-  return useMemo(() => {
-    void driverTick
-    return deriveNativeChatCanSend(ptyId ? getDriverForPty(ptyId) : null)
-  }, [ptyId, driverTick])
 }
 
 function NativeChatResolvedView({
@@ -239,184 +191,4 @@ function NativeChatResolvedView({
       />
     </div>
   )
-}
-
-/**
- * Render the live interactive card for the pane while the agent's
- * `interactivePrompt` is present: a question wizard (precedence) or a tool
- * approval. Cleared by the host once the agent moves on, so it disappears
- * automatically. Sends through the composer's verified runtime path (R8/R6):
- * answers as bracketed-paste + Enter; cancel/deny as ESC. Guarded by `canSend`
- * so a mobile presence-lock blocks desktop sends the same way it guards xterm.
- *
- * Dismiss-on-answer (mobile parity): the live status lingers after answering —
- * the agent emits a post-tool event carrying the same prompt — so we track the
- * answered prompt by content key and hide the card until a genuinely different
- * prompt arrives. The dismissal resets once the prompt clears, so a later
- * (even identical) prompt shows again instead of staying hidden.
- */
-function NativeChatInteractiveCard({
-  paneKey,
-  send,
-  canSend
-}: {
-  paneKey: string
-  send: NativeChatInteractiveSend
-  canSend: boolean
-}): React.JSX.Element | null {
-  const interactivePrompt = useAppStore(
-    (s) => s.agentStatusByPaneKey[paneKey]?.interactivePrompt ?? null
-  )
-  // Thread the sibling `toolName` from the same status entry so the question
-  // parser can dispatch through the tool's registered parser (mobile parity).
-  const interactiveToolName = useAppStore(
-    (s) => s.agentStatusByPaneKey[paneKey]?.toolName ?? null
-  )
-  const { sendAnswer, sendRaw, cancel } = send
-
-  const card = useMemo(
-    () => parseInteractivePrompt(interactivePrompt, interactiveToolName ?? undefined),
-    [interactivePrompt, interactiveToolName]
-  )
-  const cardKey = useMemo(() => nativeChatCardDismissKey(card), [card])
-  const [dismissedKey, setDismissedKey] = useState<string | null>(null)
-
-  // Forget the dismissal once the prompt clears so a fresh prompt can show.
-  const present = card != null
-  useEffect(() => {
-    if (!present) {
-      setDismissedKey(null)
-    }
-  }, [present])
-
-  if (!card || !canSend || cardKey === dismissedKey) {
-    return null
-  }
-  if (card.kind === 'question') {
-    return (
-      <NativeChatQuestionCard
-        key={cardKey ?? 'question'}
-        prompt={card.prompt}
-        onAnswer={(text) => {
-          setDismissedKey(cardKey)
-          sendAnswer(text)
-        }}
-        onCancel={() => {
-          setDismissedKey(cardKey)
-          cancel()
-        }}
-      />
-    )
-  }
-  return (
-    <NativeChatApprovalCard
-      approval={card.approval}
-      onChoose={(raw) => {
-        setDismissedKey(cardKey)
-        sendRaw(raw)
-      }}
-    />
-  )
-}
-
-function NativeChatHeader({
-  agent,
-  isApproximate
-}: {
-  agent: NativeChatSession['agent']
-  isApproximate: boolean
-}): React.JSX.Element {
-  return (
-    <header className="shrink-0 border-b border-border">
-      <div className="mx-auto flex w-full max-w-3xl items-center gap-2 px-3 py-2 sm:px-4">
-        <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
-        <span className="truncate text-sm font-medium text-foreground">
-          {formatAgentTypeLabel(agent)}
-        </span>
-      </div>
-      {isApproximate ? (
-        <div className="flex items-center gap-1.5 border-t border-border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground sm:px-4">
-          <TriangleAlert className="size-3.5 shrink-0" />
-          <span>
-            {translate(
-              'components.native-chat.approximateBanner',
-              'Approximate view — no transcript available yet, so this reflects live status only.'
-            )}
-          </span>
-        </div>
-      ) : null}
-    </header>
-  )
-}
-
-function NativeChatEmptyState({
-  kind,
-  message
-}: {
-  kind: 'loading' | 'empty' | 'error' | 'not-agent'
-  message?: string
-}): React.JSX.Element {
-  const copy = emptyStateCopy(kind, message)
-  return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center">
-      <div
-        className={
-          kind === 'error'
-            ? 'flex size-12 items-center justify-center rounded-full bg-destructive/10 text-destructive'
-            : 'flex size-12 items-center justify-center rounded-full bg-accent text-accent-foreground'
-        }
-      >
-        {kind === 'error' ? (
-          <TriangleAlert className="size-6" />
-        ) : (
-          <MessageSquare className="size-6" />
-        )}
-      </div>
-      <p className="text-sm font-medium text-foreground">{copy.title}</p>
-      <p className="max-w-xs text-xs text-muted-foreground">{copy.subtitle}</p>
-    </div>
-  )
-}
-
-function emptyStateCopy(
-  kind: 'loading' | 'empty' | 'error' | 'not-agent',
-  message?: string
-): { title: string; subtitle: string } {
-  switch (kind) {
-    case 'loading':
-      return {
-        title: translate('components.native-chat.state.loading.title', 'Loading conversation…'),
-        subtitle: translate(
-          'components.native-chat.state.loading.subtitle',
-          'Reading the agent transcript.'
-        )
-      }
-    case 'error':
-      return {
-        title: translate('components.native-chat.state.error.title', 'Could not load conversation'),
-        subtitle:
-          message ??
-          translate(
-            'components.native-chat.state.error.subtitle',
-            'The transcript could not be read. Toggle back to the terminal to keep working.'
-          )
-      }
-    case 'not-agent':
-      return {
-        title: translate('components.native-chat.state.notAgent.title', 'No conversation here'),
-        subtitle: translate(
-          'components.native-chat.state.notAgent.subtitle',
-          'This terminal is not running a recognized coding agent.'
-        )
-      }
-    case 'empty':
-    default:
-      return {
-        title: translate('components.native-chat.state.empty.title', 'No messages yet'),
-        subtitle: translate(
-          'components.native-chat.state.empty.subtitle',
-          'Send a prompt to start the conversation. New turns appear here as the agent works.'
-        )
-      }
-  }
 }

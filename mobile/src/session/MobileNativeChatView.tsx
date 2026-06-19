@@ -9,14 +9,14 @@ import {
   View
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'
+import { GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'
 import { ArrowDown, ChevronsDownUp, ChevronsUpDown, Square } from 'lucide-react-native'
 import type { NativeChatMessage } from '../../../src/shared/native-chat-types'
 import { colors } from '../theme/mobile-theme'
-import { clampFontScale } from './mobile-native-chat-message-text'
 import { styles } from './mobile-native-chat-view-styles'
-import { foldToolMessages } from './mobile-native-chat-blocks'
-import { stripNoiseMessages } from './mobile-native-chat-noise'
+import { buildMobileNativeChatData, statusHint } from './mobile-native-chat-render-data'
+import { useMobileNativeChatAskDismiss } from './use-mobile-native-chat-ask-dismiss'
+import { useMobileNativeChatPinchGesture } from './use-mobile-native-chat-pinch-gesture'
 import { MobileAgentWorkingIndicator } from './MobileAgentWorkingIndicator'
 import { MobileNativeChatComposer } from './MobileNativeChatComposer'
 import { MobileNativeChatMessage } from './MobileNativeChatMessage'
@@ -71,17 +71,6 @@ type Props = {
   keyboardInset?: number
 }
 
-function statusHint(status: MobileNativeChatStatus, error?: string): string | null {
-  switch (status) {
-    case 'waiting-session':
-      return 'Waiting for the agent to start its session…'
-    case 'error':
-      return error ?? 'Could not load the conversation.'
-    default:
-      return null
-  }
-}
-
 export function MobileNativeChatView({
   messages,
   status,
@@ -118,97 +107,20 @@ export function MobileNativeChatView({
   // Dismiss the question card as soon as it's answered; the live status lingers
   // briefly (the agent emits a post-tool event with the same prompt), so hide it
   // until a genuinely different question arrives.
-  const askKey = ask ? `${ask.questions.length}:${ask.questions[0]?.question ?? ''}` : null
-  const [dismissedAskKey, setDismissedAskKey] = useState<string | null>(null)
-  // Once the prompt clears (agent moved on), forget the dismissal so a later
-  // question — even an identical one — shows again instead of staying hidden.
-  const askPresent = ask != null
-  useEffect(() => {
-    if (!askPresent) {
-      setDismissedAskKey(null)
-    }
-  }, [askPresent])
-  const showAsk = askPresent && askKey !== dismissedAskKey
+  const { askKey, showAsk, dismissAsk } = useMobileNativeChatAskDismiss(ask)
   // Lift the composer clear of the keyboard, plus the bottom safe-area so it
   // never sits under the home indicator / nav bar (mirrors the terminal dock).
   const bottomPad = keyboardInset > 0 ? keyboardInset + insets.bottom : insets.bottom
   const [atBottom, setAtBottom] = useState(true)
-  // Pinch-to-zoom chat font. `fontScale` is the committed size; `pinchBase`
-  // anchors the live gesture so successive pinches compound rather than reset.
-  const [fontScale, setFontScale] = useState(1)
-  const fontScaleRef = useRef(1)
-  fontScaleRef.current = fontScale
-  const pinchBase = useRef(1)
-  // Why: run the gesture callbacks on the JS thread (not a reanimated worklet) so
-  // they can touch React refs/state and clampFontScale directly — accessing those
-  // from the UI-thread worklet crashes the app.
-  // Compose the pinch with the list's native scroll as Simultaneous so a
-  // two-finger pinch is recognized even while the scroll view is active —
-  // otherwise the scroll grabs the gesture first and the pinch never fires.
-  const pinchGesture = useMemo(
-    () =>
-      Gesture.Simultaneous(
-        Gesture.Native(),
-        Gesture.Pinch()
-          .runOnJS(true)
-          .onStart(() => {
-            pinchBase.current = fontScaleRef.current
-          })
-          .onUpdate((e) => {
-            setFontScale(clampFontScale(pinchBase.current * e.scale))
-          })
-      ),
-    []
-  )
+  const { fontScale, pinchGesture } = useMobileNativeChatPinchGesture()
 
-  // Fold each tool-result turn into the assistant turn it belongs to, then append
-  // the route-owned optimistic "queued" messages at the tail.
-  const folded = useMemo(() => foldToolMessages(stripNoiseMessages(messages)), [messages])
   const pendingIds = useMemo(() => new Set(pending.map((p) => p.id)), [pending])
-  // Only show the streaming bubble while its text leads the transcript — once the
-  // real assistant turn lands with the same text, drop the synthetic one.
-  const streaming = useMemo(() => {
-    const text = streamingText?.trim()
-    if (!text) {
-      return null
-    }
-    const last = folded[folded.length - 1]
-    const lastText =
-      last?.role === 'assistant'
-        ? last.blocks
-            .filter((b) => b.type === 'text')
-            .map((b) => (b.type === 'text' ? b.text : ''))
-            .join('')
-            .trim()
-        : ''
-    if (lastText.includes(text) || text.length <= lastText.length) {
-      return null
-    }
-    return text
-  }, [streamingText, folded])
-  const data = useMemo<NativeChatMessage[]>(
-    () => [
-      ...folded,
-      ...(streaming
-        ? [
-            {
-              id: 'streaming',
-              role: 'assistant' as const,
-              blocks: [{ type: 'text' as const, text: streaming }],
-              timestamp: null,
-              source: 'hook' as const
-            }
-          ]
-        : []),
-      ...pending.map((p) => ({
-        id: p.id,
-        role: 'user' as const,
-        blocks: [{ type: 'text' as const, text: p.text }],
-        timestamp: null,
-        source: 'transcript' as const
-      }))
-    ],
-    [folded, streaming, pending]
+  // `data` is the list source: folded transcript + synthetic streaming bubble +
+  // route-owned optimistic queued messages. Memoize on the same deps so the
+  // downstream autoscroll effects/`renderItem` keep referential stability.
+  const { data } = useMemo(
+    () => buildMobileNativeChatData({ messages, streamingText, pending }),
+    [messages, streamingText, pending]
   )
 
   // Follow the tail as the conversation grows, but only when already pinned to
@@ -361,11 +273,11 @@ export function MobileNativeChatView({
           key={askKey ?? 'ask'}
           prompt={ask}
           onAnswer={(text) => {
-            setDismissedAskKey(askKey)
+            dismissAsk()
             onAnswerAsk?.(text)
           }}
           onCancel={() => {
-            setDismissedAskKey(askKey)
+            dismissAsk()
             onStop?.()
           }}
         />
