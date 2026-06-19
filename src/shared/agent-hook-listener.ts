@@ -637,20 +637,54 @@ function stripHookEnvelopeKeys(record: Record<string, unknown>): Record<string, 
   return rest
 }
 
-function deriveInteractivePrompt(
-  toolName: string | undefined,
-  toolInput: unknown
-): string | undefined {
-  if (!isAskUserQuestionTool(toolName) || toolInput === undefined || toolInput === null) {
-    return undefined
+/** Short, single-line description of a tool call for an approval card (the
+ *  command for Bash, the path for file tools, else a clipped JSON preview). */
+function summarizeApprovalInput(toolInput: unknown): string {
+  if (toolInput && typeof toolInput === 'object') {
+    const obj = toolInput as Record<string, unknown>
+    const direct = obj.command ?? obj.file_path ?? obj.path ?? obj.url ?? obj.pattern
+    if (typeof direct === 'string' && direct.length > 0) {
+      return direct.length > 200 ? `${direct.slice(0, 200)}…` : direct
+    }
   }
   try {
-    return JSON.stringify(toolInput)
+    const json = JSON.stringify(toolInput) ?? ''
+    return json.length > 200 ? `${json.slice(0, 200)}…` : json
   } catch {
-    // Why: defend against circular/unserializable input from a buggy agent —
-    // a missing live card is better than throwing in the hook hot path.
-    return undefined
+    return ''
   }
+}
+
+/** Capture a pending interactive prompt as a normalized JSON envelope:
+ *  - AskUserQuestion → the raw `{ questions: [...] }` structure (kind inferred
+ *    by the client from the `questions` key, kept stable for back-compat).
+ *  - any other tool on a PermissionRequest → `{ approval: { tool, summary } }`
+ *    so the client can render an Allow/Deny card.
+ *  Returns undefined otherwise so resolveToolState clears any prior prompt. */
+function deriveInteractivePrompt(
+  toolName: string | undefined,
+  toolInput: unknown,
+  eventName?: unknown
+): string | undefined {
+  if (isAskUserQuestionTool(toolName) && toolInput !== undefined && toolInput !== null) {
+    try {
+      return JSON.stringify(toolInput)
+    } catch {
+      // Why: defend against circular/unserializable input from a buggy agent —
+      // a missing live card is better than throwing in the hook hot path.
+      return undefined
+    }
+  }
+  if (eventName === 'PermissionRequest' && typeof toolName === 'string' && toolName.length > 0) {
+    try {
+      return JSON.stringify({
+        approval: { tool: toolName, summary: summarizeApprovalInput(toolInput) }
+      })
+    } catch {
+      return undefined
+    }
+  }
+  return undefined
 }
 
 function readFirstString(
@@ -1167,7 +1201,7 @@ function extractClaudeToolFields(
         {
           toolName,
           toolInput: deriveToolInputPreview(toolName, hookPayload.tool_input),
-          interactivePrompt: deriveInteractivePrompt(toolName, hookPayload.tool_input)
+          interactivePrompt: deriveInteractivePrompt(toolName, hookPayload.tool_input, eventName)
         },
         { hasToolInputField: hasOwnField(hookPayload, 'tool_input') }
       )
@@ -1212,12 +1246,17 @@ function extractCodexToolFields(
     eventName === 'PostToolUse'
   ) {
     const toolName = readString(hookPayload, 'tool_name') ?? readString(hookPayload, 'name')
+    const rawInput = hookPayload.tool_input ?? hookPayload.input ?? hookPayload.arguments
     const toolInput =
       deriveToolInputPreview(toolName, hookPayload.tool_input) ??
       deriveToolInputPreview(toolName, hookPayload.input) ??
       deriveToolInputPreview(toolName, hookPayload.arguments)
     return toolUpdate(
-      { toolName, toolInput },
+      {
+        toolName,
+        toolInput,
+        interactivePrompt: deriveInteractivePrompt(toolName, rawInput, eventName)
+      },
       { hasToolInputField: hasAnyOwnField(hookPayload, ['tool_input', 'input', 'arguments']) }
     )
   }

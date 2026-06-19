@@ -14,6 +14,49 @@ export type MobileChatPermission = {
   options: Array<{ label: string; send: string }>
 }
 
+const ESCAPE = String.fromCharCode(27)
+
+/** Parse the live `agentStatus.interactivePrompt` approval envelope
+ *  (`{ approval: { tool, summary } }`, emitted by the host on a PermissionRequest)
+ *  into an Allow/Deny card. This is the reliable, agent-emitted signal — unlike
+ *  detectAgentPermission it doesn't depend on heuristic text parsing. The default
+ *  sends (number for allow, Escape for deny) match the common TUI approval prompt;
+ *  detectAgentPermission still takes precedence when it can read the real numbered
+ *  options from the prompt text. */
+export function parseApprovalFromStatus(
+  interactivePrompt: string | undefined | null
+): MobileChatPermission | null {
+  if (!interactivePrompt) {
+    return null
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(interactivePrompt)
+  } catch {
+    return null
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return null
+  }
+  const approval = (parsed as { approval?: unknown }).approval
+  if (!approval || typeof approval !== 'object') {
+    return null
+  }
+  const tool = (approval as { tool?: unknown }).tool
+  if (typeof tool !== 'string' || tool.length === 0) {
+    return null
+  }
+  const summary = (approval as { summary?: unknown }).summary
+  return {
+    title: `Allow ${tool}?`,
+    detail: typeof summary === 'string' && summary.length > 0 ? summary : undefined,
+    options: [
+      { label: 'Allow', send: '1' },
+      { label: 'Deny', send: ESCAPE }
+    ]
+  }
+}
+
 type PermissionInput = {
   state?: string
   lastAssistantMessage?: string

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { detectAgentPermission } from './mobile-native-chat-permission'
+import { detectAgentPermission, parseApprovalFromStatus } from './mobile-native-chat-permission'
 
 describe('detectAgentPermission', () => {
   it('returns null for a working agent even with permission-like text', () => {
@@ -121,5 +121,24 @@ describe('detectAgentPermission', () => {
     const second = result?.options[1]
     expect(second?.send).toBe('2')
     expect((second?.label ?? '').length).toBeLessThanOrEqual(40)
+  })
+})
+
+describe('parseApprovalFromStatus', () => {
+  it('parses an approval envelope into an Allow/Deny card', () => {
+    const card = parseApprovalFromStatus(
+      JSON.stringify({ approval: { tool: 'Bash', summary: 'rm -rf build' } })
+    )
+    expect(card?.title).toBe('Allow Bash?')
+    expect(card?.detail).toBe('rm -rf build')
+    expect(card?.options.map((o) => o.label)).toEqual(['Allow', 'Deny'])
+    expect(card?.options[0]!.send).toBe('1')
+  })
+
+  it('returns null for non-approval / malformed input', () => {
+    expect(parseApprovalFromStatus(undefined)).toBeNull()
+    expect(parseApprovalFromStatus('{bad')).toBeNull()
+    expect(parseApprovalFromStatus(JSON.stringify({ questions: [] }))).toBeNull()
+    expect(parseApprovalFromStatus(JSON.stringify({ approval: {} }))).toBeNull()
   })
 })

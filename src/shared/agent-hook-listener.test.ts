@@ -195,6 +195,44 @@ describe('shared agent-hook-listener', () => {
     expect(event?.payload.interactivePrompt).toBeUndefined()
   })
 
+  it('captures an approval envelope as interactivePrompt on a PermissionRequest', () => {
+    const event = normalizeHookPayload(
+      state,
+      'claude',
+      {
+        paneKey: PANE_KEY,
+        payload: {
+          hook_event_name: 'PermissionRequest',
+          tool_name: 'Bash',
+          tool_input: { command: 'rm -rf build' }
+        }
+      },
+      'production'
+    )
+    expect(event?.payload.interactivePrompt).toBe(
+      JSON.stringify({ approval: { tool: 'Bash', summary: 'rm -rf build' } })
+    )
+  })
+
+  it('captures an approval envelope for a Codex PermissionRequest', () => {
+    const event = normalizeHookPayload(
+      state,
+      'codex',
+      {
+        paneKey: PANE_KEY,
+        payload: {
+          hook_event_name: 'PermissionRequest',
+          tool_name: 'shell',
+          input: { command: 'git push --force' }
+        }
+      },
+      'production'
+    )
+    expect(event?.payload.interactivePrompt).toBe(
+      JSON.stringify({ approval: { tool: 'shell', summary: 'git push --force' } })
+    )
+  })
+
   it('clears interactivePrompt on the next tool event after AskUserQuestion', () => {
     normalizeHookPayload(
       state,

@@ -185,7 +185,10 @@ import { MobileNativeChatView } from '../../../../src/session/MobileNativeChatVi
 import { useMobileNativeChatSession } from '../../../../src/session/use-mobile-native-chat-session'
 import { resolveMobileNativeChat } from '../../../../src/session/mobile-native-chat-eligibility'
 import { parseAgentQuestion } from '../../../../src/session/mobile-native-chat-question'
-import { detectAgentPermission } from '../../../../src/session/mobile-native-chat-permission'
+import {
+  detectAgentPermission,
+  parseApprovalFromStatus
+} from '../../../../src/session/mobile-native-chat-permission'
 import {
   extractPendingAsk,
   parseAskFromStatus
@@ -1191,15 +1194,18 @@ export default function SessionScreen() {
       : null
   const nativeChatBlocked =
     nativeChatStatus?.state === 'waiting' || nativeChatStatus?.state === 'blocked'
+  // Prefer the heuristic permission (it reads the real numbered options from the
+  // prompt text) and fall back to the live approval envelope from the agent-status
+  // pipe (reliable detection when the prompt text isn't captured).
   const nativeChatPermission =
-    nativeChatBlocked && nativeChatStatus
+    (nativeChatBlocked && nativeChatStatus
       ? detectAgentPermission({
           state: nativeChatStatus.state,
           lastAssistantMessage: nativeChatStatus.lastAssistantMessage,
           toolName: nativeChatStatus.toolName,
           toolInput: nativeChatStatus.toolInput
         })
-      : null
+      : null) ?? parseApprovalFromStatus(nativeChatStatus?.interactivePrompt)
   const nativeChatQuestion =
     nativeChatBlocked && nativeChatStatus && !nativeChatPermission
       ? parseAgentQuestion(nativeChatStatus.lastAssistantMessage ?? '')
