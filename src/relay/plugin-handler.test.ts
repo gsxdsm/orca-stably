@@ -5,6 +5,8 @@ import { join } from 'node:path'
 import { registerRelayPluginHandlers, type RelayDispatcherLike } from './plugin-handler'
 import type { PluginHostConfig } from '../main/plugin/plugin-host-process'
 import type { PluginHostLike } from '../main/plugin/plugin-runtime'
+import { serializePluginBundle } from '../main/plugin/plugin-bundle'
+import { discoverPlugins } from '../main/plugin/plugin-discovery'
 
 function manifest(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -287,4 +289,24 @@ describe('relay plugin handlers', () => {
     await Promise.resolve()
     expect(hosts.every((h) => h.stopped)).toBe(true)
   })
+
+  it('plugin.provision writes a valid bundle, then discoverPlugins finds it', async () => {
+    const bundle = serializePluginBundle('acme.bar', [
+      { path: 'plugin.json', dataBase64: b64(JSON.stringify(manifest({ id: 'acme.bar' }))) },
+      { path: 'index.html', dataBase64: b64('<!doctype html>') }
+    ])
+    const result = (await handlers.get('plugin.provision')!({ bundle }, {})) as { ok: boolean }
+    expect(result.ok).toBe(true)
+    expect(discoverPlugins(tmp).valid.map((p) => p.manifest.id)).toContain('acme.bar')
+  })
+
+  it('plugin.provision rejects an invalid bundle param through the dispatch layer', async () => {
+    const result = (await handlers.get('plugin.provision')!({ bundle: null }, {})) as {
+      ok: boolean
+      error?: string
+    }
+    expect(result).toEqual({ ok: false, error: 'invalid_bundle' })
+  })
 })
+
+const b64 = (s: string): string => Buffer.from(s, 'utf8').toString('base64')

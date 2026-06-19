@@ -55,7 +55,11 @@ import {
   SSH_RELAY_CONFIGURE_GRACE_TIME_METHOD
 } from '../shared/ssh-types'
 import { registerRelayPluginHandlers } from './plugin-handler'
-import { defaultRelayWorkspaceSnapshot, relayPluginsDir } from './relay-plugin-config'
+import {
+  defaultRelayWorkspaceSnapshot,
+  relayPluginStagingDir,
+  relayPluginsDir
+} from './relay-plugin-config'
 import { assertPluginSourceUnderByteCap } from './plugin-source-limit'
 import { resolveOpenCodeSourceConfigDir, resolvePiSourceAgentDir } from './plugin-overlay-env'
 import { detectPiAgentKindFromCommand } from '../shared/pi-agent-kind'
@@ -467,6 +471,7 @@ async function main(): Promise<void> {
   // $HOME/.orca-relay. Stopped on socket cleanup so children aren't orphaned.
   const pluginHandlers = registerRelayPluginHandlers(dispatcher, {
     pluginsDir: relayPluginsDir(),
+    stagingDir: relayPluginStagingDir(),
     getWorkspaceSnapshot: defaultRelayWorkspaceSnapshot
   })
   stopPluginBackends = pluginHandlers.stopAllSync

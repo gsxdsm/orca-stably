@@ -39,9 +39,11 @@ export type RelayPluginConfig = {
   pluginsDir: string
   getWorkspaceSnapshot: () => WorkspaceSnapshot | Promise<WorkspaceSnapshot>
   // Optional overrides (tests / provisioning): the built host-entry path, the
-  // state file, and an injectable host factory to avoid forking real processes.
+  // state + staging dirs, and an injectable host factory to avoid forking real
+  // processes.
   entryPath?: string
   stateFilePath?: string
+  stagingDir?: string
   hostFactory?: PluginHostFactory
 }
 
@@ -159,9 +161,13 @@ export function registerRelayPluginHandlers(
   // plugins dir (verified + atomic). Must precede plugin.activate for a plugin
   // whose files aren't already on the relay host.
   dispatcher.onRequest('plugin.provision', async (params) => {
+    // provisionPlugin is fully synchronous, so concurrent provisions can't
+    // interleave (the event loop is blocked through each call) — no per-id lock
+    // needed. Staging defaults to a same-volume sibling of the plugins dir so the
+    // final rename is atomic.
     return provisionPlugin(params.bundle, {
       pluginsDir: config.pluginsDir,
-      stagingDir: `${config.pluginsDir}-staging`
+      stagingDir: config.stagingDir ?? `${config.pluginsDir}-staging`
     })
   })
 

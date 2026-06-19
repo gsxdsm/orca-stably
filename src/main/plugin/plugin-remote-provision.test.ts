@@ -82,18 +82,29 @@ describe('desktop-package <-> relay-unpack round-trip', () => {
 })
 
 describe('provisionToRelay', () => {
-  it('returns the relay handler result', async () => {
-    const request = (): Promise<unknown> => Promise.resolve({ ok: true })
-    expect(await provisionToRelay(request, { pluginId: 'x', files: [], integrity: 'h' })).toEqual({
-      ok: true,
-      error: undefined
-    })
+  const bundle = { pluginId: 'x', files: [], integrity: 'h' }
+
+  it('forwards the bundle under params.bundle to plugin.provision and returns the result', async () => {
+    const calls: { method: string; params?: Record<string, unknown> }[] = []
+    const request = (method: string, params?: Record<string, unknown>): Promise<unknown> => {
+      calls.push({ method, params })
+      return Promise.resolve({ ok: true })
+    }
+    expect(await provisionToRelay(request, bundle)).toEqual({ ok: true, error: undefined })
+    expect(calls).toEqual([{ method: 'plugin.provision', params: { bundle } }])
   })
 
   it('synthesizes a failure when the relay returns nothing', async () => {
     const request = (): Promise<unknown> => Promise.resolve(null)
-    const result = await provisionToRelay(request, { pluginId: 'x', files: [], integrity: 'h' })
-    expect(result).toEqual({ ok: false, error: 'no_response' })
+    expect(await provisionToRelay(request, bundle)).toEqual({ ok: false, error: 'no_response' })
+  })
+
+  it('maps a rejected relay request to a typed failure (not a throw)', async () => {
+    const request = (): Promise<unknown> => Promise.reject(new Error('connection closed'))
+    expect(await provisionToRelay(request, bundle)).toEqual({
+      ok: false,
+      error: 'connection closed'
+    })
   })
 })
 

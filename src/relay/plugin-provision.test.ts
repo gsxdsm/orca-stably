@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { provisionPlugin } from './plugin-provision'
@@ -48,6 +48,8 @@ describe('provisionPlugin', () => {
     const found = discoverPlugins(pluginsDir).valid.map((p) => p.manifest.id)
     expect(found).toEqual(['acme.foo'])
     expect(readFileSync(join(pluginsDir, 'acme.foo', 'index.html'), 'utf8')).toBe('<!doctype html>')
+    // The staged temp dir is renamed into place, leaving no leftover under staging.
+    expect(readdirSync(config.stagingDir)).toEqual([])
   })
 
   it('writes nothing on an integrity mismatch', () => {

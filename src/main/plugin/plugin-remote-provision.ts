@@ -11,6 +11,8 @@ import { isSafeBundlePath, serializePluginBundle, type PluginBundle } from './pl
 // Recursively read pluginsDir/<pluginId> into a bundle. Symlinks are skipped
 // entirely (never followed, never packaged) so a link can't smuggle bytes from
 // outside the plugin dir; any path that isn't bundle-safe is also dropped.
+// Throws on filesystem errors (missing/unreadable plugin dir) — it reads a
+// known-installed plugin, so the caller treats a throw as "can't provision".
 export function readPluginBundleFromDisk(pluginsDir: string, pluginId: string): PluginBundle {
   const root = join(pluginsDir, pluginId)
   const files: { path: string; dataBase64: string }[] = []
@@ -47,10 +49,17 @@ export async function provisionToRelay(
   request: RelayRequest,
   bundle: PluginBundle
 ): Promise<{ ok: boolean; error?: string }> {
-  const result = (await request('plugin.provision', { bundle })) as
-    | { ok?: boolean; error?: string }
-    | null
-    | undefined
+  let result: { ok?: boolean; error?: string } | null | undefined
+  try {
+    result = (await request('plugin.provision', { bundle })) as
+      | { ok?: boolean; error?: string }
+      | null
+      | undefined
+  } catch (error) {
+    // A dropped/absent relay connection rejects the request; surface it as a
+    // typed failure so callers handle it like any other provision error.
+    return { ok: false, error: error instanceof Error ? error.message : 'request_failed' }
+  }
   if (!result || typeof result.ok !== 'boolean') {
     return { ok: false, error: 'no_response' }
   }

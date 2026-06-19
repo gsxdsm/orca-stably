@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   PLUGIN_BUNDLE_MAX_BYTES,
+  PLUGIN_BUNDLE_MAX_FILES,
   isSafeBundlePath,
   serializePluginBundle,
   verifyPluginBundle,
@@ -25,6 +26,13 @@ describe('isSafeBundlePath', () => {
   it('rejects absolute, traversal, drive, and backslash paths', () => {
     for (const p of ['/etc/passwd', '../x', 'a/../../b', 'C:/x', 'a\\b', '', './x', 'a/./b']) {
       expect(isSafeBundlePath(p)).toBe(false)
+    }
+  })
+
+  it('rejects paths containing control characters (NUL/tab/LF/CR/unit-sep/DEL)', () => {
+    // Build inputs via fromCharCode so no control-char literals live in source.
+    for (const code of [0x00, 0x09, 0x0a, 0x0d, 0x1f, 0x7f]) {
+      expect(isSafeBundlePath(`a${String.fromCharCode(code)}b`)).toBe(false)
     }
   })
 })
@@ -76,5 +84,16 @@ describe('verifyPluginBundle guards', () => {
       { path: 'big.bin', dataBase64: Buffer.from(big, 'utf8').toString('base64') }
     ])
     expect(verifyPluginBundle(bundle)).toEqual({ ok: false, error: 'too_large' })
+  })
+
+  it('rejects a bundle over the file-count cap', () => {
+    const files: PluginBundleFile[] = Array.from(
+      { length: PLUGIN_BUNDLE_MAX_FILES + 1 },
+      (_, i) => ({ path: `f${i}.txt`, dataBase64: b64('x') })
+    )
+    expect(verifyPluginBundle(serializePluginBundle('acme.foo', files))).toEqual({
+      ok: false,
+      error: 'too_many_files'
+    })
   })
 })

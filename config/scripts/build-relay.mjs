@@ -34,42 +34,34 @@ const PLATFORMS = [
 
 const RELAY_VERSION = '0.1.0'
 
+// Shared esbuild options for every node bundle this script emits. Native addons
+// cannot be bundled — they must exist on the remote host; the relay gracefully
+// degrades when absent.
+const BASE_BUILD = {
+  bundle: true,
+  platform: 'node',
+  target: 'node18',
+  format: 'cjs',
+  external: ['node-pty', '@parcel/watcher'],
+  sourcemap: false,
+  minify: true,
+  define: {
+    'process.env.NODE_ENV': '"production"'
+  }
+}
+
 for (const platform of PLATFORMS) {
   const outDir = join(ROOT, 'out', 'relay', platform)
   mkdirSync(outDir, { recursive: true })
 
-  await build({
-    entryPoints: [RELAY_ENTRY],
-    bundle: true,
-    platform: 'node',
-    target: 'node18',
-    format: 'cjs',
-    outfile: join(outDir, 'relay.js'),
-    // Native addons cannot be bundled — they must exist on the remote host.
-    // The relay gracefully degrades when they are absent.
-    external: ['node-pty', '@parcel/watcher'],
-    sourcemap: false,
-    minify: true,
-    define: {
-      'process.env.NODE_ENV': '"production"'
-    }
-  })
+  await build({ ...BASE_BUILD, entryPoints: [RELAY_ENTRY], outfile: join(outDir, 'relay.js') })
 
-  // Ship the plugin backend host-entry next to relay.js (same platform/runtime
-  // settings) so the relay can fork it without a per-plugin transfer.
+  // Ship the plugin backend host-entry next to relay.js so the relay can fork it
+  // without a per-plugin transfer.
   await build({
+    ...BASE_BUILD,
     entryPoints: [PLUGIN_HOST_ENTRY],
-    bundle: true,
-    platform: 'node',
-    target: 'node18',
-    format: 'cjs',
-    outfile: join(outDir, 'plugin-host-entry.js'),
-    external: ['node-pty', '@parcel/watcher'],
-    sourcemap: false,
-    minify: true,
-    define: {
-      'process.env.NODE_ENV': '"production"'
-    }
+    outfile: join(outDir, 'plugin-host-entry.js')
   })
 
   // Why: include a content hash so the deploy check detects code changes

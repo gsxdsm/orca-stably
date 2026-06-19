@@ -11,6 +11,9 @@ import { sha256 } from './install/install-integrity'
 // inlined HTML UI). Bounds an abusive transfer over the wire; asserted on both
 // the package and receive ends.
 export const PLUGIN_BUNDLE_MAX_BYTES = 4 * 1024 * 1024
+// Bound the file count too — the byte cap alone lets a flood of tiny files
+// exhaust inodes/syscalls on the relay host.
+export const PLUGIN_BUNDLE_MAX_FILES = 1000
 
 export type PluginBundleFile = { path: string; dataBase64: string }
 export type PluginBundle = { pluginId: string; files: PluginBundleFile[]; integrity: string }
@@ -21,8 +24,8 @@ export type VerifyBundleResult =
 
 // A bundle file path must be relative, posix-separated, and stay inside the
 // plugin dir: no absolute paths, no drive letters, no backslashes, no empty / `.`
-// / `..` segments. The relay re-checks this before writing — never trust the
-// sender's paths.
+// / `..` segments, and no control characters. The relay re-checks this before
+// writing — never trust the sender's paths.
 export function isSafeBundlePath(path: string): boolean {
   if (typeof path !== 'string' || path.length === 0) {
     return false
@@ -30,12 +33,22 @@ export function isSafeBundlePath(path: string): boolean {
   if (path.startsWith('/') || /^[A-Za-z]:/.test(path) || path.includes('\\')) {
     return false
   }
+  // Reject control chars (newline/CR/tab/NUL/DEL). A newline in a path could
+  // straddle the integrity canonicalization's `\n` separators (digest collision),
+  // and embedded control chars are invalid filenames.
+  for (let i = 0; i < path.length; i++) {
+    const code = path.charCodeAt(i)
+    if (code <= 0x1f || code === 0x7f) {
+      return false
+    }
+  }
   return !path.split('/').some((seg) => seg === '' || seg === '.' || seg === '..')
 }
 
 // Canonical serialization for the integrity digest: files sorted by path, each
 // rendered as `path\n<base64>`, joined by newlines. Order-independent so the
-// digest is stable regardless of how the file list was assembled.
+// digest is stable regardless of how the file list was assembled. Path control
+// chars (which could straddle the separators) are rejected by isSafeBundlePath.
 function canonicalize(files: PluginBundleFile[]): string {
   return [...files]
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
@@ -47,9 +60,9 @@ export function serializePluginBundle(pluginId: string, files: PluginBundleFile[
   return { pluginId, files, integrity: sha256(canonicalize(files)) }
 }
 
-// Validate a received bundle: shape, per-file path safety, total decoded byte
-// cap, and integrity. Returns the files on success so the caller writes only a
-// verified set.
+// Validate a received bundle: shape, file count, per-file path safety, total
+// decoded byte cap, and integrity. Returns the files on success so the caller
+// writes only a verified set.
 export function verifyPluginBundle(bundle: unknown): VerifyBundleResult {
   if (!bundle || typeof bundle !== 'object') {
     return { ok: false, error: 'invalid_bundle' }
@@ -61,6 +74,9 @@ export function verifyPluginBundle(bundle: unknown): VerifyBundleResult {
     typeof candidate.integrity !== 'string'
   ) {
     return { ok: false, error: 'invalid_bundle' }
+  }
+  if (candidate.files.length > PLUGIN_BUNDLE_MAX_FILES) {
+    return { ok: false, error: 'too_many_files' }
   }
   let totalBytes = 0
   for (const file of candidate.files) {

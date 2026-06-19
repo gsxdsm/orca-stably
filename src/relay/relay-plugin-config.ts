@@ -20,6 +20,12 @@ export function relayPluginStateFilePath(): string {
   return join(homedir(), RELAY_USERDATA_DIR_NAME, 'plugins-state.json')
 }
 
+// Staging area for provisioning writes — a sibling of the plugins dir (same
+// volume) so the final rename into place is atomic.
+export function relayPluginStagingDir(): string {
+  return join(homedir(), RELAY_USERDATA_DIR_NAME, 'plugins-staging')
+}
+
 // The built plugin-host-entry the trusted child runs. It ships alongside the
 // relay bundle (build-relay emits plugin-host-entry.js next to relay.js), so the
 // default resolves relative to this module's runtime directory — which, in the
