@@ -21,6 +21,8 @@ export type PluginHostLike = {
   stop(graceMs?: number): Promise<void>
   isRunning(): boolean
   postUi(message: unknown): void
+  // Synchronous best-effort kill for process-exit cleanup (no await available).
+  terminate(): void
 }
 
 export type PluginHostFactory = (config: PluginHostConfig) => PluginHostLike
@@ -129,6 +131,16 @@ export class PluginRuntime {
 
   async stopAll(): Promise<void> {
     await Promise.all([...this.running.keys()].map((id) => this.deactivate(id)))
+  }
+
+  // Synchronously terminate every running backend. For process-exit cleanup
+  // where there is no event loop left to await stopAll() — the SIGTERM must be
+  // delivered inline or the children are orphaned.
+  stopAllSync(): void {
+    for (const [, entry] of this.running) {
+      entry.host.terminate()
+    }
+    this.running.clear()
   }
 
   // A backend exited. A host-initiated stop is expected (no restart); a crash

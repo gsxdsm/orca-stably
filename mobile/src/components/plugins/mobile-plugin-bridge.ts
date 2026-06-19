@@ -7,7 +7,7 @@
 // events whose data is a JSON string, so we deliver a backend message by
 // dispatching exactly that event inside the WebView.
 
-export type PluginUiMatch = { matched: boolean; message: unknown }
+export type PluginUiMatch = { matched: true; message: unknown } | { matched: false }
 
 // Build the JS injected into the WebView to hand a backend message to the
 // in-page bridge. The payload is double-encoded: JSON.stringify(message) is the
@@ -28,7 +28,7 @@ export function extractPluginUiMessage(
   pluginId: string
 ): PluginUiMatch {
   if (typeof params.pluginId !== 'string' || params.pluginId !== pluginId) {
-    return { matched: false, message: undefined }
+    return { matched: false }
   }
   return { matched: true, message: params.message }
 }

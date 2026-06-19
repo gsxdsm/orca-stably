@@ -348,11 +348,12 @@ async function main(): Promise<void> {
   }
   // Assigned once the plugin handlers register (below); null-guarded so an early
   // exception during setup can't hit it in the temporal dead zone.
-  let stopPluginBackends: (() => Promise<void>) | null = null
+  let stopPluginBackends: (() => void) | null = null
   const cleanupOwnedSocket = (): void => {
-    // Best-effort: stop any running plugin backend children so they aren't
-    // orphaned when the relay exits.
-    void stopPluginBackends?.()
+    // Synchronously SIGTERM any running plugin backend children. cleanupOwnedSocket
+    // runs on the synchronous path right before process.exit, so an awaited stop
+    // would never complete — the kill must be delivered inline or children orphan.
+    stopPluginBackends?.()
     if (ownsCurrentSocketPath()) {
       cleanupSocket(sockPath)
     }
@@ -458,7 +459,7 @@ async function main(): Promise<void> {
     pluginsDir: relayPluginsDir(),
     getWorkspaceSnapshot: defaultRelayWorkspaceSnapshot
   })
-  stopPluginBackends = pluginHandlers.stopAll
+  stopPluginBackends = pluginHandlers.stopAllSync
 
   dispatcher.onRequest('orca.cli', async (params, context) => {
     return await dispatcher.requestAnyClient('orca.cli', params, {

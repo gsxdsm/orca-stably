@@ -27,8 +27,9 @@ describe('extractPluginUiMessage', () => {
   })
 
   it('ignores a notification for a different pluginId', () => {
-    const result = extractPluginUiMessage({ pluginId: 'other.bar', message: {} }, 'acme.foo')
-    expect(result.matched).toBe(false)
+    expect(extractPluginUiMessage({ pluginId: 'other.bar', message: {} }, 'acme.foo')).toEqual({
+      matched: false
+    })
   })
 
   it('ignores a malformed notification with no string pluginId', () => {

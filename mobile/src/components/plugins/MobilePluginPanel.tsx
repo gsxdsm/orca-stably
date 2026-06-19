@@ -25,16 +25,22 @@ export function MobilePluginPanel({ client, pluginId }: Props): React.JSX.Elemen
     setFailed(false)
     client
       .sendRequest('plugin.getEntry', { pluginId })
-      .then((response) => {
+      .then(async (response) => {
         if (cancelled) {
           return
         }
         const result = response.ok ? (response.result as GetEntryResult) : undefined
-        if (result?.ok && typeof result.html === 'string') {
-          setHtml(result.html)
-          // Start the trusted backend child on the relay host for this plugin.
-          void client.sendRequest('plugin.activate', { pluginId })
-        } else {
+        if (!result?.ok || typeof result.html !== 'string') {
+          setFailed(true)
+          return
+        }
+        setHtml(result.html)
+        // Start the trusted backend child on the relay host. Surface a failed
+        // start instead of leaving the user on a UI whose backend never ran.
+        const activated = await client.sendRequest('plugin.activate', { pluginId })
+        const activeOk =
+          activated.ok && (activated.result as { ok?: boolean } | undefined)?.ok === true
+        if (!cancelled && !activeOk) {
           setFailed(true)
         }
       })
@@ -45,6 +51,9 @@ export function MobilePluginPanel({ client, pluginId }: Props): React.JSX.Elemen
       })
     return () => {
       cancelled = true
+      // Stop the backend child when the panel closes / switches plugins so
+      // children don't accumulate on the relay. Best-effort fire-and-forget.
+      void client.sendRequest('plugin.deactivate', { pluginId })
     }
   }, [client, pluginId])
 

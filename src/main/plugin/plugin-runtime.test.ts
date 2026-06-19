@@ -37,6 +37,9 @@ class FakeHost implements PluginHostLike {
     return this.up
   }
   postUi(): void {}
+  terminate(): void {
+    this.up = false
+  }
   // test helper: simulate a crash
   crash(): void {
     this.up = false

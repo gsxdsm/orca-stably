@@ -129,6 +129,19 @@ export class PluginHost {
     return this.child !== null
   }
 
+  // Synchronously signal the child to terminate. Unlike stop(), this returns
+  // immediately without awaiting exit — for process-exit cleanup where there is
+  // no event loop left to await on, so the kill signal must be delivered inline.
+  terminate(): void {
+    const child = this.child
+    if (!child) {
+      return
+    }
+    this.stopping = true
+    child.kill('SIGTERM')
+    this.child = null
+  }
+
   // Ask the backend to deactivate, then force-kill if it does not exit within
   // the grace period.
   async stop(graceMs = 2000): Promise<void> {

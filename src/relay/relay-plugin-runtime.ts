@@ -38,7 +38,6 @@ export async function denyRelayHostCommand(name: HostCommand): Promise<never> {
 }
 
 export function createRelayPluginRuntime(config: RelayPluginRuntimeConfig): {
-  manager: PluginManager
   runtime: PluginRuntime
 } {
   const pluginsDir = config.pluginsDir ?? relayPluginsDir()
@@ -57,5 +56,5 @@ export function createRelayPluginRuntime(config: RelayPluginRuntimeConfig): {
     onUiMessage: config.onUiMessage,
     hostFactory: config.hostFactory
   })
-  return { manager, runtime }
+  return { runtime }
 }

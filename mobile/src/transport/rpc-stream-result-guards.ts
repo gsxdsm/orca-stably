@@ -1,5 +1,7 @@
-// Type guards for streaming-subscription result frames. Extracted from
-// rpc-client so the transport module stays under its line budget.
+// Type guards for the "ready" result frame each streaming subscription returns
+// before its data frames: terminal.subscribe -> { type: 'subscribed', streamId }
+// and browser.screencast -> { type: 'ready', subscriptionId }. The rpc-client
+// message loop uses these to bind a subscription's server-assigned id.
 
 export function isTerminalSubscribedResult(
   value: unknown

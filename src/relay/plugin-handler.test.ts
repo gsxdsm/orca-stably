@@ -19,20 +19,28 @@ function manifest(overrides: Record<string, unknown> = {}): Record<string, unkno
   }
 }
 
-type Handler = (params: Record<string, unknown>, ctx: unknown) => Promise<unknown>
-type FakeHost = PluginHostLike & { config: PluginHostConfig; posted: unknown[] }
+type Handler = (params: Record<string, unknown>, ctx: { clientId?: number }) => Promise<unknown>
+type FakeHost = PluginHostLike & { config: PluginHostConfig; posted: unknown[]; stopped: boolean }
+type Notification = { clientId: number; method: string; params?: Record<string, unknown> }
 
 let tmp: string
 let handlers: Map<string, Handler>
-let notifications: { method: string; params?: Record<string, unknown> }[]
+let notifications: Notification[]
+let detachListeners: ((clientId: number) => void)[]
 let hosts: FakeHost[]
+let failStart: boolean
 
 function fakeDispatcher(): RelayDispatcherLike {
   handlers = new Map()
   notifications = []
+  detachListeners = []
   return {
     onRequest: (method, handler) => handlers.set(method, handler),
-    notify: (method, params) => notifications.push({ method, params })
+    notifyClient: (clientId, method, params) => notifications.push({ clientId, method, params }),
+    onClientDetached: (listener) => {
+      detachListeners.push(listener)
+      return () => {}
+    }
   }
 }
 
@@ -40,10 +48,17 @@ function fakeHostFactory(config: PluginHostConfig): FakeHost {
   const host: FakeHost = {
     config,
     posted: [],
-    start: () => Promise.resolve(),
-    stop: () => Promise.resolve(),
-    isRunning: () => true,
-    postUi: (message) => host.posted.push(message)
+    stopped: false,
+    start: () => (failStart ? Promise.reject(new Error('boom')) : Promise.resolve()),
+    stop: () => {
+      host.stopped = true
+      return Promise.resolve()
+    },
+    isRunning: () => !host.stopped && !failStart,
+    postUi: (message) => host.posted.push(message),
+    terminate: () => {
+      host.stopped = true
+    }
   }
   hosts.push(host)
   return host
@@ -56,9 +71,12 @@ function installFixture(id = 'acme.foo'): void {
   writeFileSync(join(dir, 'index.html'), '<!doctype html><body>hi</body>')
 }
 
+const ctx = (clientId: number): { clientId: number } => ({ clientId })
+
 beforeEach(() => {
   tmp = mkdtempSync(join(tmpdir(), 'relay-plugin-'))
   hosts = []
+  failStart = false
   registerRelayPluginHandlers(fakeDispatcher(), {
     pluginsDir: tmp,
     stateFilePath: join(tmp, 'state.json'),
@@ -78,13 +96,13 @@ afterEach(() => {
 describe('relay plugin handlers', () => {
   it('plugin.list returns discovered plugins', async () => {
     installFixture()
-    const result = (await handlers.get('plugin.list')!({}, null)) as { plugins: { id: string }[] }
+    const result = (await handlers.get('plugin.list')!({}, {})) as { plugins: { id: string }[] }
     expect(result.plugins.map((p) => p.id)).toEqual(['acme.foo'])
   })
 
   it('plugin.getEntry returns the single UI html', async () => {
     installFixture()
-    const result = (await handlers.get('plugin.getEntry')!({ pluginId: 'acme.foo' }, null)) as {
+    const result = (await handlers.get('plugin.getEntry')!({ pluginId: 'acme.foo' }, {})) as {
       ok: boolean
       html?: string
     }
@@ -93,7 +111,7 @@ describe('relay plugin handlers', () => {
   })
 
   it('plugin.getEntry rejects an unknown plugin', async () => {
-    const result = (await handlers.get('plugin.getEntry')!({ pluginId: 'nope' }, null)) as {
+    const result = (await handlers.get('plugin.getEntry')!({ pluginId: 'nope' }, {})) as {
       ok: boolean
     }
     expect(result.ok).toBe(false)
@@ -103,7 +121,7 @@ describe('relay plugin handlers', () => {
     const dir = join(tmp, 'acme.foo')
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, 'plugin.json'), JSON.stringify(manifest()))
-    const result = (await handlers.get('plugin.getEntry')!({ pluginId: 'acme.foo' }, null)) as {
+    const result = (await handlers.get('plugin.getEntry')!({ pluginId: 'acme.foo' }, {})) as {
       ok: boolean
       error?: string
     }
@@ -112,7 +130,7 @@ describe('relay plugin handlers', () => {
 
   it('plugin.activate starts the backend for an installed plugin', async () => {
     installFixture()
-    const result = (await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, null)) as {
+    const result = (await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(1))) as {
       ok: boolean
     }
     expect(result.ok).toBe(true)
@@ -121,7 +139,7 @@ describe('relay plugin handlers', () => {
   })
 
   it('plugin.activate rejects an unknown id before forking', async () => {
-    const result = (await handlers.get('plugin.activate')!({ pluginId: 'nope' }, null)) as {
+    const result = (await handlers.get('plugin.activate')!({ pluginId: 'nope' }, ctx(1))) as {
       ok: boolean
       error?: string
     }
@@ -130,49 +148,84 @@ describe('relay plugin handlers', () => {
   })
 
   it('plugin.activate rejects a traversal-shaped id before forking', async () => {
-    const result = (await handlers.get('plugin.activate')!({ pluginId: '../evil' }, null)) as {
+    const result = (await handlers.get('plugin.activate')!({ pluginId: '../evil' }, ctx(1))) as {
       ok: boolean
     }
     expect(result.ok).toBe(false)
     expect(hosts).toHaveLength(0)
   })
 
+  it('plugin.deactivate rejects a traversal-shaped id', async () => {
+    const result = (await handlers.get('plugin.deactivate')!({ pluginId: '../evil' }, ctx(1))) as {
+      ok: boolean
+      error?: string
+    }
+    expect(result).toEqual({ ok: false, error: 'invalid_params' })
+  })
+
   it('plugin.postUi lazily activates and forwards the message to the child', async () => {
     installFixture()
     const result = (await handlers.get('plugin.postUi')!(
       { pluginId: 'acme.foo', message: { reqId: 'r1', method: 'settings.get' } },
-      null
+      ctx(1)
     )) as { ok: boolean }
     expect(result.ok).toBe(true)
     expect(hosts).toHaveLength(1)
     expect(hosts[0].posted).toEqual([{ reqId: 'r1', method: 'settings.get' }])
   })
 
+  it('plugin.postUi returns activation_failed when the backend cannot start', async () => {
+    installFixture()
+    failStart = true
+    const result = (await handlers.get('plugin.postUi')!(
+      { pluginId: 'acme.foo', message: {} },
+      ctx(1)
+    )) as { ok: boolean; error?: string }
+    expect(result).toEqual({ ok: false, error: 'activation_failed' })
+  })
+
   it('plugin.postUi rejects an unknown id', async () => {
     const result = (await handlers.get('plugin.postUi')!(
       { pluginId: 'nope', message: {} },
-      null
-    )) as { ok: boolean; error?: string }
+      ctx(1)
+    )) as {
+      ok: boolean
+      error?: string
+    }
     expect(result).toEqual({ ok: false, error: 'unknown_plugin' })
   })
 
-  it('pushes child outbound messages to the client as plugin.uiMessage notifications', async () => {
+  it('routes child uiMessages only to the client that opened the plugin', async () => {
     installFixture()
-    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, null)
-    // Simulate the child posting a bridge response back out.
+    // Client 1 opens the plugin; client 2 never does.
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(1))
     hosts[0].config.onUiMessage!({ reqId: 'r1', ok: true, result: null })
-    expect(notifications).toContainEqual({
-      method: 'plugin.uiMessage',
-      params: { pluginId: 'acme.foo', message: { reqId: 'r1', ok: true, result: null } }
-    })
+    expect(notifications).toEqual([
+      {
+        clientId: 1,
+        method: 'plugin.uiMessage',
+        params: { pluginId: 'acme.foo', message: { reqId: 'r1', ok: true, result: null } }
+      }
+    ])
+    // Nothing was sent to any other client — no cross-client leak.
+    expect(notifications.every((n) => n.clientId === 1)).toBe(true)
+  })
+
+  it('stops delivering to a client after it detaches', async () => {
+    installFixture()
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(1))
+    detachListeners.forEach((fn) => fn(1))
+    hosts[0].config.onUiMessage!({ reqId: 'r1', ok: true })
+    expect(notifications).toHaveLength(0)
   })
 
   it('plugin.deactivate stops the backend', async () => {
     installFixture()
-    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, null)
-    const result = (await handlers.get('plugin.deactivate')!({ pluginId: 'acme.foo' }, null)) as {
+    await handlers.get('plugin.activate')!({ pluginId: 'acme.foo' }, ctx(1))
+    const result = (await handlers.get('plugin.deactivate')!({ pluginId: 'acme.foo' }, ctx(1))) as {
       ok: boolean
     }
     expect(result.ok).toBe(true)
+    expect(hosts[0].stopped).toBe(true)
   })
 })

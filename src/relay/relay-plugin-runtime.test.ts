@@ -20,7 +20,8 @@ function fakeHostFactory(config: PluginHostConfig): FakeHost {
     start: () => Promise.resolve(),
     stop: () => Promise.resolve(),
     isRunning: () => true,
-    postUi: () => {}
+    postUi: () => {},
+    terminate: () => {}
   }
 }
 

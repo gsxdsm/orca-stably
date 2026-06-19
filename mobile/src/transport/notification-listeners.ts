@@ -4,7 +4,7 @@
 
 export type NotificationListener = (params: Record<string, unknown>) => void
 
-type NotificationFrame = { method?: unknown; id?: unknown; params?: unknown }
+export type NotificationFrame = { method?: unknown; id?: unknown; params?: unknown }
 
 export function createNotificationRegistry() {
   const listeners = new Map<string, Set<NotificationListener>>()

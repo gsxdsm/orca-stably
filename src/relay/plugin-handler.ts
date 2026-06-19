@@ -21,12 +21,17 @@ import type { WorkspaceSnapshot } from '../shared/plugin/api-contract'
 import type { PluginHostFactory } from '../main/plugin/plugin-runtime'
 import { createRelayPluginRuntime } from './relay-plugin-runtime'
 
+export type RelayRequestContext = { clientId?: number }
+
 export type RelayDispatcherLike = {
   onRequest(
     method: string,
-    handler: (params: Record<string, unknown>, context: unknown) => Promise<unknown>
+    handler: (params: Record<string, unknown>, context: RelayRequestContext) => Promise<unknown>
   ): void
-  notify(method: string, params?: Record<string, unknown>): void
+  // Send a notification to a single client (by id). Used so a plugin's backend
+  // responses reach only the client that opened it, never every attached client.
+  notifyClient(clientId: number, method: string, params?: Record<string, unknown>): void
+  onClientDetached(listener: (clientId: number) => void): () => void
 }
 
 export type RelayPluginConfig = {
@@ -55,16 +60,41 @@ function isInstalledPlugin(pluginsDir: string, pluginId: string): boolean {
 export function registerRelayPluginHandlers(
   dispatcher: RelayDispatcherLike,
   config: RelayPluginConfig
-): { stopAll: () => Promise<void> } {
+): { stopAll: () => Promise<void>; stopAllSync: () => void } {
+  // Which clients have opened each plugin. A backend response carries one
+  // client's data (settings, workspace snapshot), so it must be routed only to
+  // the clients that opened that plugin — never broadcast to every client.
+  const subscribers = new Map<string, Set<number>>()
+  const subscribe = (pluginId: string, clientId: number | undefined): void => {
+    if (clientId === undefined) {
+      return
+    }
+    let set = subscribers.get(pluginId)
+    if (!set) {
+      set = new Set()
+      subscribers.set(pluginId, set)
+    }
+    set.add(clientId)
+  }
+  dispatcher.onClientDetached((clientId) => {
+    for (const set of subscribers.values()) {
+      set.delete(clientId)
+    }
+  })
+
   const { runtime } = createRelayPluginRuntime({
     pluginsDir: config.pluginsDir,
     entryPath: config.entryPath,
     stateFilePath: config.stateFilePath,
     getWorkspaceSnapshot: config.getWorkspaceSnapshot,
-    // Child outbound messages (bridge responses + lifecycle events) are pushed
-    // to the mobile client; the webview's ui-bridge-client matches reqIds.
-    onUiMessage: (pluginId, message) =>
-      dispatcher.notify('plugin.uiMessage', { pluginId, message }),
+    // Child outbound messages (bridge responses + lifecycle events) go only to
+    // the clients that opened this plugin; the webview's ui-bridge-client then
+    // matches reqIds. Broadcasting would leak one client's data to others.
+    onUiMessage: (pluginId, message) => {
+      for (const clientId of subscribers.get(pluginId) ?? []) {
+        dispatcher.notifyClient(clientId, 'plugin.uiMessage', { pluginId, message })
+      }
+    },
     hostFactory: config.hostFactory
   })
 
@@ -99,11 +129,12 @@ export function registerRelayPluginHandlers(
   })
 
   // Start the trusted backend child on the relay host.
-  dispatcher.onRequest('plugin.activate', async (params) => {
+  dispatcher.onRequest('plugin.activate', async (params, context) => {
     const pluginId = String(params.pluginId ?? '')
     if (!isInstalledPlugin(config.pluginsDir, pluginId)) {
       return { ok: false, error: 'unknown_plugin' }
     }
+    subscribe(pluginId, context.clientId)
     return runtime.activate(pluginId)
   })
 
@@ -114,16 +145,18 @@ export function registerRelayPluginHandlers(
       return { ok: false, error: 'invalid_params' }
     }
     await runtime.deactivate(pluginId)
+    subscribers.delete(pluginId)
     return { ok: true }
   })
 
   // Inbound webview -> backend message. Lazily activates so a message that races
   // ahead of an explicit activate still reaches a running child.
-  dispatcher.onRequest('plugin.postUi', async (params) => {
+  dispatcher.onRequest('plugin.postUi', async (params, context) => {
     const pluginId = String(params.pluginId ?? '')
     if (!isInstalledPlugin(config.pluginsDir, pluginId)) {
       return { ok: false, error: 'unknown_plugin' }
     }
+    subscribe(pluginId, context.clientId)
     if (!runtime.isRunning(pluginId)) {
       const activated = await runtime.activate(pluginId)
       if (!activated.ok) {
@@ -134,5 +167,5 @@ export function registerRelayPluginHandlers(
     return { ok: true }
   })
 
-  return { stopAll: () => runtime.stopAll() }
+  return { stopAll: () => runtime.stopAll(), stopAllSync: () => runtime.stopAllSync() }
 }

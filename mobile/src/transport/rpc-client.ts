@@ -29,7 +29,7 @@ import {
   updateTerminalSubscriptionViewport as updateCachedTerminalSubscriptionViewport
 } from './rpc-client-terminal-subscription'
 import { describeSocketEvent } from './socket-event-debug'
-import { createNotificationRegistry } from './notification-listeners'
+import { createNotificationRegistry, type NotificationFrame } from './notification-listeners'
 import {
   isBrowserScreencastReadyResult,
   isTerminalSubscribedResult
@@ -573,7 +573,7 @@ export function connect(
 
       // Server-pushed notification (a `method`, no `id`) — route to listeners
       // and stop before the id-keyed request/stream branches.
-      if (notifications.tryDispatch(response as unknown as { method?: unknown; id?: unknown })) {
+      if (notifications.tryDispatch(response as unknown as NotificationFrame)) {
         return
       }
 
