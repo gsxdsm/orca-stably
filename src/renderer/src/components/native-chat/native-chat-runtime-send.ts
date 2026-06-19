@@ -44,20 +44,26 @@ export function nativeChatQuestionOffsets(index: number): {
   return { bodyAt, enterAt: bodyAt + NATIVE_CHAT_SUBMIT_DELAY_MS }
 }
 
+/** Cancels an in-flight send's pending pty writes (the delayed Enter, and any
+ *  later question bodies/Enters). Safe to call after the send completes. */
+export type NativeChatSendHandle = { cancel: () => void }
+
 /**
  * Send a native-chat message through the verified runtime pty path: framed body
  * first, then a separate delayed Enter. `sendRuntimePtyInput` branches local
- * pty:write vs remote runtime RPC, so this works for SSH panes too.
+ * pty:write vs remote runtime RPC, so this works for SSH panes too. Returns a
+ * cancel handle so callers can drop the still-pending Enter on unmount/stop.
  */
 export function sendNativeChatMessage(
   settings: ReturnType<typeof getSettingsForAgentTabRuntimeOwner>,
   ptyId: string,
   text: string
-): void {
+): NativeChatSendHandle {
   sendRuntimePtyInput(settings, ptyId, buildNativeChatPasteBytes(text))
-  setTimeout(() => {
+  const timer = setTimeout(() => {
     sendRuntimePtyInput(settings, ptyId, NATIVE_CHAT_SUBMIT)
   }, NATIVE_CHAT_SUBMIT_DELAY_MS)
+  return { cancel: () => clearTimeout(timer) }
 }
 
 /**
@@ -67,24 +73,36 @@ export function sendNativeChatMessage(
  * write each question's framed body then its Enter as a per-question sequence,
  * paced by `NATIVE_CHAT_QUESTION_STEP_MS` so each Enter lands on its own
  * rendered question and the LAST Enter submits — exactly N Enters for N lines,
- * never a trailing one.
+ * never a trailing one. Returns a cancel handle that clears every pending timer
+ * so a detached sequence can't keep writing PTY bytes after unmount/stop.
  */
 export function sendNativeChatAnswer(
   settings: ReturnType<typeof getSettingsForAgentTabRuntimeOwner>,
   ptyId: string,
   lines: string[]
-): void {
+): NativeChatSendHandle {
   if (lines.length <= 1) {
-    sendNativeChatMessage(settings, ptyId, lines[0] ?? '')
-    return
+    return sendNativeChatMessage(settings, ptyId, lines[0] ?? '')
   }
+  const timers: ReturnType<typeof setTimeout>[] = []
   lines.forEach((line, index) => {
     const { bodyAt, enterAt } = nativeChatQuestionOffsets(index)
-    setTimeout(() => {
-      sendRuntimePtyInput(settings, ptyId, buildNativeChatPasteBytes(line))
-    }, bodyAt)
-    setTimeout(() => {
-      sendRuntimePtyInput(settings, ptyId, NATIVE_CHAT_SUBMIT)
-    }, enterAt)
+    timers.push(
+      setTimeout(() => {
+        sendRuntimePtyInput(settings, ptyId, buildNativeChatPasteBytes(line))
+      }, bodyAt)
+    )
+    timers.push(
+      setTimeout(() => {
+        sendRuntimePtyInput(settings, ptyId, NATIVE_CHAT_SUBMIT)
+      }, enterAt)
+    )
   })
+  return {
+    cancel: () => {
+      for (const timer of timers) {
+        clearTimeout(timer)
+      }
+    }
+  }
 }

@@ -172,9 +172,10 @@ export function useNativeChatLiveSession(
         setHasMore(hasMoreNativeChatHistory(result.messages.length, nextLimit))
       })
       .finally(() => {
-        if (latestSessionId.current === sessionId) {
-          setLoadingEarlier(false)
-        }
+        // Always clear the loading flag — even after a session swap — so a stale
+        // resolve can't leave loadingEarlier stuck true on the new session. Only
+        // APPLYING the result above is gated on the session-id match.
+        setLoadingEarlier(false)
       })
   }, [agent, sessionId, hasMore, loadingEarlier, read.phase])
 

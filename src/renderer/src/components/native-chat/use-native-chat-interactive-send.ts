@@ -1,8 +1,13 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useAppStore } from '../../store'
 import { sendRuntimePtyInput } from '@/runtime/runtime-terminal-inspection'
 import { getSettingsForAgentTabRuntimeOwner } from '@/lib/agent-paste-draft'
-import { sendNativeChatAnswer } from './native-chat-runtime-send'
+import type { AgentType } from '../../../../shared/native-chat-types'
+import {
+  sendNativeChatAnswer,
+  sendNativeChatMessage,
+  type NativeChatSendHandle
+} from './native-chat-runtime-send'
 
 // ESC is the agent-TUI interrupt/cancel key over the PTY (matches how the
 // composer forwards Escape). Used to cancel a question or deny an approval.
@@ -25,7 +30,20 @@ export type NativeChatInteractiveSend = {
  * (bracketed-paste framed body, then a separate delayed Enter); control strings
  * (option digits, ESC) are written raw so the agent reads them as keystrokes.
  */
-export function useNativeChatInteractiveSend(terminalTabId: string): NativeChatInteractiveSend {
+export function useNativeChatInteractiveSend(
+  terminalTabId: string,
+  agent: AgentType
+): NativeChatInteractiveSend {
+  // The in-flight answer's cancel handle; cleared on a new send, on Stop, and on
+  // unmount so a detached setTimeout chain can't keep writing PTY bytes after
+  // the view is gone / the user switched away.
+  const inFlightRef = useRef<NativeChatSendHandle | null>(null)
+  const cancelInFlight = useCallback(() => {
+    inFlightRef.current?.cancel()
+    inFlightRef.current = null
+  }, [])
+  useEffect(() => cancelInFlight, [cancelInFlight])
+
   const sendRaw = useCallback(
     (raw: string) => {
       const ptyId = useAppStore.getState().ptyIdsByTabId[terminalTabId]?.[0]
@@ -46,19 +64,29 @@ export function useNativeChatInteractiveSend(terminalTabId: string): NativeChatI
       if (!ptyId) {
         return
       }
-      // Claude Code's AskUserQuestion is a MULTI-STEP prompt: one question per
+      // Cancel any prior in-flight answer before starting a new one.
+      cancelInFlight()
+      const settings = getSettingsForAgentTabRuntimeOwner(terminalTabId)
+      // Only Claude's AskUserQuestion is a MULTI-STEP prompt: one question per
       // step, each Enter advances to the next, the final Enter submits. So a
       // multi-line answer (one line per question, as `formatAskAnswer` builds
-      // it) must be sent as a per-question sequence — body then its own Enter,
-      // paced so each Enter lands on its rendered question and only the last
-      // submits. A single-line answer stays one body + one delayed Enter.
-      const lines = text.split('\n')
-      sendNativeChatAnswer(getSettingsForAgentTabRuntimeOwner(terminalTabId), ptyId, lines)
+      // it) is sent as a per-question sequence — body then its own Enter, paced
+      // so each Enter lands on its rendered question and only the last submits.
+      // Other agents (e.g. Codex) submit the whole answer with one Enter, so
+      // gate the stepping on Claude and send a single body + Enter otherwise.
+      inFlightRef.current =
+        agent === 'claude'
+          ? sendNativeChatAnswer(settings, ptyId, text.split('\n'))
+          : sendNativeChatMessage(settings, ptyId, text)
     },
-    [terminalTabId]
+    [terminalTabId, agent, cancelInFlight]
   )
 
-  const cancel = useCallback(() => sendRaw(ESC), [sendRaw])
+  // Stop/cancel: drop any pending answer writes, then send ESC to interrupt.
+  const cancel = useCallback(() => {
+    cancelInFlight()
+    sendRaw(ESC)
+  }, [cancelInFlight, sendRaw])
 
   return { sendAnswer, sendRaw, cancel }
 }

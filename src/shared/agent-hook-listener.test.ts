@@ -265,6 +265,26 @@ describe('shared agent-hook-listener', () => {
     expect(next?.payload.interactivePrompt).toBeUndefined()
   })
 
+  it('does not re-assert the AskUserQuestion prompt on PostToolUse', () => {
+    // The question was answered, so PostToolUse must clear the live card instead
+    // of re-deriving the `{questions}` prompt from the carried tool input.
+    const event = normalizeHookPayload(
+      state,
+      'claude',
+      {
+        paneKey: PANE_KEY,
+        payload: {
+          hook_event_name: 'PostToolUse',
+          tool_name: 'AskUserQuestion',
+          tool_input: { questions: [{ question: 'Pick', options: ['a'] }] }
+        }
+      },
+      'production'
+    )
+    expect(event?.payload.toolName).toBe('AskUserQuestion')
+    expect(event?.payload.interactivePrompt).toBeUndefined()
+  })
+
   it('captures interactivePrompt for the OpenCode AskUserQuestion route', () => {
     const properties = { questions: [{ question: 'Choose', options: ['x', 'y'] }] }
     const event = normalizeHookPayload(

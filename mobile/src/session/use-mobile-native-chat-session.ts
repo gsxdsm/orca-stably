@@ -41,6 +41,9 @@ export function useMobileNativeChatSession(args: {
   const [loadingEarlier, setLoadingEarlier] = useState(false)
   const messagesRef = useRef<NativeChatMessage[]>([])
   const limitRef = useRef(INITIAL_LIMIT)
+  // Tracks the live session so a late loadEarlier resolve can detect a swap.
+  const sessionIdRef = useRef<string | null>(sessionId)
+  sessionIdRef.current = sessionId
 
   const setList = useCallback((next: NativeChatMessage[]) => {
     messagesRef.current = next
@@ -120,6 +123,9 @@ export function useMobileNativeChatSession(args: {
     if (!client || !agent || !sessionId || loadingEarlier || !hasMore) {
       return
     }
+    // Capture the session this page belongs to; a swap underneath us must not
+    // apply this read's result onto the new session (mirrors desktop's guard).
+    const requestSessionId = sessionId
     const nextLimit = limitRef.current + PAGE
     setLoadingEarlier(true)
     void (async () => {
@@ -134,6 +140,10 @@ export function useMobileNativeChatSession(args: {
         }
         const result = response.result as ReadSessionResult
         if ('error' in result) {
+          return
+        }
+        // Drop a stale resolve from a session that swapped underneath us.
+        if (sessionIdRef.current !== requestSessionId) {
           return
         }
         limitRef.current = nextLimit

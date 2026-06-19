@@ -140,7 +140,7 @@ function NativeChatResolvedView({
   const canSend = useNativeChatCanSend(terminalTabId)
   // Reuse the verified composer send path for both the interactive cards and the
   // chrome-row Stop button (Stop sends ESC, the agent-TUI interrupt key).
-  const interactiveSend = useNativeChatInteractiveSend(terminalTabId)
+  const interactiveSend = useNativeChatInteractiveSend(terminalTabId, agent)
   // Global expand/collapse for every tool run. Each flip re-syncs all runs; a
   // run can still be toggled individually after.
   const [toolsExpanded, setToolsExpanded] = useState(false)

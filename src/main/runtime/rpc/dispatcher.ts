@@ -14,25 +14,8 @@ import {
   type RpcRequest,
   type RpcResponse
 } from './core'
-import { appendFileSync } from 'fs'
 import type { TerminalStreamFrame } from '../../../shared/terminal-stream-protocol'
 import type { FeatureInteractionId } from '../../../shared/feature-interactions'
-
-// [tab-close-debug] temporary: record every incoming session.tabs.* RPC so we can
-// confirm what a client sends on close/reorder. Remove once the bug is closed out.
-function logTabRpc(method: string, params: unknown): void {
-  if (!method.startsWith('session.tabs')) {
-    return
-  }
-  try {
-    appendFileSync(
-      '/tmp/orca-tab-close-debug.log',
-      `${new Date().toISOString()} ${method} ${JSON.stringify(params)}\n`
-    )
-  } catch {
-    // ignore
-  }
-}
 import { isBrowserPaneUiRuntimeRpcParams } from '../../../shared/runtime-rpc-feature-interaction-source'
 import {
   computerErrorData,
@@ -60,7 +43,6 @@ export class RpcDispatcher {
   }
 
   async dispatch(request: RpcRequest, options?: { signal?: AbortSignal }): Promise<RpcResponse> {
-    logTabRpc(request.method, request.params)
     const meta = this.meta()
     const method = this.registry.get(request.method)
     if (!method) {
@@ -118,7 +100,6 @@ export class RpcDispatcher {
       ) => () => void
     }
   ): Promise<void> {
-    logTabRpc(request.method, request.params)
     const meta = this.meta()
     const method = this.registry.get(request.method)
     if (!method) {

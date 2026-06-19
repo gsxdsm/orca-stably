@@ -184,6 +184,7 @@ import { TerminalPaneView } from '../../../../src/session/TerminalPaneView'
 import { MobileNativeChatView } from '../../../../src/session/MobileNativeChatView'
 import { useMobileNativeChatSession } from '../../../../src/session/use-mobile-native-chat-session'
 import { resolveMobileNativeChat } from '../../../../src/session/mobile-native-chat-eligibility'
+import { useMobileNativeChatAnswerSend } from '../../../../src/session/use-mobile-native-chat-answer-send'
 import { parseAgentQuestion } from '../../../../src/session/mobile-native-chat-question'
 import {
   detectAgentPermission,
@@ -1141,6 +1142,11 @@ export default function SessionScreen() {
       ? resolveMobileNativeChat(activeSessionTab)
       : null
   const showNativeChat = activeChatResolution != null
+  // Why: the answer handler is a stable callback; read the live agent kind via a
+  // ref so it can gate Claude's multi-step AskUserQuestion stepping without
+  // re-creating on every resolution change.
+  const activeChatAgentRef = useRef<string | null>(activeChatResolution?.agent ?? null)
+  activeChatAgentRef.current = activeChatResolution?.agent ?? null
   // Why: dictation's onTranscript is a stable closure; read the live view mode
   // through a ref so transcripts route to the chat composer only while it's open.
   const showNativeChatRef = useRef(showNativeChat)
@@ -1234,6 +1240,16 @@ export default function SessionScreen() {
     },
     [client, worktreeId]
   )
+  // Answer an AskUserQuestion (Claude multi-step stepping lives in this hook,
+  // which also owns cancelling the pending writes on Stop / unmount / swap).
+  const { answerAsk: handleNativeChatAnswerAsk, cancelPending: cancelNativeChatAnswer } =
+    useMobileNativeChatAnswerSend({
+      client,
+      handleRef: activeHandleRef,
+      deviceTokenRef,
+      agentRef: activeChatAgentRef,
+      sessionId: activeChatSessionId
+    })
   // Stop the agent mid-turn. TUI agents (Claude Code, Codex) interrupt the
   // current turn on Escape — not Ctrl-C, which tends to quit/clear the prompt.
   // Send Escape twice to reliably cancel an in-progress generation.
@@ -1242,6 +1258,8 @@ export default function SessionScreen() {
     if (!client || !handle) {
       return
     }
+    // Drop any in-flight per-question answer writes so Stop doesn't race them.
+    cancelNativeChatAnswer()
     const escape = String.fromCharCode(27)
     const sendEscape = (): void => {
       void client.sendRequest('terminal.send', {
@@ -1254,7 +1272,7 @@ export default function SessionScreen() {
     }
     sendEscape()
     setTimeout(sendEscape, 80)
-  }, [client])
+  }, [client, cancelNativeChatAnswer])
   // Why: file paths for the composer's `@` mention autocomplete, loaded lazily
   // (only once the user opens a mention) so the chat view costs nothing up front.
   const [nativeChatFilePaths, setNativeChatFilePaths] = useState<string[]>([])
@@ -4936,7 +4954,7 @@ export default function SessionScreen() {
                       streamingText={nativeChatStreamingText}
                       onStop={handleNativeChatStop}
                       ask={nativeChatAsk}
-                      onAnswerAsk={handleNativeChatSend}
+                      onAnswerAsk={handleNativeChatAnswerAsk}
                       question={nativeChatQuestion}
                       onAnswerQuestion={handleNativeChatSend}
                       permission={nativeChatPermission}

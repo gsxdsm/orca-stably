@@ -139,13 +139,27 @@ describe('formatAskAnswer', () => {
     expect(formatAskAnswer(prompt, [['A', 'B'], ['C']])).toBe('A, B\nC')
   })
 
-  it('drops questions with no selection', () => {
+  it('preserves empty answers as empty lines so N lines == N questions', () => {
     const prompt = {
       questions: [
         { question: 'q1', multiSelect: false, options: [{ label: 'A' }] },
         { question: 'q2', multiSelect: false, options: [{ label: 'B' }] }
       ]
     }
-    expect(formatAskAnswer(prompt, [[], ['B']])).toBe('B')
+    // Leading blank stays an empty line: '\nB' (2 lines), not 'B'.
+    expect(formatAskAnswer(prompt, [[], ['B']])).toBe('\nB')
+  })
+
+  it('keeps one line per question with a blank middle answer (3 questions)', () => {
+    const prompt = {
+      questions: [
+        { question: 'q1', multiSelect: false, options: [{ label: 'A' }] },
+        { question: 'q2', multiSelect: false, options: [{ label: 'B' }] },
+        { question: 'q3', multiSelect: false, options: [{ label: 'C' }] }
+      ]
+    }
+    const answer = formatAskAnswer(prompt, [['A'], [], ['C']])
+    expect(answer).toBe('A\n\nC')
+    expect(answer.split('\n')).toHaveLength(3)
   })
 })

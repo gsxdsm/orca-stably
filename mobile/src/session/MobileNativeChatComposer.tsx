@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   },
   suggestionText: {
     color: colors.textPrimary,
-    fontFamily: 'monospace',
+    fontFamily: typography.monoFamily,
     fontSize: typography.metaSize
   },
   bar: {

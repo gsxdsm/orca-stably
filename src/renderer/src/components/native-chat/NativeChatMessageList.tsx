@@ -10,6 +10,7 @@ import {
 } from '../../../../shared/native-chat-types'
 import type { NativeChatLiveSession } from './use-native-chat-live-session'
 import { orderNativeChatMessages } from './native-chat-message-grouping'
+import { stripNoiseMessages } from './native-chat-noise'
 import { foldToolMessages, splitNativeChatBlocks } from './native-chat-tool-fold'
 import { isNearBottom, shouldShowJumpToLatest, type ScrollGeometry } from './native-chat-autoscroll'
 import { NativeChatToolRun } from './NativeChatToolRun'
@@ -177,10 +178,13 @@ export function NativeChatMessageList({
 
   const { hasMore, loadingEarlier, loadEarlier } = session
 
-  // Fold each turn's tool activity into the assistant message it belongs to, then
-  // order stably, so a whole turn's tools collapse under one run.
+  // Strip harness noise (task-notifications, system reminders, slash-command
+  // envelopes) before folding so they don't render as the user's own bubbles —
+  // matching the mobile chat. Then fold each turn's tool activity into the
+  // assistant message it belongs to, ordered stably, so a turn's tools collapse
+  // under one run.
   const messages = useMemo(
-    () => foldToolMessages(orderNativeChatMessages(session.messages)),
+    () => foldToolMessages(orderNativeChatMessages(stripNoiseMessages(session.messages))),
     [session.messages]
   )
 

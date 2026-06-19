@@ -103,6 +103,6 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   optionTextPrimary: {
-    color: '#ffffff'
+    color: colors.onAccent
   }
 })

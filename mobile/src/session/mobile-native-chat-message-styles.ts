@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native'
-import { colors, radii, spacing } from '../theme/mobile-theme'
+import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 
 export const TEXT_SIZE = 17
 export const MONO_SIZE = 12
@@ -80,14 +80,14 @@ export const styles = StyleSheet.create({
   },
   toolRunCount: {
     color: colors.statusGreen,
-    fontFamily: 'monospace',
+    fontFamily: typography.monoFamily,
     fontSize: MONO_SIZE,
     fontWeight: '700'
   },
   toolRunLabel: {
     flex: 1,
     color: colors.textMuted,
-    fontFamily: 'monospace',
+    fontFamily: typography.monoFamily,
     fontSize: MONO_SIZE
   },
   toolRunBody: {
@@ -104,14 +104,14 @@ export const styles = StyleSheet.create({
   },
   toolName: {
     color: colors.textPrimary,
-    fontFamily: 'monospace',
+    fontFamily: typography.monoFamily,
     fontSize: MONO_SIZE + 1,
     fontWeight: '600'
   },
   toolPreview: {
     flex: 1,
     color: colors.textMuted,
-    fontFamily: 'monospace',
+    fontFamily: typography.monoFamily,
     fontSize: MONO_SIZE
   },
   toolPreviewLink: {
@@ -125,7 +125,7 @@ export const styles = StyleSheet.create({
   },
   mono: {
     color: colors.textSecondary,
-    fontFamily: 'monospace',
+    fontFamily: typography.monoFamily,
     fontSize: MONO_SIZE,
     lineHeight: MONO_SIZE + 5
   },
@@ -149,7 +149,7 @@ export const styles = StyleSheet.create({
   },
   diffLine: {
     color: colors.textSecondary,
-    fontFamily: 'monospace',
+    fontFamily: typography.monoFamily,
     fontSize: MONO_SIZE,
     lineHeight: MONO_SIZE + 5,
     paddingHorizontal: spacing.sm

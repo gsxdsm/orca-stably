@@ -136,11 +136,11 @@ export function extractPendingAsk(messages: readonly NativeChatMessage[]): AskPr
   return pending
 }
 
-/** Build the answer text to send to the agent: one line per question, each the
- *  selected option label(s). Mirrors how a user would type the choice. */
+/** Build the answer text to send to the agent: exactly one line per question, in
+ *  question order, each the selected option label(s). Empty answers stay as empty
+ *  lines (not dropped) so N lines always == N questions — the per-question Enter
+ *  stepping counts one Enter per line, so dropping a blank middle answer would
+ *  misalign the count and leave the prompt unsubmitted. */
 export function formatAskAnswer(prompt: AskPrompt, selections: string[][]): string {
-  return prompt.questions
-    .map((_, i) => (selections[i] ?? []).join(', '))
-    .filter((line) => line.length > 0)
-    .join('\n')
+  return prompt.questions.map((_, i) => (selections[i] ?? []).join(', ')).join('\n')
 }

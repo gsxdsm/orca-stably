@@ -998,9 +998,17 @@ function createNativeChatApi(): NativeChatApi {
         limit
       }),
     subscribe: (args, onAppended) => {
+      // No paired runtime yet: nothing to subscribe to, and
+      // requireActiveEnvironment() would throw. Return a no-op teardown so the
+      // chat view mounts cleanly until a runtime is paired (only the not-paired
+      // case is swallowed — real subscribe errors still surface via .catch).
+      const environment = requireActiveEnvironmentOrNull()
+      if (!environment) {
+        return () => {}
+      }
       let handle: { unsubscribe: () => void } | null = null
       let cancelled = false
-      void getClientForEnvironment(requireActiveEnvironment())
+      void getClientForEnvironment(environment)
         .subscribe(
           'nativeChat.subscribe',
           { agent: args.agent, sessionId: args.sessionId },

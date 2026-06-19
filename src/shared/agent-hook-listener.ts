@@ -666,7 +666,17 @@ function deriveInteractivePrompt(
   toolInput: unknown,
   eventName?: unknown
 ): string | undefined {
-  if (isAskUserQuestionTool(toolName) && toolInput !== undefined && toolInput !== null) {
+  // Why: an AskUserQuestion is pending only on the Pre/Permission event. On
+  // PostToolUse it has already been answered, so re-asserting the `{questions}`
+  // prompt would re-show an answered card instead of letting it clear. The live
+  // working indicator keys off agentStatus.state (not this prompt), so dropping
+  // it here doesn't suppress it.
+  if (
+    isAskUserQuestionTool(toolName) &&
+    eventName !== 'PostToolUse' &&
+    toolInput !== undefined &&
+    toolInput !== null
+  ) {
     try {
       return JSON.stringify(toolInput)
     } catch {

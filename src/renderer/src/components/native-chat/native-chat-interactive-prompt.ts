@@ -152,11 +152,11 @@ export function parseInteractivePrompt(
   return null
 }
 
-/** Build the answer text to send: one line per question, each line the selected
- *  option label(s) joined by ", ". Mirrors how a user would type the choice. */
+/** Build the answer text to send: exactly one line per question, in question
+ *  order, each line the selected option label(s) joined by ", ". Empty answers
+ *  stay as empty lines (not dropped) so N lines always == N questions — the
+ *  per-question Enter stepping counts one Enter per line, so dropping a blank
+ *  middle answer would misalign the count and leave the prompt unsubmitted. */
 export function formatAskAnswer(prompt: AskPrompt, selections: string[][]): string {
-  return prompt.questions
-    .map((_, i) => (selections[i] ?? []).join(', '))
-    .filter((line) => line.length > 0)
-    .join('\n')
+  return prompt.questions.map((_, i) => (selections[i] ?? []).join(', ')).join('\n')
 }
