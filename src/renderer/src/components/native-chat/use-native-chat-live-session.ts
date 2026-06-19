@@ -100,7 +100,20 @@ export function useNativeChatLiveSession(args: UseNativeChatLiveSessionArgs): Na
 
     return () => {
       cancelled = true
-      unsubscribe?.()
+      // Desktop returns a sync unsubscribe fn; the web RPC bridge returns a
+      // Promise instead (and can't deliver streaming callbacks). Calling a
+      // Promise as a function crashed the whole chat view, so resolve it first
+      // and only call the result when it's actually a function.
+      const teardown = unsubscribe as unknown
+      if (typeof teardown === 'function') {
+        ;(teardown as () => void)()
+      } else if (teardown && typeof (teardown as { then?: unknown }).then === 'function') {
+        void (teardown as Promise<unknown>).then((fn) => {
+          if (typeof fn === 'function') {
+            ;(fn as () => void)()
+          }
+        })
+      }
     }
   }, [agent, sessionId])
 
