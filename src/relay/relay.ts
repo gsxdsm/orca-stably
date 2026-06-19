@@ -54,6 +54,8 @@ import {
   DEFAULT_SSH_RELAY_GRACE_PERIOD_SECONDS,
   SSH_RELAY_CONFIGURE_GRACE_TIME_METHOD
 } from '../shared/ssh-types'
+import { registerRelayPluginHandlers } from './plugin-handler'
+import { defaultRelayWorkspaceSnapshot, relayPluginsDir } from './relay-plugin-config'
 import { assertPluginSourceUnderByteCap } from './plugin-source-limit'
 import { resolveOpenCodeSourceConfigDir, resolvePiSourceAgentDir } from './plugin-overlay-env'
 import { detectPiAgentKindFromCommand } from '../shared/pi-agent-kind'
@@ -441,6 +443,14 @@ async function main(): Promise<void> {
 
   const _workspaceSessionHandler = new WorkspaceSessionHandler(dispatcher)
   void _workspaceSessionHandler
+
+  // Right-sidebar plugin system (mobile path): list installed plugins, serve a
+  // plugin's single UI HTML, and route capability-gated bridge calls — all where
+  // the workspace lives. Plugin state lives under $HOME/.orca-relay/plugins.
+  registerRelayPluginHandlers(dispatcher, {
+    pluginsDir: relayPluginsDir(),
+    getWorkspaceSnapshot: defaultRelayWorkspaceSnapshot
+  })
 
   dispatcher.onRequest('orca.cli', async (params, context) => {
     return await dispatcher.requestAnyClient('orca.cli', params, {
