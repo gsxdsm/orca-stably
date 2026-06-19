@@ -2763,6 +2763,9 @@ export function useIpcEvents(): void {
         agentType: data.agentType,
         toolName: data.toolName,
         toolInput: data.toolInput,
+        // Why: the live AskUserQuestion prompt rides this IPC field; omitting it
+        // here silently dropped the native question card on web/mobile clients.
+        interactivePrompt: data.interactivePrompt,
         lastAssistantMessage: data.lastAssistantMessage,
         interrupted: data.interrupted
       })
