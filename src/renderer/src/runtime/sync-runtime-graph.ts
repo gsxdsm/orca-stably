@@ -1382,10 +1382,10 @@ function isFileActiveEditorSurface(
   >,
   file: Pick<AppState['openFiles'][number], 'id' | 'worktreeId'>
 ): boolean {
-  const activeType = state.activeTabTypeByWorktree[file.worktreeId] ?? state.activeTabType
+  const activeType = state.activeTabTypeByWorktree?.[file.worktreeId] ?? state.activeTabType
   return (
     activeType === 'editor' &&
-    (state.activeFileIdByWorktree[file.worktreeId] ?? state.activeFileId) === file.id
+    (state.activeFileIdByWorktree?.[file.worktreeId] ?? state.activeFileId) === file.id
   )
 }
 
