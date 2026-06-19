@@ -120,7 +120,15 @@ export function MobileNativeChatView({
   // until a genuinely different question arrives.
   const askKey = ask ? `${ask.questions.length}:${ask.questions[0]?.question ?? ''}` : null
   const [dismissedAskKey, setDismissedAskKey] = useState<string | null>(null)
-  const showAsk = ask != null && askKey !== dismissedAskKey
+  // Once the prompt clears (agent moved on), forget the dismissal so a later
+  // question — even an identical one — shows again instead of staying hidden.
+  const askPresent = ask != null
+  useEffect(() => {
+    if (!askPresent) {
+      setDismissedAskKey(null)
+    }
+  }, [askPresent])
+  const showAsk = askPresent && askKey !== dismissedAskKey
   // Lift the composer clear of the keyboard, plus the bottom safe-area so it
   // never sits under the home indicator / nav bar (mirrors the terminal dock).
   const bottomPad = keyboardInset > 0 ? keyboardInset + insets.bottom : insets.bottom
