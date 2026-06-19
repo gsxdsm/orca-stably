@@ -7,15 +7,17 @@ import type { AskPrompt } from './mobile-native-chat-ask'
 type Props = {
   prompt: AskPrompt
   onAnswer: (text: string) => void
+  onCancel?: () => void
 }
 
 const OTHER = '__other__'
 
-/** Native renderer for an agent's AskUserQuestion prompt: one section per
- *  question with selectable option cards (single- or multi-select) plus a
- *  free-text "Other" field, and a Send action. Neutral styling with a subtle
- *  green accent on the active choice to match the rest of the app. */
-export function MobileNativeChatAsk({ prompt, onAnswer }: Props): React.JSX.Element {
+/** Native renderer for an agent's AskUserQuestion prompt as a wizard: one
+ *  question per step with tabs across the top, a Next button that advances (Send
+ *  on the last step), and a Cancel that dismisses the prompt. Neutral styling
+ *  with a subtle green accent on the active choice to match the rest of the app. */
+export function MobileNativeChatAsk({ prompt, onAnswer, onCancel }: Props): React.JSX.Element {
+  const [index, setIndex] = useState(0)
   const [selections, setSelections] = useState<string[][]>(() => prompt.questions.map(() => []))
   const [otherText, setOtherText] = useState<string[]>(() => prompt.questions.map(() => ''))
 
@@ -46,10 +48,12 @@ export function MobileNativeChatAsk({ prompt, onAnswer }: Props): React.JSX.Elem
     return [...picked, other].filter((p) => p.length > 0).join(', ')
   }
 
-  const canSubmit = useMemo(
-    () => prompt.questions.every((_, i) => answerFor(i).length > 0),
+  const total = prompt.questions.length
+  const isLast = index === total - 1
+  const currentAnswered = useMemo(
+    () => answerFor(index).length > 0,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selections, otherText, prompt.questions]
+    [selections, otherText, index]
   )
 
   const submit = (): void => {
@@ -62,53 +66,92 @@ export function MobileNativeChatAsk({ prompt, onAnswer }: Props): React.JSX.Elem
     }
   }
 
+  const advance = (): void => {
+    if (isLast) {
+      submit()
+    } else {
+      setIndex((i) => Math.min(i + 1, total - 1))
+    }
+  }
+
+  const q = prompt.questions[index]!
+  const otherSelected = (selections[index] ?? []).includes(OTHER)
+
   return (
     <View style={styles.card}>
-      <ScrollView style={styles.scroll} keyboardShouldPersistTaps="always">
-        {prompt.questions.map((q, qi) => {
-          const otherSelected = (selections[qi] ?? []).includes(OTHER)
-          return (
-            <View key={qi} style={styles.question}>
-              {q.header ? <Text style={styles.header}>{q.header.toUpperCase()}</Text> : null}
-              <Text style={styles.questionText}>{q.question}</Text>
-              {q.options.map((opt) => (
-                <OptionRow
-                  key={opt.label}
-                  label={opt.label}
-                  description={opt.description}
-                  selected={(selections[qi] ?? []).includes(opt.label)}
-                  onPress={() => toggle(qi, opt.label, q.multiSelect)}
-                />
-              ))}
-              <OptionRow
-                label="Other…"
-                selected={otherSelected}
-                onPress={() => toggle(qi, OTHER, q.multiSelect)}
-              />
-              {otherSelected ? (
-                <TextInput
-                  style={styles.input}
-                  value={otherText[qi]}
-                  onChangeText={(v) => setOther(qi, v)}
-                  placeholder="Type your answer"
-                  placeholderTextColor={colors.textMuted}
-                  multiline
-                  autoFocus
-                />
+      {total > 1 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.tabs}
+          contentContainerStyle={styles.tabsContent}
+          keyboardShouldPersistTaps="always"
+        >
+          {prompt.questions.map((qq, i) => (
+            <Pressable
+              key={i}
+              style={[styles.tab, i === index && styles.tabActive]}
+              onPress={() => setIndex(i)}
+            >
+              <Text style={[styles.tabText, i === index && styles.tabTextActive]} numberOfLines={1}>
+                {qq.header || `Step ${i + 1}`}
+              </Text>
+              {answerFor(i).length > 0 ? (
+                <Check size={11} color={colors.statusGreen} strokeWidth={3} />
               ) : null}
-            </View>
-          )
-        })}
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : null}
+
+      <ScrollView style={styles.scroll} keyboardShouldPersistTaps="always">
+        <Text style={styles.questionText}>{q.question}</Text>
+        {q.options.map((opt) => (
+          <OptionRow
+            key={opt.label}
+            label={opt.label}
+            description={opt.description}
+            selected={(selections[index] ?? []).includes(opt.label)}
+            onPress={() => toggle(index, opt.label, q.multiSelect)}
+          />
+        ))}
+        <OptionRow
+          label="Other…"
+          selected={otherSelected}
+          onPress={() => toggle(index, OTHER, q.multiSelect)}
+        />
+        {otherSelected ? (
+          <TextInput
+            style={styles.input}
+            value={otherText[index]}
+            onChangeText={(v) => setOther(index, v)}
+            placeholder="Type your answer"
+            placeholderTextColor={colors.textMuted}
+            multiline
+            autoFocus
+          />
+        ) : null}
       </ScrollView>
-      <Pressable
-        style={[styles.submit, !canSubmit && styles.submitDisabled]}
-        onPress={submit}
-        disabled={!canSubmit}
-      >
-        <Text style={[styles.submitText, !canSubmit && styles.submitTextDisabled]}>
-          Send answer
-        </Text>
-      </Pressable>
+
+      <View style={styles.footer}>
+        <Pressable style={styles.cancel} onPress={onCancel} hitSlop={8}>
+          <Text style={styles.cancelText}>Cancel</Text>
+        </Pressable>
+        {total > 1 ? (
+          <Text style={styles.progress}>
+            {index + 1}/{total}
+          </Text>
+        ) : null}
+        <Pressable
+          style={[styles.next, !currentAnswered && styles.nextDisabled]}
+          onPress={advance}
+          disabled={!currentAnswered}
+        >
+          <Text style={[styles.nextText, !currentAnswered && styles.nextTextDisabled]}>
+            {isLast ? 'Send answer' : 'Next'}
+          </Text>
+        </Pressable>
+      </View>
     </View>
   )
 }
@@ -143,29 +186,49 @@ function OptionRow({
 
 const styles = StyleSheet.create({
   card: {
-    maxHeight: 360,
+    maxHeight: 380,
     backgroundColor: colors.bgPanel,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.borderSubtle
   },
+  tabs: {
+    flexGrow: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.borderSubtle
+  },
+  tabsContent: {
+    paddingHorizontal: spacing.sm,
+    gap: spacing.xs,
+    alignItems: 'center'
+  },
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent'
+  },
+  tabActive: {
+    borderBottomColor: colors.statusGreen
+  },
+  tabText: {
+    color: colors.textSecondary,
+    fontSize: typography.metaSize,
+    fontWeight: '600'
+  },
+  tabTextActive: {
+    color: colors.textPrimary
+  },
   scroll: {
     paddingHorizontal: spacing.md
-  },
-  question: {
-    paddingVertical: spacing.sm,
-    gap: spacing.xs
-  },
-  header: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5
   },
   questionText: {
     color: colors.textPrimary,
     fontSize: typography.bodySize + 1,
     fontWeight: '600',
-    marginBottom: spacing.xs
+    marginVertical: spacing.sm
   },
   option: {
     flexDirection: 'row',
@@ -218,22 +281,43 @@ const styles = StyleSheet.create({
     minHeight: 44,
     marginBottom: spacing.xs
   },
-  submit: {
-    margin: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.button,
-    backgroundColor: colors.textPrimary,
-    alignItems: 'center'
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    gap: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.borderSubtle
   },
-  submitDisabled: {
+  cancel: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm
+  },
+  cancelText: {
+    color: colors.textSecondary,
+    fontSize: typography.bodySize,
+    fontWeight: '600'
+  },
+  progress: {
+    color: colors.textMuted,
+    fontSize: typography.metaSize
+  },
+  next: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radii.button,
+    backgroundColor: colors.textPrimary
+  },
+  nextDisabled: {
     backgroundColor: colors.bgRaised
   },
-  submitText: {
+  nextText: {
     color: colors.bgBase,
     fontSize: typography.bodySize,
     fontWeight: '700'
   },
-  submitTextDisabled: {
+  nextTextDisabled: {
     color: colors.textMuted
   }
 })

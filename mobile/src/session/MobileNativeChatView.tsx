@@ -356,6 +356,10 @@ export function MobileNativeChatView({
             setDismissedAskKey(askKey)
             onAnswerAsk?.(text)
           }}
+          onCancel={() => {
+            setDismissedAskKey(askKey)
+            onStop?.()
+          }}
         />
       ) : permission ? (
         <MobileNativeChatPermission
