@@ -8,10 +8,13 @@ import { buildNativeChatPasteBytes, NATIVE_CHAT_SUBMIT } from './native-chat-sen
 
 // Why: agent TUIs swallow a `\r` bundled into the same pty write as a framed
 // paste, so a one-shot send leaves the text sitting in the input box, unsent.
-// Write the body first, then the Enter after a short delay so the agent
-// processes the paste before the submit — mirrors orca-runtime's
-// writeTerminalAction({enter:true}) two-write Enter handling.
-const NATIVE_CHAT_SUBMIT_DELAY_MS = 60
+// Write the body first, then the Enter after a delay so the agent processes the
+// paste before the submit. The gap must clear the agent's paste-handling latency
+// even while it's BUSY (Codex): a short gap (60ms) fires Enter before a busy
+// Codex has landed the paste into its input, so the submit hits an empty box and
+// the message sits "Queued" forever. 500ms is orca-runtime's proven value in
+// writeTerminalAction({enter:true}), so match it here.
+export const NATIVE_CHAT_SUBMIT_DELAY_MS = 500
 
 /**
  * Send a native-chat message through the verified runtime pty path: framed body
