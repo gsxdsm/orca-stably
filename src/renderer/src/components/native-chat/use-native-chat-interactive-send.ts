@@ -39,10 +39,17 @@ export function useNativeChatInteractiveSend(terminalTabId: string): NativeChatI
 
   const sendAnswer = useCallback(
     (text: string) => {
-      if (text.trim() === '') {
-        return
-      }
-      sendRaw(buildNativeChatSendBytes(text))
+      // A structured AskUserQuestion answers one question at a time: each line
+      // (question) must be submitted with its own Enter so the prompt advances.
+      // Sending all lines as one paste only answered the first question, so send
+      // each line separately and spaced out, with its own submit.
+      const lines = text
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+      lines.forEach((line, i) => {
+        setTimeout(() => sendRaw(buildNativeChatSendBytes(line)), i * 350)
+      })
     },
     [sendRaw]
   )

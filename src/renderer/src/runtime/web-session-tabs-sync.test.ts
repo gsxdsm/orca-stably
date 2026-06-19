@@ -13,6 +13,10 @@ import {
   recordWebSessionCloseIntent,
   resetWebSessionCloseIntentForTests
 } from './web-session-close-intent'
+import {
+  recordWebSessionReorderIntent,
+  resetWebSessionReorderIntentForTests
+} from './web-session-reorder-intent'
 import type { BrowserPage, BrowserWorkspace, Tab, TerminalTab } from '../../../shared/types'
 import type { OpenFile } from '../store/slices/editor'
 import {
@@ -96,6 +100,7 @@ describe('applyWebSessionTabsSnapshot', () => {
     resetWebSessionTabsSnapshotFreshnessForTests()
     resetWebSessionFocusIntentForTests()
     resetWebSessionCloseIntentForTests()
+    resetWebSessionReorderIntentForTests()
   })
 
   it('ignores stale or duplicate same-epoch snapshots after a newer version was applied', () => {
@@ -174,6 +179,69 @@ describe('applyWebSessionTabsSnapshot', () => {
     expect((reopened.tabsByWorktree?.[WT] ?? []).map((tab) => tab.id)).toContain(
       toWebTerminalSurfaceTabId('host-tab-1')
     )
+  })
+
+  it('keeps a client reorder until the host echoes it (no order snap-back)', () => {
+    const local1 = toWebTerminalSurfaceTabId('host-tab-1')
+    const local2 = toWebTerminalSurfaceTabId('host-tab-2')
+    const surfaces: RuntimeMobileSessionTabsResult['tabs'] = [
+      {
+        type: 'terminal',
+        id: `host-tab-1::${LEAF_ID}`,
+        parentTabId: 'host-tab-1',
+        leafId: LEAF_ID,
+        title: 'Terminal 1',
+        status: 'ready',
+        terminal: 'term_host_1',
+        isActive: true
+      },
+      {
+        type: 'terminal',
+        id: `host-tab-2::${SECOND_LEAF_ID}`,
+        parentTabId: 'host-tab-2',
+        leafId: SECOND_LEAF_ID,
+        title: 'Terminal 2',
+        status: 'ready',
+        terminal: 'term_host_2',
+        isActive: false
+      }
+    ]
+    const groupWithOrder = (tabOrder: string[]): RuntimeMobileSessionTabsResult['tabGroups'] => [
+      { id: 'host-group-1', activeTabId: 'host-tab-1', tabOrder }
+    ]
+
+    // Client dragged tab 2 ahead of tab 1; an in-flight snapshot still has the
+    // original host order.
+    recordWebSessionReorderIntent(WT, 'host-group-1', [local2, local1], NOW)
+    const stalePreMove = applyWebSessionTabsSnapshot(
+      makeState(),
+      makeSnapshot(surfaces, { tabGroups: groupWithOrder(['host-tab-1', 'host-tab-2']) }),
+      ENV,
+      NOW
+    ) as Partial<WebSessionTabsSyncState>
+    expect(stalePreMove.groupsByWorktree?.[WT]?.[0]?.tabOrder).toEqual([local2, local1])
+
+    // The host's post-move snapshot echoes the new order -> intent clears; a
+    // later snapshot reverting to the old order is no longer overridden.
+    applyWebSessionTabsSnapshot(
+      makeState(),
+      makeSnapshot(surfaces, {
+        snapshotVersion: 5,
+        tabGroups: groupWithOrder(['host-tab-2', 'host-tab-1'])
+      }),
+      ENV,
+      NOW + 1
+    )
+    const reverted = applyWebSessionTabsSnapshot(
+      makeState(),
+      makeSnapshot(surfaces, {
+        snapshotVersion: 6,
+        tabGroups: groupWithOrder(['host-tab-1', 'host-tab-2'])
+      }),
+      ENV,
+      NOW + 2
+    ) as Partial<WebSessionTabsSyncState>
+    expect(reverted.groupsByWorktree?.[WT]?.[0]?.tabOrder).toEqual([local1, local2])
   })
 
   it('does not bootstrap a terminal from a stale empty active-worktree snapshot', () => {
