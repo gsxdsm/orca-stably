@@ -1211,17 +1211,20 @@ export default function SessionScreen() {
       ? parseAgentQuestion(nativeChatStatus.lastAssistantMessage ?? '')
       : null
   // Why: a pending AskUserQuestion isn't in the transcript until it's answered,
-  // so prefer the live agent-status `interactivePrompt`; fall back to the
-  // transcript tool-call (covers replays / agents without the live field).
-  const nativeChatAsk = useMemo(() => {
-    if (activeChatResolution == null) {
-      return null
-    }
-    return (
-      parseAskFromStatus(nativeChatStatus?.interactivePrompt, nativeChatStatus?.toolName) ??
-      extractPendingAsk(nativeChatSession.messages)
-    )
-  }, [activeChatResolution, nativeChatStatus?.interactivePrompt, nativeChatSession.messages])
+  // so prefer the live agent-status `interactivePrompt`. Parse it on its own so
+  // the result is referentially stable while the prompt is unchanged — otherwise
+  // it re-parses to a new object on every message tick and re-renders the card.
+  const askFromStatus = useMemo(
+    () => parseAskFromStatus(nativeChatStatus?.interactivePrompt, nativeChatStatus?.toolName),
+    [nativeChatStatus?.interactivePrompt, nativeChatStatus?.toolName]
+  )
+  // Fall back to the transcript tool-call only when there's no live prompt
+  // (covers replays / agents without the live field).
+  const askFromMessages = useMemo(
+    () => (askFromStatus ? null : extractPendingAsk(nativeChatSession.messages)),
+    [askFromStatus, nativeChatSession.messages]
+  )
+  const nativeChatAsk = activeChatResolution == null ? null : (askFromStatus ?? askFromMessages)
   const handleNativeChatOpenFile = useCallback(
     (relativePath: string) => {
       if (!client) {

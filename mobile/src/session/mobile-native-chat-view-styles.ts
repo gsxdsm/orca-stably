@@ -15,7 +15,9 @@ export const styles = StyleSheet.create({
   },
   chromeLeft: {
     flex: 1,
-    justifyContent: 'center'
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm
   },
   stopButton: {
     flexDirection: 'row',

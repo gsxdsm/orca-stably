@@ -134,16 +134,22 @@ export function MobileNativeChatView({
   // Why: run the gesture callbacks on the JS thread (not a reanimated worklet) so
   // they can touch React refs/state and clampFontScale directly — accessing those
   // from the UI-thread worklet crashes the app.
+  // Compose the pinch with the list's native scroll as Simultaneous so a
+  // two-finger pinch is recognized even while the scroll view is active —
+  // otherwise the scroll grabs the gesture first and the pinch never fires.
   const pinchGesture = useMemo(
     () =>
-      Gesture.Pinch()
-        .runOnJS(true)
-        .onStart(() => {
-          pinchBase.current = fontScaleRef.current
-        })
-        .onUpdate((e) => {
-          setFontScale(clampFontScale(pinchBase.current * e.scale))
-        }),
+      Gesture.Simultaneous(
+        Gesture.Native(),
+        Gesture.Pinch()
+          .runOnJS(true)
+          .onStart(() => {
+            pinchBase.current = fontScaleRef.current
+          })
+          .onUpdate((e) => {
+            setFontScale(clampFontScale(pinchBase.current * e.scale))
+          })
+      ),
     []
   )
 
@@ -344,6 +350,7 @@ export function MobileNativeChatView({
           heuristic permission, then a heuristic question. */}
       {showAsk && ask ? (
         <MobileNativeChatAsk
+          key={askKey ?? 'ask'}
           prompt={ask}
           onAnswer={(text) => {
             setDismissedAskKey(askKey)
@@ -361,40 +368,35 @@ export function MobileNativeChatView({
           onAnswer={(text) => onAnswerQuestion?.(text)}
         />
       ) : null}
-      {/* Chrome row above the composer: working status on the left, the global
-          tool-calls expand/collapse toggle in the right corner. */}
+      {/* Chrome row above the composer: the working indicator and the global
+          tool-calls expand/collapse toggle on the left, Stop in the far corner. */}
       <View style={styles.chromeRow}>
         <View style={styles.chromeLeft}>
-          {agentWorking ? (
-            <Pressable
-              style={({ pressed }) => [styles.stopButton, pressed && styles.pressed]}
-              onPress={onStop}
-              hitSlop={8}
-              accessibilityLabel="Stop the agent"
-            >
-              <MobileAgentWorkingIndicator />
-              <Square
-                size={13}
-                color={colors.statusRed}
-                strokeWidth={2.4}
-                fill={colors.statusRed}
-              />
-              <Text style={styles.stopLabel}>Stop</Text>
-            </Pressable>
-          ) : null}
+          {agentWorking ? <MobileAgentWorkingIndicator /> : null}
+          <Pressable
+            style={({ pressed }) => [styles.chromeToggle, pressed && styles.pressed]}
+            onPress={() => setToolsExpanded((v) => !v)}
+            hitSlop={8}
+          >
+            {toolsExpanded ? (
+              <ChevronsDownUp size={14} color={colors.textMuted} strokeWidth={2} />
+            ) : (
+              <ChevronsUpDown size={14} color={colors.textMuted} strokeWidth={2} />
+            )}
+            <Text style={styles.chromeToggleLabel}>{toolsExpanded ? 'Collapse' : 'Tools'}</Text>
+          </Pressable>
         </View>
-        <Pressable
-          style={({ pressed }) => [styles.chromeToggle, pressed && styles.pressed]}
-          onPress={() => setToolsExpanded((v) => !v)}
-          hitSlop={8}
-        >
-          {toolsExpanded ? (
-            <ChevronsDownUp size={14} color={colors.textMuted} strokeWidth={2} />
-          ) : (
-            <ChevronsUpDown size={14} color={colors.textMuted} strokeWidth={2} />
-          )}
-          <Text style={styles.chromeToggleLabel}>{toolsExpanded ? 'Collapse' : 'Tools'}</Text>
-        </Pressable>
+        {agentWorking ? (
+          <Pressable
+            style={({ pressed }) => [styles.stopButton, pressed && styles.pressed]}
+            onPress={onStop}
+            hitSlop={8}
+            accessibilityLabel="Stop the agent"
+          >
+            <Square size={13} color={colors.statusRed} strokeWidth={2.4} fill={colors.statusRed} />
+            <Text style={styles.stopLabel}>Stop</Text>
+          </Pressable>
+        ) : null}
       </View>
       <MobileNativeChatComposer
         value={composerText}
