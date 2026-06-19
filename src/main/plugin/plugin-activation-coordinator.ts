@@ -11,9 +11,13 @@ import {
   shouldProvisionToRelay,
   type RelayRequest
 } from './plugin-remote-provision'
+import { isSafePluginId } from '../../shared/plugin/manifest'
 import type { PluginBundle } from './plugin-bundle'
+import type { ActivateResult } from './plugin-runtime'
 
-export type ActivationResult = { ok: true } | { ok: false; error: string }
+// One canonical activation result shape, shared with PluginRuntime, so the two
+// can't silently drift.
+export type ActivationResult = ActivateResult
 
 // A workspace is remote when its plugin backend must run on a relay host.
 export type RemoteDescriptor = { isRemote?: boolean } | null | undefined
@@ -33,6 +37,13 @@ export async function activatePluginForWorkspace(
   params: { pluginId: string; remote: RemoteDescriptor },
   deps: ActivationDeps
 ): Promise<ActivationResult> {
+  // Reject traversal/unsafe ids before any disk read or relay call: the remote
+  // path packages pluginsDir/<pluginId> into a transferable bundle, so an
+  // unguarded `../…` id would harvest bytes outside the plugin dir.
+  if (!isSafePluginId(params.pluginId)) {
+    return { ok: false, error: 'unsafe_plugin_id' }
+  }
+
   if (!shouldProvisionToRelay(params.remote)) {
     return deps.localActivate(params.pluginId)
   }
@@ -50,6 +61,9 @@ export async function activatePluginForWorkspace(
     return { ok: false, error: provisioned.error ?? 'provision_failed' }
   }
 
+  // Intentional no-cleanup contract: if provision succeeds but activate fails,
+  // the relay is left with inert files and no backend. Re-provision is
+  // idempotent (atomic swap), so v1a does not issue a compensating deactivate.
   try {
     const result = (await deps.relayRequest('plugin.activate', { pluginId: params.pluginId })) as
       | { ok?: boolean; error?: string }

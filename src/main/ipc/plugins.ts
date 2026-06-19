@@ -38,10 +38,9 @@ export function registerPluginHandlers(system: PluginSystem): void {
 
   ipcMain.handle('plugins:get-output', (_event, pluginId: string) => system.getOutput(pluginId))
 
-  // UI -> backend bridge. pluginId is resolved from the sender's webContents by
-  // the renderer-side panel wiring (NEEDS-RUNTIME-VERIFY); we accept it here as
-  // the already-resolved owner id, never as an arbitrary caller claim, because
-  // the renderer maps each plugin webview to its own pluginId.
+  // UI -> backend bridge. pluginId is the renderer-resolved owner id (each
+  // webview maps to its own pluginId), never an arbitrary caller claim — KTD7
+  // sender-bound identity. NEEDS-RUNTIME-VERIFY: renderer panel wiring.
   ipcMain.handle('plugins:ui-message', (_event, pluginId: string, message: unknown) => {
     system.runtime.postUi(pluginId, message)
   })

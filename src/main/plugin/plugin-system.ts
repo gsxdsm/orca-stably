@@ -1,16 +1,6 @@
 // NEEDS-RUNTIME-VERIFY: the main-process composition root for the plugin
-// system. Builds the manager + runtime against Electron paths, wires the host
-// command implementations (open-external-url / copy-to-clipboard), the asset
-// protocol, and multi-source install (installFromSource + lockfile). Unit-tested
-// pieces (manager, runtime, gate, handler, installer) are composed here; this
-// glue runs only in the app.
-//
-// The boot wiring this enables is now in place: index.ts calls
-// registerPluginScheme() before app.whenReady(), then createPluginSystem() +
-// registerAssetProtocol() + registerPluginHandlers() on ready; the
-// plugin-host-entry build target is in electron.vite.config; and the preload
-// exposes window.api.plugins. What remains is mobile/relay (v1c) and launching
-// the app to verify runtime behavior.
+// system — Electron-coupled glue (paths, host commands, asset protocol) that
+// composes the unit-tested pieces and runs only in the app.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -105,17 +95,19 @@ export class PluginSystem {
       (() => () => Promise.reject(new Error('relay request not configured')))
   }
 
-  // Activate a plugin for a workspace. Local workspaces (the default) run the
-  // backend in-process exactly as before; a remote descriptor routes through the
-  // coordinator to provision + activate on the relay. NEEDS-RUNTIME-VERIFY: the
-  // caller must supply the remote descriptor + a configured resolveRelayRequest.
+  // NEEDS-RUNTIME-VERIFY: the SSH path needs the caller to supply a remote
+  // descriptor + a configured resolveRelayRequest; default is local, unchanged.
   activateForWorkspace(pluginId: string, remote?: RemoteDescriptor): Promise<ActivationResult> {
+    const descriptor = remote ?? null
     return activatePluginForWorkspace(
-      { pluginId, remote: remote ?? null },
+      { pluginId, remote: descriptor },
       {
         pluginsDir: this.pluginsDir,
         localActivate: (id) => this.runtime.activate(id),
-        relayRequest: this.resolveRelayRequest(remote ?? null)
+        // Resolve the relay request fn lazily — only when the coordinator takes
+        // the remote path and actually issues a call — so a future resolver that
+        // opens an SSH/relay session never runs on a local activation.
+        relayRequest: (method, params) => this.resolveRelayRequest(descriptor)(method, params)
       }
     )
   }

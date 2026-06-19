@@ -109,4 +109,85 @@ describe('activatePluginForWorkspace', () => {
     )
     expect(result).toEqual({ ok: false, error: 'unknown_plugin' })
   })
+
+  it('normalizes a missing/non-{ok} activate response to no_response', async () => {
+    // 'plugin.activate' omitted → request resolves undefined.
+    const { request, calls } = fakeRelay({ 'plugin.provision': { ok: true } })
+    const result = await activatePluginForWorkspace(
+      { pluginId: 'acme.foo', remote: { isRemote: true } },
+      deps({ relayRequest: request })
+    )
+    expect(result).toEqual({ ok: false, error: 'no_response' })
+    expect(calls.map((c) => c.method)).toEqual(['plugin.provision', 'plugin.activate'])
+  })
+
+  it('falls back to provision_failed when provision fails without an error string', async () => {
+    const { request, calls } = fakeRelay({ 'plugin.provision': { ok: false } })
+    const result = await activatePluginForWorkspace(
+      { pluginId: 'acme.foo', remote: { isRemote: true } },
+      deps({ relayRequest: request })
+    )
+    expect(result).toEqual({ ok: false, error: 'provision_failed' })
+    expect(calls.map((c) => c.method)).toEqual(['plugin.provision'])
+  })
+
+  it('falls back to bundle_read_failed when readBundle throws a non-Error', async () => {
+    const { request, calls } = fakeRelay({ 'plugin.provision': { ok: true } })
+    const result = await activatePluginForWorkspace(
+      { pluginId: 'acme.foo', remote: { isRemote: true } },
+      deps({
+        relayRequest: request,
+        readBundle: () => {
+          throw 'disk_error'
+        }
+      })
+    )
+    expect(result).toEqual({ ok: false, error: 'bundle_read_failed' })
+    expect(calls).toEqual([])
+  })
+
+  it('falls back to activate_failed when the activate request rejects with a non-Error', async () => {
+    const request: ActivationDeps['relayRequest'] = (method) =>
+      method === 'plugin.provision' ? Promise.resolve({ ok: true }) : Promise.reject('string_error')
+    const result = await activatePluginForWorkspace(
+      { pluginId: 'acme.foo', remote: { isRemote: true } },
+      deps({ relayRequest: request })
+    )
+    expect(result).toEqual({ ok: false, error: 'activate_failed' })
+  })
+
+  it('awaits a Promise-returning localActivate (does not leak the pending promise)', async () => {
+    const localActivate = vi.fn(() => Promise.resolve({ ok: false, error: 'fork_failed' } as const))
+    const result = await activatePluginForWorkspace(
+      { pluginId: 'acme.foo', remote: null },
+      deps({ localActivate })
+    )
+    expect(result).toEqual({ ok: false, error: 'fork_failed' })
+  })
+
+  it('treats an explicit non-remote descriptor ({ isRemote: false }) as local', async () => {
+    const localActivate = vi.fn(() => ({ ok: true }) as const)
+    const { request, calls } = fakeRelay({})
+    const result = await activatePluginForWorkspace(
+      { pluginId: 'acme.foo', remote: { isRemote: false } },
+      deps({ localActivate, relayRequest: request })
+    )
+    expect(result).toEqual({ ok: true })
+    expect(localActivate).toHaveBeenCalledWith('acme.foo')
+    expect(calls).toEqual([])
+  })
+
+  it('rejects an unsafe (traversal) pluginId before any local, bundle, or relay work', async () => {
+    const localActivate = vi.fn(() => ({ ok: true }) as const)
+    const readBundle = vi.fn(() => bundle)
+    const { request, calls } = fakeRelay({ 'plugin.provision': { ok: true } })
+    const result = await activatePluginForWorkspace(
+      { pluginId: '../../../etc', remote: { isRemote: true } },
+      deps({ localActivate, readBundle, relayRequest: request })
+    )
+    expect(result).toEqual({ ok: false, error: 'unsafe_plugin_id' })
+    expect(localActivate).not.toHaveBeenCalled()
+    expect(readBundle).not.toHaveBeenCalled()
+    expect(calls).toEqual([])
+  })
 })
