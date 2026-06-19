@@ -74,8 +74,10 @@ export class PluginRuntime {
   }
 
   // Load the plugin's manifest, spawn its backend wired to the gated handler,
-  // and mark it active. Idempotent while running.
-  async activate(pluginId: string): Promise<ActivateResult> {
+  // and mark it active. Idempotent while running. A fresh (user) activation
+  // resets the crash budget; a supervisor-driven restart (isRestart) keeps the
+  // accumulating count so the maxRestarts cap is actually reached.
+  async activate(pluginId: string, options: { isRestart?: boolean } = {}): Promise<ActivateResult> {
     if (this.running.has(pluginId)) {
       return { ok: true }
     }
@@ -103,10 +105,15 @@ export class PluginRuntime {
       onExit: (info) => this.handleExit(pluginId, info.expected)
     })
     this.running.set(pluginId, { host, output })
-    this.supervisor.markRunning(pluginId, { resetRestarts: true })
+    this.supervisor.markRunning(pluginId, { resetRestarts: !options.isRestart })
     try {
       await host.start()
     } catch (error) {
+      // A failed start() can leave the forked child alive (it reported
+      // activate-error without exiting); terminate it so it isn't orphaned.
+      // terminate() marks the stop expected, so the child's exit event won't
+      // double-drive the supervisor — the handleExit below records the failure.
+      host.terminate()
       this.running.delete(pluginId)
       this.handleExit(pluginId, false)
       return { ok: false, error: error instanceof Error ? error.message : String(error) }
@@ -155,7 +162,7 @@ export class PluginRuntime {
       this.schedule(decision.delayMs, () => {
         // Only restart if it was not deactivated in the meantime.
         if (this.config.manager.get(pluginId)?.active && !this.running.has(pluginId)) {
-          void this.activate(pluginId)
+          void this.activate(pluginId, { isRestart: true })
         }
       })
     }

@@ -19,13 +19,21 @@ function validManifest(overrides: Record<string, unknown> = {}): Record<string, 
   }
 }
 
+// When true, the next FakeHost.start() rejects — models an activate-error /
+// crash-before-ready so the runtime's failed-start cleanup can be asserted.
+let failStart = false
+
 class FakeHost implements PluginHostLike {
   private up = false
+  terminated = false
   readonly config: PluginHostConfig
   constructor(config: PluginHostConfig) {
     this.config = config
   }
   start(): Promise<void> {
+    if (failStart) {
+      return Promise.reject(new Error('start failed'))
+    }
     this.up = true
     return Promise.resolve()
   }
@@ -39,6 +47,7 @@ class FakeHost implements PluginHostLike {
   postUi(): void {}
   terminate(): void {
     this.up = false
+    this.terminated = true
   }
   // test helper: simulate a crash
   crash(): void {
@@ -72,6 +81,7 @@ beforeEach(() => {
   manager = new PluginManager({ pluginsDir, stateFilePath: join(tmp, 'state.json') })
   hosts = []
   scheduled = []
+  failStart = false
   runtime = new PluginRuntime({
     manager,
     pluginsDir,
@@ -146,5 +156,33 @@ describe('PluginRuntime', () => {
     scheduled[0]()
     await flush()
     expect(hosts).toHaveLength(1) // no respawn
+  })
+
+  it('stops restarting after maxRestarts crashes and marks the plugin errored', async () => {
+    manager.installLocal(makeSource())
+    await runtime.activate('acme.foo')
+    // Default maxRestarts is 3: crash + restart three times; the fourth crash
+    // must error out rather than restart (supervisor-driven restarts keep the
+    // crash count instead of resetting it on every activate()).
+    for (let i = 0; i < 3; i++) {
+      hosts.at(-1)!.crash()
+      expect(scheduled).toHaveLength(i + 1)
+      scheduled[i]()
+      await flush()
+    }
+    expect(hosts).toHaveLength(4) // initial + 3 restarts
+    hosts.at(-1)!.crash() // fourth crash
+    expect(runtime.state('acme.foo')).toBe('errored')
+    expect(scheduled).toHaveLength(3) // no fourth restart was scheduled
+  })
+
+  it('terminates the host and reports failure when start() rejects (no orphan)', async () => {
+    manager.installLocal(makeSource())
+    failStart = true
+    const result = await runtime.activate('acme.foo')
+    expect(result.ok).toBe(false)
+    expect(runtime.isRunning('acme.foo')).toBe(false)
+    expect(hosts).toHaveLength(1)
+    expect(hosts[0].terminated).toBe(true) // failed-start child was killed, not orphaned
   })
 })

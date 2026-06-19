@@ -8,9 +8,17 @@ type IconComponent = ActivityBarItem['icon']
 // Resolve a manifest's Lucide icon NAME to a component, falling back to Plug for
 // an unknown name (manifest validation only checks the name's format, not
 // membership — that resolution happens here, where lucide-react is available).
-function resolveIcon(name: string): IconComponent {
-  const icon = (LucideIcons as unknown as Record<string, IconComponent | undefined>)[name]
-  return icon ?? Plug
+// The namespace also exports non-icon helpers (createLucideIcon, toKebabCase…)
+// whose names an untrusted manifest could request; only Lucide's forwardRef icon
+// components (objects carrying `$$typeof`) are renderable, so anything else —
+// including those plain-function helpers — falls back to Plug rather than
+// crashing the sidebar.
+export function resolveIcon(name: string): IconComponent {
+  const candidate = (LucideIcons as Record<string, unknown>)[name]
+  if (typeof candidate === 'object' && candidate !== null && '$$typeof' in candidate) {
+    return candidate as IconComponent
+  }
+  return Plug
 }
 
 // NEEDS-RUNTIME-VERIFY: builds activity-bar items for ACTIVE plugins from the

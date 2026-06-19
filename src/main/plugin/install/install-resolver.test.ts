@@ -121,4 +121,50 @@ describe('resolveAndInstall', () => {
     expect(result.ok).toBe(true)
     expect(existsSync(join(pluginsDir, 'acme.foo', 'plugin.json'))).toBe(true)
   })
+
+  // Registry adapter with controllable bytes/version, for reinstall integrity.
+  function registryAdapters(bytes: string, version = '1.2.3'): InstallAdapters {
+    return {
+      fetchRegistryTarball: async () => ({ bytes: Buffer.from(bytes), version }),
+      fetchTarball: async () => Buffer.from('tar-bytes'),
+      extractTarball: async (_b, destDir) => writeManifestInto(destDir, manifest()),
+      cloneGit: async (_u, destDir) => {
+        writeManifestInto(destDir, manifest())
+        return { commit: 'abc1234' }
+      }
+    }
+  }
+
+  const installRegistry = (bytes: string, version: string, lockfile = emptyLockfile()) =>
+    resolveAndInstall(
+      { kind: 'registry', name: 'acme.foo', version: null },
+      { pluginsDir, stagingDir, adapters: registryAdapters(bytes, version), lockfile }
+    )
+
+  it('rejects a same-version reinstall whose fetched bytes differ from the lock', async () => {
+    const first = await installRegistry('reg-bytes', '1.2.3')
+    expect(first.ok).toBe(true)
+    const lock = first.ok ? first.lockfile : emptyLockfile()
+    // Same id + version, but the registry now serves different bytes (compromise).
+    const second = await installRegistry('tampered-bytes', '1.2.3', lock)
+    expect(second.ok).toBe(false)
+    if (!second.ok) {
+      expect(second.errors[0]).toContain('integrity mismatch')
+    }
+  })
+
+  it('allows a same-version reinstall when the bytes match the lock', async () => {
+    const first = await installRegistry('reg-bytes', '1.2.3')
+    const lock = first.ok ? first.lockfile : emptyLockfile()
+    const second = await installRegistry('reg-bytes', '1.2.3', lock)
+    expect(second.ok).toBe(true)
+  })
+
+  it('allows a reinstall at a different version (upgrade) without an integrity check', async () => {
+    const first = await installRegistry('reg-bytes', '1.2.3')
+    const lock = first.ok ? first.lockfile : emptyLockfile()
+    // A genuine upgrade resolves a new version + new bytes — must not be blocked.
+    const second = await installRegistry('v2-bytes', '2.0.0', lock)
+    expect(second.ok).toBe(true)
+  })
 })

@@ -11,7 +11,13 @@ import { readManifestRaw } from '../plugin-discovery'
 import { validatePluginManifest } from '../../../shared/plugin/manifest-validate'
 import { isSafePluginId } from '../../../shared/plugin/manifest'
 import type { PluginSource } from './install-source'
-import { isSecureRemoteUrl, sha256, upsertLock, type PluginLockfile } from './install-integrity'
+import {
+  checkAgainstLock,
+  isSecureRemoteUrl,
+  sha256,
+  upsertLock,
+  type PluginLockfile
+} from './install-integrity'
 
 export type InstallAdapters = {
   // Resolve + download a registry tarball; returns the resolved version + bytes.
@@ -43,6 +49,8 @@ export async function resolveAndInstall(
 
   let integrity: string | null = null
   let resolvedVersion: string | null = null
+  // Retained for the reinstall integrity check below (bytes-addressable sources).
+  let fetchedBytes: Buffer | null = null
 
   try {
     switch (source.kind) {
@@ -56,6 +64,7 @@ export async function resolveAndInstall(
         const { bytes, version } = await adapters.fetchRegistryTarball(source.name, source.version)
         integrity = sha256(bytes)
         resolvedVersion = version
+        fetchedBytes = bytes
         await adapters.extractTarball(bytes, stagingDir)
         break
       }
@@ -65,6 +74,7 @@ export async function resolveAndInstall(
         }
         const bytes = await adapters.fetchTarball(source.url)
         integrity = sha256(bytes)
+        fetchedBytes = bytes
         await adapters.extractTarball(bytes, stagingDir)
         break
       }
@@ -90,6 +100,20 @@ export async function resolveAndInstall(
   if (!isSafePluginId(manifest.id)) {
     rmSync(stagingDir, { recursive: true, force: true })
     return { ok: false, errors: [`unsafe plugin id: ${manifest.id}`] }
+  }
+
+  // Reinstall integrity: for a bytes-addressable source at the SAME locked
+  // version, the freshly fetched bytes must match the pinned integrity, so a
+  // compromised registry can't swap in different bytes under a known version.
+  // A different version is a legitimate upgrade and skips the check.
+  const lockedEntry = lockfile.plugins[manifest.id]
+  const installedVersion = resolvedVersion ?? manifest.version
+  if (fetchedBytes && lockedEntry && installedVersion === lockedEntry.version) {
+    const verdict = checkAgainstLock(lockfile, manifest.id, fetchedBytes)
+    if (!verdict.ok) {
+      rmSync(stagingDir, { recursive: true, force: true })
+      return { ok: false, errors: [verdict.reason] }
+    }
   }
 
   const dest = join(pluginsDir, manifest.id)
