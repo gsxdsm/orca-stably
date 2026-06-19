@@ -108,6 +108,14 @@ export class RecoverableRenderErrorBoundary extends React.Component<Props, State
             'Retry'
           )}
         </Button>
+        <details className="mt-2 max-w-md text-left text-[10px] text-muted-foreground/80">
+          <summary className="cursor-pointer">Error detail</summary>
+          <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words">
+            {this.state.error.message}
+            {'\n'}
+            {this.state.error.stack}
+          </pre>
+        </details>
       </div>
     )
   }
