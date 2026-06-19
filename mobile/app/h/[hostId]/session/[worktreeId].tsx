@@ -42,6 +42,7 @@ import {
   MessageSquare,
   Mic,
   Monitor,
+  Plug,
   Plus,
   RefreshCw,
   Send,
@@ -4292,6 +4293,18 @@ export default function SessionScreen() {
                 <ListChecks size={18} color={colors.textSecondary} strokeWidth={2.1} />
               </Pressable>
             ) : null}
+            <Pressable
+              style={({ pressed }) => [
+                styles.filesButton,
+                pressed && styles.filesButtonPressed,
+                activePanel === 'plugins' && styles.filesButtonActive
+              ]}
+              onPress={() => handlePanelTap('plugins')}
+              hitSlop={8}
+              accessibilityLabel="Open plugins"
+            >
+              <Plug size={18} color={colors.textSecondary} strokeWidth={2.1} />
+            </Pressable>
           </View>
 
           {visibleTabs.length > 0 && (
