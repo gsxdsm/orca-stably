@@ -112,12 +112,14 @@ export function MobileNativeChatAsk({ prompt, onAnswer, onCancel }: Props): Reac
             label={opt.label}
             description={opt.description}
             selected={(selections[index] ?? []).includes(opt.label)}
+            multi={q.multiSelect}
             onPress={() => toggle(index, opt.label, q.multiSelect)}
           />
         ))}
         <OptionRow
           label="Other…"
           selected={otherSelected}
+          multi={q.multiSelect}
           onPress={() => toggle(index, OTHER, q.multiSelect)}
         />
         {otherSelected ? (
@@ -160,16 +162,25 @@ function OptionRow({
   label,
   description,
   selected,
+  multi,
   onPress
 }: {
   label: string
   description?: string
   selected: boolean
+  multi?: boolean
   onPress: () => void
 }): React.JSX.Element {
   return (
     <Pressable style={[styles.option, selected && styles.optionSelected]} onPress={onPress}>
-      <View style={[styles.check, selected && styles.checkOn]}>
+      {/* Multi-select reads as a checkbox (square); single-select as a radio (circle). */}
+      <View
+        style={[
+          styles.check,
+          multi ? styles.checkSquare : styles.checkCircle,
+          selected && styles.checkOn
+        ]}
+      >
         {selected ? <Check size={12} color={colors.bgBase} strokeWidth={3} /> : null}
       </View>
       <View style={styles.optionBody}>
@@ -193,6 +204,7 @@ const styles = StyleSheet.create({
   },
   tabs: {
     flexGrow: 0,
+    paddingTop: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.borderSubtle
   },
@@ -205,8 +217,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    minHeight: 36,
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent'
   },
@@ -246,12 +259,17 @@ const styles = StyleSheet.create({
   check: {
     width: 18,
     height: 18,
-    borderRadius: 9,
     borderWidth: 1.5,
     borderColor: colors.textMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1
+  },
+  checkCircle: {
+    borderRadius: 9
+  },
+  checkSquare: {
+    borderRadius: 4
   },
   checkOn: {
     backgroundColor: colors.statusGreen,
