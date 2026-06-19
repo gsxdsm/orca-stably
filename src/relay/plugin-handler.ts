@@ -156,6 +156,11 @@ export function registerRelayPluginHandlers(
   // single self-contained file).
   dispatcher.onRequest('plugin.getEntry', async (params) => {
     const pluginId = String(params.pluginId ?? '')
+    // Same id-safety gate as activate/postUi, first: short-circuits unsafe ids
+    // before the cache lookup and keeps one boundary-contract shape everywhere.
+    if (!isSafePluginId(pluginId)) {
+      return { ok: false, error: 'unknown_plugin' }
+    }
     const found = getDiscovered().valid.find((p) => p.manifest.id === pluginId)
     if (!found) {
       return { ok: false, error: 'unknown_plugin' }
@@ -166,7 +171,13 @@ export function registerRelayPluginHandlers(
     if (!existsSync(htmlPath)) {
       return { ok: false, error: 'entry_missing' }
     }
-    return { ok: true, html: readFileSync(htmlPath, 'utf8') }
+    // Return the structured contract on an I/O race (file removed after the
+    // existsSync check) rather than leaking a raw fs error to the client.
+    try {
+      return { ok: true, html: readFileSync(htmlPath, 'utf8') }
+    } catch {
+      return { ok: false, error: 'entry_read_failed' }
+    }
   })
 
   // Receive a plugin bundle from the desktop and write it under the relay

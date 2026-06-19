@@ -383,6 +383,38 @@ describe('relay plugin discovery cache', () => {
     expect(counter.scans()).toBe(0) // discovery never ran
   })
 
+  it('plugin.getEntry also gates an unsafe pluginId before touching discovery', async () => {
+    const counter = registerCounting()
+    const result = (await handlers.get('plugin.getEntry')!({ pluginId: '../evil' }, {})) as {
+      ok: boolean
+      error?: string
+    }
+    expect(result).toEqual({ ok: false, error: 'unknown_plugin' })
+    expect(counter.scans()).toBe(0)
+  })
+
+  it('plugin.postUi reads the cache instead of re-scanning', async () => {
+    installFixture()
+    const counter = registerCounting()
+    await handlers.get('plugin.list')!({}, {}) // warm the cache (scan 1)
+    await handlers.get('plugin.postUi')!({ pluginId: 'acme.foo', message: {} }, ctx(1))
+    expect(counter.scans()).toBe(1)
+  })
+
+  it('a newly-provisioned plugin appears in plugin.list (cache invalidated)', async () => {
+    const counter = registerCounting()
+    await handlers.get('plugin.list')!({}, {}) // scan 1, cached (empty)
+    const bundle = serializePluginBundle('acme.bar', [
+      { path: 'plugin.json', dataBase64: b64(JSON.stringify(manifest({ id: 'acme.bar' }))) },
+      { path: 'index.html', dataBase64: b64('<!doctype html>') }
+    ])
+    const provisioned = (await handlers.get('plugin.provision')!({ bundle }, {})) as { ok: boolean }
+    expect(provisioned.ok).toBe(true)
+    const listed = (await handlers.get('plugin.list')!({}, {})) as { plugins: { id: string }[] }
+    expect(listed.plugins.map((p) => p.id)).toContain('acme.bar')
+    expect(counter.scans()).toBe(2) // re-scanned after invalidation
+  })
+
   it('keeps a fresh cache per handler instance (no cross-instance leakage)', async () => {
     installFixture()
     const first = registerCounting()
