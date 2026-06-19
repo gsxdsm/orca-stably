@@ -4969,6 +4969,7 @@ export default function SessionScreen() {
                       agentWorking={nativeChatAgentWorking}
                       streamingText={nativeChatStreamingText}
                       onStop={handleNativeChatStop}
+                      debug={`ip${nativeChatStatus?.interactivePrompt?.length ?? 0} tool:${nativeChatStatus?.toolName ?? '-'} st:${nativeChatStatus?.state ?? '-'} ask:${nativeChatAsk ? 'Y' : 'N'}`}
                       ask={nativeChatAsk}
                       onAnswerAsk={handleNativeChatAnswerAsk}
                       question={nativeChatQuestion}

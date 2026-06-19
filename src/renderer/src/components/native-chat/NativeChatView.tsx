@@ -140,12 +140,7 @@ function NativeChatResolvedView({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-background">
-      <NativeChatHeader
-        agent={agent}
-        isApproximate={isApproximate}
-        toolsExpanded={toolsExpanded}
-        onToggleTools={isConversation ? () => setToolsExpanded((v) => !v) : null}
-      />
+      <NativeChatHeader agent={agent} isApproximate={isApproximate} />
       <div className="flex min-h-0 flex-1 flex-col">
         {viewState.kind === 'loading' ? (
           <NativeChatEmptyState kind="loading" />
@@ -162,6 +157,29 @@ function NativeChatResolvedView({
           />
         )}
       </div>
+      {/* Tool-calls expand/collapse lives just above the composer (mobile parity)
+          so it doesn't overlap the header's agent dropdown. */}
+      {isConversation ? (
+        <div className="mx-auto flex w-full max-w-3xl items-center px-3 py-1 sm:px-4">
+          <button
+            type="button"
+            onClick={() => setToolsExpanded((v) => !v)}
+            aria-pressed={toolsExpanded}
+            className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {toolsExpanded ? (
+              <ChevronsDownUp className="size-3.5" />
+            ) : (
+              <ChevronsUpDown className="size-3.5" />
+            )}
+            <span>
+              {toolsExpanded
+                ? translate('components.native-chat.tool.collapseAll', 'Collapse tool calls')
+                : translate('components.native-chat.tool.expandAll', 'Expand tool calls')}
+            </span>
+          </button>
+        </div>
+      ) : null}
       {/* Live interactive cards (question / approval) render just above the
           composer while the agent's interactivePrompt is present (mobile parity). */}
       <NativeChatInteractiveCard
@@ -211,15 +229,10 @@ function NativeChatInteractiveCard({
 
 function NativeChatHeader({
   agent,
-  isApproximate,
-  toolsExpanded,
-  onToggleTools
+  isApproximate
 }: {
   agent: NativeChatSession['agent']
   isApproximate: boolean
-  toolsExpanded: boolean
-  /** Null when there is no conversation to act on (loading/empty/error). */
-  onToggleTools: (() => void) | null
 }): React.JSX.Element {
   return (
     <header className="shrink-0 border-b border-border">
@@ -228,25 +241,6 @@ function NativeChatHeader({
         <span className="truncate text-sm font-medium text-foreground">
           {formatAgentTypeLabel(agent)}
         </span>
-        {onToggleTools ? (
-          <button
-            type="button"
-            onClick={onToggleTools}
-            aria-pressed={toolsExpanded}
-            className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {toolsExpanded ? (
-              <ChevronsDownUp className="size-3.5" />
-            ) : (
-              <ChevronsUpDown className="size-3.5" />
-            )}
-            <span>
-              {toolsExpanded
-                ? translate('components.native-chat.tool.collapseAll', 'Collapse tool calls')
-                : translate('components.native-chat.tool.expandAll', 'Expand tool calls')}
-            </span>
-          </button>
-        ) : null}
       </div>
       {isApproximate ? (
         <div className="flex items-center gap-1.5 border-t border-border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground sm:px-4">
