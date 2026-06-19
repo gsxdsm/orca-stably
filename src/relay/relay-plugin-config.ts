@@ -20,13 +20,14 @@ export function relayPluginStateFilePath(): string {
   return join(homedir(), RELAY_USERDATA_DIR_NAME, 'plugins-state.json')
 }
 
-// The built plugin-host-entry the trusted child runs. Provisioning this file to
-// the relay host is deferred (NEEDS-RUNTIME-VERIFY); the path is overridable so
-// provisioning can place it wherever it lands. Default sits alongside the relay
-// userData so plugins + entry are provisioned together.
+// The built plugin-host-entry the trusted child runs. It ships alongside the
+// relay bundle (build-relay emits plugin-host-entry.js next to relay.js), so the
+// default resolves relative to this module's runtime directory — which, in the
+// esbuild CJS relay bundle, is the relay.js output dir. The env var overrides for
+// custom provisioning layouts.
 export function relayPluginHostEntryPath(): string {
   const override = process.env.ORCA_RELAY_PLUGIN_HOST_ENTRY?.trim()
-  return override || join(homedir(), RELAY_USERDATA_DIR_NAME, 'plugin-host-entry.js')
+  return override || join(__dirname, 'plugin-host-entry.js')
 }
 
 // The relay no longer tracks a live workspace root (RelayContext.registerRoot is

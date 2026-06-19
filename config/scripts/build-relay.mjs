@@ -18,6 +18,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 // Why: the script lives under config/scripts, so go two levels up to reach the repo root.
 const ROOT = join(__dirname, '..', '..')
 const RELAY_ENTRY = join(ROOT, 'src', 'relay', 'relay.ts')
+// The trusted plugin backend child is forked by the relay from a co-located
+// plugin-host-entry.js, so it ships alongside relay.js (resolved bundle-relative
+// by relayPluginHostEntryPath) — only plugin *files* transfer at provision time.
+const PLUGIN_HOST_ENTRY = join(ROOT, 'src', 'main', 'plugin', 'plugin-host-entry.ts')
 
 const PLATFORMS = [
   'linux-x64',
@@ -43,6 +47,23 @@ for (const platform of PLATFORMS) {
     outfile: join(outDir, 'relay.js'),
     // Native addons cannot be bundled — they must exist on the remote host.
     // The relay gracefully degrades when they are absent.
+    external: ['node-pty', '@parcel/watcher'],
+    sourcemap: false,
+    minify: true,
+    define: {
+      'process.env.NODE_ENV': '"production"'
+    }
+  })
+
+  // Ship the plugin backend host-entry next to relay.js (same platform/runtime
+  // settings) so the relay can fork it without a per-plugin transfer.
+  await build({
+    entryPoints: [PLUGIN_HOST_ENTRY],
+    bundle: true,
+    platform: 'node',
+    target: 'node18',
+    format: 'cjs',
+    outfile: join(outDir, 'plugin-host-entry.js'),
     external: ['node-pty', '@parcel/watcher'],
     sourcemap: false,
     minify: true,

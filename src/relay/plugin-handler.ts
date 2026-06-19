@@ -20,6 +20,7 @@ import { isSafePluginId } from '../shared/plugin/manifest'
 import type { WorkspaceSnapshot } from '../shared/plugin/api-contract'
 import type { PluginHostFactory } from '../main/plugin/plugin-runtime'
 import { createRelayPluginRuntime } from './relay-plugin-runtime'
+import { provisionPlugin } from './plugin-provision'
 
 export type RelayRequestContext = { clientId?: number }
 
@@ -152,6 +153,16 @@ export function registerRelayPluginHandlers(
       return { ok: false, error: 'entry_missing' }
     }
     return { ok: true, html: readFileSync(htmlPath, 'utf8') }
+  })
+
+  // Receive a plugin bundle from the desktop and write it under the relay
+  // plugins dir (verified + atomic). Must precede plugin.activate for a plugin
+  // whose files aren't already on the relay host.
+  dispatcher.onRequest('plugin.provision', async (params) => {
+    return provisionPlugin(params.bundle, {
+      pluginsDir: config.pluginsDir,
+      stagingDir: `${config.pluginsDir}-staging`
+    })
   })
 
   // Start the trusted backend child on the relay host.
