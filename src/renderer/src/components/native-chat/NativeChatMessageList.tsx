@@ -6,9 +6,9 @@ import { translate } from '@/i18n/i18n'
 import {
   isTextBlock,
   type NativeChatBlock,
-  type NativeChatMessage,
-  type NativeChatSession
+  type NativeChatMessage
 } from '../../../../shared/native-chat-types'
+import type { NativeChatLiveSession } from './use-native-chat-live-session'
 import { orderNativeChatMessages } from './native-chat-message-grouping'
 import { foldToolMessages, splitNativeChatBlocks } from './native-chat-tool-fold'
 import { isNearBottom, shouldShowJumpToLatest, type ScrollGeometry } from './native-chat-autoscroll'
@@ -38,40 +38,96 @@ function proseToMarkdown(blocks: NativeChatBlock[]): string {
     .join('\n\n')
 }
 
+/** Inline controls for an agent message (mobile AgentControls parity): copy the
+ *  message's prose, and scroll so this message's top aligns to the viewport top.
+ *  Reveals on hover / keyboard focus like the prior copy affordance. */
+function AgentControls({
+  markdown,
+  onScrollToTop,
+  className
+}: {
+  markdown: string
+  onScrollToTop: () => void
+  className?: string
+}): React.JSX.Element {
+  return (
+    <div className={cn('flex items-center gap-1', className)}>
+      <NativeChatCopyButton text={markdown} />
+      <button
+        type="button"
+        onClick={onScrollToTop}
+        aria-label={translate(
+          'components.native-chat.scrollMessageToTop',
+          'Scroll this message to top'
+        )}
+        title={translate('components.native-chat.scrollMessageToTop', 'Scroll this message to top')}
+        className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <ArrowUp className="size-3.5" />
+      </button>
+    </div>
+  )
+}
+
 /** One message: its prose first, then a collapsible run folding all of the
  *  turn's tool activity. Monochrome per STYLEGUIDE: user prompts read as a
  *  lifted card, assistant prose as body copy, reasoning de-emphasized. */
 function MessageRow({
   message,
-  expandSignal
+  expandSignal,
+  onScrollMessageToTop,
+  isPending
 }: {
   message: NativeChatMessage
   expandSignal: boolean
+  /** Align this message's top to the top of the scroll viewport. */
+  onScrollMessageToTop: (el: HTMLElement) => void
+  /** True when this is an optimistic, not-yet-confirmed composer send. */
+  isPending?: boolean
 }): React.JSX.Element {
+  const rowRef = useRef<HTMLDivElement | null>(null)
   const { prose, tools } = useMemo(() => splitNativeChatBlocks(message.blocks), [message.blocks])
   const markdown = proseToMarkdown(prose)
   const isUser = message.role === 'user'
   const isReasoning = message.role === 'reasoning'
   const isSystem = message.role === 'system'
 
+  const scrollToTop = useCallback(() => {
+    if (rowRef.current) {
+      onScrollMessageToTop(rowRef.current)
+    }
+  }, [onScrollMessageToTop])
+
   if (isUser) {
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-xl rounded-tr-sm border border-border bg-card px-3 py-2 text-sm text-card-foreground">
+      <div ref={rowRef} className="flex flex-col items-end gap-0.5">
+        <div
+          className={cn(
+            'max-w-[85%] rounded-xl rounded-tr-sm border border-border bg-card px-3 py-2 text-sm text-card-foreground',
+            // Queued echoes read as muted until the real turn lands (mobile parity).
+            isPending && 'opacity-60'
+          )}
+        >
           {markdown ? (
             <CommentMarkdown content={markdown} variant="document" className="text-sm" />
           ) : null}
         </div>
+        {isPending ? (
+          <span className="pr-1 text-[11px] text-muted-foreground">
+            {translate('components.native-chat.queued', 'Queued')}
+          </span>
+        ) : null}
       </div>
     )
   }
 
   // Plain assistant prose is the copyable unit; reasoning/system asides stay
-  // chrome-free. The button reveals on hover (and on keyboard focus-within).
-  const showCopy = !isReasoning && !isSystem && markdown.length > 0
+  // chrome-free. The controls reveal on hover (and on keyboard focus-within).
+  const showControls = !isReasoning && !isSystem && markdown.length > 0
 
   return (
     <div
+      ref={rowRef}
       className={cn(
         'group relative max-w-full text-sm leading-relaxed text-foreground',
         // Reasoning is the agent thinking aloud — quieter, italic, like an aside.
@@ -79,9 +135,10 @@ function MessageRow({
         isSystem && 'text-xs text-muted-foreground'
       )}
     >
-      {showCopy ? (
-        <NativeChatCopyButton
-          text={markdown}
+      {showControls ? (
+        <AgentControls
+          markdown={markdown}
+          onScrollToTop={scrollToTop}
           className="absolute -top-1 right-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
         />
       ) : null}
@@ -97,19 +154,21 @@ export function NativeChatMessageList({
   session,
   isWorking,
   expandSignal,
-  fontScale
+  fontScale,
+  pendingMessageIds
 }: {
-  session: NativeChatSession
+  session: NativeChatLiveSession
   isWorking: boolean
   /** Toolbar-driven desired open state for every tool run; each flip re-syncs. */
   expandSignal: boolean
   /** Chat-only text multiplier (1 = default), driven by the zoom shortcuts. */
   fontScale: number
+  /** Ids of optimistic queued sends, rendered with a muted "Queued" affordance. */
+  pendingMessageIds?: ReadonlySet<string>
 }): React.JSX.Element {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const [stuckToBottom, setStuckToBottom] = useState(true)
   const [showJump, setShowJump] = useState(false)
-  const [showScrollTop, setShowScrollTop] = useState(false)
 
   // Why: mirror stuck state into a ref so the auto-scroll layout effect can read
   // it without depending on it — depending on stuckToBottom (which scrollToBottom
@@ -117,12 +176,19 @@ export function NativeChatMessageList({
   const stuckToBottomRef = useRef(stuckToBottom)
   stuckToBottomRef.current = stuckToBottom
 
+  const { hasMore, loadingEarlier, loadEarlier } = session
+
   // Fold each turn's tool activity into the assistant message it belongs to, then
   // order stably, so a whole turn's tools collapse under one run.
   const messages = useMemo(
     () => foldToolMessages(orderNativeChatMessages(session.messages)),
     [session.messages]
   )
+
+  // When an older page prepends, the scroll content grows above the viewport.
+  // Capture the pre-render scroll height so the layout effect can restore the
+  // user's position (no jump) instead of letting the browser keep scrollTop.
+  const prependAnchorRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null)
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current
@@ -133,9 +199,13 @@ export function NativeChatMessageList({
     const stick = isNearBottom(geometry)
     setStuckToBottom(stick)
     setShowJump(shouldShowJumpToLatest(stick, geometry))
-    // Offer "scroll to top" once the user has scrolled down past a screenful.
-    setShowScrollTop(geometry.scrollTop > geometry.clientHeight)
-  }, [])
+    // Near the top — page in older history, anchoring the current position so the
+    // prepend doesn't yank the view.
+    if (geometry.scrollTop < 80 && hasMore && !loadingEarlier) {
+      prependAnchorRef.current = { scrollHeight: el.scrollHeight, scrollTop: el.scrollTop }
+      loadEarlier()
+    }
+  }, [hasMore, loadingEarlier, loadEarlier])
 
   const scrollToBottom = useCallback(() => {
     const el = scrollRef.current
@@ -147,17 +217,29 @@ export function NativeChatMessageList({
     setShowJump(false)
   }, [])
 
-  const scrollToTop = useCallback(() => {
-    const el = scrollRef.current
-    if (!el) {
+  // Align a single message's top to the top of the scroll viewport.
+  const scrollMessageToTop = useCallback((el: HTMLElement) => {
+    const container = scrollRef.current
+    if (!container) {
       return
     }
-    el.scrollTo({ top: 0, behavior: 'smooth' })
+    const delta = el.getBoundingClientRect().top - container.getBoundingClientRect().top
+    container.scrollTo({ top: container.scrollTop + delta, behavior: 'smooth' })
   }, [])
 
   // Re-pin to the bottom when new content arrives, but only if the user hasn't
   // scrolled up. Layout effect so the jump happens before paint (no flicker).
+  // When an older page just prepended, restore the prior position instead.
   useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (el && prependAnchorRef.current) {
+      // Preserve the viewport: shift scrollTop by however much taller the content
+      // got, so the message the user was reading stays put.
+      const grew = el.scrollHeight - prependAnchorRef.current.scrollHeight
+      el.scrollTop = prependAnchorRef.current.scrollTop + grew
+      prependAnchorRef.current = null
+      return
+    }
     if (stuckToBottomRef.current) {
       scrollToBottom()
     }
@@ -189,22 +271,32 @@ export function NativeChatMessageList({
           // the desktop analog of the mobile pinch-zoom (Chromium/Electron only).
           style={{ zoom: fontScale }}
         >
+          {hasMore ? (
+            <div className="flex justify-center py-1">
+              <button
+                type="button"
+                onClick={loadEarlier}
+                disabled={loadingEarlier}
+                className="rounded-md px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+              >
+                {loadingEarlier
+                  ? translate('components.native-chat.loadingEarlier', 'Loading…')
+                  : translate('components.native-chat.loadEarlier', 'Load earlier messages')}
+              </button>
+            </div>
+          ) : null}
           {messages.map((message) => (
-            <MessageRow key={message.id} message={message} expandSignal={expandSignal} />
+            <MessageRow
+              key={message.id}
+              message={message}
+              expandSignal={expandSignal}
+              onScrollMessageToTop={scrollMessageToTop}
+              isPending={pendingMessageIds?.has(message.id) ?? false}
+            />
           ))}
           {isWorking ? <NativeChatWorkingIndicator /> : null}
         </div>
       </div>
-      {showScrollTop ? (
-        <button
-          type="button"
-          onClick={scrollToTop}
-          aria-label={translate('components.native-chat.scrollToTop', 'Scroll to top')}
-          className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-full border border-border bg-card/90 text-muted-foreground shadow-sm backdrop-blur hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <ArrowUp className="size-4" />
-        </button>
-      ) : null}
       {showJump ? (
         <button
           type="button"

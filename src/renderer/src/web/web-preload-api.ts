@@ -991,8 +991,12 @@ function createWebKeybindingsApi(): WebKeybindingsApi {
 // undefined on web and the chat view showed no messages.
 function createNativeChatApi(): NativeChatApi {
   return {
-    readSession: (agent, sessionId) =>
-      callRuntimeResult<NativeChatReadSessionResult>('nativeChat.readSession', { agent, sessionId }),
+    readSession: (agent, sessionId, limit) =>
+      callRuntimeResult<NativeChatReadSessionResult>('nativeChat.readSession', {
+        agent,
+        sessionId,
+        limit
+      }),
     subscribe: (args, onAppended) => {
       let handle: { unsubscribe: () => void } | null = null
       let cancelled = false

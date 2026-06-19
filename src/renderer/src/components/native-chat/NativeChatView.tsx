@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { ChevronsDownUp, ChevronsUpDown, MessageSquare, TriangleAlert } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { MessageSquare, TriangleAlert } from 'lucide-react'
 import { useAppStore } from '../../store'
 import { getDriverForPty, onDriverChange } from '@/lib/pane-manager/mobile-driver-state'
 import { deriveNativeChatCanSend } from './native-chat-send-eligibility'
@@ -15,9 +15,19 @@ import { NativeChatComposer } from './NativeChatComposer'
 import { formatAgentTypeLabel } from '@/lib/agent-status'
 import { useNativeChatFontScale } from './use-native-chat-font-scale'
 import { parseInteractivePrompt } from './native-chat-interactive-prompt'
+import { nativeChatCardDismissKey } from './native-chat-dismiss-key'
 import { NativeChatQuestionCard } from './NativeChatQuestionCard'
 import { NativeChatApprovalCard } from './NativeChatApprovalCard'
-import { useNativeChatInteractiveSend } from './use-native-chat-interactive-send'
+import { NativeChatChromeRow } from './NativeChatChromeRow'
+import {
+  useNativeChatInteractiveSend,
+  type NativeChatInteractiveSend
+} from './use-native-chat-interactive-send'
+import {
+  pendingSendsAsMessages,
+  prunePendingSends,
+  type NativeChatPendingSend
+} from './native-chat-pending'
 
 export type NativeChatViewProps = {
   /** The terminal tab hosting the agent. paneKey is `${tabId}:${leafId}`. */
@@ -123,16 +133,62 @@ function NativeChatResolvedView({
   terminalTabId: string
 }): React.JSX.Element {
   const session = useNativeChatLiveSession({ paneKey, agent, sessionId })
-  const viewState = selectNativeChatViewState(session)
+  // Live hook state for this pane, selected directly so the working indicator
+  // flips the instant the agent reports 'working' — even when switching to chat
+  // mid-turn before the transcript merge has caught up.
+  const hookWorking = useAppStore((s) => s.agentStatusByPaneKey[paneKey]?.state === 'working')
   const canSend = useNativeChatCanSend(terminalTabId)
+  // Reuse the verified composer send path for both the interactive cards and the
+  // chrome-row Stop button (Stop sends ESC, the agent-TUI interrupt key).
+  const interactiveSend = useNativeChatInteractiveSend(terminalTabId)
   // Global expand/collapse for every tool run. Each flip re-syncs all runs; a
   // run can still be toggled individually after.
   const [toolsExpanded, setToolsExpanded] = useState(false)
+
+  // Optimistic "queued" sends (mobile parity): a composer send is echoed
+  // immediately and pruned once its real user turn lands in the transcript, so
+  // the message never vanishes between send and transcript catch-up.
+  const [pending, setPending] = useState<NativeChatPendingSend[]>([])
+  const pendingCounter = useRef(0)
+  // Reset the queue when the conversation changes so echoes never cross sessions.
+  useEffect(() => {
+    setPending([])
+  }, [sessionId, agent])
+  // Prune echoes whose real user turn is now in the transcript.
+  useEffect(() => {
+    setPending((prev) => prunePendingSends(prev, session.messages))
+  }, [session.messages])
+  const onOptimisticSend = useCallback((text: string) => {
+    pendingCounter.current += 1
+    setPending((prev) => [
+      ...prev,
+      { id: `${pendingCounter.current}`, text, sentAt: Date.now() }
+    ])
+  }, [])
+
+  const sessionWithPending = useMemo<typeof session>(() => {
+    if (pending.length === 0) {
+      return session
+    }
+    return { ...session, messages: [...session.messages, ...pendingSendsAsMessages(pending)] }
+  }, [session, pending])
+  const pendingMessageIds = useMemo(
+    () => new Set(pending.map((entry) => `pending:${entry.id}`)),
+    [pending]
+  )
+  // Derive the view state from the pending-augmented session so a send into an
+  // otherwise-empty conversation flips to the list (showing the queued bubble)
+  // instead of staying on the empty state.
+  const viewState = selectNativeChatViewState(sessionWithPending)
 
   // No on-disk session id means the conversation is degraded/approximate: the
   // transcript can't be read, so the banner signals reduced fidelity (R9).
   const isApproximate = sessionId === null
   const isConversation = viewState.kind === 'ready'
+  // Drive "working" from the live hook state too: when toggling to chat while the
+  // agent is mid-turn, the merged transcript may not yet reflect the in-flight
+  // turn, but the hook already says 'working' — show the indicator immediately.
+  const isWorking = isConversation && ((viewState.kind === 'ready' && viewState.isWorking) || hookWorking)
 
   // Chat-only font zoom via Cmd/Ctrl +/-/0, gated to the live conversation so
   // the chord is inert on the loading/empty/error states and elsewhere.
@@ -150,47 +206,37 @@ function NativeChatResolvedView({
           <NativeChatEmptyState kind="empty" />
         ) : (
           <NativeChatMessageList
-            session={session}
-            isWorking={viewState.isWorking}
+            session={sessionWithPending}
+            isWorking={isWorking}
             expandSignal={toolsExpanded}
             fontScale={fontScale.scale}
+            pendingMessageIds={pendingMessageIds}
           />
         )}
       </div>
-      {/* Tool-calls expand/collapse lives just above the composer (mobile parity)
-          so it doesn't overlap the header's agent dropdown. */}
-      {isConversation ? (
-        <div className="mx-auto flex w-full max-w-3xl items-center px-3 py-1 sm:px-4">
-          <button
-            type="button"
-            onClick={() => setToolsExpanded((v) => !v)}
-            aria-pressed={toolsExpanded}
-            className="ml-auto flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {toolsExpanded ? (
-              <ChevronsDownUp className="size-3.5" />
-            ) : (
-              <ChevronsUpDown className="size-3.5" />
-            )}
-            <span>
-              {toolsExpanded
-                ? translate('components.native-chat.tool.collapseAll', 'Collapse tool calls')
-                : translate('components.native-chat.tool.expandAll', 'Expand tool calls')}
-            </span>
-          </button>
-        </div>
-      ) : null}
       {/* Live interactive cards (question / approval) render just above the
           composer while the agent's interactivePrompt is present (mobile parity). */}
-      <NativeChatInteractiveCard
-        paneKey={paneKey}
-        terminalTabId={terminalTabId}
-        canSend={canSend}
-      />
+      <NativeChatInteractiveCard paneKey={paneKey} send={interactiveSend} canSend={canSend} />
+      {/* Chrome row locked to the top of the composer area (mobile parity): the
+          working indicator + tool-calls toggle on the left, Stop on the far right.
+          Stop interrupts via the same ESC path the composer uses. */}
+      {isConversation ? (
+        <NativeChatChromeRow
+          isWorking={isWorking}
+          toolsExpanded={toolsExpanded}
+          onToggleTools={() => setToolsExpanded((v) => !v)}
+          onStop={interactiveSend.cancel}
+        />
+      ) : null}
       {/* canSend reflects the mobile presence-lock: when a mobile client holds
           the pty, the composer shows its guarded state instead of racing the
           mobile driver (R8). */}
-      <NativeChatComposer terminalTabId={terminalTabId} agent={agent} canSend={canSend} />
+      <NativeChatComposer
+        terminalTabId={terminalTabId}
+        agent={agent}
+        canSend={canSend}
+        onOptimisticSend={onOptimisticSend}
+      />
     </div>
   )
 }
@@ -202,29 +248,67 @@ function NativeChatResolvedView({
  * automatically. Sends through the composer's verified runtime path (R8/R6):
  * answers as bracketed-paste + Enter; cancel/deny as ESC. Guarded by `canSend`
  * so a mobile presence-lock blocks desktop sends the same way it guards xterm.
+ *
+ * Dismiss-on-answer (mobile parity): the live status lingers after answering —
+ * the agent emits a post-tool event carrying the same prompt — so we track the
+ * answered prompt by content key and hide the card until a genuinely different
+ * prompt arrives. The dismissal resets once the prompt clears, so a later
+ * (even identical) prompt shows again instead of staying hidden.
  */
 function NativeChatInteractiveCard({
   paneKey,
-  terminalTabId,
+  send,
   canSend
 }: {
   paneKey: string
-  terminalTabId: string
+  send: NativeChatInteractiveSend
   canSend: boolean
 }): React.JSX.Element | null {
   const interactivePrompt = useAppStore(
     (s) => s.agentStatusByPaneKey[paneKey]?.interactivePrompt ?? null
   )
-  const { sendAnswer, sendRaw, cancel } = useNativeChatInteractiveSend(terminalTabId)
+  const { sendAnswer, sendRaw, cancel } = send
 
   const card = useMemo(() => parseInteractivePrompt(interactivePrompt), [interactivePrompt])
-  if (!card || !canSend) {
+  const cardKey = useMemo(() => nativeChatCardDismissKey(card), [card])
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null)
+
+  // Forget the dismissal once the prompt clears so a fresh prompt can show.
+  const present = card != null
+  useEffect(() => {
+    if (!present) {
+      setDismissedKey(null)
+    }
+  }, [present])
+
+  if (!card || !canSend || cardKey === dismissedKey) {
     return null
   }
   if (card.kind === 'question') {
-    return <NativeChatQuestionCard prompt={card.prompt} onAnswer={sendAnswer} onCancel={cancel} />
+    return (
+      <NativeChatQuestionCard
+        key={cardKey ?? 'question'}
+        prompt={card.prompt}
+        onAnswer={(text) => {
+          setDismissedKey(cardKey)
+          sendAnswer(text)
+        }}
+        onCancel={() => {
+          setDismissedKey(cardKey)
+          cancel()
+        }}
+      />
+    )
   }
-  return <NativeChatApprovalCard approval={card.approval} onChoose={sendRaw} />
+  return (
+    <NativeChatApprovalCard
+      approval={card.approval}
+      onChoose={(raw) => {
+        setDismissedKey(cardKey)
+        sendRaw(raw)
+      }}
+    />
+  )
 }
 
 function NativeChatHeader({

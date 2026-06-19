@@ -20,21 +20,41 @@ export function isMultilineDraft(text: string): boolean {
   return /[\r\n]/.test(text)
 }
 
+/** The carriage-return submit byte, exported so send paths can write Enter as a
+ *  SEPARATE pty write after the framed body (see buildNativeChatPasteBytes). */
+export const NATIVE_CHAT_SUBMIT = SUBMIT
+
 /**
- * Compute the bytes to write for `text` + Enter:
- *  - single-line → `text\r`
- *  - multi-line  → `\x1b[200~…\x1b[201~\r` (bracketed-paste wrapped, then submit)
+ * Compute the bytes for `text` WITHOUT the trailing submit:
+ *  - single-line → `text`
+ *  - multi-line  → `\x1b[200~…\x1b[201~` (bracketed-paste wrapped, no submit)
  *
- * The trailing `\r` is always appended because the native composer's Enter is a
- * send. Callers wanting an un-submitted draft should not use this helper.
+ * Why split the submit out: agent TUIs treat a framed paste that carries a
+ * trailing `\r` in the SAME pty write as part of the paste body rather than an
+ * Enter, so the text lands in the input box but never sends. Callers write this
+ * body first, then write `NATIVE_CHAT_SUBMIT` as a separate, slightly-delayed
+ * write (mirrors orca-runtime's writeTerminalAction Enter handling).
  */
-export function buildNativeChatSendBytes(text: string): string {
+export function buildNativeChatPasteBytes(text: string): string {
   // Why: a stray ESC in the draft (e.g. pasted scrollback carrying its own
   // `\x1b[201~`) would otherwise close the bracketed-paste frame early and run
   // the tail as live keystrokes. Sanitize ESC on both branches before framing.
   const safe = sanitizeBracketedPasteText(text)
   if (isMultilineDraft(safe)) {
-    return `${BRACKETED_PASTE_BEGIN}${safe}${BRACKETED_PASTE_END}${SUBMIT}`
+    return `${BRACKETED_PASTE_BEGIN}${safe}${BRACKETED_PASTE_END}`
   }
-  return `${safe}${SUBMIT}`
+  return safe
+}
+
+/**
+ * Compute the bytes to write for `text` + Enter in ONE write:
+ *  - single-line → `text\r`
+ *  - multi-line  → `\x1b[200~…\x1b[201~\r` (bracketed-paste wrapped, then submit)
+ *
+ * Prefer `buildNativeChatPasteBytes` + a separate `NATIVE_CHAT_SUBMIT` write for
+ * live sends; this combined form is kept for callers/tests that need the framed
+ * body and submit as a single string.
+ */
+export function buildNativeChatSendBytes(text: string): string {
+  return `${buildNativeChatPasteBytes(text)}${SUBMIT}`
 }

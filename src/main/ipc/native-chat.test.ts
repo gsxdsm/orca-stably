@@ -53,7 +53,11 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void
   }
 }
 
-async function invokeReadSession(args: { agent: string; sessionId: string }): Promise<unknown> {
+async function invokeReadSession(args: {
+  agent: string
+  sessionId: string
+  limit?: number
+}): Promise<unknown> {
   registerNativeChatHandlers()
   const handler = handlers.get('nativeChat:readSession')
   if (!handler) {
@@ -98,6 +102,46 @@ describe('nativeChat:readSession handler', () => {
       }
       expect(result.error).toBeUndefined()
       expect(result.messages).toHaveLength(2)
+    } finally {
+      if (previousHome === undefined) {
+        delete process.env.HOME
+      } else {
+        process.env.HOME = previousHome
+      }
+    }
+  })
+
+  it('windows to the most-recent `limit` turns and pages older history when raised', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'orca-native-chat-ipc-limit-'))
+    tempRoots.push(root)
+    const projectDir = join(root, '.claude', 'projects', '-repo')
+    await mkdir(projectDir, { recursive: true })
+    // Five user turns; reading with limit 2 returns only the last two, and a
+    // larger limit pages in older ones (chronological order preserved).
+    const records = [1, 2, 3, 4, 5].map((n) => ({
+      type: 'user',
+      uuid: `u-${n}`,
+      timestamp: `2026-06-01T10:00:0${n}.000Z`,
+      message: { role: 'user', content: `m${n}` }
+    }))
+    await writeFile(join(projectDir, 'sess-limit.jsonl'), jsonLines(records))
+
+    const previousHome = process.env.HOME
+    process.env.HOME = root
+    try {
+      const windowed = (await invokeReadSession({
+        agent: 'claude',
+        sessionId: 'sess-limit',
+        limit: 2
+      })) as { messages: { id: string }[] }
+      expect(windowed.messages.map((m) => m.id)).toEqual(['u-4', 'u-5'])
+
+      const wider = (await invokeReadSession({
+        agent: 'claude',
+        sessionId: 'sess-limit',
+        limit: 4
+      })) as { messages: { id: string }[] }
+      expect(wider.messages.map((m) => m.id)).toEqual(['u-2', 'u-3', 'u-4', 'u-5'])
     } finally {
       if (previousHome === undefined) {
         delete process.env.HOME

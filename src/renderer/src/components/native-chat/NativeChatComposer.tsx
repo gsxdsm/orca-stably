@@ -6,7 +6,7 @@ import { useAppStore } from '../../store'
 import type { AgentType } from '../../../../shared/agent-status-types'
 import { isRemoteRuntimePtyId, sendRuntimePtyInput } from '@/runtime/runtime-terminal-inspection'
 import { getSettingsForAgentTabRuntimeOwner } from '@/lib/agent-paste-draft'
-import { buildNativeChatSendBytes } from './native-chat-send'
+import { sendNativeChatMessage } from './native-chat-runtime-send'
 import { getAgentSlashCommands } from './native-chat-agent-commands'
 import { emitNativeChatMessageSent } from '@/lib/native-chat-telemetry'
 import {
@@ -39,6 +39,9 @@ export type NativeChatComposerProps = {
    * already renders the guarded/disabled affordance when it is `false`.
    */
   canSend?: boolean
+  /** Optional optimistic-send hook: called with the sent text so the view can
+   *  render a "queued" echo until the real transcript turn lands (mobile parity). */
+  onOptimisticSend?: (text: string) => void
 }
 
 type ResolvedTarget = {
@@ -57,7 +60,8 @@ type ResolvedTarget = {
 export function NativeChatComposer({
   terminalTabId,
   agent,
-  canSend = true
+  canSend = true,
+  onOptimisticSend
 }: NativeChatComposerProps): React.JSX.Element {
   const [draft, setDraft] = useState('')
   const [caret, setCaret] = useState(0)
@@ -99,9 +103,12 @@ export function NativeChatComposer({
     if (!target) {
       return
     }
-    // sendRuntimePtyInput branches local pty:write vs remote runtime RPC, so the
-    // same call works for SSH panes (R6).
-    sendRuntimePtyInput(target.settings, target.ptyId, buildNativeChatSendBytes(text))
+    // Two-write send (body, then a delayed Enter) so the agent TUI submits the
+    // message instead of leaving it in its input box (R6: works for SSH panes).
+    sendNativeChatMessage(target.settings, target.ptyId, text)
+    // Optimistic "queued" echo (mobile parity): show the prompt immediately,
+    // pruned once its real user turn lands in the transcript.
+    onOptimisticSend?.(text)
     // Why: U10 telemetry — record adoption + local-vs-remote runtime split. The
     // agent prop is the loose AgentType; the emitter narrows unknowns to 'other'.
     emitNativeChatMessageSent({
@@ -112,7 +119,7 @@ export function NativeChatComposer({
     setDraft('')
     setCaret(0)
     setNotice(null)
-  }, [agent, draft, disabled, resolveTarget])
+  }, [agent, draft, disabled, resolveTarget, onOptimisticSend])
 
   const interrupt = useCallback(() => {
     const target = resolveTarget()

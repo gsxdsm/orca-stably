@@ -17,6 +17,14 @@ async function makeRoot(prefix: string): Promise<string> {
   return root
 }
 
+function restoreEnv(key: string, previous: string | undefined): void {
+  if (previous === undefined) {
+    delete process.env[key]
+  } else {
+    process.env[key] = previous
+  }
+}
+
 describe('resolveSessionFilePath', () => {
   it('globs Claude project subdirs for <sessionId>.jsonl', async () => {
     const root = await makeRoot('orca-native-chat-resolve-claude-')
@@ -38,29 +46,57 @@ describe('resolveSessionFilePath', () => {
     const target = join(dayDir, 'rollout-2026-06-04T10-00-00-abc-session.jsonl')
     await writeFile(target, '{}\n')
 
-    const resolved = await resolveSessionFilePath('codex', 'abc-session', { codexSessionsDir })
+    const resolved = await resolveSessionFilePath('codex', 'abc-session', {
+      codexSessionsDirs: [codexSessionsDir]
+    })
     expect(resolved).toBe(target)
   })
 
-  it('honors CODEX_HOME for the default Codex sessions dir', async () => {
+  it('resolves a rollout from the orca-managed Codex home (ORCA_USER_DATA_PATH)', async () => {
+    // Orca launches Codex with its own managed CODEX_HOME, so rollout files land
+    // under <userData>/codex-runtime-home/home/sessions, NOT ~/.codex/sessions.
+    const root = await makeRoot('orca-native-chat-resolve-managed-')
+    const managedSessionsDir = join(root, 'codex-runtime-home', 'home', 'sessions')
+    const dayDir = join(managedSessionsDir, '2026', '06', '19')
+    await mkdir(dayDir, { recursive: true })
+    const target = join(dayDir, 'rollout-2026-06-19T04-20-39-019edf9c-managed.jsonl')
+    await writeFile(target, '{}\n')
+
+    const previous = process.env.ORCA_USER_DATA_PATH
+    process.env.ORCA_USER_DATA_PATH = root
+    try {
+      const resolved = await resolveSessionFilePath('codex', '019edf9c-managed')
+      expect(resolved).toBe(target)
+    } finally {
+      if (previous === undefined) {
+        delete process.env.ORCA_USER_DATA_PATH
+      } else {
+        process.env.ORCA_USER_DATA_PATH = previous
+      }
+    }
+  })
+
+  it('falls back to CODEX_HOME when the managed home has no match', async () => {
     const root = await makeRoot('orca-native-chat-resolve-codex-home-')
+    const managedRoot = join(root, 'managed-userdata')
+    await mkdir(managedRoot, { recursive: true })
     const codexHome = join(root, 'custom-codex-home')
     const dayDir = join(codexHome, 'sessions', '2026', '06', '05')
     await mkdir(dayDir, { recursive: true })
     const target = join(dayDir, 'rollout-xyz-session.jsonl')
     await writeFile(target, '{}\n')
 
-    const previous = process.env.CODEX_HOME
+    const previousCodex = process.env.CODEX_HOME
+    const previousUserData = process.env.ORCA_USER_DATA_PATH
     process.env.CODEX_HOME = codexHome
+    // Point the managed home at an empty dir so the fallback is exercised.
+    process.env.ORCA_USER_DATA_PATH = managedRoot
     try {
       const resolved = await resolveSessionFilePath('codex', 'xyz-session')
       expect(resolved).toBe(target)
     } finally {
-      if (previous === undefined) {
-        delete process.env.CODEX_HOME
-      } else {
-        process.env.CODEX_HOME = previous
-      }
+      restoreEnv('CODEX_HOME', previousCodex)
+      restoreEnv('ORCA_USER_DATA_PATH', previousUserData)
     }
   })
 

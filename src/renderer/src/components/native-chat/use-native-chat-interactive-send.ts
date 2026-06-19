@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { useAppStore } from '../../store'
 import { sendRuntimePtyInput } from '@/runtime/runtime-terminal-inspection'
 import { getSettingsForAgentTabRuntimeOwner } from '@/lib/agent-paste-draft'
-import { buildNativeChatSendBytes } from './native-chat-send'
+import { sendNativeChatMessage } from './native-chat-runtime-send'
 
 // ESC is the agent-TUI interrupt/cancel key over the PTY (matches how the
 // composer forwards Escape). Used to cancel a question or deny an approval.
@@ -21,9 +21,9 @@ export type NativeChatInteractiveSend = {
  * Reuse the desktop composer's exact send path for the interactive cards:
  * resolve this tab's live ptyId + runtime owner settings, then write bytes via
  * `sendRuntimePtyInput` (which branches local pty:write vs remote runtime RPC,
- * so SSH panes work unchanged). Answers go through `buildNativeChatSendBytes`
- * for bracketed-paste + Enter framing; control strings (option digits, ESC) are
- * written raw so the agent reads them as keystrokes.
+ * so SSH panes work unchanged). Answers go through `sendNativeChatMessage`
+ * (bracketed-paste framed body, then a separate delayed Enter); control strings
+ * (option digits, ESC) are written raw so the agent reads them as keystrokes.
  */
 export function useNativeChatInteractiveSend(terminalTabId: string): NativeChatInteractiveSend {
   const sendRaw = useCallback(
@@ -42,13 +42,19 @@ export function useNativeChatInteractiveSend(terminalTabId: string): NativeChatI
       if (text.trim() === '') {
         return
       }
-      // Send as ONE bracketed paste + a single Enter. Splitting into per-line
-      // sends with their own Enter leaked the later answers as new prompts: the
-      // structured prompt resolves on the first submit, so any extra Enter lands
-      // as a fresh message.
-      sendRaw(buildNativeChatSendBytes(text))
+      const ptyId = useAppStore.getState().ptyIdsByTabId[terminalTabId]?.[0]
+      if (!ptyId) {
+        return
+      }
+      // Send the framed answer body as ONE bracketed paste, then a SINGLE Enter
+      // as a separate, slightly-delayed write. Bundling the `\r` into the paste
+      // write made the agent TUI treat it as paste text (never submitting), so
+      // the answer sat unsent. Splitting per-line with their own Enter is also
+      // wrong — the structured prompt resolves on the first submit, so extra
+      // Enters leak as fresh prompts. One body + one delayed Enter is correct.
+      sendNativeChatMessage(getSettingsForAgentTabRuntimeOwner(terminalTabId), ptyId, text)
     },
-    [sendRaw]
+    [terminalTabId]
   )
 
   const cancel = useCallback(() => sendRaw(ESC), [sendRaw])

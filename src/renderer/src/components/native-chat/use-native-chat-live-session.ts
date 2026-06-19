@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppStore } from '../../store'
 import type {
   AgentType,
@@ -6,6 +6,11 @@ import type {
   NativeChatSession
 } from '../../../../shared/native-chat-types'
 import { mergeNativeChatLiveSession } from './native-chat-live-status'
+import {
+  hasMoreNativeChatHistory,
+  NATIVE_CHAT_INITIAL_LIMIT,
+  nextNativeChatLimit
+} from './native-chat-pagination'
 
 export type UseNativeChatLiveSessionArgs = {
   /** Composite `${tabId}:${leafId}` key — selects the live hook entry. */
@@ -14,6 +19,16 @@ export type UseNativeChatLiveSessionArgs = {
   /** The agent's own session id, or null before the agent has reported one.
    *  With null there is nothing to read/tail; the view shows live hook state. */
   sessionId: string | null
+}
+
+/** A live session plus the older-history pagination controls the view needs. */
+export type NativeChatLiveSession = NativeChatSession & {
+  /** True when an older page may still exist (the last read filled the window). */
+  hasMore: boolean
+  /** Whether an older-history page is currently loading. */
+  loadingEarlier: boolean
+  /** Grow the read window to page in older history (scrolled-to-top trigger). */
+  loadEarlier: () => void
 }
 
 let subscriptionCounter = 0
@@ -29,10 +44,16 @@ type ReadState =
   | { phase: 'error'; error: string }
 
 /**
- * Renderer hook that streams a NativeChatSession for a pane: initial full read
- * via `nativeChat.readSession`, live tail via `nativeChat.subscribe`, merged
+ * Renderer hook that streams a NativeChatSession for a pane: initial windowed
+ * read via `nativeChat.readSession`, live tail via `nativeChat.subscribe`, merged
  * with the pane's live hook turn-state. IO + store reads live here; the merge
  * itself stays pure (mergeNativeChatLiveSession → assembleNativeChatSession).
+ *
+ * Pagination: the read is windowed to the most recent `limit` turns (default
+ * NATIVE_CHAT_INITIAL_LIMIT). `loadEarlier` raises the limit by a page and
+ * re-reads to prepend older history; `hasMore` reflects whether the last read
+ * filled the window. Read results replace the base list (they are an ordered
+ * tail), while live appends accumulate separately so a re-read never drops them.
  *
  * Remote/SSH: `nativeChat.readSession`/`subscribe` are main-process IPC, so the
  * transcript is read against the runtime's home dir (local or server-side) on
@@ -41,13 +62,19 @@ type ReadState =
  * Teardown: the subscription is closed on unmount and whenever agent/sessionId
  * change, so a toggle back to terminal or a session swap never leaks a watcher.
  */
-export function useNativeChatLiveSession(args: UseNativeChatLiveSessionArgs): NativeChatSession {
+export function useNativeChatLiveSession(
+  args: UseNativeChatLiveSessionArgs
+): NativeChatLiveSession {
   const { paneKey, agent, sessionId } = args
   const [read, setRead] = useState<ReadState>({ phase: 'loading' })
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingEarlier, setLoadingEarlier] = useState(false)
+  // The active read window; raised by loadEarlier to page in older history.
+  const limitRef = useRef(NATIVE_CHAT_INITIAL_LIMIT)
 
   // Appended messages accumulate separately from the initial read so a re-read
-  // (session change) doesn't lose in-flight appends mid-swap; they reset with
-  // the same effect that re-subscribes.
+  // (session change or load-earlier) doesn't lose in-flight appends mid-swap;
+  // they reset with the same effect that re-subscribes.
   const [appended, setAppended] = useState<NativeChatMessage[]>([])
 
   // Live hook state for this pane, selected narrowly so unrelated status churn
@@ -63,15 +90,18 @@ export function useNativeChatLiveSession(args: UseNativeChatLiveSessionArgs): Na
       // an empty transcript; backfills once the id arrives (effect re-runs).
       setRead({ phase: 'ready', messages: [] })
       setAppended([])
+      setHasMore(false)
       return
     }
 
     let cancelled = false
+    limitRef.current = NATIVE_CHAT_INITIAL_LIMIT
     setRead({ phase: 'loading' })
     setAppended([])
+    setHasMore(false)
 
     void window.api?.nativeChat
-      ?.readSession(agent, sessionId)
+      ?.readSession(agent, sessionId, limitRef.current)
       .then((result) => {
         if (cancelled) {
           return
@@ -80,7 +110,9 @@ export function useNativeChatLiveSession(args: UseNativeChatLiveSessionArgs): Na
           setRead({ phase: 'error', error: result.error })
           return
         }
-        setRead({ phase: 'ready', messages: result?.messages ?? [] })
+        const messages = result?.messages ?? []
+        setRead({ phase: 'ready', messages })
+        setHasMore(hasMoreNativeChatHistory(messages.length, limitRef.current))
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -117,14 +149,43 @@ export function useNativeChatLiveSession(args: UseNativeChatLiveSessionArgs): Na
     }
   }, [agent, sessionId])
 
-  return useMemo<NativeChatSession>(() => {
+  const loadEarlier = useCallback(() => {
+    if (!sessionId || loadingEarlier || !hasMore || read.phase !== 'ready') {
+      return
+    }
+    const nextLimit = nextNativeChatLimit(limitRef.current)
+    setLoadingEarlier(true)
+    void window.api?.nativeChat
+      ?.readSession(agent, sessionId, nextLimit)
+      .then((result) => {
+        // Ignore a stale resolve from a session that swapped underneath us.
+        if (latestSessionId.current !== sessionId) {
+          return
+        }
+        if (!result || 'error' in result) {
+          return
+        }
+        limitRef.current = nextLimit
+        // Read results are an ordered tail — replace the base list so the older
+        // page prepends in order; live appends stay in their separate bucket.
+        setRead({ phase: 'ready', messages: result.messages })
+        setHasMore(hasMoreNativeChatHistory(result.messages.length, nextLimit))
+      })
+      .finally(() => {
+        if (latestSessionId.current === sessionId) {
+          setLoadingEarlier(false)
+        }
+      })
+  }, [agent, sessionId, hasMore, loadingEarlier, read.phase])
+
+  return useMemo<NativeChatLiveSession>(() => {
     const transcript =
       read.phase === 'ready'
         ? appended.length > 0
           ? [...read.messages, ...appended]
           : read.messages
         : []
-    return mergeNativeChatLiveSession({
+    const session = mergeNativeChatLiveSession({
       sources: { transcript },
       sessionId,
       agent,
@@ -132,5 +193,6 @@ export function useNativeChatLiveSession(args: UseNativeChatLiveSessionArgs): Na
       loading: read.phase === 'loading',
       ...(read.phase === 'error' ? { error: read.error } : {})
     })
-  }, [read, appended, sessionId, agent, hookState])
+    return { ...session, hasMore, loadingEarlier, loadEarlier }
+  }, [read, appended, sessionId, agent, hookState, hasMore, loadingEarlier, loadEarlier])
 }

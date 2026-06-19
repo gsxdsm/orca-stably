@@ -733,8 +733,14 @@ export type NativeChatSubscribeArgs = {
 }
 
 export type NativeChatApi = {
-  /** Read the full on-disk transcript for an agent + session id (no cap). */
-  readSession: (agent: AgentType, sessionId: string) => Promise<NativeChatReadSessionResult>
+  /** Read the on-disk transcript for an agent + session id, windowed to the most
+   *  recent `limit` turns (defaults to the desktop window). The renderer raises
+   *  `limit` to page in older history as it scrolls to the top. */
+  readSession: (
+    agent: AgentType,
+    sessionId: string,
+    limit?: number
+  ) => Promise<NativeChatReadSessionResult>
   /** Live-tail a transcript: `onAppended` fires with only newly-appended
    *  messages. Returns an unsubscribe fn that closes the main-process watcher. */
   subscribe: (

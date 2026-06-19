@@ -1,7 +1,9 @@
+import { existsSync } from 'fs'
 import { homedir } from 'os'
 import { basename, extname, join } from 'path'
 import type { AgentType } from '../../shared/native-chat-types'
 import { walkSessionFiles } from '../ai-vault/session-scanner-discovery'
+import { getOrcaManagedCodexHomePath } from '../codex/codex-home-paths'
 
 // Why: these mirror the path constants in ai-vault/session-scanner.ts. Reads
 // run in the main process against the runtime's own home directory; over SSH
@@ -12,16 +14,26 @@ function claudeProjectsDir(): string {
   return join(homedir(), '.claude', 'projects')
 }
 
-function codexSessionsDir(): string {
-  const codexHome = process.env.CODEX_HOME?.trim() || join(homedir(), '.codex')
-  return join(codexHome, 'sessions')
+// Why: Orca launches Codex with ORCA_CODEX_HOME pointing at its own managed
+// runtime home, so Orca-started Codex rollout files land under
+// `<managed home>/sessions`, NOT `~/.codex/sessions`. Search the managed home
+// first (that's where this main process's Codex sessions actually live), then
+// fall back to CODEX_HOME/~/.codex so a non-Orca Codex transcript still resolves.
+// Duplicates are filtered so a managed-home symlink to ~/.codex isn't scanned twice.
+function codexSessionsDirs(): string[] {
+  const candidates = [
+    join(getOrcaManagedCodexHomePath(), 'sessions'),
+    join(process.env.CODEX_HOME?.trim() || join(homedir(), '.codex'), 'sessions')
+  ]
+  return candidates.filter((dir, index) => candidates.indexOf(dir) === index)
 }
 
 export type ResolveSessionFileOptions = {
   /** Override the Claude projects root (used by tests / isolated scans). */
   claudeProjectsDir?: string
-  /** Override the Codex sessions root (used by tests / isolated scans). */
-  codexSessionsDir?: string
+  /** Override the Codex sessions roots, searched in order (tests / isolated
+   *  scans). Defaults to the orca-managed home then CODEX_HOME/~/.codex. */
+  codexSessionsDirs?: string[]
 }
 
 /**
@@ -47,7 +59,7 @@ export async function resolveSessionFilePath(
     return resolveClaudeSessionFile(trimmedId, options.claudeProjectsDir ?? claudeProjectsDir())
   }
   if (agent === 'codex') {
-    return resolveCodexSessionFile(trimmedId, options.codexSessionsDir ?? codexSessionsDir())
+    return resolveCodexSessionFile(trimmedId, options.codexSessionsDirs ?? codexSessionsDirs())
   }
   return null
 }
@@ -66,16 +78,25 @@ async function resolveClaudeSessionFile(
 
 async function resolveCodexSessionFile(
   sessionId: string,
-  sessionsDir: string
+  sessionsDirs: string[]
 ): Promise<string | null> {
   // Codex rollout file names embed the session id (rollout-<ts>-<id>.jsonl), so
   // match the id as a suffix of the file's base name rather than an exact name.
-  const files = await walkSessionFiles(sessionsDir, 'codex', [], {
-    extensions: new Set(['.jsonl']),
-    filePredicate: (path) => {
-      const name = basename(path, extname(path))
-      return name === sessionId || name.endsWith(`-${sessionId}`)
+  // Search each candidate root (managed home first) and stop at the first match.
+  for (const sessionsDir of sessionsDirs) {
+    if (!existsSync(sessionsDir)) {
+      continue
     }
-  })
-  return files[0] ?? null
+    const files = await walkSessionFiles(sessionsDir, 'codex', [], {
+      extensions: new Set(['.jsonl']),
+      filePredicate: (path) => {
+        const name = basename(path, extname(path))
+        return name === sessionId || name.endsWith(`-${sessionId}`)
+      }
+    })
+    if (files[0]) {
+      return files[0]
+    }
+  }
+  return null
 }
