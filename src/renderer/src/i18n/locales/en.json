@@ -11565,7 +11565,8 @@
       "activate": "Activate",
       "remove": "Remove",
       "sourcePlaceholder": "/path/to/plugin",
-      "idVersion": "{{id}} · v{{version}}"
+      "idVersion": "{{id}} · v{{version}}",
+      "installFromSource": "Install a plugin (npm name, git URL, .tgz, or local path)"
     },
     "panel": {
       "loading": "Loading plugin…",

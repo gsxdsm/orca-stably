@@ -36,7 +36,7 @@ export function PluginsPane(): React.JSX.Element {
     setBusy(true)
     setError(null)
     try {
-      const result = await window.api.plugins.installLocal(sourceDir.trim())
+      const result = await window.api.plugins.installFromSource(sourceDir.trim())
       if (!result.ok) {
         setError(
           result.errors?.join('; ') ?? translate('plugins.pane.installFailed', 'Install failed')
@@ -80,12 +80,18 @@ export function PluginsPane(): React.JSX.Element {
       <div className="flex items-end gap-2">
         <div className="flex flex-1 flex-col gap-1">
           <label className="text-muted-foreground text-xs" htmlFor="plugin-source">
-            {translate('plugins.pane.installFromFolder', 'Install from a local folder')}
+            {translate(
+              'plugins.pane.installFromSource',
+              'Install a plugin (npm name, git URL, .tgz, or local path)'
+            )}
           </label>
           <Input
             id="plugin-source"
             value={sourceDir}
-            placeholder={translate('plugins.pane.sourcePlaceholder', '/path/to/plugin')}
+            placeholder={translate(
+              'plugins.pane.sourcePlaceholder',
+              '@acme/orca-foo or /path/to/plugin'
+            )}
             onChange={(event) => setSourceDir(event.target.value)}
           />
         </div>

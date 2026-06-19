@@ -759,6 +759,7 @@ export type PreloadApi = {
       { id: string; version: string; active: boolean; title: string; icon: string }[]
     >
     installLocal: (sourceDir: string) => Promise<{ ok: boolean; id?: string; errors?: string[] }>
+    installFromSource: (input: string) => Promise<{ ok: boolean; id?: string; errors?: string[] }>
     activate: (pluginId: string) => Promise<{ ok: boolean; error?: string }>
     deactivate: (pluginId: string) => Promise<{ ok: boolean }>
     remove: (pluginId: string) => Promise<{ ok: boolean }>

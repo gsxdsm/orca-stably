@@ -15,6 +15,10 @@ export function registerPluginHandlers(system: PluginSystem): void {
     system.manager.installLocal(sourceDir)
   )
 
+  ipcMain.handle('plugins:install', async (_event, input: string) =>
+    system.installFromSource(input)
+  )
+
   ipcMain.handle('plugins:activate', async (_event, pluginId: string) =>
     system.runtime.activate(pluginId)
   )

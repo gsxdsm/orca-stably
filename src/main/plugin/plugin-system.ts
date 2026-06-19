@@ -11,6 +11,7 @@
 //   - add the plugin-host-entry build target to electron.vite.config
 //   - expose window.api.plugins in the preload
 
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app, clipboard, shell } from 'electron'
 import { PluginManager } from './plugin-manager'
@@ -18,6 +19,10 @@ import { PluginRuntime } from './plugin-runtime'
 import { registerPluginAssetProtocol } from './plugin-asset-protocol'
 import { readManifestRaw } from './plugin-discovery'
 import { validatePluginManifest } from '../../shared/plugin/manifest-validate'
+import { parseInstallSource } from './install/install-source'
+import { resolveAndInstall } from './install/install-resolver'
+import { createInstallAdapters } from './install/install-adapters'
+import { emptyLockfile, type PluginLockfile } from './install/install-integrity'
 import type { HostCommand, WorkspaceSnapshot } from '../../shared/plugin/api-contract'
 import type { OutputLine } from './plugin-output-buffer'
 
@@ -60,9 +65,13 @@ export class PluginSystem {
   readonly manager: PluginManager
   readonly runtime: PluginRuntime
   private readonly pluginsDir: string
+  private readonly lockfilePath: string
+  private readonly stagingDir: string
 
   constructor(deps: PluginSystemDeps = {}) {
     this.pluginsDir = join(app.getPath('userData'), 'plugins')
+    this.lockfilePath = join(app.getPath('userData'), 'plugins-lock.json')
+    this.stagingDir = join(app.getPath('userData'), 'plugins-staging')
     this.manager = new PluginManager({
       pluginsDir: this.pluginsDir,
       stateFilePath: join(app.getPath('userData'), 'plugins-state.json')
@@ -82,6 +91,45 @@ export class PluginSystem {
   // registered as privileged before ready — see registerPluginScheme()).
   registerAssetProtocol(): void {
     registerPluginAssetProtocol(this.pluginsDir, (id) => this.runtime.isRunning(id))
+  }
+
+  private loadLockfile(): PluginLockfile {
+    try {
+      if (existsSync(this.lockfilePath)) {
+        const parsed = JSON.parse(readFileSync(this.lockfilePath, 'utf8')) as PluginLockfile
+        if (parsed?.plugins && typeof parsed.plugins === 'object') {
+          return { version: 1, plugins: parsed.plugins }
+        }
+      }
+    } catch {
+      // Corrupt lockfile resets; reinstall re-pins integrity.
+    }
+    return emptyLockfile()
+  }
+
+  private saveLockfile(lockfile: PluginLockfile): void {
+    writeFileSync(this.lockfilePath, JSON.stringify(lockfile, null, 2), 'utf8')
+  }
+
+  // Install from any source string (local path / registry name / git / tarball),
+  // pin it in the lockfile, and record it in the manager (inactive).
+  async installFromSource(input: string): Promise<{ ok: boolean; id?: string; errors?: string[] }> {
+    const source = parseInstallSource(input)
+    if (!source) {
+      return { ok: false, errors: ['empty install source'] }
+    }
+    const result = await resolveAndInstall(source, {
+      pluginsDir: this.pluginsDir,
+      stagingDir: this.stagingDir,
+      adapters: createInstallAdapters(),
+      lockfile: this.loadLockfile()
+    })
+    if (!result.ok) {
+      return { ok: false, errors: result.errors }
+    }
+    this.saveLockfile(result.lockfile)
+    this.manager.recordInstalled({ id: result.id, version: result.version, source })
+    return { ok: true, id: result.id }
   }
 
   // Enrich each installed plugin's state with its manifest title/icon so the

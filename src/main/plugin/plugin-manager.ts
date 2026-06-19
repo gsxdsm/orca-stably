@@ -10,7 +10,7 @@
 
 import { existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { PluginStore, type PluginStateEntry } from './plugin-store'
+import { PluginStore, type PluginInstallSource, type PluginStateEntry } from './plugin-store'
 import { discoverPlugins, type DiscoveryResult } from './plugin-discovery'
 import { installFromLocalFolder, type InstallResult } from './plugin-install'
 
@@ -37,6 +37,12 @@ export class PluginManager {
   // Scan the plugins directory for installed bundles and their manifest state.
   discover(): DiscoveryResult {
     return discoverPlugins(this.config.pluginsDir)
+  }
+
+  // Record a plugin whose files were already placed in pluginsDir by an external
+  // installer (e.g. resolveAndInstall for registry/git/tarball sources).
+  recordInstalled(entry: { id: string; version: string; source: PluginInstallSource }): void {
+    this.store.recordInstalled(entry)
   }
 
   // Install from a local folder and record it (inactive) in the store.

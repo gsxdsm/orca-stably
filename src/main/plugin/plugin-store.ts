@@ -9,9 +9,13 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 
-// Where a plugin came from. v1a ships local-folder install; registry/git/
-// tarball sources extend this union in a later increment.
-export type PluginInstallSource = { kind: 'local'; path: string }
+// Where a plugin came from. Mirrors the install module's PluginSource shape
+// (kept local to avoid coupling the store to the installer).
+export type PluginInstallSource =
+  | { kind: 'local'; path: string }
+  | { kind: 'registry'; name: string; version: string | null }
+  | { kind: 'git'; url: string }
+  | { kind: 'tarball'; url: string }
 
 export type PluginStateEntry = {
   id: string
