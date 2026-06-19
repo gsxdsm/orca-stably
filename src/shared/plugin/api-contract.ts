@@ -84,6 +84,7 @@ export type BridgeErrorCode =
   | 'unknown_method'
   | 'unknown_plugin'
   | 'invalid_params'
+  | 'internal'
 
 export type BridgeResponse =
   | { reqId: string; ok: true; result: unknown }
