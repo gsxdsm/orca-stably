@@ -19,8 +19,11 @@ export function registerPluginHandlers(system: PluginSystem): void {
     system.installFromSource(input)
   )
 
+  // Local activation by default. NEEDS-RUNTIME-VERIFY: to run a plugin on a remote
+  // (SSH) workspace's relay, thread the workspace's remote descriptor here as a
+  // second arg — activateForWorkspace then provisions + activates over the relay.
   ipcMain.handle('plugins:activate', async (_event, pluginId: string) =>
-    system.runtime.activate(pluginId)
+    system.activateForWorkspace(pluginId)
   )
 
   ipcMain.handle('plugins:deactivate', async (_event, pluginId: string) => {

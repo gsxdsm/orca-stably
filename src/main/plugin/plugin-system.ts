@@ -17,6 +17,12 @@ import { join } from 'node:path'
 import { app, clipboard, shell } from 'electron'
 import { PluginManager } from './plugin-manager'
 import { PluginRuntime } from './plugin-runtime'
+import {
+  activatePluginForWorkspace,
+  type ActivationResult,
+  type RemoteDescriptor
+} from './plugin-activation-coordinator'
+import type { RelayRequest } from './plugin-remote-provision'
 import { registerPluginAssetProtocol } from './plugin-asset-protocol'
 import { readManifestRaw } from './plugin-discovery'
 import { validatePluginManifest } from '../../shared/plugin/manifest-validate'
@@ -45,6 +51,11 @@ export type PluginSystemDeps = {
   getWorkspaceSnapshot?: WorkspaceSnapshotProvider
   // Routes a backend's UI message to the plugin's webview in the renderer.
   onUiMessage?: (pluginId: string, message: unknown) => void
+  // Resolves a relay request fn for a remote workspace (for activateForWorkspace's
+  // remote path). NEEDS-RUNTIME-VERIFY: the production resolver comes from the
+  // workspace's SshRelaySession. Defaults to a fn that rejects when called, so the
+  // remote path is an explicit, never-silent seam until that wiring lands.
+  resolveRelayRequest?: (remote: RemoteDescriptor) => RelayRequest
 }
 
 const EMPTY_SNAPSHOT: WorkspaceSnapshot = {
@@ -68,6 +79,7 @@ export class PluginSystem {
   private readonly pluginsDir: string
   private readonly lockfilePath: string
   private readonly stagingDir: string
+  private readonly resolveRelayRequest: (remote: RemoteDescriptor) => RelayRequest
 
   constructor(deps: PluginSystemDeps = {}) {
     this.pluginsDir = join(app.getPath('userData'), 'plugins')
@@ -86,6 +98,26 @@ export class PluginSystem {
       invokeCommand: (name, params) => this.invokeCommand(name, params),
       onUiMessage: deps.onUiMessage
     })
+    // Default rejects-on-call so the remote activate path is explicit, never a
+    // silent no-op, until the workspace→relay request wiring lands.
+    this.resolveRelayRequest =
+      deps.resolveRelayRequest ??
+      (() => () => Promise.reject(new Error('relay request not configured')))
+  }
+
+  // Activate a plugin for a workspace. Local workspaces (the default) run the
+  // backend in-process exactly as before; a remote descriptor routes through the
+  // coordinator to provision + activate on the relay. NEEDS-RUNTIME-VERIFY: the
+  // caller must supply the remote descriptor + a configured resolveRelayRequest.
+  activateForWorkspace(pluginId: string, remote?: RemoteDescriptor): Promise<ActivationResult> {
+    return activatePluginForWorkspace(
+      { pluginId, remote: remote ?? null },
+      {
+        pluginsDir: this.pluginsDir,
+        localActivate: (id) => this.runtime.activate(id),
+        relayRequest: this.resolveRelayRequest(remote ?? null)
+      }
+    )
   }
 
   // Serve plugin assets; call after app.whenReady() (the scheme itself must be
