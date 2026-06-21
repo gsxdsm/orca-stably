@@ -83,5 +83,21 @@ export const prCreateEmptyStateStyles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.borderSubtle,
     padding: spacing.md
+  },
+  // Secondary link-an-existing-PR affordance, set apart from the body copy.
+  linkButton: {
+    marginTop: spacing.xs,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs
+  },
+  linkButtonPressed: {
+    opacity: 0.6
+  },
+  linkButtonText: {
+    color: colors.textSecondary,
+    fontSize: typography.metaSize,
+    fontWeight: '600'
   }
 })

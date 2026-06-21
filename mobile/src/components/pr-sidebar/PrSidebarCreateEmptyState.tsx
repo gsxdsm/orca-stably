@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
-import { GitPullRequestArrow, RefreshCw } from 'lucide-react-native'
+import { GitPullRequestArrow, Link2, RefreshCw } from 'lucide-react-native'
 import { colors } from '../../theme/mobile-theme'
 import type { RpcClient } from '../../transport/rpc-client'
 import { resolveMobilePrPrefill, type MobilePrPrefill } from '../../source-control/mobile-pr-create'
 import { fetchWorktreeLinkedPR } from '../../source-control/mobile-pr-link'
 import { openMobilePrUrl } from '../MobilePrComposeSheet'
 import { MobilePrComposeForm } from './MobilePrComposeForm'
+import { MobileLinkPrForm } from './MobileLinkPrForm'
 import { prCreateEmptyStateStyles as styles } from './pr-create-empty-state-styles'
 
 type Props = {
@@ -17,10 +18,11 @@ type Props = {
   onCreated: () => void
 }
 
-type Mode = 'choose' | 'create'
+type Mode = 'choose' | 'create' | 'link'
 
-// Empty state for a branch with no PR. Keep this scoped to desktop's no-PR
-// surface: create/refresh here; linked-PR edits belong outside this panel.
+// Empty state for a branch with no PR: create a new PR, or link an existing one
+// (the no-PR surface is the natural home for linking — desktop's link entry lives
+// on its PR card, but on mobile this is where a user lands with nothing linked).
 export function PrSidebarCreateEmptyState({ client, worktreeId, gitBranch, onCreated }: Props) {
   const [prefill, setPrefill] = useState<MobilePrPrefill | null>(null)
   const [mode, setMode] = useState<Mode>('choose')
@@ -103,6 +105,22 @@ export function PrSidebarCreateEmptyState({ client, worktreeId, gitBranch, onCre
     )
   }
 
+  if (mode === 'link') {
+    return (
+      <View style={styles.composerArea}>
+        <MobileLinkPrForm
+          client={client}
+          worktreeId={worktreeId}
+          onCancel={() => setMode('choose')}
+          onLinked={() => {
+            setMode('choose')
+            onCreated()
+          }}
+        />
+      </View>
+    )
+  }
+
   return (
     <View style={styles.section}>
       <View style={styles.header}>
@@ -148,6 +166,16 @@ export function PrSidebarCreateEmptyState({ client, worktreeId, gitBranch, onCre
               : 'The current branch is not linked to an open PR.'}
         </Text>
         {createWarning ? <Text style={styles.bodyText}>{createWarning}</Text> : null}
+        <Pressable
+          style={({ pressed }) => [styles.linkButton, pressed && styles.linkButtonPressed]}
+          onPress={() => setMode('link')}
+          disabled={!client}
+          accessibilityRole="button"
+          accessibilityLabel="Link an existing pull request"
+        >
+          <Link2 size={14} color={colors.textSecondary} strokeWidth={2.2} />
+          <Text style={styles.linkButtonText}>Link an existing PR</Text>
+        </Pressable>
       </View>
     </View>
   )
