@@ -58,6 +58,7 @@ import {
   statRuntimePath
 } from '@/runtime/runtime-file-client'
 import { settingsForRuntimeOwner } from '@/runtime/runtime-rpc-client'
+import { notifyHostOfMirroredEditorClose } from '@/runtime/close-mirrored-editor-tab'
 import { findWorktreeById, getRepoIdFromWorktreeId } from './worktree-helpers'
 import { createUntitledMarkdownFileWithTemplateSelection } from '@/lib/create-untitled-markdown'
 import { extractIpcErrorMessage } from '@/lib/ipc-error'
@@ -1911,6 +1912,12 @@ export const createEditorSlice: StateCreator<AppState, [], [], EditorSlice> = (s
     // typed something, so the file should be kept.
     const hasDraft = !!get().editorDrafts[fileId]
     const shouldDeleteFromDisk = shouldDeleteUntouchedUntitledFile(preClose, hasDraft)
+
+    // Why: closeFile is the single chokepoint every editor close funnels through
+    // (tab strips, bulk close, save/discard, floating panel). Mirrored tabs are
+    // host-owned, so the host must close its copy too or its next snapshot
+    // re-mirrors the file and the tab reopens. No-op for the host's own files.
+    notifyHostOfMirroredEditorClose(get(), preClose?.worktreeId, fileId)
 
     set((s) => {
       const closedFile = s.openFiles.find((f) => f.id === fileId)

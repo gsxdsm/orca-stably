@@ -1577,7 +1577,19 @@ export function useIpcEvents(): void {
         guardPinnedTabClose({
           isPinned: isPinnedSessionTab(store, worktreeId, tabId),
           tabLabel: resolvePinnedTabLabel(store, worktreeId, tabId),
-          onClose: () => useAppStore.getState().closeUnifiedTab(tabId)
+          // Why: editor tabs must close via closeFile so the file leaves openFiles —
+          // the source republished to companions; closeUnifiedTab alone re-mirrors it.
+          onClose: () => {
+            const current = useAppStore.getState()
+            const sessionTab = (current.unifiedTabsByWorktree[worktreeId] ?? []).find(
+              (tab) => tab.id === tabId
+            )
+            if (sessionTab?.contentType === 'editor') {
+              current.closeFile(sessionTab.entityId)
+            } else {
+              current.closeUnifiedTab(tabId)
+            }
+          }
         })
       })
     )

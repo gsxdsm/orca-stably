@@ -26,6 +26,14 @@ vi.mock('@/lib/http-link-routing', () => ({
   openHttpLink: openHttpLinkMock
 }))
 
+const { notifyHostOfMirroredEditorCloseMock } = vi.hoisted(() => ({
+  notifyHostOfMirroredEditorCloseMock: vi.fn()
+}))
+vi.mock('@/runtime/close-mirrored-editor-tab', () => ({
+  notifyHostOfMirroredEditorClose: (...args: unknown[]) =>
+    notifyHostOfMirroredEditorCloseMock(...args)
+}))
+
 function createEditorStore(): StoreApi<AppState> {
   // Only the editor slice + activeWorktreeId are needed for these tests.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -4018,5 +4026,35 @@ describe('createEditorSlice activateMarkdownLink', () => {
     expect(store.getState().openFiles).toHaveLength(openCountBefore)
     expect(store.getState().markdownViewMode['/repo/docs/note.md']).toBe('source')
     expect(store.getState().pendingEditorReveal?.line).toBe(3)
+  })
+})
+
+describe('closeFile host mirroring', () => {
+  beforeEach(() => {
+    notifyHostOfMirroredEditorCloseMock.mockReset()
+  })
+
+  it('routes every close through the host-mirror notifier and still removes the file locally', () => {
+    const store = createEditorTabsStore()
+    store.getState().openFile({
+      filePath: '/repo/a.ts',
+      relativePath: 'a.ts',
+      worktreeId: 'wt-1',
+      language: 'typescript',
+      mode: 'edit'
+    })
+    const fileId = store.getState().openFiles[0]!.id
+
+    store.getState().closeFile(fileId)
+
+    // Why: closeFile is the single chokepoint, so a mirrored tab closed via any
+    // surface (tab strip, bulk close, save/discard) reaches the host. The notifier
+    // itself no-ops for non-mirrored files; here we assert the wiring + local close.
+    expect(notifyHostOfMirroredEditorCloseMock).toHaveBeenCalledWith(
+      expect.anything(),
+      'wt-1',
+      fileId
+    )
+    expect(store.getState().openFiles).toHaveLength(0)
   })
 })
