@@ -87,10 +87,14 @@ export const prCreateEmptyStateStyles = StyleSheet.create({
   // Secondary link-an-existing-PR affordance, set apart from the body copy.
   linkButton: {
     marginTop: spacing.xs,
+    minHeight: 32,
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs
+  },
+  linkButtonDisabled: {
+    opacity: 0.5
   },
   linkButtonPressed: {
     opacity: 0.6

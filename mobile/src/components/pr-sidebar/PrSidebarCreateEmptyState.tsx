@@ -29,8 +29,7 @@ export function PrSidebarCreateEmptyState({ client, worktreeId, gitBranch, onCre
   const [loading, setLoading] = useState(false)
   const [createWarning, setCreateWarning] = useState<string | null>(null)
   // A persisted linkedPR while the branch shows no PR means the linked PR could
-  // not be resolved. Mention it, but keep link editing out of this desktop-parity
-  // create surface.
+  // not be resolved. Mention it while still allowing the user to relink.
   const [orphanLinkedPR, setOrphanLinkedPR] = useState<number | null>(null)
 
   useEffect(() => {
@@ -167,13 +166,23 @@ export function PrSidebarCreateEmptyState({ client, worktreeId, gitBranch, onCre
         </Text>
         {createWarning ? <Text style={styles.bodyText}>{createWarning}</Text> : null}
         <Pressable
-          style={({ pressed }) => [styles.linkButton, pressed && styles.linkButtonPressed]}
+          style={({ pressed }) => [
+            styles.linkButton,
+            !client && styles.linkButtonDisabled,
+            pressed && styles.linkButtonPressed
+          ]}
           onPress={() => setMode('link')}
           disabled={!client}
           accessibilityRole="button"
           accessibilityLabel="Link an existing pull request"
+          accessibilityState={{ disabled: !client }}
+          hitSlop={6}
         >
-          <Link2 size={14} color={colors.textSecondary} strokeWidth={2.2} />
+          <Link2
+            size={14}
+            color={client ? colors.textSecondary : colors.textMuted}
+            strokeWidth={2.2}
+          />
           <Text style={styles.linkButtonText}>Link an existing PR</Text>
         </Pressable>
       </View>
