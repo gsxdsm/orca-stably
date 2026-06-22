@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const closeWebRuntimeSessionTabMock = vi.fn()
-const isWebRuntimeSessionActiveMock = vi.fn()
+const getRuntimeEnvironmentIdForWorktreeMock = vi.fn()
 
 vi.mock('./web-runtime-session', () => ({
-  closeWebRuntimeSessionTab: (args: unknown) => closeWebRuntimeSessionTabMock(args),
-  isWebRuntimeSessionActive: (id: unknown) => isWebRuntimeSessionActiveMock(id)
+  closeWebRuntimeSessionTab: (args: unknown) => closeWebRuntimeSessionTabMock(args)
 }))
 
 vi.mock('@/lib/worktree-runtime-owner', () => ({
-  getRuntimeEnvironmentIdForWorktree: () => 'env-1'
+  getRuntimeEnvironmentIdForWorktree: (...args: unknown[]) =>
+    getRuntimeEnvironmentIdForWorktreeMock(...args)
 }))
 
 import {
@@ -30,14 +30,17 @@ function buildState(overrides: Partial<MirroredEditorCloseState> = {}): Mirrored
 describe('notifyHostOfMirroredEditorClose', () => {
   beforeEach(() => {
     closeWebRuntimeSessionTabMock.mockReset()
-    isWebRuntimeSessionActiveMock.mockReset()
-    isWebRuntimeSessionActiveMock.mockReturnValue(true)
+    getRuntimeEnvironmentIdForWorktreeMock.mockReset()
+    getRuntimeEnvironmentIdForWorktreeMock.mockReturnValue('env-1')
   })
 
-  it('closes the mirrored editor tab on the host using the host tab id', () => {
+  it('closes the mirrored editor tab on the host using the host tab id', async () => {
     const handled = notifyHostOfMirroredEditorClose(buildState(), 'wt-1', 'file-1')
 
     expect(handled).toBe(true)
+    await vi.waitFor(() => {
+      expect(closeWebRuntimeSessionTabMock).toHaveBeenCalled()
+    })
     expect(closeWebRuntimeSessionTabMock).toHaveBeenCalledWith({
       worktreeId: 'wt-1',
       tabId: 'host-tab-1',
@@ -59,7 +62,7 @@ describe('notifyHostOfMirroredEditorClose', () => {
   })
 
   it('does nothing when no web runtime session is active', () => {
-    isWebRuntimeSessionActiveMock.mockReturnValue(false)
+    getRuntimeEnvironmentIdForWorktreeMock.mockReturnValue(null)
 
     const handled = notifyHostOfMirroredEditorClose(buildState(), 'wt-1', 'file-1')
 

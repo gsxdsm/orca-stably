@@ -4,7 +4,6 @@ import {
 } from '@/lib/worktree-runtime-owner'
 import type { OpenFile } from '@/store/slices/editor'
 import type { Tab } from '../../../shared/types'
-import { closeWebRuntimeSessionTab, isWebRuntimeSessionActive } from './web-runtime-session'
 
 export type MirroredEditorCloseState = WorktreeRuntimeOwnerState & {
   openFiles: readonly OpenFile[]
@@ -30,7 +29,7 @@ export function notifyHostOfMirroredEditorClose(
     return false
   }
   const runtimeEnvironmentId = getRuntimeEnvironmentIdForWorktree(state, worktreeId)
-  if (!isWebRuntimeSessionActive(runtimeEnvironmentId)) {
+  if (!runtimeEnvironmentId?.trim()) {
     return false
   }
   // Why: a mirrored editor unified tab carries the host's tab id as `id` and the
@@ -41,10 +40,15 @@ export function notifyHostOfMirroredEditorClose(
   if (!unifiedTab) {
     return false
   }
-  void closeWebRuntimeSessionTab({
-    worktreeId,
-    tabId: unifiedTab.id,
-    environmentId: runtimeEnvironmentId
-  })
+  // Why: this helper is imported by the editor slice during store creation.
+  // Importing web-runtime-session eagerly would import the store back and can
+  // trip cyclic initialization in full-suite test/import order.
+  void import('./web-runtime-session').then(({ closeWebRuntimeSessionTab }) =>
+    closeWebRuntimeSessionTab({
+      worktreeId,
+      tabId: unifiedTab.id,
+      environmentId: runtimeEnvironmentId
+    })
+  )
   return true
 }
