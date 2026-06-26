@@ -11028,7 +11028,12 @@ describe('OrcaRuntimeService', () => {
         title: 'claude agents'
       })
     )
-    expect(result.tabs[0]).not.toHaveProperty('agentStatus')
+    // The stale "working" status is suppressed (no spinner), but agent identity
+    // is retained so native chat can still address the idle agent's transcript.
+    const suppressed = result.tabs[0]
+    expect(suppressed?.type === 'terminal' && suppressed.agentStatus?.state).toBe('done')
+    expect(suppressed?.type === 'terminal' && suppressed.agentStatus?.agentType).toBe('claude')
+    expect(suppressed?.type === 'terminal' && suppressed.agentStatus?.terminalTitle).toBeUndefined()
   })
 
   it('suppresses saved mobile agent status when the current terminal title is neutral', async () => {
@@ -11095,7 +11100,11 @@ describe('OrcaRuntimeService', () => {
         title: 'bash'
       })
     )
-    expect(result.tabs[0]).not.toHaveProperty('agentStatus')
+    // Stale "working" suppressed; agent identity retained for native chat.
+    const suppressed = result.tabs[0]
+    expect(suppressed?.type === 'terminal' && suppressed.agentStatus?.state).toBe('done')
+    expect(suppressed?.type === 'terminal' && suppressed.agentStatus?.agentType).toBe('claude')
+    expect(suppressed?.type === 'terminal' && suppressed.agentStatus?.terminalTitle).toBeUndefined()
   })
 
   it('suppresses saved mobile agent status when fresh live OSC title is Claude agents', async () => {
@@ -11168,7 +11177,11 @@ describe('OrcaRuntimeService', () => {
         title: 'claude agents'
       })
     )
-    expect(result.tabs[0]).not.toHaveProperty('agentStatus')
+    // Stale "working" suppressed; agent identity retained for native chat.
+    const suppressed = result.tabs[0]
+    expect(suppressed?.type === 'terminal' && suppressed.agentStatus?.state).toBe('done')
+    expect(suppressed?.type === 'terminal' && suppressed.agentStatus?.agentType).toBe('claude')
+    expect(suppressed?.type === 'terminal' && suppressed.agentStatus?.terminalTitle).toBeUndefined()
   })
 
   it('keeps saved PTY bindings pending until the runtime knows the PTY is connected', async () => {
@@ -12324,7 +12337,11 @@ describe('OrcaRuntimeService', () => {
         title: 'claude agents'
       })
     )
-    expect(result.tabs[0]).not.toHaveProperty('agentStatus')
+    // Stale "working" suppressed; agent identity retained for native chat.
+    const suppressed = result.tabs[0]
+    expect(suppressed?.type === 'terminal' && suppressed.agentStatus?.state).toBe('done')
+    expect(suppressed?.type === 'terminal' && suppressed.agentStatus?.agentType).toBe('claude')
+    expect(suppressed?.type === 'terminal' && suppressed.agentStatus?.terminalTitle).toBeUndefined()
   })
 
   it('uses fresh neutral PTY titles over stale mobile snapshot and OSC titles', async () => {
@@ -12395,7 +12412,11 @@ describe('OrcaRuntimeService', () => {
         title: 'zsh'
       })
     )
-    expect(result.tabs[0]).not.toHaveProperty('agentStatus')
+    // Stale "working" suppressed; agent identity retained for native chat.
+    const suppressed = result.tabs[0]
+    expect(suppressed?.type === 'terminal' && suppressed.agentStatus?.state).toBe('done')
+    expect(suppressed?.type === 'terminal' && suppressed.agentStatus?.agentType).toBe('claude')
+    expect(suppressed?.type === 'terminal' && suppressed.agentStatus?.terminalTitle).toBeUndefined()
   })
 
   it('pushes PTY-backed mobile session readiness changes when a server PTY exits', async () => {

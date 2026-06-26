@@ -17452,18 +17452,34 @@ export class OrcaRuntimeService {
       // the OSC-title-only status and never sees interactivePrompt (the question
       // card never renders).
       const hasLiveAgentSignal =
-        tab.agentStatus?.interactivePrompt != null ||
-        tab.agentStatus?.toolName != null ||
-        // A detected agent type keeps the rich status so the mobile/web client can
-        // still offer the native-chat toggle even when the agent is idle and the
-        // terminal title shows a task/branch name rather than the agent.
-        tab.agentStatus?.agentType != null
-      const agentStatus =
+        tab.agentStatus?.interactivePrompt != null || tab.agentStatus?.toolName != null
+      const keepFullAgentStatus =
         tab.agentStatus &&
         (liveTitleEvidence === null ||
           liveTitleEvidenceClassification === 'agent' ||
           hasLiveAgentSignal)
-          ? { agentStatus: tab.agentStatus }
+      const agentStatus = keepFullAgentStatus
+        ? { agentStatus: tab.agentStatus }
+        : // Why: when live title evidence says the pane is idle (e.g. the Claude
+          // agents picker or a neutral shell title), suppress the stale "working"
+          // state so the client shows no spinner — but retain agent identity
+          // (agentType + providerSession) so native chat can still address an
+          // idle agent's transcript. Reset the transient state to 'done'.
+          tab.agentStatus?.agentType != null
+          ? {
+              agentStatus: {
+                state: 'done' as const,
+                prompt: '',
+                updatedAt: tab.agentStatus.updatedAt,
+                stateStartedAt: tab.agentStatus.stateStartedAt,
+                paneKey: tab.agentStatus.paneKey,
+                stateHistory: [],
+                agentType: tab.agentStatus.agentType,
+                ...(tab.agentStatus.providerSession
+                  ? { providerSession: tab.agentStatus.providerSession }
+                  : {})
+              }
+            }
           : null
       // Why: web/mobile clients hold these handles across renderer graph syncs;
       // leaf handles are graph-epoch-bound, but PTY handles remain streamable.
