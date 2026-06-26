@@ -1,11 +1,13 @@
 // Pure state machine for the native chat composer. Given the current draft,
 // caret position, sent-input history, and the active agent's known slash
-// commands, it derives the autocomplete mode (none | slash | mention), the
+// commands/skills, it derives the autocomplete mode, the
 // query, and the filtered suggestions. Keeping this DOM-free makes the slash /
-// mention / history behavior unit-testable; the .tsx only owns rendering and
+// mention / skill / history behavior unit-testable; the .tsx only owns rendering and
 // the actual textarea/caret wiring.
 
-export type ComposerAutocompleteMode = 'none' | 'slash' | 'mention'
+import type { DiscoveredSkill } from '../../../../shared/skills'
+
+export type ComposerAutocompleteMode = 'none' | 'slash' | 'mention' | 'skill'
 
 export type SlashCommandSuggestion = {
   /** The command token without its leading slash, e.g. `clear`. */
@@ -18,6 +20,7 @@ export type ComposerAutocomplete =
   | { mode: 'none' }
   | { mode: 'slash'; query: string; suggestions: SlashCommandSuggestion[] }
   | { mode: 'mention'; query: string }
+  | { mode: 'skill'; query: string; suggestions: DiscoveredSkill[] }
 
 export type ComposerDerivation = {
   autocomplete: ComposerAutocomplete
@@ -37,7 +40,8 @@ export type ComposerDerivation = {
 export function deriveComposerAutocomplete(
   draft: string,
   caret: number,
-  agentCommands: readonly SlashCommandSuggestion[]
+  agentCommands: readonly SlashCommandSuggestion[],
+  skills: readonly DiscoveredSkill[] = []
 ): ComposerAutocomplete {
   const before = draft.slice(0, caret)
 
@@ -51,6 +55,12 @@ export function deriveComposerAutocomplete(
   const mentionMatch = before.match(/(?:^|\s)@(\S*)$/)
   if (mentionMatch) {
     return { mode: 'mention', query: mentionMatch[1] }
+  }
+
+  const skillMatch = before.match(/(?:^|\s)\$(\S*)$/)
+  if (skillMatch) {
+    const query = skillMatch[1]
+    return { mode: 'skill', query, suggestions: filterSkillSuggestions(skills, query) }
   }
 
   return { mode: 'none' }
@@ -67,6 +77,28 @@ export function filterSlashCommands(
     return [...commands]
   }
   return commands.filter((command) => command.name.toLowerCase().startsWith(normalized))
+}
+
+export function isSlashCommandDraft(draft: string): boolean {
+  return draft.trimStart().startsWith('/')
+}
+
+export function filterSkillSuggestions(
+  skills: readonly DiscoveredSkill[],
+  query: string
+): DiscoveredSkill[] {
+  const normalized = query.toLowerCase()
+  const installed = skills.filter((skill) => skill.installed)
+  if (normalized === '') {
+    return installed.slice(0, 12)
+  }
+  return installed
+    .filter((skill) => {
+      const name = skill.name.toLowerCase()
+      const dirName = skill.directoryPath.split(/[\\/]/).filter(Boolean).at(-1)?.toLowerCase()
+      return name.startsWith(normalized) || dirName?.startsWith(normalized)
+    })
+    .slice(0, 12)
 }
 
 export type HistoryState = {
@@ -138,6 +170,12 @@ export function applySlashSuggestion(command: SlashCommandSuggestion): string {
   return `/${command.name} `
 }
 
+/** Text to send when Enter accepts a slash command from the menu. The Codex TUI
+ *  dispatches the selected command on Enter; Tab is the completion path. */
+export function slashCommandDispatchText(command: SlashCommandSuggestion): string {
+  return `/${command.name}`
+}
+
 /** Replace the active `@query` token before the caret with the chosen path.
  *  Returns the new full draft and the caret offset to place after insertion. */
 export function applyMentionSuggestion(
@@ -153,6 +191,23 @@ export function applyMentionSuggestion(
   }
   const tokenStart = before.length - match[2].length - 1 // -1 for the '@'
   const insertion = `@${path} `
+  const nextBefore = before.slice(0, tokenStart) + insertion
+  return { draft: nextBefore + after, caret: nextBefore.length }
+}
+
+export function applySkillSuggestion(
+  draft: string,
+  caret: number,
+  skillName: string
+): { draft: string; caret: number } {
+  const before = draft.slice(0, caret)
+  const after = draft.slice(caret)
+  const match = before.match(/(^|\s)\$(\S*)$/)
+  if (!match) {
+    return { draft, caret }
+  }
+  const tokenStart = before.length - match[2].length - 1 // -1 for the '$'
+  const insertion = `$${skillName} `
   const nextBefore = before.slice(0, tokenStart) + insertion
   return { draft: nextBefore + after, caret: nextBefore.length }
 }

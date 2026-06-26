@@ -1,26 +1,35 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
-import { ArrowUp, ImageOff } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { translate } from '@/i18n/i18n'
 import { useAppStore } from '../../store'
 import type { AgentType } from '../../../../shared/agent-status-types'
-import { isRemoteRuntimePtyId, sendRuntimePtyInput } from '@/runtime/runtime-terminal-inspection'
+import { NATIVE_FILE_DROP_TARGET } from '../../../../shared/native-file-drop'
+import { sendRuntimePtyInput } from '@/runtime/runtime-terminal-inspection'
 import { getSettingsForAgentTabRuntimeOwner } from '@/lib/agent-paste-draft'
 import { sendNativeChatMessage } from './native-chat-runtime-send'
 import { getAgentSlashCommands } from './native-chat-agent-commands'
 import { emitNativeChatMessageSent } from '@/lib/native-chat-telemetry'
 import {
   applyMentionSuggestion,
+  applySkillSuggestion,
   applySlashSuggestion,
   deriveComposerAutocomplete,
   EMPTY_HISTORY,
+  isSlashCommandDraft,
   pushHistory,
   recallNext,
   recallPrevious,
+  slashCommandDispatchText,
   type HistoryState,
   type SlashCommandSuggestion
 } from './native-chat-composer-state'
 import { resolveImagePaste } from './native-chat-image-paste'
+import { NativeChatComposerField } from './NativeChatComposerField'
+import { formatNativeChatFileReference } from './native-chat-composer-target'
+import {
+  nativeChatComposerTargetIsRemote,
+  type NativeChatResolvedTarget
+} from './native-chat-composer-target'
+import { useNativeChatSkills } from './use-native-chat-skills'
 
 // Why: a plain ESC byte is what the agent TUIs read as the interrupt key over a
 // PTY (matching how xterm forwards Escape). The richer interrupt-intent
@@ -39,14 +48,13 @@ export type NativeChatComposerProps = {
    * already renders the guarded/disabled affordance when it is `false`.
    */
   canSend?: boolean
+  /** True while the hosted TUI reports an in-flight turn; swaps Send to Stop. */
+  isWorking?: boolean
+  /** Interrupt the hosted agent, usually by sending ESC into the PTY. */
+  onStop?: () => void
   /** Optional optimistic-send hook: called with the sent text so the view can
    *  render a "queued" echo until the real transcript turn lands (mobile parity). */
   onOptimisticSend?: (text: string) => void
-}
-
-type ResolvedTarget = {
-  ptyId: string
-  settings: ReturnType<typeof getSettingsForAgentTabRuntimeOwner>
 }
 
 /**
@@ -61,6 +69,8 @@ export function NativeChatComposer({
   terminalTabId,
   agent,
   canSend = true,
+  isWorking = false,
+  onStop,
   onOptimisticSend
 }: NativeChatComposerProps): React.JSX.Element {
   const [draft, setDraft] = useState('')
@@ -68,18 +78,19 @@ export function NativeChatComposer({
   const [history, setHistory] = useState<HistoryState>(EMPTY_HISTORY)
   const [activeSuggestion, setActiveSuggestion] = useState(0)
   const [notice, setNotice] = useState<string | null>(null)
+  const skills = useNativeChatSkills(agent, terminalTabId)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const agentCommands = useMemo(() => getAgentSlashCommands(agent), [agent])
   const autocomplete = useMemo(
-    () => deriveComposerAutocomplete(draft, caret, agentCommands),
-    [draft, caret, agentCommands]
+    () => deriveComposerAutocomplete(draft, caret, agentCommands, agent === 'codex' ? skills : []),
+    [draft, caret, agentCommands, agent, skills]
   )
 
   // Resolve the live ptyId for this tab the same way agent-paste-draft does:
   // ptyIdsByTabId carries the pane's primary pty, and the runtime owner settings
   // route local vs remote (SSH) sends.
-  const resolveTarget = useCallback((): ResolvedTarget | null => {
+  const resolveTarget = useCallback((): NativeChatResolvedTarget | null => {
     const ptyId = useAppStore.getState().ptyIdsByTabId[terminalTabId]?.[0]
     if (!ptyId) {
       return null
@@ -89,10 +100,71 @@ export function NativeChatComposer({
 
   const hasPty = Boolean(useAppStore((s) => s.ptyIdsByTabId[terminalTabId]?.[0]))
   const disabled = !hasPty || !canSend
+  const sendButtonDisabled = isWorking ? !hasPty || !onStop : disabled || draft.trim() === ''
 
   const syncCaret = useCallback((el: HTMLTextAreaElement) => {
     setCaret(el.selectionStart ?? el.value.length)
   }, [])
+
+  const insertFileReferences = useCallback(
+    (paths: string[]) => {
+      const target = resolveTarget()
+      if (!target || nativeChatComposerTargetIsRemote(target.ptyId)) {
+        setNotice(
+          translate(
+            'components.native-chat.composer.localAttachmentUnsupported',
+            'Local attachments are not available for remote sessions.'
+          )
+        )
+        return
+      }
+      const references = paths.map(formatNativeChatFileReference).join(' ')
+      if (references.length === 0) {
+        return
+      }
+      const insertion = `${references} `
+      const caretAtInsert = textareaRef.current?.selectionStart ?? caret
+      setDraft((prev) => {
+        const before = prev.slice(0, caretAtInsert)
+        const after = prev.slice(caretAtInsert)
+        const next = before + insertion + after
+        setCaret(before.length + insertion.length)
+        return next
+      })
+      setNotice(null)
+      requestAnimationFrame(() => textareaRef.current?.focus())
+    },
+    [caret, resolveTarget]
+  )
+
+  useEffect(() => {
+    return window.api.ui.onFileDrop((payload) => {
+      if (payload.target !== NATIVE_FILE_DROP_TARGET.composer) {
+        return
+      }
+      insertFileReferences(payload.paths)
+    })
+  }, [insertFileReferences])
+
+  const pickAttachment = useCallback(() => {
+    void (async () => {
+      const target = resolveTarget()
+      if (!target || nativeChatComposerTargetIsRemote(target.ptyId)) {
+        setNotice(
+          translate(
+            'components.native-chat.composer.localAttachmentUnsupported',
+            'Local attachments are not available for remote sessions.'
+          )
+        )
+        return
+      }
+      const filePath = await window.api.shell.pickAttachment()
+      if (!filePath) {
+        return
+      }
+      insertFileReferences([filePath])
+    })()
+  }, [insertFileReferences, resolveTarget])
 
   const send = useCallback(() => {
     const text = draft
@@ -106,14 +178,16 @@ export function NativeChatComposer({
     // Two-write send (body, then a delayed Enter) so the agent TUI submits the
     // message instead of leaving it in its input box (R6: works for SSH panes).
     sendNativeChatMessage(target.settings, target.ptyId, text)
-    // Optimistic "queued" echo (mobile parity): show the prompt immediately,
-    // pruned once its real user turn lands in the transcript.
-    onOptimisticSend?.(text)
+    // Slash commands are TUI controls, not durable chat turns. Showing them as
+    // queued bubbles makes commands like /clear visibly flicker then vanish.
+    if (!isSlashCommandDraft(text)) {
+      onOptimisticSend?.(text)
+    }
     // Why: U10 telemetry — record adoption + local-vs-remote runtime split. The
     // agent prop is the loose AgentType; the emitter narrows unknowns to 'other'.
     emitNativeChatMessageSent({
       agent,
-      runtime: composerTargetIsRemote(target.ptyId) ? 'remote' : 'local'
+      runtime: nativeChatComposerTargetIsRemote(target.ptyId) ? 'remote' : 'local'
     })
     setHistory((prev) => pushHistory(prev, text))
     setDraft('')
@@ -122,12 +196,16 @@ export function NativeChatComposer({
   }, [agent, draft, disabled, resolveTarget, onOptimisticSend])
 
   const interrupt = useCallback(() => {
+    if (isWorking && onStop) {
+      onStop()
+      return
+    }
     const target = resolveTarget()
     if (!target) {
       return
     }
     sendRuntimePtyInput(target.settings, target.ptyId, ESC)
-  }, [resolveTarget])
+  }, [isWorking, onStop, resolveTarget])
 
   const chooseSlash = useCallback((command: SlashCommandSuggestion) => {
     const next = applySlashSuggestion(command)
@@ -136,6 +214,27 @@ export function NativeChatComposer({
     setActiveSuggestion(0)
     textareaRef.current?.focus()
   }, [])
+
+  const dispatchSlash = useCallback(
+    (command: SlashCommandSuggestion) => {
+      const next = slashCommandDispatchText(command)
+      const target = resolveTarget()
+      if (!target || disabled) {
+        return
+      }
+      sendNativeChatMessage(target.settings, target.ptyId, next)
+      emitNativeChatMessageSent({
+        agent,
+        runtime: nativeChatComposerTargetIsRemote(target.ptyId) ? 'remote' : 'local'
+      })
+      setHistory((prev) => pushHistory(prev, next))
+      setDraft('')
+      setCaret(0)
+      setActiveSuggestion(0)
+      setNotice(null)
+    },
+    [agent, disabled, resolveTarget]
+  )
 
   const handlePaste = useCallback(
     (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -196,9 +295,44 @@ export function NativeChatComposer({
           )
           return
         }
-        if (event.key === 'Enter' || event.key === 'Tab') {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          dispatchSlash(autocomplete.suggestions[activeSuggestion] ?? autocomplete.suggestions[0])
+          return
+        }
+        if (event.key === 'Tab') {
           event.preventDefault()
           chooseSlash(autocomplete.suggestions[activeSuggestion] ?? autocomplete.suggestions[0])
+          return
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          setDraft('')
+          setCaret(0)
+          return
+        }
+      }
+
+      if (autocomplete.mode === 'skill') {
+        if (event.key === 'ArrowDown' && autocomplete.suggestions.length > 0) {
+          event.preventDefault()
+          setActiveSuggestion((i) => (i + 1) % autocomplete.suggestions.length)
+          return
+        }
+        if (event.key === 'ArrowUp' && autocomplete.suggestions.length > 0) {
+          event.preventDefault()
+          setActiveSuggestion(
+            (i) => (i - 1 + autocomplete.suggestions.length) % autocomplete.suggestions.length
+          )
+          return
+        }
+        if ((event.key === 'Enter' || event.key === 'Tab') && autocomplete.suggestions.length > 0) {
+          event.preventDefault()
+          const skill = autocomplete.suggestions[activeSuggestion] ?? autocomplete.suggestions[0]
+          const result = applySkillSuggestion(draft, caret, skill.name)
+          setDraft(result.draft)
+          setCaret(result.caret)
+          setActiveSuggestion(0)
           return
         }
         if (event.key === 'Escape') {
@@ -243,144 +377,61 @@ export function NativeChatComposer({
         }
       }
     },
-    [autocomplete, activeSuggestion, chooseSlash, interrupt, send, draft, history]
+    [
+      autocomplete,
+      activeSuggestion,
+      chooseSlash,
+      dispatchSlash,
+      interrupt,
+      send,
+      draft,
+      caret,
+      history
+    ]
   )
 
   return (
-    <div className="shrink-0 border-t border-border bg-background">
-      <div className="relative mx-auto w-full max-w-3xl px-3 py-2 sm:px-4">
-        {autocomplete.mode === 'slash' && autocomplete.suggestions.length > 0 ? (
-          <SlashMenu
-            suggestions={autocomplete.suggestions}
-            activeIndex={activeSuggestion}
-            onChoose={chooseSlash}
-          />
-        ) : null}
-        {autocomplete.mode === 'mention' ? (
-          <MentionHint
-            query={autocomplete.query}
-            onAccept={() => {
-              const result = applyMentionSuggestion(draft, caret, autocomplete.query)
-              setDraft(result.draft)
-              setCaret(result.caret)
-              textareaRef.current?.focus()
-            }}
-          />
-        ) : null}
-        {notice ? (
-          <div className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-            <ImageOff className="size-3.5 shrink-0" />
-            <span>{notice}</span>
-          </div>
-        ) : null}
-        <div className="flex items-end gap-2">
-          <textarea
-            ref={textareaRef}
-            value={draft}
-            disabled={disabled}
-            rows={1}
-            onChange={(e) => {
-              setDraft(e.target.value)
-              setHistory((prev) => ({ entries: prev.entries, index: null }))
-              syncCaret(e.target)
-              setActiveSuggestion(0)
-            }}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            onSelect={(e) => syncCaret(e.currentTarget)}
-            placeholder={composerPlaceholder(hasPty, canSend)}
-            // Why: coarse-pointer (touch) min-height meets the 44px tap-target
-            // convention used elsewhere (size-11) so the composer is usable with
-            // the on-screen keyboard on the mobile driver (U9/R8).
-            className={cn(
-              'min-h-9 max-h-40 w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none pointer-coarse:min-h-11',
-              'placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
-              'disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30'
-            )}
-          />
-          <button
-            type="button"
-            aria-label={translate('components.native-chat.composer.send', 'Send')}
-            disabled={disabled || draft.trim() === ''}
-            onClick={send}
-            className={cn(
-              'flex size-9 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors pointer-coarse:size-11',
-              'hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50'
-            )}
-          >
-            <ArrowUp className="size-4" />
-          </button>
-        </div>
-      </div>
-    </div>
+    <NativeChatComposerField
+      textareaRef={textareaRef}
+      draft={draft}
+      disabled={disabled}
+      hasPty={hasPty}
+      canSend={canSend}
+      autocomplete={autocomplete}
+      activeSuggestion={activeSuggestion}
+      notice={notice}
+      sendButtonDisabled={sendButtonDisabled}
+      isWorking={isWorking}
+      attachDisabled={disabled}
+      onDraftChange={(value, element) => {
+        setDraft(value)
+        setHistory((prev) => ({ entries: prev.entries, index: null }))
+        syncCaret(element)
+        setActiveSuggestion(0)
+      }}
+      onTextareaSelect={syncCaret}
+      onKeyDown={handleKeyDown}
+      onPaste={handlePaste}
+      onChooseSlash={chooseSlash}
+      onAcceptMention={() => {
+        if (autocomplete.mode !== 'mention') {
+          return
+        }
+        const result = applyMentionSuggestion(draft, caret, autocomplete.query)
+        setDraft(result.draft)
+        setCaret(result.caret)
+        textareaRef.current?.focus()
+      }}
+      onChooseSkill={(skill) => {
+        const result = applySkillSuggestion(draft, caret, skill.name)
+        setDraft(result.draft)
+        setCaret(result.caret)
+        setActiveSuggestion(0)
+        textareaRef.current?.focus()
+      }}
+      onAttach={pickAttachment}
+      onSend={send}
+      onStop={onStop}
+    />
   )
-}
-
-function composerPlaceholder(hasPty: boolean, canSend: boolean): string {
-  if (!hasPty) {
-    return translate(
-      'components.native-chat.composer.noPty',
-      'No live terminal — toggle back to reconnect.'
-    )
-  }
-  if (!canSend) {
-    return translate('components.native-chat.composer.locked', 'Input is held by another device.')
-  }
-  return translate('components.native-chat.composer.placeholder', 'Send a message…')
-}
-
-function SlashMenu({
-  suggestions,
-  activeIndex,
-  onChoose
-}: {
-  suggestions: SlashCommandSuggestion[]
-  activeIndex: number
-  onChoose: (command: SlashCommandSuggestion) => void
-}): React.JSX.Element {
-  return (
-    <div className="absolute bottom-full left-3 right-3 mb-1 overflow-hidden rounded-md border border-border bg-popover shadow-md sm:left-4 sm:right-4">
-      {suggestions.map((command, index) => (
-        <button
-          key={command.name}
-          type="button"
-          onClick={() => onChoose(command)}
-          className={cn(
-            'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm',
-            index === activeIndex ? 'bg-accent text-accent-foreground' : 'text-foreground'
-          )}
-        >
-          <span className="font-medium">/{command.name}</span>
-          {command.description ? (
-            <span className="truncate text-xs text-muted-foreground">{command.description}</span>
-          ) : null}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function MentionHint({
-  query,
-  onAccept
-}: {
-  query: string
-  onAccept: () => void
-}): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onAccept}
-      className="absolute bottom-full left-3 right-3 mb-1 flex w-auto items-center gap-2 rounded-md border border-border bg-popover px-3 py-1.5 text-left text-xs text-muted-foreground shadow-md sm:left-4 sm:right-4"
-    >
-      {translate('components.native-chat.composer.mentionHint', 'Referencing file:')}{' '}
-      <span className="font-medium text-foreground">@{query || '…'}</span>
-    </button>
-  )
-}
-
-/** Exposed for callers that need to know the active runtime is remote (e.g. to
- *  surface a "sending over SSH" hint). The send path itself already branches. */
-export function composerTargetIsRemote(ptyId: string | null): boolean {
-  return ptyId !== null && isRemoteRuntimePtyId(ptyId)
 }

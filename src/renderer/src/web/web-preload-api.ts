@@ -1032,8 +1032,7 @@ function createNativeChatApi(): NativeChatApi {
             // the transcript fs-watcher on view-toggle, not just on socket close
             // (the watcher-leak fix). Uses the same agent:sessionId cleanup token
             // mobile sends, via the shared key-builder so it can't drift.
-            buildUnsubscribe: () =>
-              buildNativeChatUnsubscribe(args.agent, args.sessionId)
+            buildUnsubscribe: () => buildNativeChatUnsubscribe(args.agent, args.sessionId)
           }
         )
         .then((h) => {
@@ -2375,8 +2374,8 @@ function createComputerUsePermissionsApi(): NonNullable<
 
 function createSkillsApi(): NonNullable<Partial<PreloadApi>['skills']> {
   return {
-    discover: () =>
-      callRuntimeResult<SkillDiscoveryResult>('skills.discover', undefined, 15_000).catch(() => ({
+    discover: (target) =>
+      callRuntimeResult<SkillDiscoveryResult>('skills.discover', target, 15_000).catch(() => ({
         skills: [],
         sources: [],
         scannedAt: Date.now()

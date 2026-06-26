@@ -17,6 +17,10 @@ import { NativeChatChromeRow } from './NativeChatChromeRow'
 import { useNativeChatInteractiveSend } from './use-native-chat-interactive-send'
 import { findTabAgentEntry } from './native-chat-tab-agent-entry'
 import {
+  shouldClearNativeChatWorkingSuppression,
+  shouldShowNativeChatWorking
+} from './native-chat-working-suppression'
+import {
   pendingSendsAsMessages,
   prunePendingSends,
   type NativeChatPendingSend
@@ -90,12 +94,13 @@ function NativeChatResolvedView({
   // mid-turn before the transcript merge has caught up.
   const hookWorking = useAppStore((s) => s.agentStatusByPaneKey[paneKey]?.state === 'working')
   const canSend = useNativeChatCanSend(terminalTabId)
-  // Reuse the verified composer send path for both the interactive cards and the
-  // chrome-row Stop button (Stop sends ESC, the agent-TUI interrupt key).
+  // Reuse the verified composer send path for interactive cards and composer
+  // stop (Stop sends ESC, the agent-TUI interrupt key).
   const interactiveSend = useNativeChatInteractiveSend(terminalTabId, agent)
   // Global expand/collapse for every tool run. Each flip re-syncs all runs; a
   // run can still be toggled individually after.
   const [toolsExpanded, setToolsExpanded] = useState(false)
+  const [workingInterrupted, setWorkingInterrupted] = useState(false)
 
   // Optimistic "queued" sends (mobile parity): a composer send is echoed
   // immediately and pruned once its real user turn lands in the transcript, so
@@ -105,17 +110,16 @@ function NativeChatResolvedView({
   // Reset the queue when the conversation changes so echoes never cross sessions.
   useEffect(() => {
     setPending([])
+    setWorkingInterrupted(false)
   }, [sessionId, agent])
   // Prune echoes whose real user turn is now in the transcript.
   useEffect(() => {
     setPending((prev) => prunePendingSends(prev, session.messages))
   }, [session.messages])
   const onOptimisticSend = useCallback((text: string) => {
+    setWorkingInterrupted(false)
     pendingCounter.current += 1
-    setPending((prev) => [
-      ...prev,
-      { id: `${pendingCounter.current}`, text, sentAt: Date.now() }
-    ])
+    setPending((prev) => [...prev, { id: `${pendingCounter.current}`, text, sentAt: Date.now() }])
   }, [])
 
   const sessionWithPending = useMemo<typeof session>(() => {
@@ -140,7 +144,23 @@ function NativeChatResolvedView({
   // Drive "working" from the live hook state too: when toggling to chat while the
   // agent is mid-turn, the merged transcript may not yet reflect the in-flight
   // turn, but the hook already says 'working' — show the indicator immediately.
-  const isWorking = isConversation && ((viewState.kind === 'ready' && viewState.isWorking) || hookWorking)
+  const viewWorking = viewState.kind === 'ready' && viewState.isWorking
+  useEffect(() => {
+    if (shouldClearNativeChatWorkingSuppression({ viewWorking, hookWorking })) {
+      setWorkingInterrupted(false)
+    }
+  }, [viewWorking, hookWorking])
+  const isWorking = shouldShowNativeChatWorking({
+    isConversation,
+    viewWorking,
+    hookWorking,
+    interrupted: workingInterrupted
+  })
+
+  const stopAgent = useCallback(() => {
+    setWorkingInterrupted(true)
+    interactiveSend.cancel()
+  }, [interactiveSend])
 
   // Chat-only font zoom via Cmd/Ctrl +/-/0, gated to the live conversation so
   // the chord is inert on the loading/empty/error states and elsewhere.
@@ -170,14 +190,12 @@ function NativeChatResolvedView({
           composer while the agent's interactivePrompt is present (mobile parity). */}
       <NativeChatInteractiveCard paneKey={paneKey} send={interactiveSend} canSend={canSend} />
       {/* Chrome row locked to the top of the composer area (mobile parity): the
-          working indicator + tool-calls toggle on the left, Stop on the far right.
-          Stop interrupts via the same ESC path the composer uses. */}
+          working indicator + tool-calls toggle sit above the composer. */}
       {isConversation ? (
         <NativeChatChromeRow
           isWorking={isWorking}
           toolsExpanded={toolsExpanded}
           onToggleTools={() => setToolsExpanded((v) => !v)}
-          onStop={interactiveSend.cancel}
         />
       ) : null}
       {/* canSend reflects the mobile presence-lock: when a mobile client holds
@@ -187,6 +205,8 @@ function NativeChatResolvedView({
         terminalTabId={terminalTabId}
         agent={agent}
         canSend={canSend}
+        isWorking={isWorking}
+        onStop={stopAgent}
         onOptimisticSend={onOptimisticSend}
       />
     </div>

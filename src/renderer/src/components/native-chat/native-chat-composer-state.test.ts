@@ -1,21 +1,44 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyMentionSuggestion,
+  applySkillSuggestion,
   applySlashSuggestion,
   deriveComposerAutocomplete,
   EMPTY_HISTORY,
+  filterSkillSuggestions,
   filterSlashCommands,
+  isSlashCommandDraft,
   pushHistory,
   recallNext,
   recallPrevious,
+  slashCommandDispatchText,
   type SlashCommandSuggestion
 } from './native-chat-composer-state'
+import type { DiscoveredSkill } from '../../../../shared/skills'
 
 const COMMANDS: SlashCommandSuggestion[] = [
   { name: 'clear' },
   { name: 'compact' },
   { name: 'help' }
 ]
+
+function skill(overrides: Partial<DiscoveredSkill>): DiscoveredSkill {
+  return {
+    id: overrides.name ?? 'skill',
+    name: 'typescript',
+    description: null,
+    providers: ['codex'],
+    sourceKind: 'repo',
+    sourceLabel: 'Repository',
+    rootPath: '/repo/.agents/skills',
+    directoryPath: '/repo/.agents/skills/typescript',
+    skillFilePath: '/repo/.agents/skills/typescript/SKILL.md',
+    installed: true,
+    fileCount: 1,
+    updatedAt: null,
+    ...overrides
+  }
+}
 
 describe('deriveComposerAutocomplete — slash', () => {
   it('enters slash mode for `/` at the start and filters by query', () => {
@@ -70,9 +93,56 @@ describe('deriveComposerAutocomplete — mention', () => {
   })
 })
 
+describe('deriveComposerAutocomplete — skill', () => {
+  const skills = [
+    skill({ name: 'typescript' }),
+    skill({ name: 'react-useeffect', directoryPath: '/repo/.agents/skills/react-useeffect' })
+  ]
+
+  it('enters skill mode with the query after `$`', () => {
+    const result = deriveComposerAutocomplete('use $type', 9, COMMANDS, skills)
+    expect(result.mode).toBe('skill')
+    if (result.mode !== 'skill') {
+      return
+    }
+    expect(result.query).toBe('type')
+    expect(result.suggestions.map((entry) => entry.name)).toEqual(['typescript'])
+  })
+
+  it('fires at the start of input too', () => {
+    expect(deriveComposerAutocomplete('$react', 6, COMMANDS, skills).mode).toBe('skill')
+  })
+
+  it('does not fire inside shell-style text', () => {
+    expect(deriveComposerAutocomplete('price$tag', 9, COMMANDS, skills).mode).toBe('none')
+  })
+})
+
 describe('filterSlashCommands', () => {
   it('is case-insensitive prefix match', () => {
     expect(filterSlashCommands(COMMANDS, 'C').map((c) => c.name)).toEqual(['clear', 'compact'])
+  })
+})
+
+describe('isSlashCommandDraft', () => {
+  it('treats leading slash drafts as TUI commands, not chat prompts', () => {
+    expect(isSlashCommandDraft('/clear')).toBe(true)
+    expect(isSlashCommandDraft('  /compact')).toBe(true)
+    expect(isSlashCommandDraft('please run /clear')).toBe(false)
+  })
+})
+
+describe('filterSkillSuggestions', () => {
+  it('filters installed skills by name or directory basename', () => {
+    const skills = [
+      skill({ name: 'TypeScript' }),
+      skill({ name: 'Display Name', directoryPath: '/repo/.agents/skills/ref-oss' }),
+      skill({ name: 'hidden', installed: false })
+    ]
+    expect(filterSkillSuggestions(skills, 'ref').map((entry) => entry.name)).toEqual([
+      'Display Name'
+    ])
+    expect(filterSkillSuggestions(skills, 'h')).toEqual([])
   })
 })
 
@@ -125,9 +195,19 @@ describe('apply suggestions', () => {
     expect(applySlashSuggestion({ name: 'clear' })).toBe('/clear ')
   })
 
+  it('slashCommandDispatchText returns the command without completion whitespace', () => {
+    expect(slashCommandDispatchText({ name: 'clear' })).toBe('/clear')
+  })
+
   it('applyMentionSuggestion replaces the active @token at the caret', () => {
     const result = applyMentionSuggestion('open @sr more', 8, 'src/app.ts')
     expect(result.draft).toBe('open @src/app.ts  more')
     expect(result.caret).toBe('open @src/app.ts '.length)
+  })
+
+  it('applySkillSuggestion replaces the active $token at the caret', () => {
+    const result = applySkillSuggestion('use $typ now', 8, 'typescript')
+    expect(result.draft).toBe('use $typescript  now')
+    expect(result.caret).toBe('use $typescript '.length)
   })
 })
