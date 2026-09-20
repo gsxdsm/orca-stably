@@ -1,4 +1,4 @@
-import { defineMethod, type RpcMethod } from '../core'
+import { defineMethod } from '../core'
 import { BrowserTarget } from '../schemas'
 import {
   Check,
@@ -6,14 +6,12 @@ import {
   Element,
   Eval,
   Exec,
-  Fill,
   Find,
   FullScreenshot,
   Get,
   Goto,
   Highlight,
   Is,
-  KeyboardInsert,
   Keypress,
   LimitParam,
   ProfileCreate,
@@ -26,17 +24,18 @@ import {
   TabCurrent,
   TabSetProfile,
   TabClose,
-  TabCreate,
   TabList,
   TabProfileClone,
   TabShow,
   TabSwitch,
-  Type,
   Upload,
   Wait
 } from './browser-schemas'
+import { BrowserOpenUrlParams, BrowserTabCreateParams } from './browser-tab-create-schema'
+import { BROWSER_TEXT_METHODS } from './browser-text-rpc-methods'
+import { CertificateProceed } from '../../../../shared/rpc-contract/browser-core-params'
 
-export const BROWSER_CORE_METHODS: RpcMethod[] = [
+export const BROWSER_CORE_METHODS = [
   defineMethod({
     name: 'browser.snapshot',
     params: BrowserTarget,
@@ -53,15 +52,11 @@ export const BROWSER_CORE_METHODS: RpcMethod[] = [
     handler: async (params, { runtime }) => runtime.browserGoto(params)
   }),
   defineMethod({
-    name: 'browser.fill',
-    params: Fill,
-    handler: async (params, { runtime }) => runtime.browserFill(params)
+    name: 'browser.certificate.proceed',
+    params: CertificateProceed,
+    handler: async (params, { runtime }) => runtime.browserProceedCertificate(params)
   }),
-  defineMethod({
-    name: 'browser.type',
-    params: Type,
-    handler: async (params, { runtime }) => runtime.browserType(params)
-  }),
+  ...BROWSER_TEXT_METHODS,
   defineMethod({
     name: 'browser.select',
     params: Select,
@@ -114,8 +109,16 @@ export const BROWSER_CORE_METHODS: RpcMethod[] = [
   }),
   defineMethod({
     name: 'browser.tabCreate',
-    params: TabCreate,
-    handler: async (params, { runtime }) => runtime.browserTabCreate(params)
+    params: BrowserTabCreateParams,
+    handler: async (params, { runtime, pairedDeviceId, clientKind }) =>
+      pairedDeviceId
+        ? runtime.browserTabCreate(params, { pairedDeviceId, clientKind })
+        : runtime.browserTabCreate(params, { clientKind })
+  }),
+  defineMethod({
+    name: 'browser.openUrl',
+    params: BrowserOpenUrlParams,
+    handler: async (params, { runtime }) => runtime.browserOpenUrlOnClient(params)
   }),
   defineMethod({
     name: 'browser.tabSetProfile',
@@ -246,11 +249,6 @@ export const BROWSER_CORE_METHODS: RpcMethod[] = [
     name: 'browser.is',
     params: Is,
     handler: async (params, { runtime }) => runtime.browserIs(params)
-  }),
-  defineMethod({
-    name: 'browser.keyboardInsertText',
-    params: KeyboardInsert,
-    handler: async (params, { runtime }) => runtime.browserKeyboardInsertText(params)
   }),
   defineMethod({
     name: 'browser.find',

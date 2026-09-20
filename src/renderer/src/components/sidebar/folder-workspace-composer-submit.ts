@@ -1,26 +1,45 @@
-import {
-  CLIENT_PLATFORM,
-  buildAgentPromptWithContext,
-  type LinkedWorkItemSummary
-} from '@/lib/new-workspace'
-import { getLinkedWorkItemPromptContext } from '@/lib/linked-work-item-context'
-import { isOrcaCliAvailableForLaunch } from '@/lib/orca-cli-launch-availability'
+import { ensureAgentStartupInTerminal, type LinkedWorkItemSummary } from '@/lib/new-workspace'
+import { seedNativeChatLaunchDraftForAgentTab } from '@/lib/agent-launch-prompt-delivery'
+import { preflightAgentTrust } from '@/lib/agent-trust-preflight'
+import { createBrowserUuid } from '@/lib/browser-uuid'
 import { buildAgentStartupPlan } from '@/lib/tui-agent-startup'
 import { tuiAgentToAgentKind } from '@/lib/telemetry'
 import { activateAndRevealFolderWorkspace } from '@/lib/worktree-activation'
 import { isWorkItemLookupText } from '@/lib/work-item-lookup-text'
-import type { FolderWorkspace, ProjectGroup, TuiAgent } from '../../../../shared/types'
+import type { FolderWorkspace } from '../../../../shared/folder-workspace-types'
+import type { ProjectGroup } from '../../../../shared/project-group-types'
+import type { TuiAgent } from '../../../../shared/tui-agent'
+import { resolveLocalWindowsAgentStartupShell } from '../../../../shared/windows-terminal-shell'
 import type { LaunchSource } from '../../../../shared/telemetry-events'
+import type { SessionOptionValue } from '../../../../shared/native-chat-session-options'
+import type { TaskSourceContext } from '../../../../shared/task-source-context'
+import { folderWorkspaceKey } from '../../../../shared/workspace-scope'
 import {
   getLinkedItemDisplayName,
   toFolderWorkspaceLinkedTask
 } from './folder-workspace-composer-helpers'
+import { planAgentSessionLaunch } from '@/lib/agent-session-launch-plan'
+import { beginStructuredAgentSessionProvisionalLaunch } from '@/lib/structured-agent-session-provisional-tab'
+import { getNewWorkspaceProjectGroupHostId } from '@/lib/new-workspace-project-options'
+import { useAppStore } from '@/store'
+import {
+  buildFolderWorkspaceLinkedStartupPlan,
+  getFolderWorkspaceAgentLaunchPlatform,
+  resolveFolderWorkspaceLaunchDraft
+} from './folder-workspace-agent-startup'
+
+export {
+  buildFolderWorkspaceLinkedStartupPlan,
+  getFolderWorkspaceAgentLaunchPlatform,
+  resolveFolderWorkspaceLaunchDraft
+} from './folder-workspace-agent-startup'
 
 type FolderWorkspaceCreateInput = {
   projectGroupId: string
   name: string
   connectionId?: string | null
   linkedTask: FolderWorkspace['linkedTask']
+  linkedTaskSourceContext?: TaskSourceContext | null
   createdWithAgent?: TuiAgent
   pendingFirstAgentMessageRename?: boolean
 }
@@ -30,12 +49,15 @@ type SubmitFolderWorkspaceCreateParams = {
   name: string
   lastAutoName: string
   linkedWorkItem: LinkedWorkItemSummary | null
+  linkedTaskSourceContext?: TaskSourceContext | null
   note: string
   quickAgent: TuiAgent | null
   autoRenameBranchFromWork: boolean | undefined
   agentCmdOverrides: Record<string, string> | undefined
   agentArgs?: string | null
   agentEnv?: Record<string, string>
+  sessionOptions?: Record<string, SessionOptionValue>
+  terminalWindowsShell?: string | null
   isRemote?: boolean
   launchSource?: LaunchSource
   runtimeEnvironmentId?: string | null
@@ -48,13 +70,15 @@ export async function submitFolderWorkspaceCreate({
   name,
   lastAutoName,
   linkedWorkItem,
+  linkedTaskSourceContext,
   note,
   quickAgent,
   autoRenameBranchFromWork,
   agentCmdOverrides,
   agentArgs,
   agentEnv,
-  isRemote,
+  sessionOptions,
+  terminalWindowsShell,
   launchSource = 'sidebar',
   runtimeEnvironmentId = null,
   createFolderWorkspace,
@@ -66,20 +90,61 @@ export async function submitFolderWorkspaceCreate({
     nameIsAutoManaged && linkedName
       ? linkedName
       : name.trim() || linkedName || `${projectGroup.name} workspace`
-  // Why: only suggest `orca linear` when the launched terminal can actually
-  // resolve the CLI; SSH launches get the relay shim, local launches may not.
-  const linearCliAvailable = linkedWorkItem?.linearIdentifier
-    ? await isOrcaCliAvailableForLaunch({ remote: isRemote ?? projectGroup.connectionId != null })
-    : false
-  const linkedPromptContext = getLinkedWorkItemPromptContext(linkedWorkItem, {
-    cliAvailable: linearCliAvailable
+  const launchPlatform = getFolderWorkspaceAgentLaunchPlatform(projectGroup)
+  // Why: an SSH folder group runs the plain `orca` relay shim, so the Linux-only
+  // `orca-ide` rename must not be applied for remote launches.
+  const launchIsRemote = Boolean(projectGroup.connectionId)
+  const launchShell = resolveLocalWindowsAgentStartupShell({
+    platform: launchPlatform,
+    isRemote: launchIsRemote,
+    terminalWindowsShell
   })
-  const startupPrompt = buildAgentPromptWithContext(
-    note,
-    [],
-    linkedPromptContext.linkedUrls,
-    linkedPromptContext.linkedContextBlocks
-  )
+  const startupPlan =
+    quickAgent && linkedWorkItem
+      ? buildFolderWorkspaceLinkedStartupPlan({
+          agent: quickAgent,
+          linkedWorkItem,
+          note,
+          agentCmdOverrides,
+          agentArgs,
+          agentEnv,
+          sessionOptions,
+          platform: launchPlatform,
+          shell: launchShell,
+          isRemote: launchIsRemote
+        })
+      : quickAgent
+        ? buildAgentStartupPlan({
+            agent: quickAgent,
+            prompt: note,
+            cmdOverrides: agentCmdOverrides ?? {},
+            agentArgs,
+            agentEnv,
+            sessionOptions,
+            platform: launchPlatform,
+            shell: launchShell,
+            isRemote: launchIsRemote,
+            allowEmptyPromptLaunch: true
+          })
+        : null
+  // Why: the argv-prefill plan carries the draft inside `launchCommand`, so
+  // `startupPlan.draftPrompt` alone can't tell whether this launch has one.
+  const launchDraftPrompt =
+    quickAgent && linkedWorkItem ? resolveFolderWorkspaceLaunchDraft(linkedWorkItem, note) : null
+  const plan = quickAgent
+    ? planAgentSessionLaunch(useAppStore.getState(), {
+        agent: quickAgent,
+        workspace: {
+          kind: 'folder',
+          runtimeEnvironmentId,
+          executionHostId: getNewWorkspaceProjectGroupHostId(projectGroup)
+        },
+        prompt: launchDraftPrompt ?? note,
+        promptDelivery: launchDraftPrompt ? 'draft' : 'auto-submit',
+        initialSessionOptions: startupPlan?.sessionOptions
+      })
+    : null
+  const structuredLaunch = plan?.route === 'structured-native-chat'
   // Why: the pending badge should only appear when the submitted prompt can
   // actually produce the first agent message that names the workspace.
   const pendingFirstAgentMessageRename =
@@ -87,7 +152,7 @@ export async function submitFolderWorkspaceCreate({
     !name.trim() &&
     !linkedWorkItem &&
     Boolean(quickAgent) &&
-    startupPrompt.trim().length > 0
+    note.trim().length > 0
 
   const workspace = await createFolderWorkspace({
     projectGroupId: projectGroup.id,
@@ -96,29 +161,42 @@ export async function submitFolderWorkspaceCreate({
     // focused runtime is local or another host.
     connectionId: projectGroup.connectionId ?? null,
     linkedTask: toFolderWorkspaceLinkedTask(linkedWorkItem),
+    ...(linkedTaskSourceContext ? { linkedTaskSourceContext } : {}),
     ...(quickAgent ? { createdWithAgent: quickAgent } : {}),
     ...(pendingFirstAgentMessageRename ? { pendingFirstAgentMessageRename: true } : {})
   })
   if (!workspace) {
     return false
   }
+  if (!structuredLaunch) {
+    await preflightAgentTrust({
+      agent: quickAgent,
+      workspacePath: workspace.folderPath,
+      connectionId: workspace.connectionId ?? projectGroup.connectionId
+    })
+  }
+  if (startupPlan && !startupPlan.launchToken) {
+    // Why: delayed delivery must target the exact pane spawned from this queued
+    // startup, so both halves share one renderer-session token.
+    startupPlan.launchToken = createBrowserUuid()
+  }
 
-  const startupPlan = quickAgent
-    ? buildAgentStartupPlan({
-        agent: quickAgent,
-        prompt: startupPrompt,
-        cmdOverrides: agentCmdOverrides ?? {},
-        agentArgs,
-        agentEnv,
-        platform: CLIENT_PLATFORM,
-        allowEmptyPromptLaunch: true
-      })
-    : null
   const startup =
     quickAgent && startupPlan
       ? {
           command: startupPlan.launchCommand,
           ...(startupPlan.env ? { env: startupPlan.env } : {}),
+          launchConfig: startupPlan.launchConfig,
+          ...(startupPlan.launchToken ? { launchToken: startupPlan.launchToken } : {}),
+          launchAgent: quickAgent,
+          ...(startupPlan.sessionOptions ? { sessionOptions: startupPlan.sessionOptions } : {}),
+          ...(startupPlan.draftPrompt ? { draftPrompt: startupPlan.draftPrompt } : {}),
+          // Why: view-mode only. The argv-prefill plan sets no draftPrompt, so
+          // without this the tab opens in chat with nothing mirrored into it.
+          ...(launchDraftPrompt ? { launchDraftText: launchDraftPrompt } : {}),
+          ...(startupPlan.startupCommandDelivery
+            ? { startupCommandDelivery: startupPlan.startupCommandDelivery }
+            : {}),
           telemetry: {
             agent_kind: tuiAgentToAgentKind(quickAgent),
             launch_source: launchSource,
@@ -128,10 +206,58 @@ export async function submitFolderWorkspaceCreate({
       : undefined
   onOpenChange(false)
   try {
-    activateAndRevealFolderWorkspace(workspace.id, {
-      ...(startup ? { startup } : {}),
-      runtimeEnvironmentId
-    })
+    const activationHolder: {
+      value: ReturnType<typeof activateAndRevealFolderWorkspace>
+    } = { value: false }
+    const revealWorkspace = (): boolean => {
+      activationHolder.value = activateAndRevealFolderWorkspace(workspace.id, {
+        agent: quickAgent,
+        ...(!structuredLaunch && startup ? { startup } : {}),
+        ...(structuredLaunch ? { providesInitialSurface: true } : {}),
+        runtimeEnvironmentId
+      })
+      return activationHolder.value !== false
+    }
+    const structuredLaunchAccepted = structuredLaunch
+    if (plan?.route === 'structured-native-chat') {
+      beginStructuredAgentSessionProvisionalLaunch({
+        plan,
+        hooks: {},
+        target: { worktreeId: folderWorkspaceKey(workspace.id) },
+        beforeOpen: revealWorkspace
+      })
+    } else {
+      revealWorkspace()
+    }
+    const activation = activationHolder.value
+    if (
+      !structuredLaunchAccepted &&
+      quickAgent &&
+      startupPlan &&
+      launchDraftPrompt &&
+      activation !== false &&
+      activation.primaryTabId
+    ) {
+      // Why: draft launch context reaches only the TUI input; seed the
+      // chat-composer copy so it isn't invisible in the chat view.
+      seedNativeChatLaunchDraftForAgentTab({
+        tabId: activation.primaryTabId,
+        agent: quickAgent,
+        text: launchDraftPrompt
+      })
+    }
+    if (
+      !structuredLaunchAccepted &&
+      startupPlan &&
+      (startupPlan.followupPrompt || startupPlan.draftPrompt) &&
+      activation !== false
+    ) {
+      void ensureAgentStartupInTerminal({
+        worktreeId: folderWorkspaceKey(workspace.id),
+        primaryTabId: activation.primaryTabId,
+        startup: startupPlan
+      })
+    }
   } catch (error) {
     // Why: creation already succeeded. Do not leave the completed create modal
     // open if the follow-up reveal/startup path hits a transient issue.

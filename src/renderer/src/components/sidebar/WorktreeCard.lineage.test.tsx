@@ -1,7 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Repo, Worktree, WorktreeCardProperty } from '../../../../shared/types'
+import type { Repo } from '../../../../shared/repo-types'
+import type { WorktreeCardProperty } from '../../../../shared/ui-chrome-types'
+import type { Worktree } from '../../../../shared/worktree/types'
 
 const fetchHostedReviewForBranch = vi.fn()
 const fetchIssue = vi.fn()
@@ -10,6 +12,7 @@ const openModal = vi.fn()
 const updateWorktreeMeta = vi.fn()
 
 let worktreeCardProperties: WorktreeCardProperty[] = []
+const WORKTREE_CARD_IMPORT_TIMEOUT_MS = 15_000
 
 vi.mock('@/store', () => ({
   useAppStore: (selector: (state: unknown) => unknown) =>
@@ -23,6 +26,7 @@ vi.mock('@/store', () => ({
       issueCache: {},
       linearIssueCache: {},
       openModal,
+      projectGroups: [],
       remoteBranchConflictByWorktreeId: {},
       settings: null,
       sshConnectionStates: new Map(),
@@ -32,14 +36,16 @@ vi.mock('@/store', () => ({
     })
 }))
 
-vi.mock('@/lib/worktree-activation', () => ({
-  activateAndRevealWorktree: vi.fn()
-}))
+vi.mock('@/lib/worktree-activation', () => ({ activateAndRevealWorktree: vi.fn() }))
 
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children: ReactNode }) => <>{children}</>,
   TooltipContent: ({ children }: { children: ReactNode }) => <>{children}</>,
   TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>
+}))
+
+vi.mock('./use-worktree-sleep-state', () => ({
+  useIsSleepingWorktree: () => false
 }))
 
 vi.mock('./CacheTimer', () => ({
@@ -49,10 +55,6 @@ vi.mock('./CacheTimer', () => ({
 
 vi.mock('./WorktreeCardAgents', () => ({
   default: () => null
-}))
-
-vi.mock('./SshDisconnectedDialog', () => ({
-  SshDisconnectedDialog: () => null
 }))
 
 vi.mock('./WorktreeContextMenu', () => ({
@@ -101,36 +103,44 @@ describe('WorktreeCard lineage indicators', () => {
     worktreeCardProperties = []
   })
 
-  it('does not render parent lineage badge copy on workspace cards', async () => {
-    const { default: WorktreeCard } = await import('./WorktreeCard')
+  it(
+    'does not render parent lineage badge copy on workspace cards',
+    async () => {
+      const { default: WorktreeCard } = await import('./WorktreeCard')
 
-    const markup = renderToStaticMarkup(
-      <WorktreeCard worktree={makeWorktree()} repo={makeRepo()} isActive={false} />
-    )
+      const markup = renderToStaticMarkup(
+        <WorktreeCard worktree={makeWorktree()} repo={makeRepo()} isActive={false} />
+      )
 
-    expect(markup).not.toContain('Parent workspace')
-    expect(markup).not.toContain('parent:')
-    expect(markup).not.toContain('from master')
-    expect(markup).not.toContain('Missing parent')
-    expect(markup).toContain('overflow-hidden')
-  })
+      expect(markup).not.toContain('Parent workspace')
+      expect(markup).not.toContain('parent:')
+      expect(markup).not.toContain('from master')
+      expect(markup).not.toContain('Missing parent')
+      expect(markup).toContain('overflow-hidden')
+    },
+    WORKTREE_CARD_IMPORT_TIMEOUT_MS
+  )
 
-  it('keeps the child workspace toggle chip', async () => {
-    const { default: WorktreeCard } = await import('./WorktreeCard')
+  it(
+    'keeps the child workspace toggle chip',
+    async () => {
+      const { default: WorktreeCard } = await import('./WorktreeCard')
 
-    const markup = renderToStaticMarkup(
-      <WorktreeCard
-        worktree={makeWorktree()}
-        repo={makeRepo()}
-        isActive={false}
-        lineageChildCount={1}
-        lineageCollapsed={false}
-        onLineageToggle={vi.fn()}
-      />
-    )
+      const markup = renderToStaticMarkup(
+        <WorktreeCard
+          worktree={makeWorktree()}
+          repo={makeRepo()}
+          isActive={false}
+          lineageChildCount={1}
+          lineageCollapsed={false}
+          onLineageToggle={vi.fn()}
+        />
+      )
 
-    expect(markup).toContain('aria-label="Hide 1 child workspace"')
-    expect(markup).toContain('1 child')
-    expect(markup).not.toContain('Parent workspace')
-  })
+      expect(markup).toContain('aria-label="Hide 1 child workspace"')
+      expect(markup).toContain('1 child')
+      expect(markup).not.toContain('Parent workspace')
+    },
+    WORKTREE_CARD_IMPORT_TIMEOUT_MS
+  )
 })

@@ -22,13 +22,12 @@ vi.mock('../git/runner', () => ({
 
 vi.mock('../git/repo', () => ({
   isGitRepo: vi.fn(),
-  getGitUsername: vi.fn(),
   getRepoName: vi.fn(),
   getBaseRefDefault: vi.fn(),
   searchBaseRefs: vi.fn()
 }))
 
-vi.mock('./filesystem-auth', () => ({
+vi.mock('./registered-worktree-roots-cache', () => ({
   invalidateAuthorizedRootsCache: vi.fn()
 }))
 
@@ -64,6 +63,14 @@ describe('repos folder pickers', () => {
     return handler(null, undefined) as Promise<string[]>
   }
 
+  const callPickDirectory = (): Promise<string | null> => {
+    const handler = handlers.get('repos:pickDirectory')
+    if (!handler) {
+      throw new Error('repos:pickDirectory handler was never registered')
+    }
+    return handler(null, undefined) as Promise<string | null>
+  }
+
   beforeEach(() => {
     handlers.clear()
     handleMock.mockReset()
@@ -73,7 +80,7 @@ describe('repos folder pickers', () => {
     removeHandlerMock.mockReset()
     showOpenDialogMock.mockReset()
 
-    registerRepoHandlers(mockWindow as never, mockStore as never)
+    registerRepoHandlers(mockWindow as never, mockStore as never, {} as never)
   })
 
   it('registers the multi-folder picker with handler cleanup', () => {
@@ -100,5 +107,19 @@ describe('repos folder pickers', () => {
     showOpenDialogMock.mockResolvedValue({ canceled: true, filePaths: [] })
 
     await expect(callPickFolders()).resolves.toEqual([])
+  })
+
+  it('picks an existing directory without enabling native directory creation', async () => {
+    const parentDir = join(sep, 'projects')
+    showOpenDialogMock.mockResolvedValue({
+      canceled: false,
+      filePaths: [parentDir]
+    })
+
+    await expect(callPickDirectory()).resolves.toBe(parentDir)
+
+    expect(showOpenDialogMock).toHaveBeenCalledWith(mockWindow, {
+      properties: ['openDirectory']
+    })
   })
 })

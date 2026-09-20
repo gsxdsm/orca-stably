@@ -11,8 +11,6 @@ import { AgentCapabilitiesSetupAction } from './AgentCapabilitiesSetupAction'
 import {
   AddReposAction,
   SetupScriptAction,
-  SplitTerminalShortcutHint,
-  TwoAgentsAction,
   WorkspacesAction
 } from './FeatureWallSetupWorkflowActions'
 import { ConnectIntegrationsList } from './ConnectIntegrationsList'
@@ -20,15 +18,16 @@ import { BrowserAction } from './FeatureWallBrowserAction'
 import {
   SetupBrowserVisual,
   SetupMultipleReposVisual,
-  SetupTwoAgentsVisual,
   SetupWorkspacesVisual
 } from './FeatureWallSetupStepVisuals'
 import { AgentStep } from '../onboarding/AgentStep'
 import { NotificationStep } from '../onboarding/NotificationStep'
 import { useAppStore } from '@/store'
-import type { TuiAgent } from '../../../../shared/types'
+import type { TuiAgent } from '../../../../shared/tui-agent'
 import { getProviderRuntimeContextKey } from '@/lib/provider-runtime-context'
 import { translate } from '@/i18n/i18n'
+
+import { getLocalizedFeatureWallSetupChecklistCopy } from './feature-wall-setup-checklist-localized-copy'
 
 type FeatureWallSetupChecklistLayout = 'modal' | 'embedded'
 
@@ -52,6 +51,7 @@ function SetupStepRow(props: {
 }): React.JSX.Element {
   const { step, done, active, ordinal, onSelect, layout } = props
   const isEmbedded = layout === 'embedded'
+  const localizedStepCopy = getLocalizedFeatureWallSetupChecklistCopy(step)
   return (
     <button
       type="button"
@@ -88,7 +88,7 @@ function SetupStepRow(props: {
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-[15px] font-medium leading-snug text-foreground">
-          {step.name}
+          {localizedStepCopy.name}
         </span>
       </span>
     </button>
@@ -147,9 +147,6 @@ function SelectedStepAction(props: FeatureWallSetupChecklistProps): React.JSX.El
   if (activeStep.id === 'notifications') {
     return <NotificationAction />
   }
-  if (activeStep.id === 'split-terminal') {
-    return <TwoAgentsAction done={activeDone} />
-  }
   if (activeStep.id === 'two-worktrees') {
     return <WorkspacesAction done={activeDone} />
   }
@@ -174,9 +171,6 @@ function SelectedStepAction(props: FeatureWallSetupChecklistProps): React.JSX.El
 }
 
 function SelectedStepVisual(props: { stepId: FeatureWallSetupStepId }): React.JSX.Element | null {
-  if (props.stepId === 'split-terminal') {
-    return <SetupTwoAgentsVisual />
-  }
   if (props.stepId === 'two-worktrees') {
     return <SetupWorkspacesVisual />
   }
@@ -267,7 +261,6 @@ export function FeatureWallSetupChecklist(
   // Only steps with a visual constrain the caption to a narrow column so the
   // illustration can sit beside it; captionless steps let the copy run full width.
   const hasStepVisual =
-    activeStep?.id === 'split-terminal' ||
     activeStep?.id === 'two-worktrees' ||
     activeStep?.id === 'browser' ||
     activeStep?.id === 'add-two-repos'
@@ -279,19 +272,21 @@ export function FeatureWallSetupChecklist(
       ? 'gap-8 xl:grid-cols-[minmax(0,1fr)_auto] xl:gap-12'
       : 'gap-8 sm:grid-cols-[minmax(0,48ch)_auto] sm:gap-10'
 
+  // Why: in the modal, a stacked checklist can leave medium-width windows with
+  // only a tiny action pane; switch to the rail/content layout sooner.
   return (
     <div
       className={cn(
         'grid h-full min-h-0',
         isEmbedded
           ? 'grid-rows-[auto_minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(15rem,17rem)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:gap-16'
-          : 'grid-rows-[auto_minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(200px,300px)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]'
+          : 'grid-rows-[auto_minmax(0,1fr)] gap-5 md:grid-cols-[minmax(190px,260px)_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)]'
       )}
     >
       <div
         className={cn(
           'scrollbar-sleek min-h-0 space-y-5 overflow-y-auto',
-          isEmbedded ? 'pr-4' : 'pr-1'
+          isEmbedded ? 'pr-4' : 'max-h-[min(18rem,40vh)] pr-1 md:max-h-none'
         )}
       >
         <SetupSection
@@ -325,7 +320,7 @@ export function FeatureWallSetupChecklist(
           'scrollbar-sleek min-h-0 overflow-y-auto',
           isEmbedded
             ? 'pt-10 lg:border-l lg:border-border/50 lg:pl-14 lg:pt-0'
-            : 'border-t border-border pt-5 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0'
+            : 'border-t border-border pt-5 md:border-l md:border-t-0 md:pl-7 md:pt-0'
         )}
       >
         {activeStep ? (
@@ -333,7 +328,7 @@ export function FeatureWallSetupChecklist(
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <div className="text-2xl font-semibold leading-tight text-foreground">
-                  {activeStep.name}
+                  {getLocalizedFeatureWallSetupChecklistCopy(activeStep).name}
                 </div>
               </div>
               <span
@@ -369,13 +364,8 @@ export function FeatureWallSetupChecklist(
                     hasStepVisual && !isEmbedded ? 'pr-4 sm:pr-6' : null
                   )}
                 >
-                  {activeStep.description}
+                  {getLocalizedFeatureWallSetupChecklistCopy(activeStep).description}
                 </p>
-                {activeStep.id === 'split-terminal' ? (
-                  <div className="mt-3">
-                    <SplitTerminalShortcutHint />
-                  </div>
-                ) : null}
                 {/* Action lives under the caption, not after the grid, so it sits just
                     below the copy instead of being pushed down by the taller visual. */}
                 <div className={cn('min-w-0', isEmbedded ? 'mt-8' : 'mt-7')}>

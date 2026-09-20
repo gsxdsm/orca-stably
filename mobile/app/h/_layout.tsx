@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { View, Pressable, StyleSheet, PanResponder } from 'react-native'
+import { View, StyleSheet, PanResponder } from 'react-native'
 import { Stack, useGlobalSearchParams, usePathname } from 'expo-router'
-import { PanelLeftOpen } from 'lucide-react-native'
-import { colors, radii } from '../../src/theme/mobile-theme'
+import { colors } from '../../src/theme/mobile-theme'
 import { useResponsiveLayout } from '../../src/layout/responsive-layout'
 import {
   HOST_SIDEBAR_DEFAULT_WIDTH,
@@ -11,7 +10,8 @@ import {
   loadHostSidebarWidth,
   saveHostSidebarWidth
 } from '../../src/storage/preferences'
-import { HostScreen } from './[hostId]/index'
+import { HostProtocolGate } from '../../src/components/HostProtocolGate'
+import { HostScreen } from '../../src/host-screen/HostScreen'
 
 // Keep at least this much room for the detail pane when resizing the sidebar.
 const MIN_DETAIL_WIDTH = 320
@@ -40,6 +40,7 @@ function HostStack({ animation }: { animation: 'none' | 'default' }) {
       }}
     >
       <Stack.Screen name="[hostId]/index" options={{ title: 'Host' }} />
+      <Stack.Screen name="[hostId]/edit" options={{ title: 'Edit host' }} />
       <Stack.Screen name="[hostId]/accounts" options={{ title: 'Accounts' }} />
       <Stack.Screen name="[hostId]/tasks" options={{ title: 'Tasks' }} />
       <Stack.Screen name="[hostId]/session/[worktreeId]" options={{ title: 'Terminal' }} />
@@ -47,7 +48,14 @@ function HostStack({ animation }: { animation: 'none' | 'default' }) {
         name="[hostId]/source-control/[worktreeId]"
         options={{ title: 'Source Control' }}
       />
-      <Stack.Screen name="[hostId]/review/[worktreeId]" options={{ title: 'Review Changes' }} />
+      <Stack.Screen
+        name="[hostId]/agent-history/[worktreeId]"
+        options={{ title: 'Agent Session History' }}
+      />
+      <Stack.Screen name="[hostId]/review/[worktreeId]" options={{ title: 'Changes' }} />
+      <Stack.Screen name="[hostId]/pr/[worktreeId]" options={{ title: 'Pull Request' }} />
+      {/* Dev-flag only: redirects to the host screen unless the hybrid shell flag is on. */}
+      <Stack.Screen name="[hostId]/web" options={{ title: 'Workspace' }} />
     </Stack>
   )
 }
@@ -92,23 +100,27 @@ export default function HostGroupLayout() {
   const detailHasContent = !!hostId && pathname !== `/h/${hostId}`
   const canCollapseSidebar = showSidebar && detailHasContent
 
+  // Why: there is no reveal button — navigating Back to the base host route brings
+  // the sidebar back (and that route's detail pane is only a placeholder, so a
+  // hidden sidebar would leave nothing useful).
   useEffect(() => {
-    // Why: on the base host route the detail pane is only a placeholder, so
-    // hiding the sidebar removes the only useful navigation surface.
     if (showSidebar && !detailHasContent) {
       setSidebarOpen(true)
     }
   }, [detailHasContent, showSidebar])
 
+  // Why: the resizer lives on a dedicated edge handle (a leaf overlay at the
+  // sidebar's right border), NOT on the sidebar container. On Android a child
+  // ScrollView/FlatList claims the native touch responder, so a parent-View
+  // PanResponder never sees the move events and the drag silently no-ops; a
+  // dedicated handle on top of the content captures the gesture on both
+  // platforms. It claims on start (capture too) since nothing sits under it.
   const resizer = useRef(
     PanResponder.create({
-      // Let row/button taps win; only claim horizontal drags that start near
-      // the sidebar's right edge.
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_evt, g) =>
-        g.x0 >= widthRef.current - RESIZE_EDGE_WIDTH &&
-        Math.abs(g.dx) > 4 &&
-        Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: () => {
         dragStartRef.current = widthRef.current
@@ -129,34 +141,25 @@ export default function HostGroupLayout() {
   // changes so a fold/rotation doesn't remount the navigator and reset the
   // navigation stack — only the sidebar pane toggles in and out.
   return (
-    <View style={styles.row}>
-      {showSidebar && sidebarOpen ? (
-        <View style={[styles.sidebar, { width: sidebarWidth }]} {...resizer.panHandlers}>
-          <HostScreen
-            embedded
-            hostId={hostId}
-            action={action}
-            onHideSidebar={canCollapseSidebar ? hideSidebar : undefined}
-          />
+    <HostProtocolGate hostId={hostId}>
+      <View style={styles.row}>
+        {showSidebar && sidebarOpen ? (
+          <View style={[styles.sidebar, { width: sidebarWidth }]}>
+            <HostScreen
+              embedded
+              hostId={hostId}
+              action={action}
+              onHideSidebar={canCollapseSidebar ? hideSidebar : undefined}
+            />
+            {/* Dedicated drag handle straddling the right border — see resizer note. */}
+            <View style={styles.resizeHandle} {...resizer.panHandlers} />
+          </View>
+        ) : null}
+        <View style={styles.detail}>
+          <HostStack animation={showSidebar ? 'none' : 'default'} />
         </View>
-      ) : null}
-      <View style={styles.detail}>
-        <HostStack animation={showSidebar ? 'none' : 'default'} />
       </View>
-      {/* Rendered last (and elevated) so the reveal control reliably paints
-          above the detail pane on Android when the sidebar is hidden. */}
-      {canCollapseSidebar && !sidebarOpen ? (
-        <Pressable
-          style={styles.revealTab}
-          onPress={() => setSidebarOpen(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Show sidebar"
-          hitSlop={12}
-        >
-          <PanelLeftOpen size={20} color={colors.textSecondary} />
-        </Pressable>
-      ) : null}
-    </View>
+    </HostProtocolGate>
   )
 }
 
@@ -170,28 +173,19 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: colors.borderSubtle
   },
+  // Invisible grab strip over the sidebar's right edge. Absolute + elevated so it
+  // sits above the worktree list and reliably owns the drag on Android.
+  resizeHandle: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: 0,
+    width: RESIZE_EDGE_WIDTH,
+    zIndex: 20,
+    elevation: 20
+  },
   detail: {
     flex: 1,
     minWidth: 0
-  },
-  // When the sidebar is hidden, a pull tab floats over the detail pane's left
-  // edge (mid-height to avoid the screen's own header) to reveal it again.
-  revealTab: {
-    position: 'absolute',
-    top: '50%',
-    left: 0,
-    marginTop: -32,
-    zIndex: 10,
-    elevation: 12,
-    width: 30,
-    height: 64,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bgPanel,
-    borderTopRightRadius: radii.card,
-    borderBottomRightRadius: radii.card,
-    borderWidth: 1,
-    borderLeftWidth: 0,
-    borderColor: colors.borderSubtle
   }
 })

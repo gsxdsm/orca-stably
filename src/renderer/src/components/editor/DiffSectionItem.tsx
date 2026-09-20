@@ -1,39 +1,28 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type MutableRefObject,
-  type ReactNode
-} from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DiffOnMount } from '@monaco-editor/react'
 import type { editor as monacoEditor } from 'monaco-editor'
 import { monaco } from '@/lib/monaco-setup'
 import { detectLanguage } from '@/lib/language-detect'
 import { useAppStore } from '@/store'
-import { computeDiffEditorFontSize } from '@/lib/editor-font-zoom'
-import { findWorktreeById } from '@/store/slices/worktree-helpers'
-import {
-  useDiffCommentDecorator,
-  type DecoratedDiffComment
-} from '../diff-comments/useDiffCommentDecorator'
+import { computeDiffEditorFontSize, resolveEditorFontFamily } from '@/lib/editor-font-zoom'
+import { selectWorktreeDiffComments } from '@/store/worktree-diff-comments-selector'
+import { useDiffCommentDecorator } from '../diff-comments/useDiffCommentDecorator'
 import {
   getDiffCommentPopoverLeft,
   getDiffCommentPopoverTop
 } from '../diff-comments/diff-comment-popover-position'
 import { applyDiffEditorLineNumberOptions } from './diff-editor-line-number-options'
 import { DiffSectionHeader } from './DiffSectionHeader'
-import type { DiffSection } from './diff-section-types'
-import type { DiffComment } from '../../../../shared/types'
+import type { DiffComment } from '../../../../shared/diff-comment-types'
 import { isDiffComment } from '@/lib/diff-comment-compat'
-import { installEditorSaveShortcut } from './editor-shortcuts'
+import { installEditorSaveShortcut, installMonacoEditorFindShortcut } from './editor-shortcuts'
 import { DiffSectionBody } from './DiffSectionBody'
 import { useDiffSectionLayoutMetrics } from './useDiffSectionLayoutMetrics'
-import { disposeUnattachedMonacoModelPaths } from './diff-monaco-model-disposal'
 import { getLiveDiffSectionRenderLimit } from './diff-section-live-render-limit'
 import { useDiffSectionFallbackCleanup } from './useDiffSectionFallbackCleanup'
 import { submitDiffSectionComment } from './diff-section-comment-submit'
+import type { DiffSectionItemProps } from './diff-section-item-props'
+import { useDiffSectionModelLifecycle } from './use-diff-section-model-lifecycle'
 
 export function DiffSectionItem({
   section,
@@ -45,10 +34,12 @@ export function DiffSectionItem({
   sectionHeight,
   worktreeId,
   loadSection,
+  loadDeferredSection,
   retrySection,
   toggleSection,
   openSection,
   openSectionTitle,
+  onOpenPreview,
   renderHeaderTrailingContent,
   onAddLineComment,
   addLineCommentLabel,
@@ -59,38 +50,7 @@ export function DiffSectionItem({
   setSections,
   modifiedEditorsRef,
   handleSectionSaveRef
-}: {
-  section: DiffSection
-  index: number
-  isBranchMode: boolean
-  sideBySide: boolean
-  isDark: boolean
-  settings: { terminalFontSize?: number; terminalFontFamily?: string } | null
-  sectionHeight: number | undefined
-  worktreeId?: string
-  loadSection: (index: number) => void
-  retrySection: (index: number) => void
-  toggleSection: (index: number) => void
-  openSection: (index: number) => void
-  openSectionTitle: string
-  renderHeaderTrailingContent?: (section: DiffSection, index: number) => ReactNode
-  onAddLineComment?: (
-    section: DiffSection,
-    args: {
-      lineNumber: number
-      startLine?: number
-      body: string
-    }
-  ) => Promise<boolean>
-  addLineCommentLabel?: string
-  addLineCommentPlaceholder?: string
-  inlineComments?: readonly DecoratedDiffComment[]
-  getCommentableLineNumbers?: (section: DiffSection) => readonly number[] | undefined
-  setSectionHeights: React.Dispatch<React.SetStateAction<Record<number, number>>>
-  setSections: React.Dispatch<React.SetStateAction<DiffSection[]>>
-  modifiedEditorsRef: MutableRefObject<Map<number, monacoEditor.IStandaloneCodeEditor>>
-  handleSectionSaveRef: MutableRefObject<(index: number) => Promise<void>>
-}): React.JSX.Element {
+}: DiffSectionItemProps): React.JSX.Element {
   const editorFontZoomLevel = useAppStore((s) => s.editorFontZoomLevel)
   const addDiffComment = useAppStore((s) => s.addDiffComment)
   const deleteDiffComment = useAppStore((s) => s.deleteDiffComment)
@@ -102,7 +62,7 @@ export function DiffSectionItem({
   // memo. Selecting a fresh `.filter(...)` result would invalidate on every
   // store change and cause needless re-renders of this section.
   const allDiffComments = useAppStore((s): DiffComment[] | undefined =>
-    worktreeId ? findWorktreeById(s.worktreesByRepo, worktreeId)?.diffComments : undefined
+    selectWorktreeDiffComments(s, worktreeId)
   )
   const diffComments = useMemo(
     () => (allDiffComments ?? []).filter((c) => c.filePath === section.path && isDiffComment(c)),
@@ -129,34 +89,14 @@ export function DiffSectionItem({
     startLine?: number
     top: number
     left?: number
+    lineHeight: number
   } | null>(null)
   const hasLineCommentAction = Boolean(worktreeId || onAddLineComment)
 
-  const disposeDiffModels = useCallback(() => {
-    window.setTimeout(() => {
-      disposeUnattachedMonacoModelPaths(monaco, [
-        `${modelPathBase}:original`,
-        `${modelPathBase}:modified`
-      ])
-    }, 0)
-  }, [modelPathBase])
-  const disposeDiffModelsRef = useRef(disposeDiffModels)
-  disposeDiffModelsRef.current = disposeDiffModels
-
-  const setSectionRootNode = useCallback((node: HTMLDivElement | null): void => {
-    if (node) {
-      return
-    }
-    // Why: virtualized diff rows remount as their keyed section/collapse state
-    // changes; the row root is the owner of the detached Monaco models.
-    disposeDiffModelsRef.current()
-  }, [])
-
-  useEffect(() => {
-    if (section.collapsed) {
-      disposeDiffModels()
-    }
-  }, [disposeDiffModels, section.collapsed])
+  const { disposeDiffModels, setSectionRootNode } = useDiffSectionModelLifecycle({
+    modelPathBase,
+    collapsed: section.collapsed
+  })
 
   // Why: only forward the pending scroll id when it matches a comment in this
   // section so unrelated sections don't keep re-rendering their decorator
@@ -175,6 +115,8 @@ export function DiffSectionItem({
     comments: inlineComments ?? (worktreeId ? diffComments : []),
     commentableLineNumbers: getCommentableLineNumbers?.(section),
     addButtonLabel: addLineCommentLabel,
+    pendingCommentTarget: popover,
+    addNoteShortcutEnabled: hasLineCommentAction,
     onAddCommentClick: ({ lineNumber, startLine, top }) =>
       setPopover({
         lineNumber,
@@ -182,7 +124,8 @@ export function DiffSectionItem({
         top,
         left: modifiedEditor
           ? (getDiffCommentPopoverLeft(modifiedEditor, sectionBodyRef.current) ?? undefined)
-          : undefined
+          : undefined,
+        lineHeight: modifiedEditor?.getOption(monaco.editor.EditorOption.lineHeight) ?? 0
       }),
     onDeleteComment: (id) => {
       if (worktreeId) {
@@ -199,17 +142,16 @@ export function DiffSectionItem({
       return
     }
     const update = (): void => {
-      const top = getDiffCommentPopoverTop(
-        modifiedEditor,
-        popover.lineNumber,
-        modifiedEditor.getOption(monaco.editor.EditorOption.lineHeight)
-      )
+      const lineHeight = modifiedEditor.getOption(monaco.editor.EditorOption.lineHeight)
+      const top = getDiffCommentPopoverTop(modifiedEditor, popover.lineNumber, lineHeight)
       if (top == null) {
         setPopover(null)
         return
       }
       const left = getDiffCommentPopoverLeft(modifiedEditor, sectionBodyRef.current)
-      setPopover((prev) => (prev ? { ...prev, top, left: left == null ? prev.left : left } : prev))
+      setPopover((prev) =>
+        prev ? { ...prev, top, left: left == null ? prev.left : left, lineHeight } : prev
+      )
     }
     const scrollSub = modifiedEditor.onDidScrollChange(update)
     const contentSub = modifiedEditor.onDidContentSizeChange(update)
@@ -338,9 +280,12 @@ export function DiffSectionItem({
     }
 
     modifiedEditorsRef.current.set(index, modified)
+    const original = editor.getOriginalEditor()
     const cleanupSaveShortcut = installEditorSaveShortcut(modified.getContainerDomNode(), () =>
       handleSectionSaveRef.current(index)
     )
+    const cleanupOriginalFindShortcut = installMonacoEditorFindShortcut(original)
+    const cleanupModifiedFindShortcut = installMonacoEditorFindShortcut(modified)
     const modelContentSub = modified.onDidChangeModelContent(() => {
       const current = modified.getValue()
       setSections((prev) => {
@@ -375,9 +320,11 @@ export function DiffSectionItem({
       })
     })
     modified.onDidDispose(() => {
-      // Why: editable diff sections own both the save shortcut and model-change
-      // subscription for this Monaco editor instance.
+      // Why: editable diff sections own both panes' shortcut bridges and the
+      // model subscription for the lifetime of this Monaco diff instance.
       cleanupSaveShortcut()
+      cleanupOriginalFindShortcut()
+      cleanupModifiedFindShortcut()
       modelContentSub.dispose()
     })
   }
@@ -400,6 +347,13 @@ export function DiffSectionItem({
           openSection(index)
         }}
         openSectionTitle={openSectionTitle}
+        onOpenPreview={
+          onOpenPreview
+            ? () => {
+                onOpenPreview(section, index)
+              }
+            : undefined
+        }
         trailingContent={renderHeaderTrailingContent?.(section, index)}
       />
 
@@ -420,13 +374,14 @@ export function DiffSectionItem({
           modelPathBase={modelPathBase}
           isEditable={isEditable}
           diffEditorFontSize={diffEditorFontSize}
-          terminalFontFamily={settings?.terminalFontFamily}
+          diffWordWrap={settings?.diffWordWrap}
+          diffShowWhitespace={settings?.diffShowWhitespace}
+          editorFontFamily={resolveEditorFontFamily(settings)}
           onCancelComment={() => setPopover(null)}
           onSubmitComment={handleSubmitComment}
           onRetrySection={retrySection}
-          onSaveLimitedDiff={() => {
-            void handleSectionSaveRef.current(index)
-          }}
+          onLoadDeferredSection={loadDeferredSection ?? loadSection}
+          onSaveLimitedDiff={() => void handleSectionSaveRef.current(index)}
           onMount={handleMount}
         />
       )}

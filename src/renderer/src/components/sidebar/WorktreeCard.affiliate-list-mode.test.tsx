@@ -3,13 +3,19 @@
 import { act, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { GlobalSettings, Repo, Worktree, WorktreeCardProperty } from '../../../../shared/types'
+import type { GlobalSettings } from '../../../../shared/global-settings-types'
+import type { Repo } from '../../../../shared/repo-types'
+import type { WorktreeCardProperty } from '../../../../shared/ui-chrome-types'
+import type { Worktree } from '../../../../shared/worktree/types'
 
 const openModal = vi.fn()
 const setRenamingWorktreeId = vi.fn()
 const updateWorktreeMeta = vi.fn()
 const testDoubles = vi.hoisted(() => ({
   activateWorktreeFromSidebar: vi.fn()
+}))
+const sleepMocks = vi.hoisted(() => ({
+  sleeping: false
 }))
 let worktreeCardProperties: WorktreeCardProperty[] = ['status', 'comment']
 let settings: Partial<GlobalSettings> | null = null
@@ -30,6 +36,7 @@ vi.mock('@/store', () => ({
       linearIssueCache: {},
       openModal,
       openTaskPage: vi.fn(),
+      projectGroups: [],
       ptyIdsByTabId: {},
       remoteBranchConflictByWorktreeId: {},
       renamingWorktreeId: null,
@@ -70,6 +77,10 @@ vi.mock('./use-worktree-activity-status', () => ({
   useWorktreeActivityStatus: () => 'idle'
 }))
 
+vi.mock('./use-worktree-sleep-state', () => ({
+  useIsSleepingWorktree: () => sleepMocks.sleeping
+}))
+
 vi.mock('./CacheTimer', () => ({
   default: () => null,
   usePromptCacheCountdownStartedAt: () => null
@@ -77,10 +88,6 @@ vi.mock('./CacheTimer', () => ({
 
 vi.mock('./WorktreeCardAgents', () => ({
   default: () => <div data-testid="inline-agents" />
-}))
-
-vi.mock('./SshDisconnectedDialog', () => ({
-  SshDisconnectedDialog: () => null
 }))
 
 vi.mock('./WorktreeContextMenu', () => ({
@@ -154,6 +161,7 @@ describe('WorktreeCard affiliate list mode', () => {
     vi.clearAllMocks()
     worktreeCardProperties = ['status', 'comment']
     settings = null
+    sleepMocks.sleeping = false
   })
 
   afterEach(() => {
@@ -178,9 +186,12 @@ describe('WorktreeCard affiliate list mode', () => {
     })
 
     const surface = container.querySelector<HTMLElement>('[data-worktree-card-surface="true"]')
+    const parentContent = container.querySelector<HTMLElement>(
+      '[data-worktree-card-parent-content=""]'
+    )
     expect(surface).not.toBeNull()
-    expect(surface?.className).toContain('gap-0.5')
-    expect(surface?.className).toContain('pl-0')
+    expect(parentContent?.className).toContain('gap-0.5')
+    expect(parentContent?.className).toContain('pl-0')
     const statusSlot = container.querySelector<HTMLElement>('[data-worktree-card-status-slot]')
     expect(statusSlot?.className).toContain('px-1')
     expect(container.querySelector('[data-testid="context-menu-wrapper"]')).toBeNull()
@@ -202,7 +213,8 @@ describe('WorktreeCard affiliate list mode', () => {
     })
 
     expect(testDoubles.activateWorktreeFromSidebar).toHaveBeenCalledWith(
-      'repo-1::/repo/worktrees/affiliate'
+      'repo-1::/repo/worktrees/affiliate',
+      'local'
     )
   })
 
@@ -223,5 +235,92 @@ describe('WorktreeCard affiliate list mode', () => {
     })
 
     expect(container.querySelector('[data-testid="inline-agents"]')).not.toBeNull()
+  })
+
+  it('dims the full card surface for sleeping workspaces in new card style', () => {
+    sleepMocks.sleeping = true
+    settings = { experimentalNewWorktreeCardStyle: true }
+
+    act(() => {
+      root.render(
+        <WorktreeCard
+          worktree={makeWorktree()}
+          repo={makeRepo()}
+          isActive={false}
+          nativeDragEnabled
+          flushSurface
+          affiliateListMode
+        />
+      )
+    })
+
+    expect(container.querySelector('[data-worktree-sleeping-dim=""]')).not.toBeNull()
+    const dim = container.querySelector('[data-worktree-sleeping-dim=""]')
+    expect(dim).not.toBeNull()
+    // Why pinned: the dim is a theme-token mix in main.css, not an opacity or filter
+    // over the painted backdrop — those faded out on lighter surfaces and custom tints.
+    expect(dim?.getAttribute('class') ?? '').not.toContain('opacity-')
+    expect(dim?.getAttribute('class') ?? '').not.toContain('backdrop-')
+  })
+
+  it('keeps awake cards at full opacity in new card style', () => {
+    settings = { experimentalNewWorktreeCardStyle: true }
+
+    act(() => {
+      root.render(
+        <WorktreeCard
+          worktree={makeWorktree()}
+          repo={makeRepo()}
+          isActive={false}
+          nativeDragEnabled
+          flushSurface
+          affiliateListMode
+        />
+      )
+    })
+
+    expect(container.querySelector('[data-worktree-sleeping-dim=""]')).toBeNull()
+  })
+
+  it('keeps legacy sleeping cards undimmed', () => {
+    sleepMocks.sleeping = true
+
+    act(() => {
+      root.render(
+        <WorktreeCard
+          worktree={makeWorktree()}
+          repo={makeRepo()}
+          isActive={false}
+          nativeDragEnabled
+          flushSurface
+          affiliateListMode
+        />
+      )
+    })
+
+    expect(container.querySelector('[data-worktree-sleeping-dim=""]')).toBeNull()
+  })
+
+  it('keeps the unread badge rendered on a dimmed sleeping card', () => {
+    sleepMocks.sleeping = true
+    settings = { experimentalNewWorktreeCardStyle: true }
+
+    act(() => {
+      root.render(
+        <WorktreeCard
+          worktree={makeWorktree({ isUnread: true })}
+          repo={makeRepo()}
+          isActive={false}
+          nativeDragEnabled
+          flushSurface
+          affiliateListMode
+        />
+      )
+    })
+
+    // Why both: the dim marks the row as sleeping while the unread badge still
+    // renders, so an unread sleeping row stays noticeable.
+    expect(container.querySelector('[data-worktree-sleeping-dim=""]')).not.toBeNull()
+    expect(container.querySelector('[data-worktree-unread-alert=""]')).not.toBeNull()
   })
 })

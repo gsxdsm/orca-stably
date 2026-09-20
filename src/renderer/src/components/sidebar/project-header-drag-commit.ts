@@ -1,11 +1,12 @@
 import {
   applyAllRepoInsertAt,
+  getLogicalRepoOrderRankById,
   getProjectGroupOrderForSidebarDrop,
   mapSidebarProjectHeaderDropIndexToSiblingInsertIndex,
   mapSidebarRepoDropIndexToAllRepoInsertAt
 } from './project-header-drop'
 import type { ProjectHeaderDragSession } from './project-header-drag-contract'
-import type { Repo } from '../../../../shared/types'
+import type { Repo } from '../../../../shared/repo-types'
 
 export function commitProjectHeaderDragDrop(args: {
   session: ProjectHeaderDragSession
@@ -23,7 +24,13 @@ export function commitProjectHeaderDragDrop(args: {
 
   const sidebarRepoHeaderIds = args.session.sidebarRepoHeaderIds
   const sourceIndex = sidebarRepoHeaderIds.indexOf(args.session.repoId)
-  if (args.sidebarDropIndex === sourceIndex) {
+  // Why: both slots bordering the dragged header are visual no-ops. In
+  // particular, do not compact paired-host occurrences on an unchanged drop.
+  if (
+    sourceIndex === -1 ||
+    args.sidebarDropIndex === sourceIndex ||
+    args.sidebarDropIndex === sourceIndex + 1
+  ) {
     return
   }
 
@@ -37,12 +44,16 @@ export function commitProjectHeaderDragDrop(args: {
       sourceIndex,
       siblingCount: siblings.length
     })
-    if (siblingDropIndex === sourceIndex) {
+    // Why: sourceIndex is the position in the original array (including the
+    // dragged item), but siblingDropIndex is the position in the filtered
+    // array. The equivalent position in the filtered array is the sourceIndex
+    // capped at siblings.length (since removing an item can only shift indices
+    // down by 1 when the removed item was before the insertion point).
+    const sourceIndexInSiblings = Math.min(sourceIndex, siblings.length)
+    if (siblingDropIndex === sourceIndexInSiblings) {
       return
     }
-    const repoOrderRankById = new Map(
-      args.orderedRepoIds.map((repoId, index) => [repoId, index] as const)
-    )
+    const repoOrderRankById = getLogicalRepoOrderRankById(args.orderedRepoIds)
     const order = getProjectGroupOrderForSidebarDrop({
       siblings,
       dropIndex: siblingDropIndex,

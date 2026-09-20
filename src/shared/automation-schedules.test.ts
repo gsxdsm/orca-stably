@@ -1,16 +1,23 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  classifyAutomationCronSchedule,
+  describeAutomationSchedule,
+  formatAutomationSchedule
+} from './automation-schedules'
 import {
   buildAutomationCronSchedule,
   buildAutomationRrule,
-  classifyAutomationCronSchedule,
-  formatAutomationSchedule,
+  latestAutomationOccurrenceAtOrBefore,
+  nextAutomationOccurrenceAfter
+} from './automation-schedule-occurrences'
+import {
+  AUTOMATION_CRON_EXPRESSION_MAX_BYTES,
+  getAutomationCronExpressionFields,
   isValidAutomationCronSchedule,
   isValidAutomationSchedule,
-  latestAutomationOccurrenceAtOrBefore,
-  nextAutomationOccurrenceAfter,
   parseAutomationRrule,
   tryParseAutomationRrule
-} from './automation-schedules'
+} from './automation-schedule-parsing'
 
 function formatTimeForTest(hour: number, minute: number): string {
   const date = new Date()
@@ -20,6 +27,10 @@ function formatTimeForTest(hour: number, minute: number): string {
     minute: '2-digit'
   }).format(date)
 }
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('automation schedules', () => {
   it('uses the latest overdue hourly occurrence for missed-run grace decisions', () => {
@@ -131,6 +142,54 @@ describe('automation schedules', () => {
     ).toBe('15 9 * * 0')
   })
 
+  // Why: shared labels feed the CLI, so they must stay English on any OS locale (#14404).
+  it('formats schedule labels without reading the OS weekday names', () => {
+    const nativeDateTimeFormat = Intl.DateTimeFormat
+    const dateTimeFormat = vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function (
+      ...args: ConstructorParameters<typeof Intl.DateTimeFormat>
+    ) {
+      return new nativeDateTimeFormat(...args)
+    } as unknown as typeof Intl.DateTimeFormat)
+    const weeklyRrule = buildAutomationRrule({ preset: 'weekly', hour: 9, minute: 0, dayOfWeek: 5 })
+
+    expect(formatAutomationSchedule('30 12 * * 7')).toBe(`Sundays at ${formatTimeForTest(12, 30)}`)
+    expect(formatAutomationSchedule(weeklyRrule)).toBe(`Fridays at ${formatTimeForTest(9, 0)}`)
+    expect(classifyAutomationCronSchedule('30 12 * * 7').label).toBe(
+      `Sundays at ${formatTimeForTest(12, 30)}`
+    )
+    expect(
+      dateTimeFormat.mock.calls.filter(([, options]) => options?.weekday !== undefined)
+    ).toHaveLength(0)
+  })
+
+  it('exposes a locale-free descriptor for callers that render their own copy', () => {
+    expect(describeAutomationSchedule('30 12 * * 7')).toEqual({
+      kind: 'weekly',
+      hour: 12,
+      minute: 30,
+      dayOfWeek: 0
+    })
+    expect(describeAutomationSchedule('5 * * * *')).toEqual({ kind: 'hourly', minute: 5 })
+    expect(describeAutomationSchedule('15 10 * * MON-FRI')).toEqual({
+      kind: 'weekdays',
+      hour: 10,
+      minute: 15
+    })
+    expect(describeAutomationSchedule('FREQ=DAILY;BYHOUR=9;BYMINUTE=0')).toEqual({
+      kind: 'daily',
+      hour: 9,
+      minute: 0
+    })
+    expect(describeAutomationSchedule('FREQ=WEEKLY;BYDAY=FR;BYHOUR=9;BYMINUTE=0')).toEqual({
+      kind: 'weekly',
+      hour: 9,
+      minute: 0,
+      dayOfWeek: 5
+    })
+    expect(describeAutomationSchedule('*/30 9-17 * * MON-FRI')).toEqual({ kind: 'custom' })
+    expect(describeAutomationSchedule('FREQ=YEARLY')).toEqual({ kind: 'invalid' })
+  })
+
   it('formats simple cron schedules with friendly labels', () => {
     expect(formatAutomationSchedule('5 * * * *')).toBe('Hourly at :05')
     expect(formatAutomationSchedule('15 10 * * *')).toBe(`Daily at ${formatTimeForTest(10, 15)}`)
@@ -138,6 +197,28 @@ describe('automation schedules', () => {
       `Weekdays at ${formatTimeForTest(10, 15)}`
     )
     expect(formatAutomationSchedule('30 12 * * 7')).toBe(`Sundays at ${formatTimeForTest(12, 30)}`)
+  })
+
+  it('tokenizes pasted cron whitespace without regex field splitting', () => {
+    const split = vi.spyOn(String.prototype, 'split')
+    const schedule = ['15', String.fromCharCode(160), '10\n*\t*\rMON-FRI'].join('')
+
+    expect(getAutomationCronExpressionFields(schedule)).toEqual(['15', '10', '*', '*', 'MON-FRI'])
+    expect(formatAutomationSchedule(schedule)).toBe(`Weekdays at ${formatTimeForTest(10, 15)}`)
+    expect(
+      split.mock.calls.filter(([pattern]) => pattern instanceof RegExp && pattern.source === '\\s+')
+    ).toHaveLength(0)
+  })
+
+  it('rejects oversized pasted cron expressions before field tokenization', () => {
+    const split = vi.spyOn(String.prototype, 'split')
+    const oversizedSchedule = 'secret-cron-field '.repeat(AUTOMATION_CRON_EXPRESSION_MAX_BYTES)
+
+    expect(getAutomationCronExpressionFields(oversizedSchedule)).toEqual([])
+    expect(isValidAutomationCronSchedule(oversizedSchedule)).toBe(false)
+    expect(
+      split.mock.calls.filter(([pattern]) => pattern instanceof RegExp && pattern.source === '\\s+')
+    ).toHaveLength(0)
   })
 
   it('classifies simple cron schedules for provider edit flows', () => {
@@ -161,7 +242,9 @@ describe('automation schedules', () => {
     expect(formatAutomationSchedule('0 9,17 * * MON-FRI')).toBe('Custom schedule')
   })
 
-  it('treats all-value cron day fields as unrestricted for DOM/DOW matching', () => {
+  // Restriction is lexical (#15896), but a star step is still a star: `*/1` does not
+  // restrict, so the day rule stays AND and this fires on Mondays only.
+  it('treats a stepped cron day-of-month field as unrestricted for DOM/DOW matching', () => {
     const next = nextAutomationOccurrenceAfter(
       '0 9 */1 * MON',
       new Date('2026-05-01T00:00:00').getTime(),

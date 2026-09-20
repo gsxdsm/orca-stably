@@ -1,13 +1,10 @@
-import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { getSetupConfig } from '@/lib/new-workspace'
 import { checkRuntimeHooks } from '@/runtime/runtime-hooks-client'
-import type {
-  GitHubPrStartPoint,
-  GlobalSettings,
-  OrcaHooks,
-  RepoHookSettings,
-  SetupDecision
-} from '../../../shared/types'
+import { resolveGitHubPrStartPointForRepo } from '@/lib/github-pr-start-point'
+import type { GlobalSettings } from '../../../shared/global-settings-types'
+import type { OrcaHooks, RepoHookSettings } from '../../../shared/orca-yaml-hook-types'
+import type { SetupDecision } from '../../../shared/worktree/create-types'
+import type { GitHubPrStartPoint } from '../../../shared/worktree/types'
 
 // Why: preflight routes by the repo's owner host, which `getSettingsForRepoRuntimeOwner`
 // hands back as a narrow runtime-scope pick rather than the full GlobalSettings.
@@ -16,22 +13,22 @@ type PreflightSettings = Pick<GlobalSettings, 'activeRuntimeEnvironmentId'> | nu
 export async function resolveDirectPrStartPoint(
   repoId: string,
   prNumber: number,
-  settings: PreflightSettings
+  settings: PreflightSettings,
+  hints: {
+    branchName?: string
+    headRefName?: string
+    baseRefName?: string
+    isCrossRepository?: boolean
+  } = {}
 ): Promise<GitHubPrStartPoint> {
-  const target = getActiveRuntimeTarget(settings)
-  const result =
-    target.kind === 'local'
-      ? await window.api.worktrees.resolvePrBase({ repoId, prNumber })
-      : await callRuntimeRpc<GitHubPrStartPoint | { error: string }>(
-          target,
-          'worktree.resolvePrBase',
-          { repo: repoId, prNumber },
-          { timeoutMs: 30_000 }
-        )
-  if ('error' in result) {
-    throw new Error(result.error)
-  }
-  return result
+  return resolveGitHubPrStartPointForRepo({
+    repoId,
+    prNumber,
+    settings,
+    headRefName: hints.headRefName ?? hints.branchName,
+    baseRefName: hints.baseRefName,
+    isCrossRepository: hints.isCrossRepository
+  })
 }
 
 export async function resolveDirectSetupDecision(

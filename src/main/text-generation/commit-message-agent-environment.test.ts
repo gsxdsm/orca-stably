@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { prepareLocalCommitMessageAgentEnv } from './commit-message-agent-environment'
+import { ManagedCodexHomeTemporarilyUnavailableError } from '../codex-accounts/host-codex-managed-home-ownership'
 
 const originalEnv = { ...process.env }
 const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform')
@@ -124,12 +125,91 @@ describe('prepareLocalCommitMessageAgentEnv', () => {
     })
   })
 
+  // Why (#STA-4422): launch prep throws when the managed home is unreadable.
+  // Falling through to an env would run the headless commit agent on the user's
+  // real ~/.codex while the UI shows the managed account selected.
+  it('fails commit generation instead of building a system-account env when the managed home is unreadable', async () => {
+    process.env.CODEX_HOME = '/home/me/.config/codex'
+    delete process.env.ORCA_CODEX_HOME
+
+    const result = await prepareLocalCommitMessageAgentEnv('codex', {
+      prepareForCodexLaunch: () => {
+        throw new ManagedCodexHomeTemporarilyUnavailableError()
+      }
+    })
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'Failed to prepare the selected agent account for commit message generation.'
+    })
+    expect(result).not.toHaveProperty('env')
+  })
+
+  it('strips a nested-Orca CODEX_HOME override when the launch resolves to the real home', async () => {
+    process.env.CODEX_HOME = '/managed/runtime/home'
+    process.env.ORCA_CODEX_HOME = '/managed/runtime/home'
+
+    const result = await prepareLocalCommitMessageAgentEnv('codex', {
+      prepareForCodexLaunch: () => null
+    })
+
+    expect(result.ok).toBe(true)
+    const env = (result as { ok: true; env?: NodeJS.ProcessEnv }).env
+    expect(env).toBeDefined()
+    expect(env?.CODEX_HOME).toBeUndefined()
+    expect(env?.ORCA_CODEX_HOME).toBeUndefined()
+  })
+
+  it('preserves a user-owned CODEX_HOME when the launch resolves to the real home', async () => {
+    process.env.CODEX_HOME = '/home/me/.config/codex'
+    delete process.env.ORCA_CODEX_HOME
+
+    const result = await prepareLocalCommitMessageAgentEnv('codex', {
+      prepareForCodexLaunch: () => null
+    })
+
+    expect(result.ok).toBe(true)
+    const env = (result as { ok: true; env?: NodeJS.ProcessEnv }).env
+    expect(env?.CODEX_HOME).toBe('/home/me/.config/codex')
+  })
+
   it('does not pass WSL managed Codex homes to host-local commit generation', async () => {
     process.env.CODEX_HOME = 'C:\\Users\\tester\\.codex'
 
     const result = await prepareLocalCommitMessageAgentEnv('codex', {
       prepareForCodexLaunch: () =>
         '\\\\wsl.localhost\\Ubuntu\\home\\tester\\.local\\share\\orca\\codex-accounts\\a\\home'
+    })
+
+    expect(result).toEqual({ ok: true })
+  })
+
+  it('passes WSL managed Codex homes as Linux paths for WSL-local commit generation', async () => {
+    const result = await prepareLocalCommitMessageAgentEnv(
+      'codex',
+      {
+        prepareForCodexLaunch: (target) => {
+          expect(target).toEqual({ runtime: 'wsl', wslDistro: 'Ubuntu' })
+          return '\\\\wsl.localhost\\Ubuntu\\home\\tester\\.codex'
+        }
+      },
+      { runtime: 'wsl', wslDistro: 'Ubuntu' }
+    )
+
+    expect(result).toEqual({
+      ok: true,
+      env: expect.objectContaining({
+        CODEX_HOME: '/home/tester/.codex'
+      })
+    })
+  })
+
+  it('does not hydrate host shell config roots for WSL-local commit generation', async () => {
+    process.env.OPENCODE_CONFIG_DIR = 'C:\\Users\\tester\\opencode'
+
+    const result = await prepareLocalCommitMessageAgentEnv('opencode', undefined, {
+      runtime: 'wsl',
+      wslDistro: 'Ubuntu'
     })
 
     expect(result).toEqual({ ok: true })

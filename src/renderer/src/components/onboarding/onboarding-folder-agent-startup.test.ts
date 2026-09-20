@@ -16,6 +16,13 @@ describe('buildOnboardingFolderAgentStartup', () => {
     expect(startup).toEqual({
       command: "codex '--dangerously-bypass-approvals-and-sandbox'",
       env: {},
+      launchAgent: 'codex',
+      launchConfig: {
+        agentCommand: "codex '--dangerously-bypass-approvals-and-sandbox'",
+        agentArgs: '--dangerously-bypass-approvals-and-sandbox',
+        agentEnv: {}
+      },
+      sessionOptions: undefined,
       telemetry: {
         agent_kind: 'codex',
         launch_source: 'onboarding',
@@ -31,6 +38,45 @@ describe('buildOnboardingFolderAgentStartup', () => {
     })
 
     expect(startup).toBeUndefined()
+  })
+
+  it('omits native-chat preferences from terminal-default folder launches', () => {
+    const startup = buildOnboardingFolderAgentStartup({
+      ...getDefaultSettings('/tmp/orca-workspaces'),
+      defaultTuiAgent: 'codex',
+      experimentalNativeChat: true,
+      openAgentTabsInChatByDefault: false,
+      nativeChatSessionOptions: {
+        codex: {
+          model: 'gpt-5.2-codex',
+          valuesByModel: { 'gpt-5.2-codex': { effort: 'medium' } }
+        }
+      }
+    })
+
+    expect(startup?.command).not.toContain("'-m'")
+    expect(startup?.sessionOptions).toBeUndefined()
+  })
+
+  it('applies native-chat preferences to chat-default folder launches', () => {
+    const startup = buildOnboardingFolderAgentStartup({
+      ...getDefaultSettings('/tmp/orca-workspaces'),
+      defaultTuiAgent: 'codex',
+      experimentalNativeChat: true,
+      openAgentTabsInChatByDefault: true,
+      nativeChatSessionOptions: {
+        codex: {
+          model: 'gpt-5.2-codex',
+          valuesByModel: { 'gpt-5.2-codex': { effort: 'medium' } }
+        }
+      }
+    })
+
+    expect(startup?.command).toContain("'-m' 'gpt-5.2-codex'")
+    expect(startup?.sessionOptions).toEqual({
+      model: 'gpt-5.2-codex',
+      effort: 'medium'
+    })
   })
 
   it('does not infer an agent from auto mode', () => {
@@ -93,6 +139,13 @@ describe('buildOnboardingFolderAgentStartup', () => {
     ).toEqual({
       command: "echo onboarding-folder-agent '--dangerously-bypass-approvals-and-sandbox'",
       env: {},
+      launchAgent: 'codex',
+      launchConfig: {
+        agentCommand: "echo onboarding-folder-agent '--dangerously-bypass-approvals-and-sandbox'",
+        agentArgs: '--dangerously-bypass-approvals-and-sandbox',
+        agentEnv: {}
+      },
+      sessionOptions: undefined,
       telemetry: {
         agent_kind: 'codex',
         launch_source: 'onboarding',

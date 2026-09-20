@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const shortcutLabelMock = vi.hoisted(() => vi.fn(() => '⌘⌥W'))
+const shortcutLabelMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenu: function DropdownMenu(props: { children?: unknown }) {
@@ -18,17 +18,56 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
   DropdownMenuShortcut: function DropdownMenuShortcut(props: { children?: unknown }) {
     return { type: 'DropdownMenuShortcut', props }
   },
+  DropdownMenuLabel: function DropdownMenuLabel(props: { children?: unknown }) {
+    return { type: 'DropdownMenuLabel', props }
+  },
+  DropdownMenuSub: function DropdownMenuSub(props: { children?: unknown }) {
+    return { type: 'DropdownMenuSub', props }
+  },
+  DropdownMenuSubContent: function DropdownMenuSubContent(props: { children?: unknown }) {
+    return { type: 'DropdownMenuSubContent', props }
+  },
+  DropdownMenuSubTrigger: function DropdownMenuSubTrigger(props: { children?: unknown }) {
+    return { type: 'DropdownMenuSubTrigger', props }
+  },
   DropdownMenuTrigger: function DropdownMenuTrigger(props: { children?: unknown }) {
     return { type: 'DropdownMenuTrigger', props }
   }
 }))
 
 vi.mock('lucide-react', () => ({
+  ArrowDown: function ArrowDown(props: Record<string, unknown>) {
+    return { type: 'ArrowDown', props }
+  },
+  ArrowLeft: function ArrowLeft(props: Record<string, unknown>) {
+    return { type: 'ArrowLeft', props }
+  },
+  ArrowRight: function ArrowRight(props: Record<string, unknown>) {
+    return { type: 'ArrowRight', props }
+  },
+  ArrowUp: function ArrowUp(props: Record<string, unknown>) {
+    return { type: 'ArrowUp', props }
+  },
   Copy: function Copy(props: Record<string, unknown>) {
     return { type: 'Copy', props }
   },
+  CopyX: function CopyX(props: Record<string, unknown>) {
+    return { type: 'CopyX', props }
+  },
   ExternalLink: function ExternalLink(props: Record<string, unknown>) {
     return { type: 'ExternalLink', props }
+  },
+  Eye: function Eye(props: Record<string, unknown>) {
+    return { type: 'Eye', props }
+  },
+  ListX: function ListX(props: Record<string, unknown>) {
+    return { type: 'ListX', props }
+  },
+  PanelLeftClose: function PanelLeftClose(props: Record<string, unknown>) {
+    return { type: 'PanelLeftClose', props }
+  },
+  PanelRightClose: function PanelRightClose(props: Record<string, unknown>) {
+    return { type: 'PanelRightClose', props }
   },
   Columns2: function Columns2(props: Record<string, unknown>) {
     return { type: 'Columns2', props }
@@ -44,6 +83,9 @@ vi.mock('lucide-react', () => ({
   },
   PinOff: function PinOff(props: Record<string, unknown>) {
     return { type: 'PinOff', props }
+  },
+  X: function X(props: Record<string, unknown>) {
+    return { type: 'X', props }
   }
 }))
 
@@ -51,16 +93,40 @@ vi.mock('@/i18n/i18n', () => ({
   translate: (_key: string, fallback: string) => fallback
 }))
 
-// Why: the menu reads the live binding for tab.closeAll; stub it to a fixed
-// label so the test asserts the shortcut is surfaced, not its platform glyphs.
+// Why: the menu reads live shortcut bindings; stub them to fixed labels so
+// the test asserts each assigned action surfaces its own shortcut chip.
 vi.mock('@/hooks/useShortcutLabel', () => ({
-  useShortcutLabel: shortcutLabelMock
+  useOptionalShortcutLabel: shortcutLabelMock
 }))
 
 const useAppStoreMock = Object.assign(
-  (selector: (state: { settings: Record<string, unknown> }) => unknown) =>
-    selector({ settings: {} }),
-  { getState: () => ({ settings: {} }) }
+  (
+    selector: (state: {
+      settings: Record<string, unknown>
+      unifiedTabsByWorktree: Record<string, unknown[]>
+      groupsByWorktree: Record<string, unknown[]>
+    }) => unknown
+  ) =>
+    selector({
+      settings: {},
+      unifiedTabsByWorktree: {
+        'wt-1': [{ id: 'tab-1', groupId: 'group-1' }]
+      },
+      groupsByWorktree: {
+        'wt-1': [{ id: 'group-1', tabOrder: ['tab-1', 'tab-2'] }]
+      }
+    }),
+  {
+    getState: () => ({
+      settings: {},
+      unifiedTabsByWorktree: {
+        'wt-1': [{ id: 'tab-1', groupId: 'group-1' }]
+      },
+      groupsByWorktree: {
+        'wt-1': [{ id: 'group-1', tabOrder: ['tab-1', 'tab-2'] }]
+      }
+    })
+  }
 )
 
 vi.mock('@/store', () => ({
@@ -136,7 +202,9 @@ function extractText(node: unknown): string {
   return el.props && 'children' in el.props ? extractText(el.props.children) : ''
 }
 
-async function renderMenu(): Promise<unknown> {
+async function renderMenu(
+  overrides: { onActivate?: () => void; onOpenRenameInput?: () => void } = {}
+): Promise<unknown> {
   const module = await import('./EditorFileTabContextMenu')
   return module.EditorFileTabContextMenu({
     open: true,
@@ -151,9 +219,13 @@ async function renderMenu(): Promise<unknown> {
       isDirty: false,
       mode: 'edit'
     },
+    unifiedTabId: 'tab-1',
+    groupId: 'group-1',
     isPinned: false,
     isRenaming: false,
     hasTabsToRight: false,
+    hasTabsToLeft: false,
+    tabCount: 1,
     canRename: true,
     canShowMarkdownPreview: false,
     resolvedLanguage: 'typescript',
@@ -164,17 +236,32 @@ async function renderMenu(): Promise<unknown> {
     onOpenRenameInput: vi.fn(),
     onTogglePin: vi.fn(),
     onClose: vi.fn(),
+    onCloseOthers: vi.fn(),
     onCloseAll: vi.fn(),
     onCloseToRight: vi.fn(),
-    onSplitGroup: vi.fn(),
-    onOpenMarkdownPreview: vi.fn()
+    onCloseToLeft: vi.fn(),
+    onOpenMarkdownPreview: vi.fn(),
+    ...overrides
   })
+}
+
+function assignedShortcutLabel(actionId: string): string | null {
+  switch (actionId) {
+    case 'tab.rename':
+      return '⌘R'
+    case 'tab.close':
+      return '⌘W'
+    case 'tab.closeAll':
+      return '⌘⌥W'
+    default:
+      return null
+  }
 }
 
 describe('EditorFileTabContextMenu close-all shortcut', () => {
   beforeEach(() => {
     vi.resetModules()
-    shortcutLabelMock.mockReturnValue('⌘⌥W')
+    shortcutLabelMock.mockImplementation(assignedShortcutLabel)
     vi.stubGlobal('navigator', { userAgent: 'Mac' })
   })
 
@@ -182,26 +269,69 @@ describe('EditorFileTabContextMenu close-all shortcut', () => {
     vi.unstubAllGlobals()
   })
 
-  it('renders the tab.closeAll shortcut next to Close All Editor Tabs', async () => {
-    const tree = expandNode(await renderMenu())
+  it('opens rename only after menu close releases focus and consumes the request once', async () => {
+    const onActivate = vi.fn()
+    const onOpenRenameInput = vi.fn()
+    const tree = expandNode(await renderMenu({ onActivate, onOpenRenameInput }))
+    const rename = findElementsByType(tree, 'DropdownMenuItem').find((item) =>
+      extractText(item.props.children).includes('Rename')
+    )!
+    const content = findElementsByType(tree, 'DropdownMenuContent')[0]!
+    ;(rename.props.onSelect as () => void)()
+    expect(onActivate).not.toHaveBeenCalled()
+    expect(onOpenRenameInput).not.toHaveBeenCalled()
+    const preventDefault = vi.fn()
+    const close = content.props.onCloseAutoFocus as (event: { preventDefault: () => void }) => void
+    close({ preventDefault })
+    expect(preventDefault).toHaveBeenCalledTimes(1)
+    expect(onActivate).toHaveBeenCalledTimes(1)
+    expect(onOpenRenameInput).toHaveBeenCalledTimes(1)
+    close({ preventDefault })
+    expect(onOpenRenameInput).toHaveBeenCalledTimes(1)
+  })
 
-    const closeAllItem = findElementsByType(tree, 'DropdownMenuItem').find((item) =>
+  it('renders assigned shortcuts next to Rename, Close, and Close All Editor Tabs', async () => {
+    const tree = expandNode(await renderMenu())
+    const menuItems = findElementsByType(tree, 'DropdownMenuItem')
+
+    const renameItem = menuItems.find((item) => extractText(item.props.children).includes('Rename'))
+    const closeItem = menuItems.find((item) => extractText(item.props.children) === 'Close⌘W')
+    const closeAllItem = menuItems.find((item) =>
       extractText(item.props.children).includes('Close All Editor Tabs')
     )
 
+    expect(renameItem).toBeTruthy()
+    expect(closeItem).toBeTruthy()
     expect(closeAllItem).toBeTruthy()
 
-    const shortcut = findElementsByType(closeAllItem, 'DropdownMenuShortcut')
-    expect(shortcut).toHaveLength(1)
-    expect(extractText(shortcut[0].props.children)).toBe('⌘⌥W')
+    const shortcutExpectations: [ReactElementLike | undefined, string][] = [
+      [renameItem, '⌘R'],
+      [closeItem, '⌘W'],
+      [closeAllItem, '⌘⌥W']
+    ]
 
-    // Why: the shortcut hint is exclusive to Close All; sibling items (Close,
-    // Close Tabs To The Right) must not sprout their own chips.
-    expect(findElementsByType(tree, 'DropdownMenuShortcut')).toHaveLength(1)
+    for (const [item, expectedLabel] of shortcutExpectations) {
+      const shortcut = findElementsByType(item, 'DropdownMenuShortcut')
+      expect(shortcut).toHaveLength(1)
+      expect(extractText(shortcut[0].props.children)).toBe(expectedLabel)
+    }
+
+    expect(findElementsByType(tree, 'DropdownMenuShortcut')).toHaveLength(3)
+  })
+
+  it('renders Close Others and both directional close items', async () => {
+    const tree = expandNode(await renderMenu())
+    const labels = findElementsByType(tree, 'DropdownMenuItem').map((item) =>
+      extractText(item.props.children)
+    )
+
+    expect(labels).toContain('Close Others')
+    expect(labels.some((label) => label.includes('Close Tabs To The Right'))).toBe(true)
+    expect(labels.some((label) => label.includes('Close Tabs To The Left'))).toBe(true)
   })
 
   it('hides the shortcut chip when close-all is unassigned', async () => {
-    shortcutLabelMock.mockReturnValue('Unassigned')
+    shortcutLabelMock.mockReturnValue(null)
 
     const tree = expandNode(await renderMenu())
 

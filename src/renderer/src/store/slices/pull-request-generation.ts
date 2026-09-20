@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand'
-import type { GlobalSettings } from '../../../../shared/types'
+import type { GlobalSettings } from '../../../../shared/global-settings-types'
 import type { AppState } from '../types'
 
 export type PullRequestFieldName = 'base' | 'title' | 'body' | 'draft'
@@ -33,6 +33,7 @@ export type PullRequestGenerationRecord = {
   context: PullRequestGenerationContext
   seed: PullRequestGenerationFields
   seedFieldRevisions: PullRequestFieldRevisions
+  requiresPushBeforeCreate: boolean
   status: PullRequestGenerationStatus
   result: PullRequestGenerationFields | null
   error: string | null
@@ -111,6 +112,26 @@ export function shouldHydratePullRequestGenerationResult({
   return record?.status === 'succeeded' && record.result !== null && !record.hydrated
 }
 
+export function getPullRequestGenerationSeedRestoreKey({
+  recordKey,
+  record
+}: {
+  recordKey: string | null | undefined
+  record: PullRequestGenerationRecord | null | undefined
+}): string | null {
+  if (!recordKey || !record) {
+    return null
+  }
+  const shouldRestoreRunningSeed = record.status === 'running'
+  const shouldRestoreTerminalSeed =
+    !record.hydrated &&
+    (record.status === 'succeeded' || record.status === 'failed' || record.status === 'canceled')
+  if (!shouldRestoreRunningSeed && !shouldRestoreTerminalSeed) {
+    return null
+  }
+  return `${recordKey}:${record.context.requestId}:${record.status}`
+}
+
 export function createRunningPullRequestGenerationRecord(
   context: PullRequestGenerationContext,
   seed: PullRequestGenerationFields,
@@ -120,6 +141,7 @@ export function createRunningPullRequestGenerationRecord(
     context,
     seed,
     seedFieldRevisions,
+    requiresPushBeforeCreate: false,
     status: 'running',
     result: null,
     error: null,
@@ -171,6 +193,58 @@ export function resolvePullRequestGenerationFailure({
   }
 }
 
+export function markPullRequestGenerationRequiresPushBeforeCreate({
+  record,
+  requestId
+}: {
+  record: PullRequestGenerationRecord | null | undefined
+  requestId: number
+}): PullRequestGenerationRecord | null {
+  if (!record || record.context.requestId !== requestId || record.status !== 'running') {
+    return null
+  }
+  return {
+    ...record,
+    requiresPushBeforeCreate: true
+  }
+}
+
+export function clearPullRequestGenerationRequiresPushBeforeCreate(
+  record: PullRequestGenerationRecord | null | undefined
+): PullRequestGenerationRecord | null {
+  if (!record) {
+    return null
+  }
+  if (!record.requiresPushBeforeCreate) {
+    return record
+  }
+  return {
+    ...record,
+    requiresPushBeforeCreate: false
+  }
+}
+
+export function markPullRequestGenerationTerminalSeedRestored({
+  record,
+  requestId
+}: {
+  record: PullRequestGenerationRecord | null | undefined
+  requestId: number
+}): PullRequestGenerationRecord | null {
+  if (
+    !record ||
+    record.context.requestId !== requestId ||
+    record.hydrated ||
+    (record.status !== 'failed' && record.status !== 'canceled')
+  ) {
+    return null
+  }
+  return {
+    ...record,
+    hydrated: true
+  }
+}
+
 export function resolvePullRequestGenerationCancel(
   record: PullRequestGenerationRecord | null | undefined
 ): PullRequestGenerationRecord | null {
@@ -214,7 +288,7 @@ export const createPullRequestGenerationSlice: StateCreator<
     set((state) => {
       const nextRecord = updater(state.pullRequestGenerationRecords[key] ?? null)
       if (!nextRecord) {
-        return {}
+        return state
       }
       return {
         pullRequestGenerationRecords: {
@@ -238,6 +312,6 @@ export const createPullRequestGenerationSlice: StateCreator<
           changed = true
         }
       }
-      return changed ? { pullRequestGenerationRecords: nextRecords } : {}
+      return changed ? { pullRequestGenerationRecords: nextRecords } : state
     })
 })

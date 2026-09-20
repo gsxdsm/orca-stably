@@ -1,10 +1,17 @@
-/* eslint-disable max-lines -- Why: runtime Linear routing cases stay together
-   so local preload fallback and SSH runtime transport parity are reviewed as one boundary. */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  linearListIssues,
+  linearSearchIssues,
+  linearSelectWorkspace,
+  linearStatus
+} from './runtime-linear-client'
+import {
   linearCreateIssue,
-  linearCreateProject,
   linearCreateSubIssue,
+  linearUpdateIssue
+} from './runtime-linear-issue-mutations'
+import {
+  linearCreateProject,
   linearGetCustomView,
   linearGetProject,
   linearListCustomViewIssues,
@@ -12,14 +19,10 @@ import {
   linearListCustomViews,
   linearListProjectIssues,
   linearListProjects,
-  linearListTeams,
-  linearListIssues,
-  linearSearchIssues,
-  linearSelectWorkspace,
-  linearStatus,
-  linearUpdateIssue
-} from './runtime-linear-client'
+  linearListTeams
+} from './runtime-linear-project-client'
 import {
+  createCompatibleRuntimeStatusResponse,
   createCompatibleRuntimeStatusResponseIfNeeded,
   type RuntimeEnvironmentCallRequest
 } from './runtime-compatibility-test-fixture'
@@ -152,6 +155,24 @@ describe('runtime linear client', () => {
     await expect(
       linearListIssues({ activeRuntimeEnvironmentId: null }, 'assigned', 20)
     ).resolves.toEqual({ items: [{ id: 'legacy-issue' }] })
+  })
+
+  it('rejects oversized local Linear search queries before IPC', async () => {
+    await expect(
+      linearSearchIssues(
+        { activeRuntimeEnvironmentId: null },
+        'secret-token-value'.repeat(1024),
+        10
+      )
+    ).resolves.toEqual([])
+
+    await expect(
+      linearListProjects({ activeRuntimeEnvironmentId: null }, 'x'.repeat(9 * 1024), 10)
+    ).resolves.toEqual({ items: [] })
+
+    expect(linearSearchIssuesLocal).not.toHaveBeenCalled()
+    expect(linearListProjectsLocal).not.toHaveBeenCalled()
+    expect(runtimeEnvironmentCall).not.toHaveBeenCalled()
   })
 
   it('does not throw when an older local preload lacks project listing', async () => {
@@ -323,6 +344,74 @@ describe('runtime linear client', () => {
       selector: 'env-1',
       method: 'linear.listIssues',
       params: { filter: 'assigned', limit: 20, workspaceId: undefined },
+      timeoutMs: 30_000
+    })
+  })
+
+  it('rejects filtered reads before an older runtime can return unfiltered issues', async () => {
+    runtimeEnvironmentCall.mockResolvedValueOnce({
+      id: 'rpc-list',
+      ok: true,
+      result: { items: [{ id: 'unfiltered-issue' }] },
+      _meta: { runtimeId: 'runtime-old' }
+    })
+    const oldServerStatus = createCompatibleRuntimeStatusResponse('runtime-old')
+    if (oldServerStatus.ok) {
+      oldServerStatus.result.capabilities = oldServerStatus.result.capabilities?.filter(
+        (capability) => capability !== 'linear.issue-attribute-filter.v1'
+      )
+    }
+    runtimeEnvironmentTransportCall.mockImplementation((args: RuntimeEnvironmentCallRequest) =>
+      args.method === 'status.get' ? oldServerStatus : runtimeEnvironmentCall(args)
+    )
+
+    await expect(
+      linearListIssues({ activeRuntimeEnvironmentId: 'env-1' }, 'all', 20, 'workspace-1', {
+        stateIds: ['state-1'],
+        priorities: [],
+        assignee: null,
+        labelIds: []
+      })
+    ).rejects.toMatchObject({
+      name: 'LinearIssueAttributeFilterUnsupportedError',
+      message: 'This remote runtime must be updated to filter Linear issues.'
+    })
+
+    expect(runtimeEnvironmentTransportCall).toHaveBeenCalledTimes(1)
+    expect(runtimeEnvironmentCall).not.toHaveBeenCalled()
+  })
+
+  it('sends attribute filters to a runtime that advertises support', async () => {
+    runtimeEnvironmentCall.mockResolvedValueOnce({
+      id: 'rpc-list',
+      ok: true,
+      result: { items: [] },
+      _meta: { runtimeId: 'runtime-1' }
+    })
+
+    await expect(
+      linearListIssues({ activeRuntimeEnvironmentId: 'env-1' }, 'all', 20, 'workspace-1', {
+        stateIds: [],
+        priorities: [2],
+        assignee: null,
+        labelIds: []
+      })
+    ).resolves.toEqual({ items: [] })
+
+    expect(runtimeEnvironmentCall).toHaveBeenCalledWith({
+      selector: 'env-1',
+      method: 'linear.listIssues',
+      params: {
+        filter: 'all',
+        limit: 20,
+        workspaceId: 'workspace-1',
+        attributeFilter: {
+          stateIds: [],
+          priorities: [2],
+          assignee: null,
+          labelIds: []
+        }
+      },
       timeoutMs: 30_000
     })
   })

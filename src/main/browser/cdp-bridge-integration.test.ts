@@ -1,8 +1,9 @@
-/* eslint-disable max-lines -- Why: integration test covering the full browser automation pipeline end-to-end. */
-import { mkdtempSync } from 'fs'
-import { tmpdir } from 'os'
-import { join } from 'path'
-import { createConnection } from 'net'
+import { mkdtempSync } from 'node:fs'
+import { RuntimeBrowserCommands } from '../runtime/orca-runtime-browser'
+import { setRuntimeBrowserCommandsFactory } from '../runtime/runtime-browser-commands-factory'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { createConnection } from 'node:net'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // ── Electron mocks ──
@@ -19,11 +20,13 @@ vi.mock('electron', () => ({
 }))
 
 vi.mock('../git/worktree', () => ({
-  listWorktrees: vi.fn().mockResolvedValue([])
+  listWorktrees: vi.fn().mockResolvedValue([]),
+  listWorktreesStrict: vi.fn().mockResolvedValue([])
 }))
 
 import { BrowserManager } from './browser-manager'
 import { CdpBridge } from './cdp-bridge'
+import { BROWSER_TEXT_INSERT_CHUNK_BYTES } from './browser-text-insertion'
 import { OrcaRuntimeService } from '../runtime/orca-runtime'
 import { OrcaRuntimeRpcServer } from '../runtime/runtime-rpc'
 import { readRuntimeMetadata } from '../runtime/runtime-metadata'
@@ -48,7 +51,7 @@ function axNode(
 ): AXNode {
   return {
     nodeId: id,
-    backendDOMNodeId: opts?.backendDOMNodeId ?? parseInt(id, 10) * 100,
+    backendDOMNodeId: opts?.backendDOMNodeId ?? Number.parseInt(id, 10) * 100,
     role: { type: 'role', value: role },
     name: { type: 'computedString', value: name },
     childIds: opts?.childIds
@@ -211,7 +214,7 @@ function createMockGuest(
       removeListener: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
         const handlers = debuggerListeners.get(event) ?? []
         const idx = handlers.indexOf(handler)
-        if (idx >= 0) {
+        if (idx !== -1) {
           handlers.splice(idx, 1)
         }
       }),
@@ -249,7 +252,7 @@ async function sendRequest(
     let buffer = ''
     socket.setEncoding('utf8')
     socket.once('error', reject)
-    socket.on('data', (chunk) => {
+    socket.on('data', (chunk: string) => {
       buffer += chunk
       const newlineIndex = buffer.indexOf('\n')
       if (newlineIndex === -1) {
@@ -279,6 +282,10 @@ describe('Browser automation pipeline (integration)', () => {
   const RENDERER_WC_ID = 1
 
   beforeEach(async () => {
+    // Why: constructing the browser commands is what pulls the Chromium cluster in, so
+    // production installs this at the Electron entry. Suites that exercise browser
+    // automation install it too; a Node host installs none and the RPCs reject.
+    setRuntimeBrowserCommandsFactory((host) => new RuntimeBrowserCommands(host))
     activeGuestHarness = createMockGuest(GUEST_WC_ID, 'https://example.com', 'Example Domain')
     const { guest } = activeGuestHarness
     activeGuest = guest
@@ -474,12 +481,45 @@ describe('Browser automation pipeline (integration)', () => {
     expect((res.result as { filled: string }).filled).toBe('@e2')
   })
 
+  it('chunks large browser fill text before CDP insertText', async () => {
+    await rpc('browser.goto', { url: 'https://search.example.com' })
+    await rpc('browser.snapshot')
+
+    const text = 'x'.repeat(BROWSER_TEXT_INSERT_CHUNK_BYTES + 5)
+    const res = await rpc('browser.fill', { element: '@e2', value: text })
+
+    const insertCalls = activeGuestHarness.sendCommandMock.mock.calls.filter(
+      ([method]) => method === 'Input.insertText'
+    )
+    expect(res.ok).toBe(true)
+    expect(insertCalls).toHaveLength(2)
+    expect((insertCalls[0]![1] as { text: string }).text).toHaveLength(
+      BROWSER_TEXT_INSERT_CHUNK_BYTES
+    )
+    expect((insertCalls[1]![1] as { text: string }).text).toBe('xxxxx')
+  })
+
   // ── Type ──
 
   it('types text at current focus', async () => {
     const res = await rpc('browser.type', { input: 'some text' })
     expect(res.ok).toBe(true)
     expect((res.result as { typed: boolean }).typed).toBe(true)
+  })
+
+  it('chunks large browser type text before CDP insertText', async () => {
+    const text = 'y'.repeat(BROWSER_TEXT_INSERT_CHUNK_BYTES + 2)
+    const res = await rpc('browser.type', { input: text })
+
+    const insertCalls = activeGuestHarness.sendCommandMock.mock.calls.filter(
+      ([method]) => method === 'Input.insertText'
+    )
+    expect(res.ok).toBe(true)
+    expect(insertCalls).toHaveLength(2)
+    expect((insertCalls[0]![1] as { text: string }).text).toHaveLength(
+      BROWSER_TEXT_INSERT_CHUNK_BYTES
+    )
+    expect((insertCalls[1]![1] as { text: string }).text).toBe('yy')
   })
 
   // ── Select ──

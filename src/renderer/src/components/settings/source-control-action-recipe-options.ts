@@ -1,4 +1,4 @@
-import type { TuiAgent } from '../../../../shared/types'
+import type { TuiAgent } from '../../../../shared/tui-agent'
 import {
   SOURCE_CONTROL_TEXT_ACTION_IDS,
   type SourceControlActionId
@@ -37,6 +37,10 @@ export const getActionDescriptions = createLocalizedCatalog(
       'auto.components.settings.source.control.action.recipe.options.fixCommitFailure',
       'Start an agent when a commit hook or git commit fails.'
     ),
+    fixPushFailure: translate(
+      'auto.components.settings.source.control.action.recipe.options.fixPushFailure',
+      'Start an agent when a pre-push hook or git push fails.'
+    ),
     fixChecks: translate(
       'auto.components.settings.source.control.action.recipe.options.fixChecks',
       'Start an agent from failed hosted-review checks.'
@@ -58,7 +62,8 @@ const AGENT_ARGS_PLACEHOLDER_OVERRIDES: Partial<Record<TuiAgent, string>> = {
   // Why: Source Control AI action prompts are short, reviewable tasks; the
   // mini Codex model is a better default hint than the frontier model.
   codex: '--model gpt-5.4-mini',
-  copilot: '--model gpt-5.4-mini'
+  copilot: '--model gpt-5.4-mini',
+  omp: '--model <provider/model>'
 }
 
 const MODEL_FLAG_BY_AGENT: Partial<Record<TuiAgent, string>> = {

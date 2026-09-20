@@ -1,6 +1,6 @@
 import type { ITheme } from '@xterm/xterm'
 import { getTheme, getThemeNames } from './terminal-themes-data'
-import type { GlobalSettings } from '../../../shared/types'
+import type { GlobalSettings } from '../../../shared/global-settings-types'
 import {
   makeCustomTerminalThemeSelection,
   normalizeTerminalCustomThemes,
@@ -173,4 +173,7 @@ export function resolvePaneStyleOptions(
   }
 }
 
-export { isTerminalBackgroundLight } from './terminal-title-contrast'
+export {
+  isTerminalBackgroundLight,
+  resolveOpaqueTerminalBackground
+} from './terminal-title-contrast'

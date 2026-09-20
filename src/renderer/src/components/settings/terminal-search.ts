@@ -12,6 +12,7 @@ import {
 import {
   getTerminalDarkThemeSearchEntries,
   getTerminalLightThemeSearchEntries,
+  getTerminalThemeTargetSearchEntries,
   getTerminalWarpImportSearchEntries,
   getTerminalYamlImportSearchEntries
 } from './terminal-theme-search'
@@ -20,7 +21,11 @@ import {
   getTerminalRenderingSearchEntries,
   getTerminalTypographySearchEntries
 } from './terminal-typography-search'
-import { getTerminalWindowsSearchEntries } from './terminal-windows-search'
+import {
+  getTerminalRightClickToPasteSearchEntry,
+  getTerminalWindowsPowershellImplementationSearchEntry,
+  getTerminalWindowsShellSearchEntry
+} from './terminal-windows-search'
 import {
   getManageSessionsSearchEntries,
   getTerminalSetupScriptSearchEntries,
@@ -29,6 +34,7 @@ import {
 import { createLocalizedCatalog } from '@/i18n/localized-catalog'
 
 export {
+  getTerminalAdvancedTypographySearchEntries,
   getTerminalTypographySearchEntries,
   getTerminalRenderingSearchEntries,
   getTerminalCursorSearchEntries
@@ -40,6 +46,7 @@ export {
 export {
   getTerminalDarkThemeSearchEntries,
   getTerminalLightThemeSearchEntries,
+  getTerminalThemeTargetSearchEntries,
   getTerminalWarpImportSearchEntries,
   getTerminalYamlImportSearchEntries
 } from './terminal-theme-search'
@@ -56,26 +63,26 @@ export {
 } from './terminal-window-setup-search'
 
 type TerminalAppearanceSearchOptions = {
-  showWarpImport?: boolean
+  showDesktopThemeImports?: boolean
 }
 
-const getTerminalAppearanceSearchEntriesWithoutWarp = createLocalizedCatalog(
+const getTerminalAppearanceSearchEntriesWithoutImports = createLocalizedCatalog(
   (): SettingsSearchEntry[] => [
     ...getTerminalTypographySearchEntries(),
     ...getTerminalCursorSearchEntries(),
     ...getTerminalPaneAppearanceSearchEntries(),
+    ...getTerminalThemeTargetSearchEntries(),
     ...getTerminalDarkThemeSearchEntries(),
     ...getTerminalLightThemeSearchEntries(),
-    ...getTerminalWindowSearchEntries(),
-    ...getTerminalGhosttyImportSearchEntries()
+    ...getTerminalWindowSearchEntries()
   ]
 )
 
-// Why: compose rather than filter — entry titles are localized, so matching on
-// an English title would leak the Warp entry back in under non-English locales.
-const getTerminalAppearanceSearchEntriesWithWarp = createLocalizedCatalog(
+// Compose catalogs because translated titles cannot reliably identify desktop-only entries.
+const getTerminalAppearanceSearchEntriesWithImports = createLocalizedCatalog(
   (): SettingsSearchEntry[] => [
-    ...getTerminalAppearanceSearchEntriesWithoutWarp(),
+    ...getTerminalAppearanceSearchEntriesWithoutImports(),
+    ...getTerminalGhosttyImportSearchEntries(),
     ...getTerminalWarpImportSearchEntries(),
     ...getTerminalYamlImportSearchEntries()
   ]
@@ -84,22 +91,30 @@ const getTerminalAppearanceSearchEntriesWithWarp = createLocalizedCatalog(
 export function getTerminalAppearanceSearchEntries(
   options: TerminalAppearanceSearchOptions = {}
 ): SettingsSearchEntry[] {
-  return (options.showWarpImport ?? true)
-    ? getTerminalAppearanceSearchEntriesWithWarp()
-    : getTerminalAppearanceSearchEntriesWithoutWarp()
+  return (options.showDesktopThemeImports ?? true)
+    ? getTerminalAppearanceSearchEntriesWithImports()
+    : getTerminalAppearanceSearchEntriesWithoutImports()
 }
 
 export function getTerminalPaneSearchEntries(platform: {
   isWindows: boolean
+  isWindowsTerminalHost?: boolean
   isMac: boolean
 }): SettingsSearchEntry[] {
+  const isWindowsTerminalHost = platform.isWindowsTerminalHost ?? platform.isWindows
   // Why: the settings search index must mirror the visible controls. Keeping
   // platform-only controls out of other platforms' search results prevents
   // users from landing on an option the UI intentionally hides.
   return [
     ...getTerminalRenderingSearchEntries(),
     ...getTerminalPaneInteractionSearchEntries(),
-    ...(platform.isWindows ? getTerminalWindowsSearchEntries() : []),
+    ...(isWindowsTerminalHost
+      ? [
+          ...getTerminalWindowsShellSearchEntry(),
+          ...getTerminalWindowsPowershellImplementationSearchEntry()
+        ]
+      : []),
+    ...getTerminalRightClickToPasteSearchEntry(),
     ...getTerminalSetupScriptSearchEntries(),
     ...getManageSessionsSearchEntries(),
     ...getTerminalAdvancedSearchEntries(),

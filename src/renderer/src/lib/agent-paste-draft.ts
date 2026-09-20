@@ -1,50 +1,46 @@
-import type { TuiAgent } from '../../../shared/types'
-import { TUI_AGENT_CONFIG, type DraftPasteReadySignal } from '../../../shared/tui-agent-config'
+import type { GlobalSettings } from '../../../shared/global-settings-types'
+import type { TuiAgent } from '../../../shared/tui-agent'
+import { TUI_AGENT_CONFIG } from '../../../shared/tui-agent-config'
+import { resolveDraftPasteReadyTimeoutMs } from '../../../shared/draft-paste-ready-timeout'
 import { useAppStore } from '@/store'
-import { subscribeToPtyData } from '@/components/terminal-pane/pty-dispatcher'
 import {
-  isRemoteRuntimePtyId,
+  inspectRuntimeTerminalProcess,
   sendRuntimePtyInputVerified
 } from '@/runtime/runtime-terminal-inspection'
-import { subscribeToRuntimeTerminalData } from '@/runtime/runtime-terminal-stream'
+import {
+  BRACKETED_PASTE_END,
+  BRACKETED_PASTE_START
+} from '@/components/terminal-pane/terminal-bracketed-paste'
+import { runTerminalPtyInputTransaction } from '@/components/terminal-pane/terminal-pty-input-transaction'
 import { waitForAgentReady } from './agent-ready-wait'
 import { getSettingsForWorktreeRuntimeOwner } from './worktree-runtime-owner'
-import type { GlobalSettings } from '../../../shared/types'
+import { sendAgentDraftPasteContentNow } from './agent-draft-paste-content'
+import { agentDeliversDraftViaNativePrefill } from './agent-native-draft-prefill'
+import { waitForAgentDraftInputReady } from './agent-draft-readiness'
+import { isExpectedAgentProcess } from '../../../shared/agent-process-recognition'
+export {
+  AGENT_DRAFT_PASTE_CHUNK_MAX_BYTES,
+  AGENT_DRAFT_PASTE_DIRECT_MAX_BYTES,
+  AGENT_DRAFT_PASTE_MAX_BYTES,
+  chunkAgentDraftPasteContent,
+  iterateAgentDraftPasteContentChunks,
+  sendAgentDraftPasteContent
+} from './agent-draft-paste-content'
 
 // Why: bracketed paste markers let modern TUIs (Claude Code / Codex / Pi /
 // OpenCode / Gemini / cursor-agent / copilot) treat the inserted text as a
 // single atomic paste instead of echoing character-by-character or triggering
 // line-edit shortcuts. Callers choose whether to append Enter after the paste.
-const BRACKETED_PASTE_BEGIN = '\x1b[200~'
-const BRACKETED_PASTE_END = '\x1b[201~'
-const POST_PASTE_SUBMIT_DELAY_MS = 50
+export const BRACKETED_PASTE_BEGIN = BRACKETED_PASTE_START
+export { BRACKETED_PASTE_END }
+export const POST_PASTE_SUBMIT_DELAY_MS = 50
 
-// Why: every prefill-capable TUI we ship support for (claude / codex / pi /
-// opencode / gemini / cursor-agent / copilot) emits `CSI ? 2004 h` (DECSET
-// 2004 — bracketed-paste-enable) on its output stream when its input layer
-// is wired up. That sequence is the protocol-level "I accept bracketed
-// paste" handshake. For most agents it still does not prove the input box
-// is rendered and visible. OpenCode in particular emits DECSET 2004 during
-// its alt-screen setup at ~500ms, then runs a 1.3s splash render with no
-// data on the PTY, then paints the actual input box at ~1.85s. Pasting
-// during the silent gap drops the bytes.
-//
-// Default strategy: take DECSET 2004 as the necessary precondition, then
-// wait for the TUI's render burst to finish — defined as
-// `BRACKETED_PASTE_QUIET_MS` of stream silence after the most recent
-// post-`?2004h` byte. This captures both the fast TUIs and the slow ones
-// (opencode emits, sleeps, emits again, then goes quiet). Codex opts into a
-// faster source-backed path: after DECSET, wait only until its composer
-// prompt glyph renders.
-const DECSET_BRACKETED_PASTE = '\x1b[?2004h'
-const CODEX_COMPOSER_PROMPT = '›'
-const BRACKETED_PASTE_QUIET_MS = 1500
-
-// Why: deterministic signal can fail in two ways: (1) the agent never
-// emits DECSET 2004 (no shipped agent does this — guarded as a fallback),
-// or (2) the launch fails outright. The hard timeout caps the wait so a
-// stuck launch doesn't pin a Promise forever.
-const READINESS_TIMEOUT_MS = 8000
+// Why: "the tab has a PTY" and "the agent's composer accepts input" are separate
+// states with separate failure modes, so they get separate budgets. A PTY that
+// hasn't appeared in 8s means the launch itself failed — waiting the (longer)
+// composer budget on top would only delay that verdict. Keeping them distinct
+// also stops one slow step from spending the other's budget (STA-3367).
+const PTY_SPAWN_TIMEOUT_MS = 8000
 
 export function getSettingsForAgentTabRuntimeOwner(
   tabId: string
@@ -67,7 +63,8 @@ export function getSettingsForAgentTabRuntimeOwner(
  *
  * Returns true when the paste was issued, false on timeout or missing
  * PTY. `onTimeout` lets the caller surface a UI hint (e.g. toast) when
- * the agent doesn't reach a ready state inside `timeoutMs`.
+ * the agent doesn't reach a ready state. `timeoutMs` overrides the
+ * readiness budget only; waiting for the PTY to spawn keeps its own budget.
  *
  * Readiness combines DECSET 2004 with one agent-specific follow-up signal:
  *   1. `\x1b[?2004h` (DECSET 2004 — bracketed-paste-enable) on the PTY
@@ -94,21 +91,27 @@ export async function pasteDraftWhenAgentReady(args: {
   // duplicate it. Callers should not invoke this helper for those agents;
   // the early return guards against accidental double-injection if a stale
   // call slips through.
-  if (!forcePaste && (agentConfig?.draftPromptFlag || agentConfig?.draftPromptEnvVar)) {
+  if (agentDeliversDraftViaNativePrefill(agent, forcePaste)) {
     return false
   }
 
-  const budget = timeoutMs ?? READINESS_TIMEOUT_MS
   const readySignal = agentConfig?.draftPasteReadySignal ?? 'render-quiet-after-bracketed-paste'
-  const ptyId = await waitForPtyId(tabId, budget)
-  if (!ptyId) {
+  const settings = getSettingsForAgentTabRuntimeOwner(tabId)
+  const readinessTimeoutMs = resolveDraftPasteReadyTimeoutMs(agent, timeoutMs)
+  const readiness = await waitForAgentDraftInputReadyOnTab({
+    tabId,
+    spawnTimeoutMs: PTY_SPAWN_TIMEOUT_MS,
+    readinessTimeoutMs,
+    readySignal,
+    settings
+  })
+  if (!readiness) {
     onTimeout?.()
     return false
   }
 
-  const settings = getSettingsForAgentTabRuntimeOwner(tabId)
-  const ready = await waitForInputBoxReady(ptyId, budget, readySignal, settings)
-  if (!ready) {
+  const { ptyId } = readiness
+  if (!readiness.ready) {
     // Why: fast-starting TUIs can emit the paste-ready escape sequence before
     // this sidecar subscription attaches. If process/title inspection says the
     // launched agent owns the PTY, fall back to a best-effort paste instead of
@@ -126,24 +129,60 @@ export async function pasteDraftWhenAgentReady(args: {
     settings,
     ptyId,
     content,
-    submit: submit === true
+    submit: submit === true,
+    agent
   })
 }
 
-export async function submitPromptToAgentTab(args: {
+export async function pasteDraftToAgentPtyWhenReady(args: {
   tabId: string
+  ptyId: string
   content: string
+  agent?: TuiAgent
+  submit?: boolean
+  forcePaste?: boolean
   timeoutMs?: number
+  onTimeout?: () => void
 }): Promise<boolean> {
-  const { tabId, content, timeoutMs } = args
-  const ptyId = await waitForPtyId(tabId, timeoutMs ?? READINESS_TIMEOUT_MS)
-  if (!ptyId) {
+  const { tabId, ptyId, content, agent, submit, forcePaste, timeoutMs, onTimeout } = args
+  const agentConfig = agent ? TUI_AGENT_CONFIG[agent] : null
+
+  if (agentDeliversDraftViaNativePrefill(agent, forcePaste)) {
     return false
   }
+
+  const settings = getSettingsForAgentTabRuntimeOwner(tabId)
+  const readySignal = agentConfig?.draftPasteReadySignal ?? 'render-quiet-after-bracketed-paste'
+  const budget = resolveDraftPasteReadyTimeoutMs(agent, timeoutMs)
+  const ready = await waitForAgentDraftInputReady(ptyId, budget, readySignal, settings)
+  if (!ready) {
+    const fallbackReady = agentConfig
+      ? await waitForExpectedAgentOnPty(ptyId, agentConfig.expectedProcess, 1000, settings)
+      : false
+    if (!fallbackReady) {
+      onTimeout?.()
+      return false
+    }
+  }
+
   return await sendBracketedPasteToAgent({
-    settings: getSettingsForAgentTabRuntimeOwner(tabId),
+    settings,
     ptyId,
     content,
+    submit: submit === true,
+    agent
+  })
+}
+
+export async function submitPromptToAgentPty(args: {
+  tabId: string
+  ptyId: string
+  content: string
+}): Promise<boolean> {
+  return await sendBracketedPasteToAgent({
+    settings: getSettingsForAgentTabRuntimeOwner(args.tabId),
+    ptyId: args.ptyId,
+    content: args.content,
     submit: true
   })
 }
@@ -160,164 +199,144 @@ async function sendBracketedPasteToAgent(args: {
   ptyId: string
   content: string
   submit: boolean
+  agent?: TuiAgent
 }): Promise<boolean> {
-  const { settings = useAppStore.getState().settings, ptyId, content, submit } = args
-  const pastePayload = `${BRACKETED_PASTE_BEGIN}${content}${BRACKETED_PASTE_END}`
+  const { settings = useAppStore.getState().settings, ptyId, content, submit, agent } = args
+  const submitRetryDelayMs = agent ? TUI_AGENT_CONFIG[agent]?.submitRetryDelayMs : undefined
   try {
-    const pasted = await sendRuntimePtyInputVerified(settings, ptyId, pastePayload)
-    if (!pasted) {
-      return false
-    }
-    if (!submit) {
-      return true
-    }
+    // Why: paste + Enter (+ retry Enter) must be one transaction, or a concurrent
+    // paste on this PTY can slip between them and submit a half-written prompt.
+    return await runTerminalPtyInputTransaction(ptyId, async () => {
+      const pasted = await sendAgentDraftPasteContentNow(settings, ptyId, content)
+      if (!pasted || !submit) {
+        return pasted
+      }
 
-    // Why: Claude Code can leave a prompt as editable text when paste-end and
-    // Enter arrive in the same PTY write. Split the submit into the next turn so
-    // the TUI processes bracketed-paste termination before handling Enter.
-    await new Promise<void>((resolve) => window.setTimeout(resolve, POST_PASTE_SUBMIT_DELAY_MS))
-    return await sendRuntimePtyInputVerified(settings, ptyId, '\r')
+      // Why: Claude Code can leave a prompt as editable text when paste-end and
+      // Enter arrive in the same PTY write. Split the submit into the next turn so
+      // the TUI processes bracketed-paste termination before handling Enter.
+      await new Promise<void>((resolve) => window.setTimeout(resolve, POST_PASTE_SUBMIT_DELAY_MS))
+      const submitted = await sendRuntimePtyInputVerified(settings, ptyId, '\r')
+
+      if (submitRetryDelayMs !== undefined) {
+        // Why: agents that render their composer before Enter is live silently eat
+        // the first Enter; the retry is best-effort and never downgrades `submitted`.
+        await new Promise<void>((resolve) => window.setTimeout(resolve, submitRetryDelayMs))
+        try {
+          await sendRuntimePtyInputVerified(settings, ptyId, '\r')
+        } catch {
+          // Why: a rejected retry leaves the first Enter's verdict untouched.
+        }
+      }
+
+      return submitted
+    })
   } catch {
     return false
   }
 }
 
-/**
- * Tap the PTY data stream as a side-channel observer (does NOT take over
- * the primary handler that feeds xterm) and resolve `true` once we see
- * DECSET 2004. Most agents also wait for the post-handshake render burst to
- * settle for `BRACKETED_PASTE_QUIET_MS`; Codex waits for its composer prompt
- * glyph instead. Resolves `false` on hard timeout.
- *
- * Why a sidecar subscription:
- *   - the main pane may attach mid-flight; we must not race against its
- *     handler registration on the dispatcher's primary slot.
- *   - DECSET 2004 and the Codex composer prompt may straddle two data chunks
- *     at ANSI parser boundaries, so we keep a small ring of recent bytes and
- *     search the union.
- */
-function waitForInputBoxReady(
-  ptyId: string,
-  timeoutMs: number,
-  readySignal: DraftPasteReadySignal,
+function waitForAgentDraftInputReadyOnTab(args: {
+  tabId: string
+  spawnTimeoutMs: number
+  readinessTimeoutMs: number
+  readySignal: Parameters<typeof waitForAgentDraftInputReady>[2]
   settings: Pick<GlobalSettings, 'activeRuntimeEnvironmentId'> | null | undefined
-): Promise<boolean> {
-  return new Promise<boolean>((resolve) => {
+}): Promise<{ ptyId: string; ready: boolean } | null> {
+  return new Promise((resolve) => {
+    let selectedPtyId: string | null = null
     let settled = false
-    let recent = ''
-    let postHandshakeRecent = ''
-    let saw2004 = false
-    let quietTimer: number | null = null
-    let hardTimer: number | null = null
-    let unsubscribe: (() => void) | null = null
+    let spawnTimer: number | null = null
+    let unsubscribeStore: (() => void) | null = null
 
-    const finish = (value: boolean): void => {
+    const finish = (result: { ptyId: string; ready: boolean } | null): void => {
       if (settled) {
         return
       }
       settled = true
-      if (hardTimer !== null) {
-        window.clearTimeout(hardTimer)
+      if (spawnTimer !== null) {
+        window.clearTimeout(spawnTimer)
       }
-      if (quietTimer !== null) {
-        window.clearTimeout(quietTimer)
-      }
-      unsubscribe?.()
-      resolve(value)
+      unsubscribeStore?.()
+      resolve(result)
     }
-
-    const armQuietTimer = (): void => {
-      if (quietTimer !== null) {
-        window.clearTimeout(quietTimer)
-      }
-      quietTimer = window.setTimeout(() => finish(true), BRACKETED_PASTE_QUIET_MS)
-    }
-
-    const observeData = (data: string): void => {
-      // Why: keep just enough recent bytes that an escape sequence split
-      // across two IPC frames is still detectable. 512 bytes also covers
-      // Codex's prompt render around ANSI styling without retaining a large
-      // terminal scrollback copy.
-      const combined = recent + data
-      recent = combined.slice(-512)
-      if (!saw2004) {
-        const markerIndex = combined.indexOf(DECSET_BRACKETED_PASTE)
-        if (markerIndex === -1) {
-          return
-        }
-        saw2004 = true
-        const postHandshakeChunk = combined.slice(markerIndex + DECSET_BRACKETED_PASTE.length)
-        if (readySignal === 'codex-composer-prompt') {
-          if (postHandshakeChunk.includes(CODEX_COMPOSER_PROMPT)) {
-            finish(true)
-            return
-          }
-          postHandshakeRecent = postHandshakeChunk.slice(-512)
-          return
-        }
-        postHandshakeRecent = postHandshakeChunk.slice(-512)
-      } else {
-        if (
-          readySignal === 'codex-composer-prompt' &&
-          (data.includes(CODEX_COMPOSER_PROMPT) ||
-            (postHandshakeRecent + data).includes(CODEX_COMPOSER_PROMPT))
-        ) {
-          finish(true)
-          return
-        }
-        postHandshakeRecent = (postHandshakeRecent + data).slice(-512)
-      }
-      if (readySignal === 'codex-composer-prompt') {
+    const bindPty = (ptyId: string): void => {
+      if (selectedPtyId || settled) {
         return
       }
-      if (saw2004) {
-        // Reset the quiet window on every byte we see post-handshake.
-        // The TUI's render is "done" when the stream goes quiet for
-        // BRACKETED_PASTE_QUIET_MS — at that point the input box is
-        // mounted and bracketed paste lands in the input buffer.
-        armQuietTimer()
+      selectedPtyId = ptyId
+      if (spawnTimer !== null) {
+        window.clearTimeout(spawnTimer)
+      }
+      unsubscribeStore?.()
+      // Why: Zustand subscribers run inside updateTabPtyId. Registering the
+      // sidecar here precedes the transport's immediate pre-handler drain.
+      void waitForAgentDraftInputReady(
+        ptyId,
+        args.readinessTimeoutMs,
+        args.readySignal,
+        args.settings
+      ).then((ready) => finish({ ptyId, ready }))
+    }
+    const bindFromState = (state: ReturnType<typeof useAppStore.getState>): void => {
+      const ptyId = state.ptyIdsByTabId[args.tabId]?.[0]
+      if (ptyId) {
+        bindPty(ptyId)
       }
     }
 
-    if (isRemoteRuntimePtyId(ptyId)) {
-      void subscribeToRuntimeTerminalData(
-        settings,
-        ptyId,
-        `desktop:paste-ready:${ptyId}`,
-        observeData
-      )
-        .then((remoteUnsubscribe) => {
-          if (settled) {
-            remoteUnsubscribe()
-            return
-          }
-          unsubscribe = remoteUnsubscribe
-        })
-        .catch(() => finish(false))
-    } else {
-      unsubscribe = subscribeToPtyData(ptyId, observeData)
-    }
-
-    if (!settled) {
-      hardTimer = window.setTimeout(() => finish(false), timeoutMs)
-    }
+    spawnTimer = window.setTimeout(() => finish(null), args.spawnTimeoutMs)
+    unsubscribeStore = useAppStore.subscribe(bindFromState)
+    bindFromState(useAppStore.getState())
   })
 }
 
-/**
- * Why: activation creates the tab synchronously but the PTY spawn is
- * async. Poll the store until the primary PTY id appears or the budget
- * expires. Tight interval because the wait is normally <200ms — only the
- * first launch on a cold app reaches the tail of this.
- */
-async function waitForPtyId(tabId: string, timeoutMs: number): Promise<string | null> {
+async function waitForExpectedAgentOnPty(
+  ptyId: string,
+  expectedProcess: string,
+  timeoutMs: number,
+  settings: Pick<GlobalSettings, 'activeRuntimeEnvironmentId'> | null | undefined
+): Promise<boolean> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    const ptyId = useAppStore.getState().ptyIdsByTabId[tabId]?.[0]
-    if (ptyId) {
-      return ptyId
+    try {
+      const process = await withDeadline(
+        inspectRuntimeTerminalProcess(settings, ptyId),
+        Math.max(0, deadline - Date.now())
+      )
+      if (!process) {
+        return false
+      }
+      const foreground = process.foregroundProcess?.toLowerCase() ?? ''
+      if (isExpectedAgentProcess(foreground, expectedProcess)) {
+        return true
+      }
+    } catch {
+      // Ignore transient PTY inspection failures and keep polling.
     }
-    await new Promise<void>((resolve) => window.setTimeout(resolve, 50))
+    const delayMs = Math.min(120, Math.max(0, deadline - Date.now()))
+    if (delayMs > 0) {
+      await new Promise<void>((resolve) => window.setTimeout(resolve, delayMs))
+    }
   }
-  return null
+  return false
+}
+
+function withDeadline<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
+  if (timeoutMs <= 0) {
+    return Promise.resolve(null)
+  }
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => resolve(null), timeoutMs)
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer)
+        resolve(value)
+      },
+      (error) => {
+        window.clearTimeout(timer)
+        reject(error)
+      }
+    )
+  })
 }

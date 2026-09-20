@@ -1,8 +1,6 @@
-/* eslint-disable max-lines -- Why: import tests cover local copy, SSH routing,
-symlink safety, and runtime-upload staging against one shared IPC fixture. */
-import path from 'path'
-import { constants } from 'fs'
-import { Readable, Writable } from 'stream'
+import path from 'node:path'
+import { constants } from 'node:fs'
+import { Readable, Writable } from 'node:stream'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const handlers = new Map<string, (_event: unknown, args: unknown) => Promise<unknown>>()
@@ -75,6 +73,7 @@ describe('fs:importExternalPaths', () => {
           size: 12,
           ino: 1,
           dev: 1,
+          mtimeMs: 1700000000000,
           isFile: () => true,
           isDirectory: () => false,
           isSymbolicLink: () => false
@@ -96,6 +95,7 @@ describe('fs:importExternalPaths', () => {
           size: entry.isDir ? 0 : 12,
           ino: entry.isDir ? 2 : 3,
           dev: 1,
+          mtimeMs: 1700000000000,
           isFile: () => !entry.isDir,
           isDirectory: () => entry.isDir,
           isSymbolicLink: () => false
@@ -144,6 +144,7 @@ describe('fs:importExternalPaths', () => {
           size: content.byteLength,
           ino: 1,
           dev: 1,
+          mtimeMs: 1700000000000,
           isFile: () => true
         }),
         createReadStream: () => Readable.from([content]),
@@ -218,6 +219,7 @@ describe('fs:importExternalPaths', () => {
           size: 12,
           ino: 1,
           dev: 1,
+          mtimeMs: 1700000000000,
           isFile: () => true
         }),
         createReadStream: () => Readable.from([Buffer.from('file-content')]),
@@ -486,6 +488,7 @@ describe('fs:importExternalPaths', () => {
           size: 4,
           ino: 1,
           dev: 1,
+          mtimeMs: 1700000000000,
           isFile: () => true,
           isDirectory: () => false,
           isSymbolicLink: () => false
@@ -500,6 +503,7 @@ describe('fs:importExternalPaths', () => {
         size: 4,
         ino: 1,
         dev: 1,
+        mtimeMs: 1700000000000,
         isFile: () => true
       }),
       readFile: readFileHandleMock,
@@ -516,11 +520,21 @@ describe('fs:importExternalPaths', () => {
         status: 'staged',
         name: 'logo.png',
         kind: 'file',
-        entries: [{ relativePath: '', kind: 'file', contentBase64: 'cG5n' }]
+        entries: [
+          {
+            relativePath: '',
+            kind: 'file',
+            byteLength: 4,
+            inode: 1,
+            deviceId: 1,
+            modifiedAtMs: 1700000000000
+          }
+        ]
       }
     ])
     expect(copyFileMock).not.toHaveBeenCalled()
-    expect(readFileHandleMock).toHaveBeenCalled()
+    // Why: bodies stream at upload time, so staging must never read the file.
+    expect(readFileHandleMock).not.toHaveBeenCalled()
     expect(closeMock).toHaveBeenCalled()
   })
 
@@ -535,6 +549,7 @@ describe('fs:importExternalPaths', () => {
           size: 0,
           ino: 1,
           dev: 1,
+          mtimeMs: 1700000000000,
           isFile: () => false,
           isDirectory: () => true,
           isSymbolicLink: () => false
@@ -545,6 +560,7 @@ describe('fs:importExternalPaths', () => {
           size: 4,
           ino: 2,
           dev: 1,
+          mtimeMs: 1700000000000,
           isFile: () => true,
           isDirectory: () => false,
           isSymbolicLink: () => false
@@ -580,6 +596,7 @@ describe('fs:importExternalPaths', () => {
         size: 4,
         ino: 2,
         dev: 1,
+        mtimeMs: 1700000000000,
         isFile: () => true
       }),
       readFile: vi.fn().mockResolvedValue(Buffer.from('icon')),
@@ -599,7 +616,14 @@ describe('fs:importExternalPaths', () => {
         entries: [
           { relativePath: '', kind: 'directory' },
           { relativePath: '..assets', kind: 'directory' },
-          { relativePath: '..assets/icon.txt', kind: 'file', contentBase64: 'aWNvbg==' }
+          {
+            relativePath: '..assets/icon.txt',
+            kind: 'file',
+            byteLength: 4,
+            inode: 2,
+            deviceId: 1,
+            modifiedAtMs: 1700000000000
+          }
         ]
       }
     ])
@@ -614,6 +638,7 @@ describe('fs:importExternalPaths', () => {
           size: 0,
           ino: 1,
           dev: 1,
+          mtimeMs: 1700000000000,
           isFile: () => false,
           isDirectory: () => true,
           isSymbolicLink: () => false
@@ -639,15 +664,16 @@ describe('fs:importExternalPaths', () => {
     expect(openMock).not.toHaveBeenCalled()
   })
 
-  it('checks runtime upload directory byte budget before reading a file that exceeds the total cap', async () => {
+  it('checks runtime upload directory byte budget before opening a file that exceeds the total cap', async () => {
     const sourcePath = '/tmp/dropped/project'
     const resolvedPath = path.resolve(sourcePath)
     const filePaths = ['one.bin', 'two.bin', 'three.bin', 'four.bin', 'overflow.bin'].map((name) =>
       path.join(resolvedPath, name)
     )
     const mib = 1024 * 1024
-    const regularSize = 25 * mib
-    const overflowSize = 1 * mib
+    // Four files exactly fill the 8 GB total ceiling; the fifth pushes past it.
+    const regularSize = 2 * 1024 * mib
+    const overflowSize = Number(mib)
     const readFileMock = vi.fn().mockResolvedValue(Buffer.from('chunk'))
 
     lstatMock.mockImplementation(async (p: string) => {
@@ -656,6 +682,7 @@ describe('fs:importExternalPaths', () => {
           size: 0,
           ino: 1,
           dev: 1,
+          mtimeMs: 1700000000000,
           isFile: () => false,
           isDirectory: () => true,
           isSymbolicLink: () => false
@@ -668,6 +695,7 @@ describe('fs:importExternalPaths', () => {
           size,
           ino: fileIndex + 2,
           dev: 1,
+          mtimeMs: 1700000000000,
           isFile: () => true,
           isDirectory: () => false,
           isSymbolicLink: () => false
@@ -685,12 +713,13 @@ describe('fs:importExternalPaths', () => {
     )
     openMock.mockImplementation(async (p: string) => {
       const fileIndex = filePaths.indexOf(p)
-      if (fileIndex >= 0 && fileIndex < filePaths.length - 1) {
+      if (fileIndex !== -1 && fileIndex < filePaths.length - 1) {
         return {
           stat: vi.fn().mockResolvedValue({
             size: regularSize,
             ino: fileIndex + 2,
             dev: 1,
+            mtimeMs: 1700000000000,
             isFile: () => true
           }),
           readFile: readFileMock,
@@ -704,11 +733,9 @@ describe('fs:importExternalPaths', () => {
       sourcePaths: [sourcePath]
     })) as { sources: { status: string; reason?: string }[] }
 
-    expect(result.sources[0]).toMatchObject({
-      status: 'failed',
-      reason: 'Remote import is too large'
-    })
-    expect(readFileMock).toHaveBeenCalledTimes(4)
+    expect(result.sources[0]).toMatchObject({ status: 'failed' })
+    expect(result.sources[0]?.reason).toContain('total remote import limit')
+    expect(readFileMock).not.toHaveBeenCalled()
     expect(openMock).not.toHaveBeenCalledWith(filePaths.at(-1), expect.anything())
   })
 
@@ -721,6 +748,7 @@ describe('fs:importExternalPaths', () => {
           size: 4,
           ino: 1,
           dev: 1,
+          mtimeMs: 1700000000000,
           isFile: () => true,
           isDirectory: () => false,
           isSymbolicLink: () => false
@@ -734,6 +762,7 @@ describe('fs:importExternalPaths', () => {
         size: 4,
         ino: 2,
         dev: 1,
+        mtimeMs: 1700000000000,
         isFile: () => true
       }),
       readFile: readFileHandleMock,
@@ -746,7 +775,7 @@ describe('fs:importExternalPaths', () => {
 
     expect(result.sources[0]).toMatchObject({
       status: 'failed',
-      reason: "File changed during upload staging: ''"
+      reason: "File changed during upload staging: 'logo.png'"
     })
     expect(readFileHandleMock).not.toHaveBeenCalled()
   })

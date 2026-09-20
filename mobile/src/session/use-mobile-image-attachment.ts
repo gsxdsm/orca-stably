@@ -15,6 +15,7 @@ type CurrentRef<T> = {
 type ShowToast = (message: string, durationMs?: number) => void
 
 type UseMobileImageAttachmentArgs = {
+  readonly agent?: string | null
   readonly client: RpcClient | null
   readonly activeHandle: string | null
   readonly canSend: boolean
@@ -24,6 +25,7 @@ type UseMobileImageAttachmentArgs = {
   readonly showToast: ShowToast
   readonly onSuccess: () => void
   readonly onError: () => void
+  readonly beforeTerminalSend?: (terminal: string) => Promise<boolean>
 }
 
 type MobileImageAttachment = {
@@ -39,6 +41,7 @@ function getErrorMessage(error: unknown): string {
 
 export function useMobileImageAttachment({
   client,
+  agent,
   activeHandle,
   canSend,
   connState,
@@ -46,7 +49,8 @@ export function useMobileImageAttachment({
   getActiveWorktreeConnectionId,
   showToast,
   onSuccess,
-  onError
+  onError,
+  beforeTerminalSend
 }: UseMobileImageAttachmentArgs): MobileImageAttachment {
   const [isAttaching, setIsAttaching] = useState(false)
   const attachImage = useCallback(
@@ -57,11 +61,13 @@ export function useMobileImageAttachment({
       try {
         const sent = await attachMobileImageToTerminal(source, {
           client,
+          agent,
           terminal: activeHandle,
           deviceToken: deviceTokenRef.current,
           getConnectionId: getActiveWorktreeConnectionId,
           pickImage: pickMobileImage,
-          onUploadStart: () => setIsAttaching(true)
+          onUploadStart: () => setIsAttaching(true),
+          beforeTerminalSend
         })
         // Cancelled picker: no error, no toast.
         if (sent) {
@@ -88,6 +94,8 @@ export function useMobileImageAttachment({
     },
     [
       activeHandle,
+      agent,
+      beforeTerminalSend,
       canSend,
       client,
       connState,

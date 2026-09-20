@@ -1,13 +1,15 @@
+import './mock-descendant-sweep'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { connect, createServer, type Server, type Socket } from 'net'
-import { tmpdir } from 'os'
-import { join } from 'path'
-import { mkdtempSync, rmSync } from 'fs'
+import { connect, createServer, type Server, type Socket } from 'node:net'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { DaemonServer } from './daemon-server'
 import { DaemonClient } from './client'
 import { healthCheckDaemon } from './daemon-health'
+import { getDaemonSocketPath } from './daemon-spawner'
 import type { ListSessionsResult } from './types'
-import type { SubprocessHandle } from './session'
+import type { SubprocessHandle } from './session-subprocess-handle'
 
 // Why: terminals were lost after app updates because a busy machine could
 // time out the 3s startup health check against a daemon that was alive and
@@ -20,16 +22,20 @@ import type { SubprocessHandle } from './session'
 const RESPONSE_DELAY_MS = 3_500
 
 function createMockSubprocess(): SubprocessHandle {
+  let onExitCb: ((code: number) => void) | null = null
   return {
     pid: 55555,
     getForegroundProcess: vi.fn(() => null),
     write: vi.fn(),
     resize: vi.fn(),
-    kill: vi.fn(),
-    forceKill: vi.fn(),
+    kill: vi.fn(() => setTimeout(() => onExitCb?.(0), 5)),
+    terminateOwnedTree: () => 'unavailable' as const,
+    forceKill: vi.fn(() => setTimeout(() => onExitCb?.(137), 5)),
     signal: vi.fn(),
     onData: vi.fn(),
-    onExit: vi.fn(),
+    onExit: vi.fn((callback: (code: number) => void) => {
+      onExitCb = callback
+    }),
     dispose: vi.fn()
   }
 }
@@ -72,9 +78,12 @@ describe('slow daemon session verification', () => {
   const clients: DaemonClient[] = []
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'daemon-slow-verification-test-'))
-    daemonSocketPath = join(dir, 'daemon.sock')
-    proxySocketPath = join(dir, 'proxy.sock')
+    // Why: real Unix socket paths have tight platform limits, especially on macOS.
+    dir = mkdtempSync(join(tmpdir(), 'ds-'))
+    mkdirSync(join(dir, 'daemon'), { recursive: true })
+    mkdirSync(join(dir, 'proxy'), { recursive: true })
+    daemonSocketPath = getDaemonSocketPath(join(dir, 'daemon'))
+    proxySocketPath = getDaemonSocketPath(join(dir, 'proxy'))
     tokenPath = join(dir, 'daemon.token')
   })
 
@@ -82,8 +91,12 @@ describe('slow daemon session verification', () => {
     for (const client of clients.splice(0)) {
       client.disconnect()
     }
-    await new Promise<void>((resolve) => proxy?.close(() => resolve()))
-    await server?.shutdown()
+    if (proxy) {
+      await new Promise<void>((resolve) => proxy.close(() => resolve()))
+    }
+    if (server) {
+      await server.shutdown()
+    }
     rmSync(dir, { recursive: true, force: true })
   })
 

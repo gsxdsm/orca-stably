@@ -1,5 +1,6 @@
-import { defineMethod, type RpcMethod } from '../core'
-import { BrowserTarget, OptionalFiniteNumber } from '../schemas'
+import { defineMethod } from '../core'
+import { assertRpcClipboardTextWriteWithinLimit } from '../rpc-clipboard-text-validation'
+import { BrowserTarget } from '../schemas'
 import {
   ClipboardWrite,
   CookieDelete,
@@ -20,10 +21,9 @@ import {
   StorageKeyValue,
   Viewport
 } from './browser-schemas'
+import { MouseClick } from '../../../../shared/rpc-contract/browser-extras-params'
 
-const MouseClick = MouseXY.merge(MouseButton).extend({ radius: OptionalFiniteNumber })
-
-export const BROWSER_EXTRA_METHODS: RpcMethod[] = [
+export const BROWSER_EXTRA_METHODS = [
   defineMethod({
     name: 'browser.cookie.get',
     params: CookieGet,
@@ -122,7 +122,10 @@ export const BROWSER_EXTRA_METHODS: RpcMethod[] = [
   defineMethod({
     name: 'browser.clipboardWrite',
     params: ClipboardWrite,
-    handler: async (params, { runtime }) => runtime.browserClipboardWrite(params)
+    handler: async (params, { runtime }) => {
+      await assertRpcClipboardTextWriteWithinLimit(params.text)
+      return runtime.browserClipboardWrite(params)
+    }
   }),
   defineMethod({
     name: 'browser.dialogAccept',

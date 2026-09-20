@@ -1,5 +1,7 @@
+import { defaultSchema } from 'rehype-sanitize'
 import { getRichMarkdownRoundTripOutput } from './markdown-round-trip'
 import { extractFrontMatter } from './markdown-frontmatter'
+import { exceedsMarkdownRichModeSizeLimit } from './markdown-rich-size-limit'
 import { translate } from '@/i18n/i18n'
 
 export type MarkdownRichModeUnsupportedReason =
@@ -14,6 +16,26 @@ type UnsupportedMatch = {
   pattern: RegExp
 }
 
+export type MarkdownRichModeEligibility = {
+  exceedsSizeLimit: boolean
+  unsupportedMessage: string | null
+}
+
+/**
+ * The part of rich-mode eligibility that is a pure function of the document.
+ *
+ * Why this is split out: `unsupportedMessage` is deliberately late-bound — the
+ * matcher messages are `get message()` accessors that call `translate()` at
+ * access time, so they follow the active UI language. Anything that caches
+ * eligibility must cache this decision and re-resolve the message per read.
+ */
+export type MarkdownRichModeEligibilityDecision = {
+  exceedsSizeLimit: boolean
+  unsupportedReason: MarkdownRichModeUnsupportedReason | null
+}
+
+const KNOWN_MARKDOWN_HTML_TAG_NAMES = new Set(defaultSchema.tagNames ?? [])
+
 const UNSUPPORTED_PATTERNS: UnsupportedMatch[] = [
   {
     reason: 'html-or-jsx',
@@ -26,7 +48,7 @@ const UNSUPPORTED_PATTERNS: UnsupportedMatch[] = [
     // Why: the rich editor preserves common embedded markup via placeholder
     // tokens before parsing, but any HTML shape that still fails round-trip
     // must fall back instead of risking silent source corruption.
-    pattern: /<\/?[A-Za-z][\w.:-]*(?:\s[^<>]*)?\/?>|<!--[\s\S]*?-->/
+    pattern: /<\/?[A-Za-z][\w.:-]*(?:\s[^<>]*)?\/?>/
   },
   {
     reason: 'reference-links',
@@ -51,6 +73,25 @@ const UNSUPPORTED_PATTERNS: UnsupportedMatch[] = [
 ]
 
 export function getMarkdownRichModeUnsupportedMessage(content: string): string | null {
+  return resolveMarkdownRichModeUnsupportedMessage(getMarkdownRichModeUnsupportedReason(content))
+}
+
+/**
+ * Reads the matcher's localized message through its getter, so the string
+ * always reflects the language active at call time.
+ */
+export function resolveMarkdownRichModeUnsupportedMessage(
+  reason: MarkdownRichModeUnsupportedReason | null
+): string | null {
+  if (reason === null) {
+    return null
+  }
+  return UNSUPPORTED_PATTERNS.find((matcher) => matcher.reason === reason)?.message ?? null
+}
+
+export function getMarkdownRichModeUnsupportedReason(
+  content: string
+): MarkdownRichModeUnsupportedReason | null {
   // Why: front-matter is handled externally — stripped before the rich editor
   // sees the content and displayed as a read-only block. Only the body needs
   // to pass the unsupported-content checks.
@@ -66,14 +107,14 @@ export function getMarkdownRichModeUnsupportedMessage(content: string): string |
   // opinion when HTML is detected, to verify the HTML survives the round-trip
   // before blocking the user from rich mode.
   const htmlMatcher = UNSUPPORTED_PATTERNS.find((m) => m.reason === 'html-or-jsx')
-  const hasHtml = htmlMatcher && htmlMatcher.pattern.test(contentWithoutCode)
+  const hasHtml = htmlMatcher && hasHtmlOrJsx(contentWithoutCode, htmlMatcher.pattern)
 
   for (const matcher of UNSUPPORTED_PATTERNS) {
     if (matcher.reason === 'html-or-jsx') {
       continue
     }
     if (matcher.pattern.test(contentWithoutCode)) {
-      return matcher.message
+      return matcher.reason
     }
   }
 
@@ -85,49 +126,192 @@ export function getMarkdownRichModeUnsupportedMessage(content: string): string |
     if (roundTripOutput && preservesEmbeddedHtml(contentWithoutCode, roundTripOutput)) {
       return null
     }
-    return htmlMatcher!.message
+    return htmlMatcher!.reason
   }
 
   return null
 }
 
-function stripMarkdownCode(content: string): string {
-  const lines = content.split(/\r?\n/)
-  const sanitizedLines: string[] = []
-  let activeFence: '`' | '~' | null = null
+export function getMarkdownRichModeEligibilityDecision({
+  content,
+  sizeOverridden
+}: {
+  content: string
+  sizeOverridden: boolean
+}): MarkdownRichModeEligibilityDecision {
+  return {
+    exceedsSizeLimit: !sizeOverridden && exceedsMarkdownRichModeSizeLimit(content),
+    unsupportedReason: getMarkdownRichModeUnsupportedReason(content)
+  }
+}
 
-  for (const line of lines) {
+export function getMarkdownRichModeEligibility(params: {
+  content: string
+  sizeOverridden: boolean
+}): MarkdownRichModeEligibility {
+  const decision = getMarkdownRichModeEligibilityDecision(params)
+  return {
+    exceedsSizeLimit: decision.exceedsSizeLimit,
+    unsupportedMessage: resolveMarkdownRichModeUnsupportedMessage(decision.unsupportedReason)
+  }
+}
+
+function hasHtmlOrJsx(content: string, pattern: RegExp): boolean {
+  // A missing closer after the first opener rules out every later opener.
+  const commentStart = content.indexOf('<!--')
+  if (commentStart !== -1 && content.includes('-->', commentStart + 4)) {
+    return true
+  }
+  for (const match of content.matchAll(new RegExp(pattern, 'g'))) {
+    if (isHtmlOrJsxFragment(match[0])) {
+      return true
+    }
+  }
+  return false
+}
+
+function isHtmlOrJsxFragment(fragment: string): boolean {
+  if (fragment.startsWith('</')) {
+    return true
+  }
+
+  const tagMatch = fragment.match(/^<([A-Za-z][\w.:-]*)/)
+  const tagName = tagMatch?.[1]
+  if (!tagName) {
+    return false
+  }
+
+  const suffix = fragment.slice(tagName.length + 1, -1)
+  return suffix.length > 0 || KNOWN_MARKDOWN_HTML_TAG_NAMES.has(tagName.toLowerCase())
+}
+
+function stripMarkdownCode(content: string): string {
+  let sanitized = ''
+  let activeFence: '`' | '~' | null = null
+  let lineStart = 0
+
+  while (lineStart <= content.length) {
+    const newlineIndex = content.indexOf('\n', lineStart)
+    const index = newlineIndex === -1 ? content.length : newlineIndex
+    const lineEnd = index > lineStart && content.charCodeAt(index - 1) === 13 ? index - 1 : index
+    const line = content.slice(lineStart, lineEnd)
     const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/)
     if (fenceMatch) {
       const fenceMarker = fenceMatch[1][0] as '`' | '~'
       activeFence = activeFence === fenceMarker ? null : fenceMarker
-      sanitizedLines.push('')
-      continue
+    } else if (!activeFence) {
+      sanitized += line.replace(/`+[^`\n]*`+/g, '')
     }
 
-    if (activeFence) {
-      sanitizedLines.push('')
-      continue
+    if (index < content.length) {
+      sanitized += '\n'
     }
-
-    sanitizedLines.push(line.replace(/`+[^`\n]*`+/g, ''))
+    lineStart = index + 1
   }
 
-  return sanitizedLines.join('\n')
+  return sanitized
 }
 
 function preservesEmbeddedHtml(contentWithoutCode: string, roundTripOutput: string): boolean {
-  const htmlFragments =
-    contentWithoutCode.match(/<!--[\s\S]*?-->|<\/?[A-Za-z][\w.:-]*(?:\s[^<>]*?)?\/?>/g) ?? []
-
   let searchIndex = 0
-  for (const fragment of htmlFragments) {
+  return forEachEmbeddedHtmlFragment(contentWithoutCode, (fragment) => {
     const foundIndex = roundTripOutput.indexOf(fragment, searchIndex)
     if (foundIndex === -1) {
       return false
     }
     searchIndex = foundIndex + fragment.length
+    return true
+  })
+}
+
+function forEachEmbeddedHtmlFragment(
+  content: string,
+  visit: (fragment: string) => boolean
+): boolean {
+  const lastCommentClose = content.lastIndexOf('-->')
+  for (let index = 0; index < content.length; index++) {
+    if (content.charCodeAt(index) !== 60) {
+      continue
+    }
+
+    let fragmentEnd: number | null = null
+    if (content.startsWith('<!--', index)) {
+      const commentEnd = index + 4 <= lastCommentClose ? content.indexOf('-->', index + 4) : -1
+      fragmentEnd = commentEnd === -1 ? null : commentEnd + 3
+    } else {
+      fragmentEnd = getHtmlTagEnd(content, index)
+    }
+
+    if (fragmentEnd === null) {
+      continue
+    }
+
+    if (!visit(content.slice(index, fragmentEnd))) {
+      return false
+    }
+    index = fragmentEnd - 1
   }
 
   return true
+}
+
+function getHtmlTagEnd(content: string, startIndex: number): number | null {
+  let index = startIndex + 1
+
+  if (content.charCodeAt(index) === 47) {
+    index++
+  }
+
+  if (!isHtmlTagNameStart(content.charCodeAt(index))) {
+    return null
+  }
+  index++
+
+  while (isHtmlTagNamePart(content.charCodeAt(index))) {
+    index++
+  }
+
+  const nextCode = content.charCodeAt(index)
+  if (nextCode === 62) {
+    return index + 1
+  }
+  if (nextCode === 47 && content.charCodeAt(index + 1) === 62) {
+    return index + 2
+  }
+  if (!isHtmlWhitespace(nextCode)) {
+    return null
+  }
+
+  index++
+  while (index < content.length) {
+    const code = content.charCodeAt(index)
+    if (code === 60) {
+      return null
+    }
+    if (code === 62) {
+      return index + 1
+    }
+    index++
+  }
+
+  return null
+}
+
+function isHtmlTagNameStart(code: number): boolean {
+  return (code >= 65 && code <= 90) || (code >= 97 && code <= 122)
+}
+
+function isHtmlTagNamePart(code: number): boolean {
+  return (
+    isHtmlTagNameStart(code) ||
+    (code >= 48 && code <= 57) ||
+    code === 95 ||
+    code === 46 ||
+    code === 58 ||
+    code === 45
+  )
+}
+
+function isHtmlWhitespace(code: number): boolean {
+  return code === 9 || code === 10 || code === 11 || code === 12 || code === 13 || code === 32
 }

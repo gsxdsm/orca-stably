@@ -1,15 +1,26 @@
 import { describe, expect, it, vi } from 'vitest'
 import { create } from 'zustand'
 import type { PreflightStatus } from '../../../../preload/api-types'
-import type { Repo, Worktree } from '../../../../shared/types'
+import type { Repo } from '../../../../shared/repo-types'
+import type { Worktree } from '../../../../shared/worktree/types'
 import type { AppState } from '../types'
 import { createPreflightSlice } from './preflight'
+import { createRuntimeStatusSlice } from './runtime-status'
+import { resetRendererAppPlatformCacheForTests } from '@/lib/renderer-app-platform'
 
 const preflightCheck = vi.fn()
 const callRuntimeRpc = vi.fn()
+const platformGet = vi.fn(() => ({ platform: 'linux' }))
+
+vi.mock('sonner', () => ({
+  toast: { warning: vi.fn(), dismiss: vi.fn() }
+}))
 
 vi.mock('@/runtime/runtime-rpc-client', () => ({
   callRuntimeRpc: (...args: unknown[]) => callRuntimeRpc(...args),
+  clearRecentRuntimeCompatibilityFailure: vi.fn(),
+  clearRuntimeCompatibilityCache: vi.fn(),
+  unwrapRuntimeRpcResult: <T>(response: { result?: T }) => response.result as T,
   getActiveRuntimeTarget: (
     settings?: { activeRuntimeEnvironmentId?: string | null } | null
   ): { kind: 'local' } | { kind: 'environment'; environmentId: string } => {
@@ -31,6 +42,9 @@ globalThis.window = {
         pathFailureReason: 'spawn_error'
       }),
       detectRemoteAgents: vi.fn().mockResolvedValue([])
+    },
+    platform: {
+      get: platformGet
     }
   } as unknown as Window['api']
 } as Window & typeof globalThis
@@ -39,7 +53,8 @@ function createTestStore() {
   return create<AppState>()(
     (...a) =>
       ({
-        ...createPreflightSlice(...a)
+        ...createPreflightSlice(...a),
+        ...createRuntimeStatusSlice(...a)
       }) as AppState
   )
 }
@@ -47,6 +62,8 @@ function createTestStore() {
 function resetPreflightMocks(): void {
   preflightCheck.mockReset()
   callRuntimeRpc.mockReset()
+  platformGet.mockReset().mockReturnValue({ platform: 'linux' })
+  resetRendererAppPlatformCacheForTests()
 }
 
 function makeStatus(glabInstalled: boolean): PreflightStatus {
@@ -119,6 +136,22 @@ describe('createPreflightSlice', () => {
     expect(store.getState().preflightStatusLoading).toBe(false)
   })
 
+  it('invalidates an in-flight result when its runtime session ends', async () => {
+    resetPreflightMocks()
+    const stale = deferred<PreflightStatus>()
+    preflightCheck.mockReturnValueOnce(stale.promise)
+    const store = createTestStore()
+
+    const request = store.getState().refreshPreflightStatus()
+    store.getState().invalidatePreflightStatus()
+    stale.resolve(makeStatus(true))
+    await request
+
+    expect(store.getState().preflightStatus).toBeNull()
+    expect(store.getState().preflightStatusChecked).toBe(false)
+    expect(store.getState().preflightStatusContextKey).toBeNull()
+  })
+
   it('lets forced checks bypass non-forced dedupe and win stale races', async () => {
     resetPreflightMocks()
     const stale = deferred<PreflightStatus>()
@@ -185,6 +218,86 @@ describe('createPreflightSlice', () => {
     expect(preflightCheck).toHaveBeenCalledWith({ wslDistro: 'Ubuntu' })
   })
 
+  it('checks integrations through the resolved project runtime on Windows', async () => {
+    resetPreflightMocks()
+    platformGet.mockReturnValue({ platform: 'win32' })
+    preflightCheck.mockResolvedValueOnce(makeStatus(true))
+    const store = createTestStore()
+    store.setState({
+      repos: [
+        makeRepo({
+          id: 'repo-1',
+          path: 'C:\\repo'
+        })
+      ],
+      worktreesByRepo: {
+        'repo-1': [
+          makeWorktree({
+            id: 'wt-1',
+            repoId: 'repo-1',
+            path: '\\\\wsl.localhost\\Ubuntu\\home\\alice\\repo'
+          })
+        ]
+      },
+      activeRepoId: 'repo-1',
+      activeWorktreeId: 'wt-1'
+    } as Partial<AppState>)
+
+    await store.getState().refreshPreflightStatus()
+
+    expect(preflightCheck).toHaveBeenCalledWith({
+      projectRuntime: {
+        status: 'resolved',
+        runtime: {
+          kind: 'wsl',
+          hostPlatform: 'wsl',
+          projectId: 'repo-1',
+          distro: 'Ubuntu',
+          reason: 'project-override',
+          cacheKey: 'repo-1:wsl:Ubuntu'
+        }
+      },
+      wslDistro: 'Ubuntu'
+    })
+  })
+
+  it('passes repair-required project runtime context through Windows preflight errors', async () => {
+    resetPreflightMocks()
+    platformGet.mockReturnValue({ platform: 'win32' })
+    preflightCheck.mockRejectedValueOnce(
+      new Error('Project runtime requires repair before preflight: wsl-distro-required')
+    )
+    const store = createTestStore()
+    const repos: AppState['repos'] = [makeRepo({ id: 'repo-1', path: 'C:\\repo' })]
+    store.setState({
+      settings: {
+        localWindowsRuntimeDefault: { kind: 'wsl', distro: null }
+      },
+      repos,
+      worktreesByRepo: {},
+      activeRepoId: 'repo-1',
+      activeWorktreeId: null
+    } as Partial<AppState>)
+
+    await store.getState().refreshPreflightStatus()
+
+    expect(preflightCheck).toHaveBeenCalledWith({
+      projectRuntime: {
+        status: 'repair-required',
+        repair: {
+          projectId: 'repo-1',
+          preferredRuntime: { kind: 'wsl', distro: null },
+          reason: 'wsl-distro-required',
+          source: 'global-default',
+          cacheKey: 'repo-1:repair:wsl-distro-required:default'
+        }
+      }
+    })
+    expect(store.getState().preflightStatusError).toBe(
+      'Project runtime requires repair before preflight: wsl-distro-required'
+    )
+  })
+
   it('keeps preflight request dedupe scoped by WSL distro context', async () => {
     resetPreflightMocks()
     const ubuntu = deferred<PreflightStatus>()
@@ -247,6 +360,69 @@ describe('createPreflightSlice', () => {
     secondRuntime.resolve(makeStatus(true))
     await Promise.all([first, second])
     expect(store.getState().preflightStatusContextKey).toBe('runtime:runtime-2#0')
+    expect(store.getState().preflightStatus?.glab?.installed).toBe(true)
+  })
+
+  it('keeps a paired preflight result bound to the active runtime session', async () => {
+    resetPreflightMocks()
+    const runtimeA = deferred<PreflightStatus>()
+    const runtimeB = deferred<PreflightStatus>()
+    const reconnectedB = deferred<PreflightStatus>()
+    callRuntimeRpc
+      .mockReturnValueOnce(runtimeA.promise)
+      .mockReturnValueOnce(runtimeB.promise)
+      .mockReturnValueOnce(reconnectedB.promise)
+    const store = createTestStore()
+    store.setState({ settings: { activeRuntimeEnvironmentId: 'runtime-a' } } as Partial<AppState>)
+    store.getState().setRuntimeEnvironmentStatus('runtime-a', {
+      status: { runtimeId: 'server-a' } as never,
+      checkedAt: 1
+    })
+
+    const requestA = store.getState().refreshPreflightStatus()
+    store.setState({ settings: { activeRuntimeEnvironmentId: 'runtime-b' } } as Partial<AppState>)
+    store.getState().setRuntimeEnvironmentStatus('runtime-b', {
+      status: { runtimeId: 'server-b' } as never,
+      checkedAt: 2
+    })
+    const requestB = store.getState().refreshPreflightStatus()
+
+    expect(callRuntimeRpc).toHaveBeenCalledTimes(2)
+    expect(callRuntimeRpc).toHaveBeenNthCalledWith(
+      1,
+      { kind: 'environment', environmentId: 'runtime-a' },
+      'preflight.check',
+      {}
+    )
+    expect(callRuntimeRpc).toHaveBeenNthCalledWith(
+      2,
+      { kind: 'environment', environmentId: 'runtime-b' },
+      'preflight.check',
+      {}
+    )
+
+    runtimeA.resolve(makeStatus(false))
+    await requestA
+    expect(store.getState().preflightStatus).toBeNull()
+    expect(store.getState().preflightStatusChecked).toBe(false)
+
+    runtimeB.resolve(makeStatus(true))
+    await requestB
+    expect(store.getState().preflightStatus?.glab?.installed).toBe(true)
+
+    store.getState().setRuntimeEnvironmentStatus('runtime-b', { status: null, checkedAt: 3 })
+    store.getState().invalidatePreflightStatus()
+    expect(store.getState().preflightStatus).toBeNull()
+    expect(store.getState().preflightStatusChecked).toBe(false)
+
+    store.getState().setRuntimeEnvironmentStatus('runtime-b', {
+      status: { runtimeId: 'server-b-reconnected' } as never,
+      checkedAt: 4
+    })
+    const reconnect = store.getState().refreshPreflightStatus()
+    expect(callRuntimeRpc).toHaveBeenCalledTimes(3)
+    reconnectedB.resolve(makeStatus(true))
+    await reconnect
     expect(store.getState().preflightStatus?.glab?.installed).toBe(true)
   })
 
