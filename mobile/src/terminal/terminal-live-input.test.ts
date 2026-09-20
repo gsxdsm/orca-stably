@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   TERMINAL_LIVE_INPUT_MAX_BYTES,
   clearTerminalLiveInputFocusTimer,
+  diffTerminalLiveWordBuffer,
   getTerminalLiveSpecialKeyBytes,
   isTerminalLiveInputWithinByteLimit,
   scheduleTerminalLiveInputFocus,
@@ -21,6 +22,19 @@ describe('terminal live input', () => {
     expect(getTerminalLiveSpecialKeyBytes('Backspace')).toBe('\x7f')
     expect(getTerminalLiveSpecialKeyBytes('Enter')).toBeNull()
     expect(getTerminalLiveSpecialKeyBytes('a')).toBeNull()
+  })
+
+  it('diffs autocorrect rewrites of the current word into backspaces plus text', () => {
+    expect(diffTerminalLiveWordBuffer('', 'h')).toEqual({ bytes: 'h', buffer: 'h' })
+    expect(diffTerminalLiveWordBuffer('teh', 'the ')).toEqual({
+      bytes: '\x7f\x7fhe ',
+      buffer: ''
+    })
+    expect(diffTerminalLiveWordBuffer('gi', 'git status')).toEqual({
+      bytes: 't status',
+      buffer: 'status'
+    })
+    expect(diffTerminalLiveWordBuffer('ab', 'a')).toEqual({ bytes: '\x7f', buffer: 'a' })
   })
 
   it('enforces the paste-sized byte budget', () => {

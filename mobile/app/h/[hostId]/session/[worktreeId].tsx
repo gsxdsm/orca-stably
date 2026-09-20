@@ -84,6 +84,7 @@ import {
 } from '../../../../src/terminal/terminal-accessory-layout'
 import {
   clearTerminalLiveInputFocusTimer,
+  diffTerminalLiveWordBuffer,
   getTerminalLiveSpecialKeyBytes,
   isTerminalLiveInputWithinByteLimit,
   scheduleTerminalLiveInputFocus
@@ -904,6 +905,7 @@ export default function SessionScreen() {
   const viewportMeasuredRef = useRef(false)
   const terminalRefs = useRef<Map<string, TerminalWebViewHandle>>(new Map())
   const liveInputRef = useRef<TextInput>(null)
+  const liveInputBufferRef = useRef('')
   const liveInputFocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const terminalUnsubsRef = useRef<Map<string, () => void>>(new Map())
   const subscribingHandlesRef = useRef<Set<string>>(new Set())
@@ -952,6 +954,8 @@ export default function SessionScreen() {
     activeSessionTab?.type !== 'file' &&
     activeSessionTab?.type !== 'browser'
   const liveInputEnabled = activeHandle ? liveInputTerminalHandles.has(activeHandle) : false
+  // Why: iOS suggestions only work if the field keeps the in-progress word.
+  const liveInputWordBuffered = Platform.OS === 'ios' && autocompleteEnabled
   const [browserScreencastSupported, setBrowserScreencastSupported] = useState<boolean | null>(null)
   // Why: stable callbacks (handleFileTap) read the live value via this ref, since
   // the capability probe resolves after the callbacks are created.
@@ -2919,12 +2923,15 @@ export default function SessionScreen() {
         return
       }
       if (terminalLinkOpenMode === 'phone-browser') {
-        void Linking.openURL(url).catch(() => {})
+        void Linking.openURL(url).catch(() => {
+          triggerError()
+          showToast("Couldn't open link", 1500)
+        })
         return
       }
       void handleCreateBrowser(url)
     },
-    [terminalLinkOpenMode]
+    [terminalLinkOpenMode, showToast]
   )
 
   const toggleLiveInput = useCallback(() => {
@@ -2941,6 +2948,7 @@ export default function SessionScreen() {
       }
       return next
     })
+    liveInputBufferRef.current = ''
     setLiveInputCapture('')
     if (nextEnabled) {
       scheduleTerminalLiveInputFocus(liveInputFocusTimerRef, () => liveInputRef.current?.focus())
@@ -2962,6 +2970,21 @@ export default function SessionScreen() {
         liveInputRef.current?.setNativeProps({ text: '' })
         return
       }
+      if (liveInputWordBuffered) {
+        const { bytes, buffer } = diffTerminalLiveWordBuffer(
+          liveInputBufferRef.current,
+          normalizeTerminalTextInput(text, liveInputBufferRef.current)
+        )
+        liveInputBufferRef.current = buffer
+        if (bytes.length > 0) {
+          sendLiveTerminalInput(activeHandle, bytes)
+        }
+        setLiveInputCapture(buffer)
+        if (buffer !== text) {
+          liveInputRef.current?.setNativeProps({ text: buffer })
+        }
+        return
+      }
       const normalizedText = normalizeTerminalTextInput(text)
       if (normalizedText.length > 0) {
         sendLiveTerminalInput(activeHandle, normalizedText)
@@ -2972,7 +2995,7 @@ export default function SessionScreen() {
       // already-sent characters when React state remains the empty string.
       liveInputRef.current?.setNativeProps({ text: '' })
     },
-    [activeHandle, liveInputTerminalHandles, sendLiveTerminalInput]
+    [activeHandle, liveInputTerminalHandles, liveInputWordBuffered, sendLiveTerminalInput]
   )
 
   const handleLiveInputKeyPress = useCallback(
@@ -2987,11 +3010,15 @@ export default function SessionScreen() {
       if (!bytes) {
         return
       }
+      // Why: with a buffered word, onChangeText reports the deletion itself.
+      if (liveInputWordBuffered && liveInputBufferRef.current.length > 0) {
+        return
+      }
       sendLiveTerminalInput(activeHandle, bytes)
       setLiveInputCapture('')
       liveInputRef.current?.setNativeProps({ text: '' })
     },
-    [activeHandle, liveInputTerminalHandles, sendLiveTerminalInput]
+    [activeHandle, liveInputTerminalHandles, liveInputWordBuffered, sendLiveTerminalInput]
   )
 
   const handleLiveInputSubmit = useCallback(() => {
@@ -3002,6 +3029,7 @@ export default function SessionScreen() {
       return
     }
     sendLiveTerminalInput(activeHandle, '\r')
+    liveInputBufferRef.current = ''
     setLiveInputCapture('')
     liveInputRef.current?.setNativeProps({ text: '' })
   }, [activeHandle, liveInputTerminalHandles, sendLiveTerminalInput])
@@ -4553,10 +4581,16 @@ export default function SessionScreen() {
                   onSubmitEditing={handleLiveInputSubmit}
                   placeholder=""
                   autoCapitalize="none"
-                  autoCorrect={false}
-                  spellCheck={false}
+                  autoCorrect={liveInputWordBuffered}
+                  spellCheck={liveInputWordBuffered}
                   smartInsertDelete={false}
-                  keyboardType={Platform.OS === 'ios' ? 'ascii-capable' : 'visible-password'}
+                  keyboardType={
+                    liveInputWordBuffered
+                      ? 'default'
+                      : Platform.OS === 'ios'
+                        ? 'ascii-capable'
+                        : 'visible-password'
+                  }
                   returnKeyType="default"
                   blurOnSubmit={false}
                   editable={canSend}
