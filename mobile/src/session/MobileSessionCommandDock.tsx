@@ -39,7 +39,7 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
     keyboardLift
   } = controller
   const accessoryBarKeepsKeyboard = useKeyboardPersistingTaps('always')
-  const keysInRail = controller.sessionSideRail === 'actions'
+  const keysInRail = controller.terminalKeysBesideTerminal
   return (
     !activeMarkdownTab &&
     !activeFileTab &&
@@ -51,7 +51,7 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
           { paddingBottom: insets.bottom, transform: [{ translateY: -keyboardLift }] }
         ]}
       >
-        {/* Accessory keys; the side rail holds them when the window has one. */}
+        {/* Accessory keys; the side rail or the folded status-column strip holds them when present. */}
         {keysInRail ? null : (
           <View ref={accessoryBarKeepsKeyboard} style={styles.accessoryBar}>
             {/* Why: fixed keyboard escape hatch; outside ScrollView + shortcut path so it can't scroll away or be hidden (#5106). */}

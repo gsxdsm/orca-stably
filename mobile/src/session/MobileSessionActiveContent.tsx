@@ -1,4 +1,5 @@
 import { Animated, View, Text, Pressable, ActivityIndicator } from 'react-native'
+import { MobileSessionStatusColumnKeys } from './MobileSessionStatusColumnKeys'
 import { useStackedFoldBand } from '../layout/use-stacked-fold-band'
 import { saveTerminalTextScale } from '../storage/preferences'
 import { MobileBrowserPane } from '../browser/MobileBrowserPane'
@@ -249,6 +250,11 @@ export function MobileSessionActiveContent({
           />
         ))}
       </View>
+      {controller.sessionSideRail === 'fullWidth' &&
+      controller.terminalKeysBesideTerminal &&
+      !controller.showNativeChat ? (
+        <MobileSessionStatusColumnKeys controller={controller} />
+      ) : null}
       <MobileNativeChatOverlay
         controller={nativeChatController}
         activeSessionTabId={controller.activeSessionTab?.id}

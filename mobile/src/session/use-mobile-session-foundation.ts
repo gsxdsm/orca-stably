@@ -10,7 +10,7 @@ import {
   useReconnectAttempt
 } from '../transport/client-context-connection-metrics'
 import { useResponsiveLayout } from '../layout/responsive-layout'
-import { useFoldDivision } from '../layout/use-window-regions'
+import { useFoldDivision, useSideRailTop } from '../layout/use-window-regions'
 import { hostOs } from '../platform/host-os'
 import { resolveSessionSafeAreaInsets } from './session-safe-area-insets'
 import { useSideRailAvailable } from '../layout/side-rail'
@@ -115,6 +115,10 @@ export function useMobileSessionFoundation() {
   const sessionSideRail: MobileSessionSideRailMode =
     !sideRailAvailable || !isScreenFocused ? null : onInnerScreen ? 'actions' : 'fullWidth'
   const statusColumnWidth = useWindowSafeAreaInsets().right
+  // Folded, the terminal's keys move into the strip under the status column when its top is known.
+  const statusColumnTop = useSideRailTop()
+  const terminalKeysBesideTerminal =
+    sessionSideRail === 'actions' || (sessionSideRail === 'fullWidth' && statusColumnTop !== null)
   const initialCreateWarning = typeof createdWarning === 'string' ? createdWarning.trim() : ''
   return {
     hostId,
@@ -146,7 +150,9 @@ export function useMobileSessionFoundation() {
     initialCreateWarning,
     isScreenFocused,
     sessionSideRail,
-    statusColumnWidth
+    statusColumnWidth,
+    statusColumnTop,
+    terminalKeysBesideTerminal
   }
 }
 
