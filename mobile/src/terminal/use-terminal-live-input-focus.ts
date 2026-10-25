@@ -6,6 +6,7 @@ import {
   type TerminalLiveInputFocusTarget,
   type TerminalLiveInputFocusTimerRef
 } from './terminal-live-input'
+import { dismissTerminalKeyboard } from './terminal-keyboard-dismiss'
 
 type TerminalLiveInputFocusContext = {
   readonly canSend: boolean
@@ -18,6 +19,9 @@ type UseTerminalLiveInputFocusOptions<T extends TerminalLiveInputFocusTarget> =
   TerminalLiveInputFocusContext & {
     readonly activeHandleRef: RefObject<string | null>
     readonly inputRef: RefObject<T | null>
+    /** The buffered command field, which can hold the keyboard too. */
+    readonly commandInputRef?: RefObject<{ blur: () => void } | null>
+    readonly dismissKeyboard: () => void
     readonly lifecycleIdentity: object | null
     readonly lifecycleKey: string
     readonly timerRef: TerminalLiveInputFocusTimerRef
@@ -26,12 +30,15 @@ type UseTerminalLiveInputFocusOptions<T extends TerminalLiveInputFocusTarget> =
 type TerminalLiveInputFocusHandlers = {
   readonly focusLiveInput: () => void
   readonly handleTerminalTap: (handle: string) => void
+  readonly handleTerminalSwipeDown: (handle: string) => void
   readonly resetLiveInputFocus: () => void
 }
 
 export function useTerminalLiveInputFocus<T extends TerminalLiveInputFocusTarget>({
   activeHandleRef,
   canSend,
+  commandInputRef,
+  dismissKeyboard,
   inputRef,
   keyboardHeight,
   lifecycleIdentity,
@@ -75,8 +82,35 @@ export function useTerminalLiveInputFocus<T extends TerminalLiveInputFocusTarget
     })
   }, [inputRef, timerRef])
 
+  // A tap or downward swipe on the terminal while the keyboard is up puts it away, in either input mode.
+  const dismissKeyboardForGesture = useCallback(
+    (handle: string): boolean => {
+      if (handle !== activeHandleRef.current || contextRef.current.keyboardHeight <= 0) {
+        return false
+      }
+      dismissTerminalKeyboard({
+        clearPendingLiveInputFocus: () => clearTerminalLiveInputFocusTimer(timerRef),
+        commandInput: commandInputRef?.current ?? null,
+        dismissKeyboard,
+        liveInput: inputRef.current
+      })
+      return true
+    },
+    [activeHandleRef, commandInputRef, dismissKeyboard, inputRef, timerRef]
+  )
+
+  const handleTerminalSwipeDown = useCallback(
+    (handle: string) => {
+      dismissKeyboardForGesture(handle)
+    },
+    [dismissKeyboardForGesture]
+  )
+
   const handleTerminalTap = useCallback(
     (handle: string) => {
+      if (dismissKeyboardForGesture(handle)) {
+        return
+      }
       const context = contextRef.current
       if (handle !== activeHandleRef.current || !context.canSend || !context.liveInputEnabled) {
         return
@@ -88,8 +122,8 @@ export function useTerminalLiveInputFocus<T extends TerminalLiveInputFocusTarget
         }
       })
     },
-    [activeHandleRef, focusLiveInput, timerRef]
+    [activeHandleRef, dismissKeyboardForGesture, focusLiveInput, timerRef]
   )
 
-  return { focusLiveInput, handleTerminalTap, resetLiveInputFocus }
+  return { focusLiveInput, handleTerminalSwipeDown, handleTerminalTap, resetLiveInputFocus }
 }

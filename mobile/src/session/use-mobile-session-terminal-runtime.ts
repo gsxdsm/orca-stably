@@ -1,7 +1,7 @@
 import type { PendingSessionSelection } from './pending-session-selection'
 import { useState, useRef, useCallback } from 'react'
 import type { TerminalFrame } from '../terminal/terminal-webview-messages'
-import { Alert, type Keyboard, type TextInput } from 'react-native'
+import { Alert, Keyboard, type TextInput } from 'react-native'
 import { useFocusEffect } from 'expo-router'
 import type { RpcClient } from '../transport/rpc-client'
 import type { ConnectionState } from '../transport/types'
@@ -144,17 +144,20 @@ export function useMobileSessionTerminalRuntime(scope: MobileSessionScreenStateM
   const canCompose = inputGate.canCompose
   const canSend = inputGate.canSend && clientId !== null
   const liveInputEnabled = activeHandle ? liveInputTerminalHandles.has(activeHandle) : false
-  const { focusLiveInput, handleTerminalTap, resetLiveInputFocus } = useTerminalLiveInputFocus({
-    activeHandleRef,
-    canSend,
-    inputRef: liveInputRef,
-    keyboardHeight,
-    lifecycleIdentity: client,
-    lifecycleKey: JSON.stringify([hostId, worktreeId, connState]),
-    liveInputEnabled,
-    reopenFocusedInputWhenKeyboardHidden: reopensFocusedInputWhenKeyboardHidden(),
-    timerRef: liveInputFocusTimerRef
-  })
+  const { focusLiveInput, handleTerminalSwipeDown, handleTerminalTap, resetLiveInputFocus } =
+    useTerminalLiveInputFocus({
+      activeHandleRef,
+      canSend,
+      commandInputRef,
+      dismissKeyboard: () => Keyboard.dismiss(),
+      inputRef: liveInputRef,
+      keyboardHeight,
+      lifecycleIdentity: client,
+      lifecycleKey: JSON.stringify([hostId, worktreeId, connState]),
+      liveInputEnabled,
+      reopenFocusedInputWhenKeyboardHidden: reopensFocusedInputWhenKeyboardHidden(),
+      timerRef: liveInputFocusTimerRef
+    })
   useFocusEffect(
     useCallback(() => {
       // Expo retains this route while pushed screens are visible.
@@ -218,6 +221,7 @@ export function useMobileSessionTerminalRuntime(scope: MobileSessionScreenStateM
     liveInputEnabled,
     focusLiveInput,
     handleTerminalTap,
+    handleTerminalSwipeDown,
     resetLiveInputFocus,
     terminalInventoryRecoveryScope,
     registerTerminalInventoryRecoveryAction,
