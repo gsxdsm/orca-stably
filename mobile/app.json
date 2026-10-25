@@ -4,7 +4,7 @@
     "slug": "orca-mobile",
     "version": "0.0.58",
     "orientation": "default",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon-dev.png",
     "userInterfaceStyle": "automatic",
     "scheme": "orca",
     "newArchEnabled": true,
