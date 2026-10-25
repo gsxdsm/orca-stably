@@ -86,6 +86,17 @@ public class OrcaWindowRegionsModule: Module {
       fatalError("init(coder:) is not supported")
     }
 
+    // Occlusions can change without hinge motion or a resize (status column, camera); re-read on those.
+    override func safeAreaInsetsDidChange() {
+      super.safeAreaInsetsDidChange()
+      setNeedsLayout()
+    }
+
+    override func traitCollectionDidChange(_ previous: UITraitCollection?) {
+      super.traitCollectionDidChange(previous)
+      setNeedsLayout()
+    }
+
     override func layoutSubviews() {
       super.layoutSubviews()
       guard let window else { return }

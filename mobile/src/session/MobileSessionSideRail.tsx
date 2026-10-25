@@ -1,8 +1,7 @@
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
-import { ChevronDown, Keyboard as KeyboardIcon } from 'lucide-react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 import { colors, spacing } from '../theme/mobile-theme'
 import { SIDE_RAIL_DRAWN_BY_SCREEN, useSideRailContent } from '../layout/side-rail'
-import { styles as sessionStyles } from './mobile-session-styles'
+import { MobileSessionDismissKeyboardKey } from './MobileSessionDismissKeyboardKey'
 import { MobileSessionAccessoryKeys } from './MobileSessionAccessoryKeys'
 import { MobileSessionPanelActions } from './MobileSessionPanelActions'
 import type { MobileSessionController } from './use-mobile-session-controller'
@@ -39,26 +38,7 @@ function MobileSessionSideRail({ controller }: { controller: MobileSessionContro
         <>
           <View style={styles.divider} />
           {keyboardLift > 0 ? (
-            <Pressable
-              style={({ pressed }) => [
-                sessionStyles.accessoryKey,
-                styles.key,
-                pressed && sessionStyles.accessoryKeyPressed
-              ]}
-              onPress={dismissSoftwareKeyboard}
-              accessibilityRole="button"
-              accessibilityLabel="Dismiss keyboard"
-            >
-              <View style={sessionStyles.keyboardDismissGlyph}>
-                <KeyboardIcon size={15} color={colors.textSecondary} strokeWidth={2} />
-                <ChevronDown
-                  size={10}
-                  color={colors.textSecondary}
-                  strokeWidth={2.5}
-                  style={sessionStyles.keyboardDismissChevron}
-                />
-              </View>
-            </Pressable>
+            <MobileSessionDismissKeyboardKey onPress={dismissSoftwareKeyboard} />
           ) : null}
           {/* Why: default tap handling makes the first key tap dismiss the keyboard and get swallowed (#5106). */}
           <ScrollView
@@ -109,11 +89,5 @@ const styles = StyleSheet.create({
   keysContent: {
     gap: spacing.xs,
     paddingHorizontal: spacing.xs
-  },
-  key: {
-    alignSelf: 'stretch',
-    marginHorizontal: spacing.xs,
-    paddingVertical: spacing.sm + 2,
-    justifyContent: 'center'
   }
 })

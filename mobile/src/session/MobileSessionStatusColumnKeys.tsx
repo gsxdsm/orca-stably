@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
 import { spacing } from '../theme/mobile-theme'
 import { MobileSessionAccessoryKeys } from './MobileSessionAccessoryKeys'
+import { MobileSessionDismissKeyboardKey } from './MobileSessionDismissKeyboardKey'
 import type { MobileSessionController } from './use-mobile-session-controller'
 
 /**
@@ -13,7 +14,7 @@ export function MobileSessionStatusColumnKeys({
 }: {
   controller: MobileSessionController
 }) {
-  const { statusColumnWidth, statusColumnTop } = controller
+  const { statusColumnWidth, statusColumnTop, keyboardLift, dismissSoftwareKeyboard } = controller
   const frameRef = useRef<View>(null)
   // The strip starts at the status column's bottom in window points; the frame sits below the header.
   const [frameTop, setFrameTop] = useState<number | null>(null)
@@ -31,6 +32,9 @@ export function MobileSessionStatusColumnKeys({
           // Why: default tap handling makes the first key tap dismiss the keyboard and get swallowed (#5106).
           keyboardShouldPersistTaps="always"
         >
+          {keyboardLift > 0 ? (
+            <MobileSessionDismissKeyboardKey onPress={dismissSoftwareKeyboard} />
+          ) : null}
           <MobileSessionAccessoryKeys controller={controller} inRail />
         </ScrollView>
       )}

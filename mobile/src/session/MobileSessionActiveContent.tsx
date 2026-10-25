@@ -1,4 +1,5 @@
 import { Animated, View, Text, Pressable, ActivityIndicator } from 'react-native'
+import { useEffect, useRef } from 'react'
 import { MobileSessionStatusColumnKeys } from './MobileSessionStatusColumnKeys'
 import { useStackedFoldBand } from '../layout/use-stacked-fold-band'
 import { saveTerminalTextScale } from '../storage/preferences'
@@ -12,6 +13,16 @@ import type { MobileSessionController } from './use-mobile-session-controller'
 import { useWorkspaceExecutionHost } from '../navigation/workspace-execution-host'
 import { FileReader } from './MobileSessionFileReader'
 import { MarkdownReader } from './MobileSessionMarkdownReader'
+
+function insetTerminalFrame(
+  size: { width: number; height: number },
+  inset: { right: number; bottom: number }
+): { width: number; height: number } {
+  return {
+    width: Math.max(0, size.width - inset.right),
+    height: Math.max(0, size.height - inset.bottom)
+  }
+}
 
 export function MobileSessionActiveContent({
   controller
@@ -94,6 +105,29 @@ export function MobileSessionActiveContent({
     toastAnimatedStyle,
     createTabBusy
   } = controller
+  // Fit the terminal to the pane area, which the status column (folded) and the hinge (laptop) inset.
+  const paneInset = {
+    right: controller.sessionSideRail === 'fullWidth' ? controller.statusColumnWidth : 0,
+    bottom: foldBand.top !== null ? foldBand.height - foldBand.top : 0
+  }
+  const contentSizeRef = useRef<{ width: number; height: number } | null>(null)
+  const { right: paneInsetRight, bottom: paneInsetBottom } = paneInset
+  const notifyTerminalFrameRef = useRef(notifyTerminalFrame)
+  notifyTerminalFrameRef.current = notifyTerminalFrame
+  const lastInsetRef = useRef({ right: paneInsetRight, bottom: paneInsetBottom })
+  useEffect(() => {
+    // The hinge or fold can move these insets without a new layout of the frame.
+    const last = lastInsetRef.current
+    if (last.right === paneInsetRight && last.bottom === paneInsetBottom) {
+      return
+    }
+    lastInsetRef.current = { right: paneInsetRight, bottom: paneInsetBottom }
+    if (contentSizeRef.current) {
+      notifyTerminalFrameRef.current(
+        insetTerminalFrame(contentSizeRef.current, lastInsetRef.current)
+      )
+    }
+  }, [paneInsetRight, paneInsetBottom])
   const content = showLoadingState ? (
     <View style={styles.emptyState}>
       <ActivityIndicator size="small" color={colors.textSecondary} />
@@ -289,7 +323,8 @@ export function MobileSessionActiveContent({
       style={styles.contentFrame}
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout
-        notifyTerminalFrame({ width, height })
+        contentSizeRef.current = { width, height }
+        notifyTerminalFrame(insetTerminalFrame({ width, height }, paneInset))
       }}
     >
       {content}

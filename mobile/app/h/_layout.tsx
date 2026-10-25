@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, StyleSheet, PanResponder, Platform } from 'react-native'
-import { useGlobalSearchParams, usePathname } from 'expo-router'
+import { useGlobalSearchParams, useNavigation, usePathname } from 'expo-router'
+import { useSafeAreaFrame } from 'react-native-safe-area-context'
 import { colors } from '../../src/theme/mobile-theme'
 import { useResponsiveLayout } from '../../src/layout/responsive-layout'
 import {
@@ -34,11 +35,11 @@ function clampSidebarToWindow(width: number, windowWidth: number): number {
   return Math.min(hardMax, Math.max(HOST_SIDEBAR_MIN_WIDTH, Math.round(width)))
 }
 
-// Snaps the split to a book-style hinge when both panes still fit their minimums.
+// Snaps the split to a book-style hinge when both panes still fit their minimums in the content area.
 function resolveHingeSplit(
   posture: FoldPosture,
   leftInset: number,
-  windowWidth: number
+  areaWidth: number
 ): { sidebarWidth: number; hingeWidth: number } | null {
   if (posture.kind !== 'sideBySide') {
     return null
@@ -47,14 +48,16 @@ function resolveHingeSplit(
   const hingeWidth = posture.rightStart - posture.leftEnd
   const fits =
     sidebarWidth >= HOST_SIDEBAR_MIN_WIDTH &&
-    windowWidth - sidebarWidth - hingeWidth >= MIN_DETAIL_WIDTH
+    areaWidth - sidebarWidth - hingeWidth >= MIN_DETAIL_WIDTH
   return fits ? { sidebarWidth, hingeWidth } : null
 }
 
 export default function HostGroupLayout() {
   // Wide layout = tablet/foldable canvas (see responsive-layout-metrics).
-  const { isWideLayout, width: windowWidth } = useResponsiveLayout()
+  const { isWideLayout } = useResponsiveLayout()
   const windowInsets = useWindowSafeAreaInsets()
+  // The area beside the side rail, which is what the sidebar and detail actually share.
+  const areaWidth = useSafeAreaFrame().width
   const { hostId } = useGlobalSearchParams<{ hostId?: string }>()
   const pathname = usePathname()
   const overlayRoute = isOverlayPageRoute(pathname)
@@ -64,15 +67,17 @@ export default function HostGroupLayout() {
   // Refs keep once-created PanResponder handlers reading current widths.
   const widthRef = useRef(sidebarWidth)
   widthRef.current = sidebarWidth
-  const windowWidthRef = useRef(windowWidth)
-  windowWidthRef.current = windowWidth
+  const areaWidthRef = useRef(areaWidth)
+  areaWidthRef.current = areaWidth
   const dragStartRef = useRef(sidebarWidth)
+  const shownWidthRef = useRef(sidebarWidth)
+  const overrideHingeRef = useRef<() => void>(() => {})
 
   useEffect(() => {
     let stale = false
     void loadHostSidebarWidth().then((saved) => {
       if (!stale) {
-        setSidebarWidth(clampSidebarToWindow(saved, windowWidthRef.current))
+        setSidebarWidth(clampSidebarToWindow(saved, areaWidthRef.current))
       }
     })
     return () => {
@@ -82,8 +87,8 @@ export default function HostGroupLayout() {
 
   // Re-clamp on fold/rotation/split-screen to preserve MIN_DETAIL_WIDTH.
   useEffect(() => {
-    setSidebarWidth((current) => clampSidebarToWindow(current, windowWidth))
-  }, [windowWidth])
+    setSidebarWidth((current) => clampSidebarToWindow(current, areaWidth))
+  }, [areaWidth])
 
   const hideSidebar = useCallback(() => setSidebarOpen(false), [])
   const revealSidebar = useCallback(() => setSidebarOpen(true), [])
@@ -113,10 +118,12 @@ export default function HostGroupLayout() {
       onMoveShouldSetPanResponderCapture: () => true,
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: () => {
-        dragStartRef.current = widthRef.current
+        // A drag takes over from a hinge snap, starting from the width on screen.
+        dragStartRef.current = shownWidthRef.current
+        overrideHingeRef.current()
       },
       onPanResponderMove: (_evt, g) => {
-        setSidebarWidth(clampSidebarToWindow(dragStartRef.current + g.dx, windowWidthRef.current))
+        setSidebarWidth(clampSidebarToWindow(dragStartRef.current + g.dx, areaWidthRef.current))
       },
       onPanResponderRelease: () => {
         void saveHostSidebarWidth(widthRef.current)
@@ -127,13 +134,21 @@ export default function HostGroupLayout() {
     })
   ).current
 
-  // Half folded book-style, the panes meet at the hinge instead of the dragged width.
-  const hingeSplit = resolveHingeSplit(
-    foldPosture(useFoldDivision()),
-    windowInsets.left,
-    windowWidth
-  )
-  const shownSidebarWidth = hingeSplit?.sidebarWidth ?? sidebarWidth
+  // Half folded book-style, the panes meet at the hinge until the user drags the edge.
+  const hingeSplit = resolveHingeSplit(foldPosture(useFoldDivision()), windowInsets.left, areaWidth)
+  const hingeKey = hingeSplit ? `${hingeSplit.sidebarWidth}:${hingeSplit.hingeWidth}` : null
+  const [hingeOverridden, setHingeOverridden] = useState(false)
+  useEffect(() => setHingeOverridden(false), [hingeKey])
+  overrideHingeRef.current = () => setHingeOverridden(true)
+  const snappedToHinge = hingeSplit !== null && !hingeOverridden
+  const shownSidebarWidth = snappedToHinge ? hingeSplit.sidebarWidth : sidebarWidth
+  shownWidthRef.current = shownSidebarWidth
+
+  // Why: on iOS 26 a rightward drag anywhere can pop the root stack, so resizing the sidebar went back to Home.
+  const navigation = useNavigation()
+  useEffect(() => {
+    navigation.setOptions({ gestureEnabled: !showSidebar })
+  }, [navigation, showSidebar])
 
   // Keep detail Stack at a stable tree position so fold/rotation cannot remount navigation.
   return (
@@ -147,13 +162,13 @@ export default function HostGroupLayout() {
               onHideSidebar={canCollapseSidebar ? hideSidebar : undefined}
             />
             {/* Edge drag handle captures Android gestures above the list. */}
-            {hingeSplit ? null : <View style={styles.resizeHandle} {...resizer.panHandlers} />}
+            <View style={styles.resizeHandle} {...resizer.panHandlers} />
           </View>
         ) : null}
         <View
           style={[
             styles.detail,
-            showSidebar && sidebarOpen && hingeSplit && { paddingLeft: hingeSplit.hingeWidth }
+            showSidebar && sidebarOpen && snappedToHinge && { paddingLeft: hingeSplit.hingeWidth }
           ]}
         >
           <HostAreaServingContext.Provider value={setHostAreaServing}>

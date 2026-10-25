@@ -14,6 +14,7 @@ import {
   SideRailHost,
   useSideRailDrawnByScreen
 } from './side-rail'
+import { hostOs } from '../platform/host-os'
 import { useSideRailTop } from './use-window-regions'
 
 const WindowSafeAreaInsetsContext = createContext<EdgeInsets | null>(null)
@@ -31,7 +32,8 @@ export function SideSafeArea({ children }: { children: ReactNode }) {
     }),
     [frame, insets.left, insets.right]
   )
-  const railWidth = resolveSideRailWidth(insets)
+  // iOS only: on Android a one-sided inset is a navigation bar or cutout, not the Duo's status column.
+  const railWidth = hostOs() === 'ios' ? resolveSideRailWidth(insets) : 0
   // Subscribed for the boolean alone, so a screen republishing its rail does not re-render the app.
   const railDrawnByScreen = useSideRailDrawnByScreen()
   const showRailColumn = railWidth > 0 && !railDrawnByScreen
