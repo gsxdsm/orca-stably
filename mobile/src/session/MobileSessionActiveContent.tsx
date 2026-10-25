@@ -5,7 +5,7 @@ import { saveTerminalTextScale } from '../storage/preferences'
 import { MobileBrowserPane } from '../browser/MobileBrowserPane'
 import { TerminalPaneView } from './TerminalPaneView'
 import { MobileNativeChatOverlay } from './MobileNativeChatOverlay'
-import { resolveMobileNativeChatSessionId } from './mobile-native-chat-eligibility'
+import { resolveMobileNativeChatSessionId } from './native-chat/mobile-native-chat-eligibility'
 import { colors } from '../theme/mobile-theme'
 import { styles } from './mobile-session-styles'
 import type { MobileSessionController } from './use-mobile-session-controller'
@@ -42,6 +42,7 @@ export function MobileSessionActiveContent({
     dictationEnabled,
     toastMessage,
     handleTerminalTap,
+    handleTerminalSwipeDown,
     browserScreencastSupported,
     showToast,
     nativeChatSendError,
@@ -245,6 +246,7 @@ export function MobileSessionActiveContent({
             onTerminalInput={handleTerminalInput}
             onTerminalQueryReply={handleTerminalQueryReply}
             onTerminalTap={handleTerminalTap}
+            onTerminalSwipeDown={handleTerminalSwipeDown}
             onFileTap={handleFileTap}
             onOpenUrl={handleTerminalOpenUrl}
           />

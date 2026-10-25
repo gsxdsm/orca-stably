@@ -74,6 +74,7 @@ export type TerminalSelectionEvents = {
   onTerminalInput?: (bytes: string, input?: TerminalPointerInput) => void
   onTerminalQueryReply?: (bytes: string) => void
   onTerminalTap?: () => void
+  onTerminalSwipeDown?: () => void
   onFileTap?: (pathText: string, line: number | null, column: number | null) => void
   onOpenUrl?: (url: string) => void
   // Persist snapped text-size presets so Settings and other panes follow terminal pinches.
