@@ -79,8 +79,8 @@ function HostScreenSideRail({ controller }: { controller: HostScreenController }
         </RailButton>
       ) : null}
       <RailButton
-        label="New workspace"
-        onPress={actions.openNewWorktreeModal}
+        label="New workspace or project"
+        onPress={actions.openCreateMenu}
         disabled={!connected}
         primary
       >
