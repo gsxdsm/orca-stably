@@ -18,6 +18,8 @@ export function HostWorkspaceListStates(
   props: HostWorkspaceListStateInput & {
     search: string
     activeFilterCount: number
+    /** Offered only when nothing is filtered out, so it reads as "this host has no projects yet". */
+    onAddProject?: () => void
     bottomInset: number
     /** A search's paused bots the Bot options hide, when nothing else matched. */
     pausedBotMatches?: number
@@ -78,6 +80,7 @@ export function HostWorkspaceListStates(
     )
   }
   if (state === 'empty') {
+    const unfiltered = !props.search && props.activeFilterCount === 0 && props.onAddProject
     const paused = props.pausedBotMatches ?? 0
     return props.search ? (
       paused > 0 && props.onShowPausedBots ? (
@@ -100,6 +103,14 @@ export function HostWorkspaceListStates(
           props.activeFilterCount > 0
             ? t('worktree.hostWorkspaceListStates.noFilterMatches', 'No workspaces match filters')
             : t('worktree.hostWorkspaceListStates.empty', 'No workspaces')
+        }
+        action={
+          props.onAddProject && unfiltered
+            ? {
+                label: t('worktree.hostWorkspaceListStates.addProject', 'Add a project'),
+                onPress: props.onAddProject
+              }
+            : null
         }
         bottomInset={bottomInset}
       />

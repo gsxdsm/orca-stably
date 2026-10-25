@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the fork's additions sit beside upstream's in this owner after the upstream merge. */
 import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ORCA_SIDEBAR_INPUTS_IS_MAIN } from '../../../../src/shared/sidebar-list/feed/sidebar-inputs-switch'
@@ -24,6 +25,7 @@ import { noteLastVisitedWorktree } from '../../worktree/navigation/last-visited-
 import { isWorktreePinned } from '../../worktree/workspace-list/workspace-list-sections'
 import type { Worktree } from '../../worktree/workspace-list/workspace-list-types'
 import { worktreeActivate, worktreePinWrite, worktreeSleep } from '../host-screen-operations'
+import { useHostNewWorkspaceActions } from '../use-host-new-workspace-actions'
 import type { HostScreenState } from '../use-host-screen-state'
 import { useHostWorktreeDelete } from './use-host-worktree-delete'
 import { useHostWorktreeRowWrites } from './use-host-worktree-row-writes'
@@ -63,7 +65,9 @@ export function useHostWorktreeActions(args: {
     setOptimisticActiveWorktreeIdentity,
     setPinnedIds,
     serverWorkspaces,
+    setNewWorktreeInitialRepoId,
     setNewWorktreeVisible,
+    setShowAddProject,
     setServerNotice,
     setServerWorkspaces,
     setSleptIds,
@@ -85,14 +89,12 @@ export function useHostWorktreeActions(args: {
     }
   }, [router])
 
-  const openNewWorktreeModal = useCallback(
-    () => setNewWorktreeVisible(true),
-    [setNewWorktreeVisible]
-  )
-  const closeNewWorktreeModal = useCallback(
-    () => setNewWorktreeVisible(false),
-    [setNewWorktreeVisible]
-  )
+  const newWorkspace = useHostNewWorkspaceActions({
+    hostCapabilities,
+    setNewWorktreeInitialRepoId,
+    setNewWorktreeVisible,
+    setShowAddProject
+  })
 
   const updateLocalPins = useCallback(
     (worktreeId: string, pinned: boolean) => {
@@ -317,8 +319,7 @@ export function useHostWorktreeActions(args: {
     leaveHost,
     navigateFromHostList,
     openFloatingWorkspace,
-    openNewWorktreeModal,
-    closeNewWorktreeModal,
+    ...newWorkspace,
     openWorktreeSession,
     putWorktreeToSleep,
     renameWorktree,
