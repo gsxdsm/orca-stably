@@ -146,6 +146,11 @@ export function HostWorkspaceList({ controller }: { controller: HostScreenContro
           catalogError={state.catalogError}
           search={state.search}
           activeFilterCount={controller.activeFilterCount}
+          onAddProject={
+            actions.addProjectSupported && connState === 'connected' && !isReadOnly
+              ? actions.openCreateMenu
+              : undefined
+          }
         />
       )}
 
@@ -266,7 +271,8 @@ export function HostWorkspaceList({ controller }: { controller: HostScreenContro
 
       {!embedded && (
         <NewWorkspaceFab
-          onPress={actions.openNewWorktreeModal}
+          onPress={actions.openCreateMenu}
+          accessibilityLabel={actions.addProjectSupported ? 'Create' : 'New workspace'}
           disabled={connState !== 'connected'}
         />
       )}
