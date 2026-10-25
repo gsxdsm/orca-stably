@@ -30,6 +30,18 @@ describe('create project defaults', () => {
     )
   })
 
+  it('keeps a literal backslash in a POSIX path instead of treating it as a separator', () => {
+    expect(joinCreateProjectPath('/home/alice/odd\\name\\', 'demo')).toBe(
+      '/home/alice/odd\\name\\/demo'
+    )
+  })
+
+  it('joins under a UNC share with Windows separators', () => {
+    expect(joinCreateProjectPath('\\\\server\\share\\projects\\', 'demo')).toBe(
+      '\\\\server\\share\\projects\\demo'
+    )
+  })
+
   it('auto-fills only the first empty local create step', () => {
     expect(
       getCreateProjectDefaultParentAutoFill({
