@@ -9,10 +9,15 @@ export const FAB_SIZE = 48
 type NewWorkspaceFabProps = {
   onPress: () => void
   disabled?: boolean
+  accessibilityLabel?: string
 }
 
 // Phone-only FAB sits above home indicator and outside list-row hit area.
-export function NewWorkspaceFab({ onPress, disabled }: NewWorkspaceFabProps): React.JSX.Element {
+export function NewWorkspaceFab({
+  onPress,
+  disabled,
+  accessibilityLabel = 'New workspace'
+}: NewWorkspaceFabProps): React.JSX.Element {
   const insets = useSafeAreaInsets()
   return (
     <Pressable
@@ -25,7 +30,7 @@ export function NewWorkspaceFab({ onPress, disabled }: NewWorkspaceFabProps): Re
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
-      accessibilityLabel="New workspace"
+      accessibilityLabel={accessibilityLabel}
       hitSlop={8}
     >
       <Plus size={24} color={colors.bgBase} strokeWidth={2.75} />

@@ -6,6 +6,7 @@ import { workspaceRouteHref } from '../navigation/workspace-execution-host'
 import { useWorkspaceServer } from '../transport/workspace-server'
 import { ActionSheetContent } from '../components/ActionSheetModal'
 import { BottomDrawer } from '../components/BottomDrawer'
+import { AddProjectSheet } from '../add-project/AddProjectSheet'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { NewWorktreeModalController } from '../components/NewWorktreeModalController'
 import { hostNewWorktreeSessionRoute } from '../host-new-worktree-session-route'
@@ -24,6 +25,7 @@ export function HostScreenOverlays({ controller }: { controller: HostScreenContr
     existingWorktreePaths,
     hostCapabilities,
     hostId,
+    refreshAfterProjectAdded,
     state
   } = controller
   const actionTarget = state.actionTarget
@@ -153,8 +155,17 @@ export function HostScreenOverlays({ controller }: { controller: HostScreenContr
         onCancel={() => state.setConfirmRemoveHost(false)}
       />
 
+      <AddProjectSheet
+        visible={state.showAddProject}
+        client={client}
+        onClose={actions.closeAddProject}
+        onNewWorkspace={actions.openNewWorktreeForRepo}
+        onProjectAdded={refreshAfterProjectAdded}
+      />
+
       <NewWorktreeModalController
         visible={state.showNewWorktree}
+        initialRepoId={state.newWorktreeInitialRepoId}
         client={client}
         hostCapabilities={hostCapabilities}
         hostId={hostId}

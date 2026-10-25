@@ -32,7 +32,7 @@ function controllerWith(forceReconnectHost: ForceReconnect) {
     actions: {
       leaveHost: () => {},
       navigateFromHostList: () => {},
-      openNewWorktreeModal: () => {}
+      openCreateMenu: () => {}
     },
     connState: 'reconnecting',
     embedded: false,

@@ -147,7 +147,11 @@ export const EXECUTION_HOST_METHODS = [
   // Mobile reports takeover out of band, matching desktop renderer signaling.
   'orchestration.workerTerminalUserInput',
   'projectGroup.list',
+  // Add project registers, creates or clones on the host that will own the project.
+  'repo.add',
   'repo.baseRefDefault',
+  'repo.clone',
+  'repo.create',
   'repo.gitAvailable',
   'repo.hooks',
   'repo.list',

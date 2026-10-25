@@ -1,5 +1,6 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
-import { colors, spacing, typography } from '../theme/mobile-theme'
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { FolderPlus } from 'lucide-react-native'
+import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 import {
   selectHostWorkspaceListState,
   type HostWorkspaceListStateInput
@@ -9,6 +10,8 @@ export function HostWorkspaceListStates(
   props: HostWorkspaceListStateInput & {
     search: string
     activeFilterCount: number
+    /** Offered only when nothing is filtered out, so it reads as "this host has no projects yet". */
+    onAddProject?: () => void
   }
 ) {
   const state = selectHostWorkspaceListState(props)
@@ -30,6 +33,7 @@ export function HostWorkspaceListStates(
     )
   }
   if (state === 'empty') {
+    const unfiltered = !props.search && props.activeFilterCount === 0
     return (
       <View style={styles.centered}>
         <Text style={styles.emptyText}>
@@ -39,6 +43,16 @@ export function HostWorkspaceListStates(
               ? 'No workspaces match filters'
               : 'No workspaces'}
         </Text>
+        {unfiltered && props.onAddProject ? (
+          <Pressable
+            style={({ pressed }) => [styles.addProjectButton, pressed && styles.pressed]}
+            onPress={props.onAddProject}
+            accessibilityRole="button"
+          >
+            <FolderPlus size={16} color={colors.textPrimary} />
+            <Text style={styles.addProjectText}>Add a project</Text>
+          </Pressable>
+        ) : null}
       </View>
     )
   }
@@ -66,6 +80,25 @@ const styles = StyleSheet.create({
   aboveRows: {
     alignItems: 'center',
     paddingVertical: spacing.md
+  },
+  addProjectButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.button,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle
+  },
+  addProjectText: {
+    color: colors.textPrimary,
+    fontSize: typography.bodySize,
+    fontWeight: '500'
+  },
+  pressed: {
+    opacity: 0.7
   },
   emptyText: {
     color: colors.textSecondary,
