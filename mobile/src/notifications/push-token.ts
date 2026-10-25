@@ -14,6 +14,11 @@ export type MobilePushToken = {
 
 // Dev-client builds are debug and get sandbox APNs; TestFlight and App Store are release.
 function apnsEnvironment(): MobilePushApnsEnvironment {
+  // A locally signed Release build carries the development aps-environment, so it can ask for sandbox.
+  const override = process.env.EXPO_PUBLIC_ORCA_APNS_ENVIRONMENT
+  if (override === 'sandbox' || override === 'production') {
+    return override
+  }
   return typeof __DEV__ !== 'undefined' && __DEV__ ? 'sandbox' : 'production'
 }
 
