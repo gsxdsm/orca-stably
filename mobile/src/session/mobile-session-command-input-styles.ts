@@ -166,6 +166,9 @@ export const mobileSessionCommandInputStyles = StyleSheet.create({
   liveInputBar: {
     gap: spacing.sm
   },
+  inputBarCornerFit: {
+    paddingHorizontal: spacing.xl
+  },
 
   liveInputFocusTarget: {
     flex: 1,

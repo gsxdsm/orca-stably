@@ -41,6 +41,7 @@ export function HostWorkspaceList({ controller }: { controller: HostScreenContro
     contentMaxWidth,
     displayWorktrees,
     embedded,
+    actionsInRail,
     forceReconnectHost,
     hostId,
     insets,
@@ -164,7 +165,10 @@ export function HostWorkspaceList({ controller }: { controller: HostScreenContro
           contentContainerStyle={[
             styles.list,
             // Reserve room so the last row stays tappable above the phone's floating "+" (embedded uses the toolbar +).
-            { paddingBottom: (embedded ? spacing.lg : FAB_SIZE + spacing.xl) + insets.bottom },
+            {
+              paddingBottom:
+                (embedded || actionsInRail ? spacing.lg : FAB_SIZE + spacing.xl) + insets.bottom
+            },
             isWideLayout &&
               !embedded && { maxWidth: contentMaxWidth, width: '100%', alignSelf: 'center' }
           ]}
@@ -264,7 +268,7 @@ export function HostWorkspaceList({ controller }: { controller: HostScreenContro
         />
       )}
 
-      {!embedded && (
+      {!embedded && !actionsInRail && (
         <NewWorkspaceFab
           onPress={actions.openNewWorktreeModal}
           disabled={connState !== 'connected'}

@@ -33,6 +33,7 @@ vi.mock('../storage/preferences', () => ({ saveTerminalTextScale: () => Promise.
 vi.mock('../browser/MobileBrowserPane', () => ({ MobileBrowserPane: () => null }))
 vi.mock('./TerminalPaneView', () => ({ TerminalPaneView: () => null }))
 vi.mock('./MobileNativeChatOverlay', () => ({ MobileNativeChatOverlay: () => null }))
+vi.mock('./MobileSessionStatusColumnKeys', () => ({ MobileSessionStatusColumnKeys: () => null }))
 vi.mock('./MobileSessionFileReader', () => ({ FileReader: () => null }))
 vi.mock('./MobileSessionMarkdownReader', () => ({ MarkdownReader: () => null }))
 vi.mock('./mobile-session-styles', () => ({ styles: {} }))
@@ -55,6 +56,7 @@ function controller(
     showEmptyState: false,
     terminals: [],
     notifyTerminalFrame,
+    insets: { top: 0, right: 0, bottom: 0, left: 0 },
     dictation: { isRecording: false },
     nativeChatSendError: { message: null, clear: () => {} }
   }

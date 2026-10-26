@@ -1,7 +1,8 @@
 import { spacing } from '../theme/mobile-theme'
 
 // Use actual window size so narrow iPad splits keep phone-like layouts.
-const WIDE_LAYOUT_MIN_WIDTH = 700
+// Why 600: min sidebar (280) + min detail (320), so an unfolded iPhone Duo (626pt portrait) gets the split view.
+const WIDE_LAYOUT_MIN_WIDTH = 600
 
 // Require room in both dimensions so rotating a landscape phone cannot switch it to tablet UI.
 const TABLET_LAYOUT_MIN_SHORT_SIDE = 600

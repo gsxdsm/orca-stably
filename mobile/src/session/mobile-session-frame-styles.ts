@@ -192,6 +192,9 @@ export const mobileSessionFrameStyles = StyleSheet.create({
   terminalPane: {
     ...StyleSheet.absoluteFillObject
   },
+  terminalPaneArea: {
+    ...StyleSheet.absoluteFillObject
+  },
   terminalPaneHidden: {
     opacity: 0
   },

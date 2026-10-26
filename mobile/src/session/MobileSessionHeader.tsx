@@ -1,7 +1,8 @@
 import { View, Text, Pressable } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { ChevronLeft, Folder, GitBranch, MoreHorizontal, PanelLeftOpen } from 'lucide-react-native'
+import { ChevronLeft, PanelLeftOpen } from 'lucide-react-native'
 import { MobileSessionHeaderIconButton } from './MobileSessionHeaderIconButton'
+import { MobileSessionPanelActions } from './MobileSessionPanelActions'
 import { MobileSessionTabStrip } from './MobileSessionTabStrip'
 import { StatusDot } from '../components/StatusDot'
 import { styles } from './mobile-session-styles'
@@ -27,6 +28,8 @@ export function MobileSessionHeader({ controller }: { controller: MobileSessionC
     showHeaderMoreButton
   } = controller
   const revealSidebar = useHostSidebarReveal()
+  // Folded, the status column (Dynamic Island, clock) runs down beside the header and tab rows.
+  const { sessionSideRail, statusColumnWidth } = controller
   // Why: a sideways phone is ~390pt tall, so the tabs share the top bar instead of taking a second row.
   const hasTabs = visibleTabs.length > 0
   const tabsInTopBar = useResponsiveLayout().isLandscapePhone && hasTabs
@@ -34,7 +37,13 @@ export function MobileSessionHeader({ controller }: { controller: MobileSessionC
     <MobileSessionTabStrip controller={controller} inTopBar={tabsInTopBar} />
   ) : null
   return (
-    <SafeAreaView style={styles.sessionChrome} edges={['top']}>
+    <SafeAreaView
+      style={[
+        styles.sessionChrome,
+        sessionSideRail === 'fullWidth' && { paddingRight: statusColumnWidth }
+      ]}
+      edges={['top']}
+    >
       <View style={styles.sessionTopBar}>
         {revealSidebar ? (
           <MobileSessionHeaderIconButton
@@ -73,30 +82,17 @@ export function MobileSessionHeader({ controller }: { controller: MobileSessionC
           </Pressable>
         </View>
         {tabsInTopBar ? tabStrip : null}
-        {!isFloatingWorkspaceRoute && (
-          <MobileSessionHeaderIconButton
-            active={activePanel === 'files'}
-            accessibilityLabel="Open file explorer"
-            icon={Folder}
-            onPress={() => handlePanelTap('files')}
+        {/* The side rail hosts these when the window has one (MobileSessionSideRail). */}
+        {sessionSideRail === 'actions' ? null : (
+          <MobileSessionPanelActions
+            isFolderWorkspaceRoute={isFolderWorkspaceRoute}
+            isFloatingWorkspaceRoute={isFloatingWorkspaceRoute}
+            activePanel={activePanel}
+            showHeaderMoreButton={showHeaderMoreButton}
+            handlePanelTap={handlePanelTap}
+            setShowHeaderMoreActions={setShowHeaderMoreActions}
           />
         )}
-        {!isFolderWorkspaceRoute && !isFloatingWorkspaceRoute && (
-          <MobileSessionHeaderIconButton
-            active={activePanel === 'sourceControl'}
-            accessibilityLabel="Open source control"
-            icon={GitBranch}
-            onPress={() => handlePanelTap('sourceControl')}
-          />
-        )}
-        {showHeaderMoreButton ? (
-          <MobileSessionHeaderIconButton
-            active={activePanel === 'pr'}
-            accessibilityLabel="More session actions"
-            icon={MoreHorizontal}
-            onPress={() => setShowHeaderMoreActions(true)}
-          />
-        ) : null}
       </View>
 
       {tabsInTopBar ? null : tabStrip}

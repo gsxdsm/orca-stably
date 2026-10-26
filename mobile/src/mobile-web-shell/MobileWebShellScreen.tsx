@@ -25,6 +25,7 @@ import type { MobileWebShellRuntime } from './mobile-web-shell-runtime'
 import { useKeyboardOcclusion } from '../platform/keyboard-occlusion'
 import { useNativeDeviceVerbs } from '../platform/use-native-device-verbs'
 import { useShellPageBack } from './use-shell-page-back'
+import { useHostStackGestureEnabled } from '../navigation/host-stack-gesture'
 import { useShellStackPop } from './use-shell-stack-pop'
 import { useMobileWebShellSession } from './use-mobile-web-shell-session'
 import { usePageHostSnapshot } from './use-page-host-snapshot'
@@ -38,6 +39,8 @@ import { SHELL_OPENING_LABEL, ShellPageCover, ShellWaitingFrame } from './ShellW
 import { ShellDownloadProgress } from './ShellDownloadProgress'
 import { useReportedShellOverlayLoad, type ShellOverlayLoad } from './shell-overlay-load'
 import { pageSafeAreaInsets, usePublishedSafeAreaInsets } from './page-safe-area-insets'
+import { usePublishedWindowRegions, useShellWindowRegions } from './use-shell-window-regions'
+import { useShellSideRailInsets } from './use-shell-side-rail-insets'
 import { hostProfileUnreadableLine, pageFaultLine } from './shell-lifecycle-log'
 import { recordShellLifecycleLine } from './shell-lifecycle-line-recorder'
 
@@ -166,7 +169,11 @@ export function MobileWebShellScreen({
     updateNotice !== null && state.kind === 'ready' && noticeDismissedFor !== state.sessionId
   // Edge-to-edge disables adjustResize and zeroes WebView IME insets, so visualViewport never shrinks; publish native keyboard height to the page.
   const keyboardInset = Math.max(0, useKeyboardOcclusion())
-  const pageInsets = pageSafeAreaInsets({ insets, topCovered: noticeShown })
+  // Only a ready, full-screen page draws the rail; an overlay floats over a screen that keeps it.
+  const railInsets = useShellSideRailInsets(insets, !overlay && state.kind === 'ready')
+  const pageInsets = pageSafeAreaInsets({ insets: railInsets, topCovered: noticeShown })
+  // The page cannot see the hinge or the status column either; it lays out around what the shell reads.
+  const windowRegions = useShellWindowRegions()
   const { snapshot, unreadable, readStorage, refreshStorage, writeStorage, readWorkspaceKey } =
     usePageHostSnapshot(hostId, route.pathname, ownsHostArea)
   // Create the media registry before the bridge; its staged files must belong to this page session.
@@ -178,7 +185,10 @@ export function MobileWebShellScreen({
   // Both externalLink and cancelled navigation use this filtered opener. Report device-handler failure without throwing from a native frame callback; neither path has a reply.
   const openUrlForPage = (url: string) => {
     void Linking.openURL(url).catch((error: unknown) => {
-      console.warn('[web-shell] could not open a URL for the page', { url, error })
+      console.warn('[web-shell] could not open a URL for the page', {
+        url,
+        error
+      })
     })
   }
 
@@ -187,6 +197,7 @@ export function MobileWebShellScreen({
     route,
     safeAreaInsets: pageInsets,
     keyboardInset,
+    ...windowRegions,
     pageRoutes,
     pageRouteGrants,
     routeGrants,
@@ -267,10 +278,13 @@ export function MobileWebShellScreen({
   useEffect(() => {
     publishKeyboardInset(keyboardInset)
   }, [publishKeyboardInset, keyboardInset])
+  usePublishedWindowRegions(bridge, windowRegions)
 
+  const stackGestureEnabled = useHostStackGestureEnabled()
   // Use navigation screen options to disable this stack entry’s gesture; the router has no such option.
   useShellPageBack({
     claimed: backClaimed,
+    stackGestureEnabled,
     sendBack: bridge.sendBack,
     setOptions: navigation.setOptions
   })

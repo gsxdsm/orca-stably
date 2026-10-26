@@ -6,7 +6,13 @@ import { HOST_STACK_SCREENS, type HostStackAnimation } from './host-stack-screen
 import { isOverlayPageRoute } from '../new-workspace/overlay-page-route'
 
 // Expo native-stack’s web view ignores animation and switches display; reuse StackRouter with a view that retains popped screens through their exit slide.
-export function HostStack({ animation }: { animation: HostStackAnimation }) {
+export function HostStack({
+  animation
+}: {
+  animation: HostStackAnimation
+  // The page has no swipe-back to disable.
+  gestureEnabled: boolean
+}) {
   return (
     <Navigator>
       {HOST_STACK_SCREENS.map(({ name, title }) => (
@@ -29,7 +35,11 @@ type Routes = NavigatorContext['state']['routes']
 
 type Transition =
   | Readonly<{ kind: 'push'; enteringKey: string; underKey: string }>
-  | Readonly<{ kind: 'pop'; leaving: Routes[number]; descriptors: Descriptors }>
+  | Readonly<{
+      kind: 'pop'
+      leaving: Routes[number]
+      descriptors: Descriptors
+    }>
 
 type Shown = Readonly<{
   routes: Routes
@@ -49,10 +59,18 @@ function transitionBetween(previous: Shown, next: Routes): Transition | null {
   }
   const nextKeys = next.map((route) => route.key)
   if (nextKeys.at(-2) === previousTop.key) {
-    return { kind: 'push', enteringKey: nextTop.key, underKey: previousTop.key }
+    return {
+      kind: 'push',
+      enteringKey: nextTop.key,
+      underKey: previousTop.key
+    }
   }
   if (!nextKeys.includes(previousTop.key) && previous.routes.some((r) => r.key === nextTop.key)) {
-    return { kind: 'pop', leaving: previousTop, descriptors: previous.descriptors }
+    return {
+      kind: 'pop',
+      leaving: previousTop,
+      descriptors: previous.descriptors
+    }
   }
   return null
 }
@@ -60,7 +78,11 @@ function transitionBetween(previous: Shown, next: Routes): Transition | null {
 function HostStackView({ animation }: { animation: HostStackAnimation }) {
   const { state, descriptors } = Navigator.useContext()
   const { routes } = state
-  const [shown, setShown] = useState<Shown>({ routes, descriptors, transition: null })
+  const [shown, setShown] = useState<Shown>({
+    routes,
+    descriptors,
+    transition: null
+  })
 
   // Derive during render so a pop’s first frame still contains its outgoing screen.
   if (shown.routes !== routes) {
@@ -132,7 +154,11 @@ function StackScreen({
         ? [{ transform: 'translateX(100%)' }, { transform: 'translateX(0)' }]
         : [{ transform: from ?? 'translateX(0)' }, { transform: 'translateX(100%)' }]
     // Use compositor animations so expensive screen mounts cannot stall slides.
-    const slide = node.animate(frames, { duration: SLIDE_MS, easing: SLIDE_EASING, fill: 'both' })
+    const slide = node.animate(frames, {
+      duration: SLIDE_MS,
+      easing: SLIDE_EASING,
+      fill: 'both'
+    })
     slide.onfinish = onSettled
     const stop = () => {
       stoppedAt.current = getComputedStyle(node).transform

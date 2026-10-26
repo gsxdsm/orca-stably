@@ -10,6 +10,7 @@ import { recordShellLifecycleLine } from './shell-lifecycle-line-recorder'
 import type { BridgeInitRoute } from './bridge/bridge-envelope'
 import type { BridgeClearableRouteParam } from './bridge/bridge-route-update'
 import type { BridgeSafeAreaInsets } from './bridge/bridge-safe-area-insets'
+import type { BridgeFoldDivision } from './bridge/bridge-fold-division'
 import type { BridgeHapticsKind } from './bridge/bridge-haptics-notify'
 import { createBridgeHost, type BridgeHost } from './bridge-host'
 import type { BridgeSessionBack } from './bridge-host-back'
@@ -45,6 +46,8 @@ export type MobileWebShellBridgeView = {
   readonly publishRoute: (route: BridgeInitRoute) => void
   readonly publishSafeAreaInsets: (insets: BridgeSafeAreaInsets) => void
   readonly publishKeyboardInset: (height: number) => void
+  readonly publishFoldDivision: (division: BridgeFoldDivision | null) => void
+  readonly publishSideRailTop: (top: number | null) => void
   // Return false if no host/document can take Back so the navigator keeps the press.
   readonly sendBack: () => boolean
 }
@@ -57,6 +60,10 @@ export type MobileWebShellBridgeArgs = {
   route: BridgeInitRoute
   safeAreaInsets: BridgeSafeAreaInsets
   keyboardInset: number
+  /** What the first `init` of a new host carries; later moves go through `publishFoldDivision`. */
+  foldDivision: BridgeFoldDivision | null
+  /** What the first `init` of a new host carries; later moves go through `publishSideRailTop`. */
+  sideRailTop: number | null
   pageRoutes: readonly string[]
   pageRouteGrants: readonly { pathname: string; grants: readonly string[] }[]
   // Effective session grants include the served-route union when this page owns the host area.
@@ -119,6 +126,8 @@ export function useMobileWebShellBridge(args: MobileWebShellBridgeArgs): MobileW
       route: latest.route,
       safeAreaInsets: latest.safeAreaInsets,
       keyboardInset: latest.keyboardInset,
+      foldDivision: latest.foldDivision,
+      sideRailTop: latest.sideRailTop,
       pageRoutes: latest.pageRoutes,
       pageRouteGrants: latest.pageRouteGrants,
       routeGrants: latest.routeGrants,
@@ -223,6 +232,24 @@ export function useMobileWebShellBridge(args: MobileWebShellBridgeArgs): MobileW
         const mounted = hostRef.current
         if (mounted !== null && mounted.sessionId === sessionId) {
           mounted.host.publishKeyboardInset(height)
+        }
+      },
+      [buildId, client, sessionId, snapshot]
+    ),
+    publishSideRailTop: useCallback(
+      (top: number | null) => {
+        const mounted = hostRef.current
+        if (mounted !== null && mounted.sessionId === sessionId) {
+          mounted.host.publishSideRailTop(top)
+        }
+      },
+      [buildId, client, sessionId, snapshot]
+    ),
+    publishFoldDivision: useCallback(
+      (division: BridgeFoldDivision | null) => {
+        const mounted = hostRef.current
+        if (mounted !== null && mounted.sessionId === sessionId) {
+          mounted.host.publishFoldDivision(division)
         }
       },
       [buildId, client, sessionId, snapshot]

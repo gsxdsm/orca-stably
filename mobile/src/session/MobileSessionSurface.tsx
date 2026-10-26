@@ -4,9 +4,11 @@ import type { MobileSessionController } from './use-mobile-session-controller'
 import { MobileSessionContentRow } from './MobileSessionContentRow'
 import { MobileSessionHeader } from './MobileSessionHeader'
 import { MobileSessionSheets } from './MobileSessionSheets'
+import { usePublishMobileSessionSideRail } from './MobileSessionSideRail'
 
 export function MobileSessionSurface({ controller }: { controller: MobileSessionController }) {
   const { setMobileSessionRootRef } = controller
+  usePublishMobileSessionSideRail(controller)
   return (
     <View ref={setMobileSessionRootRef} style={styles.container}>
       <View style={styles.kavInner}>

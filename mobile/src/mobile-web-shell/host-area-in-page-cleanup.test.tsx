@@ -25,6 +25,7 @@ vi.mock('../session/mobile-session-styles', () => ({ styles: { container: {}, ka
 vi.mock('../session/MobileSessionHeader', () => ({ MobileSessionHeader: () => null }))
 vi.mock('../session/MobileSessionContentRow', () => ({ MobileSessionContentRow: () => null }))
 vi.mock('../session/MobileSessionSheets', () => ({ MobileSessionSheets: () => null }))
+vi.mock('../session/MobileSessionSideRail', () => ({ usePublishMobileSessionSideRail: () => {} }))
 vi.mock('expo-keep-awake', () => ({
   activateKeepAwakeAsync: () => Promise.resolve(),
   deactivateKeepAwake: () => Promise.resolve()

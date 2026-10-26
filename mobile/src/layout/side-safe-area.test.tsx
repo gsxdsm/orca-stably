@@ -45,7 +45,7 @@ const { SideSafeArea, useWindowSafeAreaInsets } = await import('./side-safe-area
 const WINDOW = { top: 0, right: 48, bottom: 21, left: 59 }
 const FRAME = { x: 0, y: 0, width: 852, height: 393 }
 
-function renderInLandscape() {
+function renderInLandscape(window: EdgeInsets = WINDOW) {
   const read: { screen?: EdgeInsets; frame?: Rect; modal?: EdgeInsets } = {}
   function Probe() {
     read.screen = useSafeAreaInsets()
@@ -57,7 +57,7 @@ function renderInLandscape() {
   act(() => {
     tree = create(
       <SafeAreaFrameContext.Provider value={FRAME}>
-        <SafeAreaInsetsContext.Provider value={WINDOW}>
+        <SafeAreaInsetsContext.Provider value={window}>
           <SideSafeArea>
             <Probe />
           </SideSafeArea>
@@ -71,13 +71,24 @@ function renderInLandscape() {
 describe('the app laid out clear of the side insets', () => {
   it('pads the sides once, and screens below see the padded area', () => {
     const { tree, read } = renderInLandscape()
-    const area = tree.root.find((node) => String(node.type) === 'View')
+    // The first View is the row that holds the area and, when present, the side rail.
+    const area = tree.root.findAll((node) => String(node.type) === 'View')[1]!
     expect(Object.assign({}, ...[area.props.style].flat())).toMatchObject({
       paddingLeft: 59,
       paddingRight: 48
     })
     expect(read.screen).toEqual({ top: 0, right: 0, bottom: 21, left: 0 })
     expect(read.frame).toEqual({ x: 59, y: 0, width: 745, height: 393 })
+  })
+
+  it('turns a one-sided right inset into a side rail instead of padding', () => {
+    const { tree } = renderInLandscape({ top: 0, right: 84, bottom: 34, left: 0 })
+    const views = tree.root.findAll((node) => String(node.type) === 'View')
+    expect(Object.assign({}, ...[views[1]!.props.style].flat())).toMatchObject({
+      paddingLeft: 0,
+      paddingRight: 0
+    })
+    expect(Object.assign({}, ...[views[2]!.props.style].flat())).toMatchObject({ width: 84 })
   })
 
   it('gives a Modal, which opens a window of its own, the window insets', () => {

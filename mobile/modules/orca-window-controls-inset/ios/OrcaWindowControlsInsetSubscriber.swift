@@ -3,12 +3,26 @@ import UIKit
 
 // iPadOS 26 window controls overlap the plain safe area; fold the corner-adapted inset into the root so all headers clear them.
 public class OrcaWindowControlsInsetSubscriber: ExpoAppDelegateSubscriber {
+  private var keyWindowObserver: NSObjectProtocol?
+
   public func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
     if let window = application.delegate?.window ?? nil {
       WindowControlsInsetProbe.install(in: window)
+      return true
+    }
+    // Why: under the scene lifecycle the window is created after launch, when its scene connects.
+    keyWindowObserver = NotificationCenter.default.addObserver(
+      forName: UIWindow.didBecomeKeyNotification, object: nil, queue: .main
+    ) { [weak self] notification in
+      guard let self, let window = notification.object as? UIWindow else { return }
+      WindowControlsInsetProbe.install(in: window)
+      if let observer = self.keyWindowObserver {
+        NotificationCenter.default.removeObserver(observer)
+      }
+      self.keyWindowObserver = nil
     }
     return true
   }

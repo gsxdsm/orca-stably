@@ -82,6 +82,8 @@
       "expo-router",
       "expo-notifications",
       "./plugins/android-respect-rotation-lock.js",
+      "./plugins/ios-scene-lifecycle",
+      "./plugins/ios-pod-deployment-floor.js",
       [
         "expo-splash-screen",
         {

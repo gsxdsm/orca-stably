@@ -1,4 +1,5 @@
 import { BRIDGE_MAX_PENDING_REQUESTS, BRIDGE_MAX_SUBSCRIPTIONS } from './bridge-caps'
+import type { BridgeFoldDivision } from './bridge-fold-division'
 import { MOBILE_WEB_SHELL_GRANTS } from '../page-route-policy'
 import {
   BRIDGE_FAULT_GRANT,
@@ -30,6 +31,10 @@ export function createBridgeInitFrame(args: {
   pageRoutes: readonly string[]
   safeAreaInsets?: BridgeSafeAreaInsets
   keyboardInset?: number
+  /** Where a partially folded device divides the window; null or absent when flat. */
+  foldDivision?: BridgeFoldDivision | null
+  /** Where the side rail can start below the status column; null or absent when unknown. */
+  sideRailTop?: number | null
   // Omit absent manifest pairs so older routing behavior remains available.
   pageRouteGrants?: readonly { pathname: string; grants: readonly string[] }[]
   granted: readonly string[]
@@ -61,6 +66,8 @@ export function createBridgeInitFrame(args: {
     ...(args.keyboardInset === undefined || args.keyboardInset === 0
       ? {}
       : { keyboardInset: args.keyboardInset }),
+    ...(args.foldDivision ? { foldDivision: { ...args.foldDivision } } : {}),
+    ...(args.sideRailTop ? { sideRailTop: args.sideRailTop } : {}),
     pageRoutes: [...args.pageRoutes],
     // Copy entries so no frame retains access to the shell’s held route-grant objects.
     ...(args.pageRouteGrants === undefined

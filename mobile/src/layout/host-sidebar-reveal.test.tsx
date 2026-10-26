@@ -20,7 +20,11 @@ vi.mock('react-native', () => ({
   PanResponder: { create: () => ({ panHandlers: {} }) },
   StyleSheet: { create: (styles: unknown) => styles, hairlineWidth: 1 }
 }))
-vi.mock('react-native-safe-area-context', () => ({ SafeAreaView: 'SafeAreaView' }))
+vi.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: 'SafeAreaView',
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+  useSafeAreaFrame: () => ({ x: 0, y: 0, width: 1024, height: 768 })
+}))
 vi.mock('lucide-react-native', () => ({
   ChevronLeft: 'ChevronLeft',
   Folder: 'Folder',
@@ -35,6 +39,7 @@ vi.mock('lucide-react-native', () => ({
 }))
 vi.mock('expo-router', () => ({
   useGlobalSearchParams: () => ({ hostId: 'host' }),
+  useNavigation: () => ({ setOptions: () => {} }),
   usePathname: () => '/h/host/session/workspace'
 }))
 vi.mock('./responsive-layout', () => ({

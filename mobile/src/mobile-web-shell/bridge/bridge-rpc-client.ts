@@ -68,6 +68,8 @@ export type BridgeRpcClient = RpcClient & {
   onRouteUpdate: (listener: (route: BridgeInitRoute | null) => void) => () => void
   onSafeAreaInsetsUpdate: (listener: (insets: BridgeSafeAreaInsets) => void) => () => void
   onKeyboardInsetUpdate: (listener: (height: number) => void) => () => void
+  /** Fires when an `init` moved the fold division or side rail top; values on `getShellSession`. */
+  onWindowRegionsUpdate: (listener: () => void) => () => void
   getShellSession: () => BridgeShellSession | null
   // False without navigate lets tap handlers fall back safely instead of throwing into uncaught UI callbacks.
   notifyNavigate: (href: string) => boolean
@@ -341,6 +343,7 @@ export function createBridgeRpcClient(options: BridgeRpcClientOptions): BridgeRp
     onRouteUpdate: shellSession.onRouteUpdate,
     onSafeAreaInsetsUpdate: shellSession.onSafeAreaInsetsUpdate,
     onKeyboardInsetUpdate: shellSession.onKeyboardInsetUpdate,
+    onWindowRegionsUpdate: shellSession.onWindowRegionsUpdate,
     getShellSession: shellSession.current,
     clearRouteParam: (param, value) =>
       posted({

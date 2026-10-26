@@ -8,7 +8,9 @@ const native = vi.hoisted(() => {
   return {
     platform,
     remove,
-    addEventListener: vi.fn((_event: string, _handler: () => boolean) => ({ remove }))
+    addEventListener: vi.fn((_event: string, _handler: () => boolean) => ({
+      remove
+    }))
   }
 })
 
@@ -26,10 +28,11 @@ import { useShellPageBack } from './use-shell-page-back'
 
 function Screen(props: {
   claimed: boolean
+  stackGestureEnabled?: boolean
   sendBack: () => boolean
   setOptions: (options: { gestureEnabled: boolean }) => void
 }): null {
-  useShellPageBack(props)
+  useShellPageBack({ stackGestureEnabled: true, ...props })
   return null
 }
 
@@ -51,6 +54,7 @@ afterEach(() => {
 
 function render(props: {
   claimed: boolean
+  stackGestureEnabled?: boolean
   sendBack: () => boolean
   setOptions: (options: { gestureEnabled: boolean }) => void
 }): ReactTestRenderer {
@@ -90,11 +94,19 @@ describe('the shell taking the device Back key for a page that claimed it', () =
   })
 
   it('gives the key back when the claim drops', () => {
-    const tree = render({ claimed: true, sendBack: () => true, setOptions: vi.fn() })
+    const tree = render({
+      claimed: true,
+      sendBack: () => true,
+      setOptions: vi.fn()
+    })
     expect(native.remove).not.toHaveBeenCalled()
     act(() => {
       tree.update(
-        createElement(Screen, { claimed: false, sendBack: () => true, setOptions: vi.fn() })
+        createElement(Screen, {
+          claimed: false,
+          sendBack: () => true,
+          setOptions: vi.fn()
+        })
       )
     })
     expect(native.remove).toHaveBeenCalledTimes(1)
@@ -103,12 +115,22 @@ describe('the shell taking the device Back key for a page that claimed it', () =
   it('registers once across a rebuilt sender and calls the current sender', () => {
     const first = vi.fn(() => false)
     const second = vi.fn(() => true)
-    const tree = render({ claimed: true, sendBack: first, setOptions: vi.fn() })
+    const tree = render({
+      claimed: true,
+      sendBack: first,
+      setOptions: vi.fn()
+    })
     const listener = native.addEventListener.mock.calls[0]?.[1]
     expect(listener?.()).toBe(false)
     expect(first).toHaveBeenCalledTimes(1)
     act(() => {
-      tree.update(createElement(Screen, { claimed: true, sendBack: second, setOptions: vi.fn() }))
+      tree.update(
+        createElement(Screen, {
+          claimed: true,
+          sendBack: second,
+          setOptions: vi.fn()
+        })
+      )
     })
     expect(native.addEventListener).toHaveBeenCalledTimes(1)
     expect(native.remove).not.toHaveBeenCalled()
@@ -130,9 +152,37 @@ describe('the shell taking the device Back key for a page that claimed it', () =
     const tree = render({ claimed: true, sendBack: () => true, setOptions })
     expect(setOptions).toHaveBeenCalledWith({ gestureEnabled: false })
     act(() => {
-      tree.update(createElement(Screen, { claimed: false, sendBack: () => true, setOptions }))
+      tree.update(
+        createElement(Screen, {
+          claimed: false,
+          sendBack: () => true,
+          setOptions
+        })
+      )
     })
     expect(setOptions).toHaveBeenLastCalledWith({ gestureEnabled: true })
+  })
+
+  it('keeps the swipe off after a release while the split view has disabled it', () => {
+    native.platform.os = 'ios'
+    const setOptions = vi.fn()
+    const tree = render({
+      claimed: true,
+      stackGestureEnabled: false,
+      sendBack: () => true,
+      setOptions
+    })
+    act(() => {
+      tree.update(
+        createElement(Screen, {
+          claimed: false,
+          stackGestureEnabled: false,
+          sendBack: () => true,
+          setOptions
+        })
+      )
+    })
+    expect(setOptions).toHaveBeenLastCalledWith({ gestureEnabled: false })
   })
 
   it('writes no gesture option on Android, where the stack has no swipe to take', () => {

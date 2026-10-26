@@ -28,6 +28,7 @@ function isErrorVerdict(v: ConnectionVerdict): boolean {
 export function HostScreenHeader({ controller }: { controller: HostScreenController }) {
   const {
     actions,
+    actionsInRail,
     connState,
     embedded,
     floatingWorkspaceEnabled,
@@ -111,7 +112,7 @@ export function HostScreenHeader({ controller }: { controller: HostScreenControl
             </>
           )
         })()}
-        {!embedded && floatingWorkspaceEnabled ? (
+        {!embedded && !actionsInRail && floatingWorkspaceEnabled ? (
           <Pressable
             style={[
               styles.floatingWorkspaceHeaderButton,
@@ -271,47 +272,53 @@ export function HostScreenHeader({ controller }: { controller: HostScreenControl
           </Pressable>
 
           <View style={styles.toolbarSpacer} />
+          {/* The side rail holds these when the window has one (host-screen-side-rail). */}
+          {actionsInRail ? null : (
+            <>
+              <Pressable
+                style={styles.searchToggle}
+                onPress={() =>
+                  actions.navigateFromHostList(`/h/${encodeURIComponent(hostId)}/accounts`)
+                }
+                disabled={connState !== 'connected'}
+                accessibilityRole="button"
+                accessibilityLabel="Accounts"
+              >
+                <UserCircle
+                  size={16}
+                  color={connState === 'connected' ? colors.textSecondary : colors.textMuted}
+                />
+              </Pressable>
 
-          <Pressable
-            style={styles.searchToggle}
-            onPress={() =>
-              actions.navigateFromHostList(`/h/${encodeURIComponent(hostId)}/accounts`)
-            }
-            disabled={connState !== 'connected'}
-            accessibilityRole="button"
-            accessibilityLabel="Accounts"
-          >
-            <UserCircle
-              size={16}
-              color={connState === 'connected' ? colors.textSecondary : colors.textMuted}
-            />
-          </Pressable>
+              <Pressable
+                style={styles.searchToggle}
+                onPress={() =>
+                  actions.navigateFromHostList(`/h/${encodeURIComponent(hostId)}/tasks`)
+                }
+                disabled={connState !== 'connected'}
+                accessibilityRole="button"
+                accessibilityLabel="Tasks"
+              >
+                <List
+                  size={16}
+                  color={connState === 'connected' ? colors.textSecondary : colors.textMuted}
+                />
+              </Pressable>
 
-          <Pressable
-            style={styles.searchToggle}
-            onPress={() => actions.navigateFromHostList(`/h/${encodeURIComponent(hostId)}/tasks`)}
-            disabled={connState !== 'connected'}
-            accessibilityRole="button"
-            accessibilityLabel="Tasks"
-          >
-            <List
-              size={16}
-              color={connState === 'connected' ? colors.textSecondary : colors.textMuted}
-            />
-          </Pressable>
-
-          <Pressable
-            style={styles.searchToggle}
-            onPress={() => state.setShowSearch((s) => !s)}
-            accessibilityRole="button"
-            accessibilityLabel={state.showSearch ? 'Close search' : 'Search workspaces'}
-          >
-            {state.showSearch ? (
-              <X size={16} color={colors.textSecondary} />
-            ) : (
-              <Search size={16} color={colors.textSecondary} />
-            )}
-          </Pressable>
+              <Pressable
+                style={styles.searchToggle}
+                onPress={() => state.setShowSearch((s) => !s)}
+                accessibilityRole="button"
+                accessibilityLabel={state.showSearch ? 'Close search' : 'Search workspaces'}
+              >
+                {state.showSearch ? (
+                  <X size={16} color={colors.textSecondary} />
+                ) : (
+                  <Search size={16} color={colors.textSecondary} />
+                )}
+              </Pressable>
+            </>
+          )}
         </View>
       )}
     </View>

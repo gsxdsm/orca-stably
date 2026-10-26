@@ -9,6 +9,7 @@ import { BridgeInitRouteSchema, type BridgeInitRoute } from './bridge-init-route
 import { BridgePageRouteGrantsSchema } from './bridge-page-route-grants'
 import { BridgeSafeAreaInsetsSchema } from './bridge-safe-area-insets'
 import { BridgeKeyboardInsetSchema } from './bridge-keyboard-inset'
+import { BridgeFoldDivisionSchema } from './bridge-fold-division'
 import { BridgeNotifySchema } from './bridge-notify-envelope'
 import { BRIDGE_BACK_FRAME } from './bridge-page-back'
 import { BRIDGE_ID_PATTERN, idSchema, methodSchema, versionSchema } from './bridge-frame-fields'
@@ -239,6 +240,10 @@ const BridgeHostMessageSchema = z.union([
     route: BridgeInitRouteSchema.optional(),
     safeAreaInsets: BridgeSafeAreaInsetsSchema.optional(),
     keyboardInset: BridgeKeyboardInsetSchema.optional(),
+    /** Where a partially folded device divides the window; absent reads as flat. */
+    foldDivision: BridgeFoldDivisionSchema.optional(),
+    /** Where the side rail can start below the status column; absent reads as unknown. */
+    sideRailTop: BridgeKeyboardInsetSchema.optional(),
     host: BridgeInitHostSchema.optional(),
     storage: BridgeInitStorageSchema.optional(),
     // Advisory page fast path for oversized keys; the shell independently refuses writes because older pages ignore this additive field (ruling 33.6).

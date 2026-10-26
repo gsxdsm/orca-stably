@@ -23,6 +23,7 @@ vi.mock('react-native-safe-area-context', () => ({ SafeAreaView: 'SafeAreaView' 
 vi.mock('./host-screen-header', () => ({ HostScreenHeader: 'HostScreenHeader' }))
 vi.mock('./host-workspace-list', () => ({ HostWorkspaceList: 'HostWorkspaceList' }))
 vi.mock('./host-screen-overlays', () => ({ HostScreenOverlays: 'HostScreenOverlays' }))
+vi.mock('./host-screen-side-rail', () => ({ usePublishHostScreenSideRail: () => {} }))
 vi.mock('../transport/host-removal-lifecycle', () => ({
   removeHostAndCloseClient: () => Promise.reject(doubles.removalRejection)
 }))

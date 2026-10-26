@@ -5,8 +5,10 @@ import { HostScreenHeader } from './host-screen-header'
 import { HostScreenOverlays } from './host-screen-overlays'
 import { HostWorkspaceList } from './host-workspace-list'
 import type { HostScreenController } from './use-host-screen-controller'
+import { usePublishHostScreenSideRail } from './host-screen-side-rail'
 
 export function HostScreenView({ controller }: { controller: HostScreenController }) {
+  usePublishHostScreenSideRail(controller)
   if (controller.state.error) {
     return (
       <View style={styles.centered}>

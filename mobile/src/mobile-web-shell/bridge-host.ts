@@ -21,6 +21,7 @@ import { createBridgeHostBack, type BridgeSessionBack } from './bridge-host-back
 import { createBridgeNotifyForwarder } from './bridge-host-notify'
 import { createBridgeHostRoute } from './bridge-host-route'
 import type { BridgeSafeAreaInsets } from './bridge/bridge-safe-area-insets'
+import type { BridgeFoldDivision } from './bridge/bridge-fold-division'
 import type { BridgeHostOptions } from './bridge-host-contract'
 
 export type { BridgeHostDiagnostic, BridgeHostOptions } from './bridge-host-contract'
@@ -31,6 +32,10 @@ export type BridgeHost = {
   publishRoute: (next: BridgeInitRoute) => void
   publishSafeAreaInsets: (next: BridgeSafeAreaInsets) => void
   publishKeyboardInset: (next: number) => void
+  /** Moves the fold division the page holds; one `init` when it moved. */
+  publishFoldDivision: (next: BridgeFoldDivision | null) => void
+  /** Moves the side rail top the page holds; one `init` when it moved. */
+  publishSideRailTop: (next: number | null) => void
   // False leaves Back to native navigation, including pages predating this frame.
   sendBack: () => boolean
   // Transfer the session’s Back state on client-driven host rebuild; the mounted page never reclaims it. Ending sessions simply discard it.
@@ -63,7 +68,9 @@ export function createBridgeHost(options: BridgeHostOptions): BridgeHost {
     },
     onRefused: (issue) => options.onDiagnostic?.({ kind: 'route-update-refused', issue }),
     ...(options.safeAreaInsets === undefined ? {} : { safeAreaInsets: options.safeAreaInsets }),
-    ...(options.keyboardInset === undefined ? {} : { keyboardInset: options.keyboardInset })
+    ...(options.keyboardInset === undefined ? {} : { keyboardInset: options.keyboardInset }),
+    ...(options.foldDivision === undefined ? {} : { foldDivision: options.foldDivision }),
+    ...(options.sideRailTop === undefined ? {} : { sideRailTop: options.sideRailTop })
   })
   let closed = false
   // Close ends document service until the next ready. Native delivery preserves frame order, so stragglers remain between those markers without an epoch.
@@ -119,6 +126,8 @@ export function createBridgeHost(options: BridgeHostOptions): BridgeHost {
           route,
           safeAreaInsets: routes.safeAreaInsets(),
           keyboardInset: routes.keyboardInset(),
+          foldDivision: routes.foldDivision(),
+          sideRailTop: routes.sideRailTop(),
           pageRoutes,
           ...(parsedRouteGrants?.success === true
             ? { pageRouteGrants: parsedRouteGrants.data }
@@ -276,6 +285,12 @@ export function createBridgeHost(options: BridgeHostOptions): BridgeHost {
     },
     publishSafeAreaInsets: (next) => {
       routes.publishSafeAreaInsets(next, deliverable())
+    },
+    publishFoldDivision: (next) => {
+      routes.publishFoldDivision(next, deliverable())
+    },
+    publishSideRailTop: (next) => {
+      routes.publishSideRailTop(next, deliverable())
     },
     publishKeyboardInset: (next) => {
       routes.publishKeyboardInset(next, deliverable())

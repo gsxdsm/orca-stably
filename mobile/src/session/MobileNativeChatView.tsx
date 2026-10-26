@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react'
+import { useStackedFoldBand } from '../layout/use-stacked-fold-band'
 import { nativeChatTaskListPredecessors } from '../../../src/shared/native-chat-task-list-history'
 import {
   MobileNativeChatDisclosureContext,
@@ -128,6 +129,10 @@ type Props = ComposerTrayProps & {
   onRespondPermission?: (send: string) => Promise<boolean>
   onOpenFile?: (relativePath: string) => void
   keyboardInset?: number
+  /** The session's bottom inset (capped sideways and folded); defaults to the window's. */
+  bottomInset?: number
+  /** Folded full width: the composer drops into the screen's bottom corners while the keyboard is down. */
+  fitScreenCorners?: boolean
 }
 
 export function MobileNativeChatView({
@@ -193,10 +198,17 @@ export function MobileNativeChatView({
   onRespondPermission,
   composerTray: { content: trayContent, composerInputRef: inputRef } = NO_COMPOSER_TRAY,
   onOpenFile,
-  keyboardInset = 0
+  keyboardInset = 0,
+  bottomInset,
+  fitScreenCorners = false
 }: Props): React.JSX.Element {
   const insets = useSafeAreaInsets()
-  const bottomPad = keyboardInset > 0 ? keyboardInset + insets.bottom : insets.bottom
+  // Half folded laptop-style, the transcript ends at the hinge and the composer sits below it.
+  const foldBand = useStackedFoldBand()
+  const aboveFold = foldBand.top !== null ? { maxHeight: foldBand.top } : null
+  const bottom = bottomInset ?? insets.bottom
+  // The keyboard lift is measured from the session's inset, so add it back only while lifted.
+  const bottomPad = keyboardInset > 0 ? keyboardInset + bottom : fitScreenCorners ? 0 : bottom
   const { fontScale, pinchGesture } = useMobileNativeChatPinchGesture()
 
   // Memoize list derivation to keep downstream autoscroll/renderItem dependencies stable.
@@ -311,13 +323,17 @@ export function MobileNativeChatView({
   }
 
   return (
-    <View style={[styles.root, { paddingBottom: bottomPad }]}>
+    <View
+      ref={foldBand.ref}
+      onLayout={foldBand.onLayout}
+      style={[styles.root, { paddingBottom: bottomPad }]}
+    >
       {status === 'loading' && messages.length === 0 ? (
-        <View style={styles.center}>
+        <View style={[styles.center, aboveFold]}>
           <ActivityIndicator color={colors.textSecondary} />
         </View>
       ) : (
-        <GestureHandlerRootView style={styles.listWrap}>
+        <GestureHandlerRootView style={[styles.listWrap, aboveFold]}>
           <MobileNativeChatDisclosureContext.Provider value={disclosures}>
             <MobileNativeChatScrollRootsBoundary
               {...{ rowKeys, layoutKey }}
@@ -369,6 +385,7 @@ export function MobileNativeChatView({
       {}
       {trayContent}
       <MobileNativeChatComposer
+        fitScreenCorners={fitScreenCorners && keyboardInset === 0}
         structured={structuredActivityUi ? structuredComposer : null}
         value={composerText}
         onChangeText={onComposerTextChange}
