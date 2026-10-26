@@ -20,6 +20,16 @@ export const mobileNativeChatComposerStyles = StyleSheet.create({
     paddingTop: COMPOSER_INSET_TOP,
     paddingBottom: spacing.sm
   },
+  // Bottom margin matches the sides, so the bar sits evenly in the screen's corners.
+  composerInsetCornerFit: {
+    paddingBottom: 10
+  },
+  // Wider bottom corners stay concentric with the rounded screen instead of poking into it.
+  barCornerFit: {
+    borderBottomLeftRadius: 34,
+    borderBottomRightRadius: 34,
+    paddingBottom: 14
+  },
   bar: {
     paddingTop: spacing.md,
     paddingHorizontal: 10,

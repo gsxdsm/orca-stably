@@ -131,6 +131,8 @@ type Props = ComposerTrayProps & {
   keyboardInset?: number
   /** The session's bottom inset (capped sideways and folded); defaults to the window's. */
   bottomInset?: number
+  /** Folded full width: the composer drops into the screen's bottom corners while the keyboard is down. */
+  fitScreenCorners?: boolean
 }
 
 export function MobileNativeChatView({
@@ -197,14 +199,16 @@ export function MobileNativeChatView({
   composerTray: { content: trayContent, composerInputRef: inputRef } = NO_COMPOSER_TRAY,
   onOpenFile,
   keyboardInset = 0,
-  bottomInset
+  bottomInset,
+  fitScreenCorners = false
 }: Props): React.JSX.Element {
   const insets = useSafeAreaInsets()
   // Half folded laptop-style, the transcript ends at the hinge and the composer sits below it.
   const foldBand = useStackedFoldBand()
   const aboveFold = foldBand.top !== null ? { maxHeight: foldBand.top } : null
   const bottom = bottomInset ?? insets.bottom
-  const bottomPad = keyboardInset > 0 ? keyboardInset + bottom : bottom
+  // The keyboard lift is measured from the session's inset, so add it back only while lifted.
+  const bottomPad = keyboardInset > 0 ? keyboardInset + bottom : fitScreenCorners ? 0 : bottom
   const { fontScale, pinchGesture } = useMobileNativeChatPinchGesture()
 
   // Memoize list derivation to keep downstream autoscroll/renderItem dependencies stable.
@@ -381,6 +385,7 @@ export function MobileNativeChatView({
       {}
       {trayContent}
       <MobileNativeChatComposer
+        fitScreenCorners={fitScreenCorners && keyboardInset === 0}
         structured={structuredActivityUi ? structuredComposer : null}
         value={composerText}
         onChangeText={onComposerTextChange}

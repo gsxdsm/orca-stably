@@ -37,6 +37,8 @@ export type MobileNativeChatStructuredComposer = {
 
 type Props = {
   inputRef?: React.RefObject<TextInput | null>
+  /** Sit in the screen's bottom corners: even margins and bottom corners that follow the screen's. */
+  fitScreenCorners?: boolean
   // Terminal-backed chats keep curated commands and image-only attachment actions.
   structured?: MobileNativeChatStructuredComposer | null
   value: string
@@ -93,7 +95,8 @@ export function MobileNativeChatComposer({
   placeholder = NATIVE_CHAT_COMPOSER_PLACEHOLDER,
   filePaths = NO_FILE_PATHS,
   onNeedFiles,
-  stop = null
+  stop = null,
+  fitScreenCorners = false
 }: Props): React.JSX.Element {
   const fallbackInputRef = useRef<TextInput>(null)
   const fieldRef = inputRef ?? fallbackInputRef
@@ -197,8 +200,18 @@ export function MobileNativeChatComposer({
       {menu.rows.length > 0 ? (
         <MobileNativeChatComposerMenu rows={menu.rows} onPick={menu.pick} />
       ) : null}
-      <View style={styles.composerInset} testID="native-chat-composer-inset">
-        <View style={styles.bar} testID="native-chat-composer">
+      <View
+        style={
+          fitScreenCorners
+            ? [styles.composerInset, styles.composerInsetCornerFit]
+            : styles.composerInset
+        }
+        testID="native-chat-composer-inset"
+      >
+        <View
+          style={fitScreenCorners ? [styles.bar, styles.barCornerFit] : styles.bar}
+          testID="native-chat-composer"
+        >
           <MobileNativeChatComposerAttachments
             images={attachments}
             files={files}
