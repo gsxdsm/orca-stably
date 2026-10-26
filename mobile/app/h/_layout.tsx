@@ -100,6 +100,8 @@ export default function HostGroupLayout() {
   const showSidebar = isWideLayout && !!hostId && sidebarDrawnHere
   const detailHasContent = !!hostId && pathname !== `/h/${hostId}`
   const canCollapseSidebar = showSidebar && detailHasContent
+  // Only a visible sidebar has a resize edge for swipe-back to steal; collapsed, swipe-back returns.
+  const sidebarShown = showSidebar && sidebarOpen
 
   // Base host detail is a placeholder; hiding its sidebar would leave nothing useful.
   useEffect(() => {
@@ -147,8 +149,8 @@ export default function HostGroupLayout() {
   // Why: on iOS 26 a rightward drag anywhere can pop the root stack, so resizing the sidebar went back to Home.
   const navigation = useNavigation()
   useEffect(() => {
-    navigation.setOptions({ gestureEnabled: !showSidebar })
-  }, [navigation, showSidebar])
+    navigation.setOptions({ gestureEnabled: !sidebarShown })
+  }, [navigation, sidebarShown])
 
   // Keep detail Stack at a stable tree position so fold/rotation cannot remount navigation.
   return (
@@ -178,7 +180,7 @@ export default function HostGroupLayout() {
               {/* Why: the detail pane's swipe-back edge is the sidebar resize handle; a drag there popped the screen. */}
               <HostStack
                 animation={showSidebar ? 'none' : 'default'}
-                gestureEnabled={!showSidebar}
+                gestureEnabled={!sidebarShown}
               />
             </HostSidebarRevealContext.Provider>
           </HostAreaServingContext.Provider>
