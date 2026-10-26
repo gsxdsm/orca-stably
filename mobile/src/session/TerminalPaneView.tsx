@@ -28,6 +28,7 @@ type TerminalPaneViewProps = {
   onTerminalQueryReply: (handle: string, bytes: string) => void
   onTerminalTap: (handle: string) => void
   onTerminalSwipeDown: (handle: string) => void
+  onTerminalSwipeBack: () => void
   onFileTap: (handle: string, pathText: string, line: number | null, column: number | null) => void
   onOpenUrl: (handle: string, url: string) => void
   onTextScaleChange: (scale: number) => void
@@ -53,6 +54,7 @@ export function TerminalPaneView({
   onTerminalQueryReply,
   onTerminalTap,
   onTerminalSwipeDown,
+  onTerminalSwipeBack,
   onFileTap,
   onOpenUrl,
   onTextScaleChange,
@@ -94,6 +96,7 @@ export function TerminalPaneView({
         onTerminalQueryReply={(bytes) => onTerminalQueryReply(handle, bytes)}
         onTerminalTap={() => onTerminalTap(handle)}
         onTerminalSwipeDown={() => onTerminalSwipeDown(handle)}
+        onTerminalSwipeBack={onTerminalSwipeBack}
         onFileTap={(pathText, line, column) => onFileTap(handle, pathText, line, column)}
         onOpenUrl={(url) => onOpenUrl(handle, url)}
         onTextScaleChange={onTextScaleChange}

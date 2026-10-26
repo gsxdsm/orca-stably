@@ -54,6 +54,7 @@ export function MobileSessionActiveContent({
     toastMessage,
     handleTerminalTap,
     handleTerminalSwipeDown,
+    requestLeaveSession,
     browserScreencastSupported,
     showToast,
     nativeChatSendError,
@@ -281,6 +282,8 @@ export function MobileSessionActiveContent({
             onTerminalQueryReply={handleTerminalQueryReply}
             onTerminalTap={handleTerminalTap}
             onTerminalSwipeDown={handleTerminalSwipeDown}
+            // The terminal owns its touches, so the stack's swipe-back never sees them; it reports the swipe instead.
+            onTerminalSwipeBack={requestLeaveSession}
             onFileTap={handleFileTap}
             onOpenUrl={handleTerminalOpenUrl}
           />
