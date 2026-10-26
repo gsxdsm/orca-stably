@@ -56,6 +56,7 @@ function controller(
     showEmptyState: false,
     terminals: [],
     notifyTerminalFrame,
+    insets: { top: 0, right: 0, bottom: 0, left: 0 },
     dictation: { isRecording: false },
     nativeChatSendError: { message: null, clear: () => {} }
   }

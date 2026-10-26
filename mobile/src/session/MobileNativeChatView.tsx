@@ -129,6 +129,8 @@ type Props = ComposerTrayProps & {
   onRespondPermission?: (send: string) => Promise<boolean>
   onOpenFile?: (relativePath: string) => void
   keyboardInset?: number
+  /** The session's bottom inset (capped sideways and folded); defaults to the window's. */
+  bottomInset?: number
 }
 
 export function MobileNativeChatView({
@@ -194,13 +196,15 @@ export function MobileNativeChatView({
   onRespondPermission,
   composerTray: { content: trayContent, composerInputRef: inputRef } = NO_COMPOSER_TRAY,
   onOpenFile,
-  keyboardInset = 0
+  keyboardInset = 0,
+  bottomInset
 }: Props): React.JSX.Element {
   const insets = useSafeAreaInsets()
   // Half folded laptop-style, the transcript ends at the hinge and the composer sits below it.
   const foldBand = useStackedFoldBand()
   const aboveFold = foldBand.top !== null ? { maxHeight: foldBand.top } : null
-  const bottomPad = keyboardInset > 0 ? keyboardInset + insets.bottom : insets.bottom
+  const bottom = bottomInset ?? insets.bottom
+  const bottomPad = keyboardInset > 0 ? keyboardInset + bottom : bottom
   const { fontScale, pinchGesture } = useMobileNativeChatPinchGesture()
 
   // Memoize list derivation to keep downstream autoscroll/renderItem dependencies stable.

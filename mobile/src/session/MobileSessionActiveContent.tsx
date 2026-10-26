@@ -309,6 +309,7 @@ export function MobileSessionActiveContent({
         sessionId={resolveMobileNativeChatSessionId(controller.activeSessionTab)}
         getSendCompletionGeneration={controller.getSendCompletionGeneration}
         keyboardInset={keyboardLift}
+        bottomInset={insets.bottom}
       />
       {toastMessage && (
         <Animated.View pointerEvents="none" style={[styles.toast, toastAnimatedStyle]}>
