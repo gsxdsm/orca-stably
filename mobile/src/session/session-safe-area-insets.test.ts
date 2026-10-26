@@ -8,22 +8,35 @@ describe('resolveSessionSafeAreaInsets', () => {
     expect(
       resolveSessionSafeAreaInsets(duoLandscape, {
         isIos: true,
-        isLandscape: true
+        isLandscape: true,
+        foldedFullWidth: false
       })
     ).toEqual({ ...duoLandscape, bottom: 21 })
+  })
+
+  it('drops the folded full-width dock to just above the home indicator', () => {
+    expect(
+      resolveSessionSafeAreaInsets(duoLandscape, {
+        isIos: true,
+        isLandscape: false,
+        foldedFullWidth: true
+      })
+    ).toEqual({ ...duoLandscape, bottom: 14 })
   })
 
   it('keeps the inset in portrait and off iOS', () => {
     expect(
       resolveSessionSafeAreaInsets(duoLandscape, {
         isIos: true,
-        isLandscape: false
+        isLandscape: false,
+        foldedFullWidth: false
       })
     ).toBe(duoLandscape)
     expect(
       resolveSessionSafeAreaInsets(duoLandscape, {
         isIos: false,
-        isLandscape: true
+        isLandscape: true,
+        foldedFullWidth: true
       })
     ).toBe(duoLandscape)
   })

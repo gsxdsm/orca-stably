@@ -46,14 +46,6 @@ export function useMobileSessionFoundation() {
   const sideRailAvailable = useSideRailAvailable()
   const foldDivision = useFoldDivision()
   const windowInsets = useSafeAreaInsets()
-  const insets = useMemo(
-    () =>
-      resolveSessionSafeAreaInsets(windowInsets, {
-        isIos: hostOs() === 'ios',
-        isLandscape
-      }),
-    [windowInsets, isLandscape]
-  )
   const { client, clientId, state: connState } = useWorkspaceClient(hostId)
   const { hostCapabilities } = useHostProtocolGates()
   const reconnectAttempts = useReconnectAttempt(hostId)
@@ -115,6 +107,16 @@ export function useMobileSessionFoundation() {
   const sessionSideRail: MobileSessionSideRailMode =
     !sideRailAvailable || !isScreenFocused ? null : onInnerScreen ? 'actions' : 'fullWidth'
   const statusColumnWidth = useWindowSafeAreaInsets().right
+  const foldedFullWidth = sessionSideRail === 'fullWidth'
+  const insets = useMemo(
+    () =>
+      resolveSessionSafeAreaInsets(windowInsets, {
+        isIos: hostOs() === 'ios',
+        isLandscape,
+        foldedFullWidth
+      }),
+    [windowInsets, isLandscape, foldedFullWidth]
+  )
   // Folded, the terminal's keys move into the strip under the status column when its top is known.
   const statusColumnTop = useSideRailTop()
   const terminalKeysBesideTerminal =

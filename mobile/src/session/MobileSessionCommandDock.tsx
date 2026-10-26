@@ -40,6 +40,8 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
   } = controller
   const accessoryBarKeepsKeyboard = useKeyboardPersistingTaps('always')
   const keysInRail = controller.terminalKeysBesideTerminal
+  // Folded, the bar sits down by the screen's rounded corners; pull its ends in to clear them.
+  const cornerFit = controller.sessionSideRail === 'fullWidth' && styles.inputBarCornerFit
   return (
     !activeMarkdownTab &&
     !activeFileTab &&
@@ -93,7 +95,7 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
 
         {}
         {liveInputEnabled ? (
-          <View style={[styles.inputBar, styles.liveInputBar]}>
+          <View style={[styles.inputBar, styles.liveInputBar, cornerFit]}>
             <Pressable
               style={({ pressed }) => [
                 styles.liveInputFocusTarget,
@@ -137,7 +139,7 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
             />
           </View>
         ) : (
-          <View style={styles.inputBar}>
+          <View style={[styles.inputBar, cornerFit]}>
             <TextInput
               ref={bindCommandField}
               // Why: Android caches IME inputType at mount, so toggling autocomplete must remount there; iOS updates in place.
