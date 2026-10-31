@@ -7,6 +7,7 @@ import {
   sideStripOffset,
   useSessionSideStripInset
 } from './session-side-strip-inset'
+import { useDuoChatExpanded } from './duo-chat-width'
 import { saveTerminalTextScale } from '../storage/preferences'
 import { MobileBrowserPane } from '../browser/MobileBrowserPane'
 import { TerminalPaneView } from './TerminalPaneView'
@@ -34,6 +35,7 @@ export function MobileSessionActiveContent({
   const t = useMobileTranslation()
   const executionHost = useWorkspaceExecutionHost()
   const [paneFrame, setPaneFrame] = useState({ width: 0, height: 0 })
+  const duoChatExpanded = useDuoChatExpanded()
   const { main: stripInset } = useSessionSideStripInset(
     controller.canDockPanel && controller.activePanel !== null
   )
@@ -325,30 +327,36 @@ export function MobileSessionActiveContent({
       </View>
       <MobileNativeChatDictationPreviewContext.Provider value={chatDictationPreview}>
         <MobileDictationMeterContext.Provider value={dictation.meter}>
-          <MobileNativeChatOverlay
-            controller={nativeChatController}
-            imageSource={nativeChatImageSource}
-            activeSessionTabId={controller.activeSessionTab?.id}
-            onOpenFile={handleNativeChatFileTap}
-            images={nativeChatImages}
-            structuredComposer={nativeChatStructuredComposer}
-            onMicPress={dictationEnabled ? handleDictationToggle : undefined}
-            micActive={dictation.isStarting || dictation.isRecording}
-            micStarting={dictation.isStarting}
-            micProcessing={dictation.isProcessing}
-            dictationMode={dictationMode}
-            onMicPressIn={handleDictationPressIn}
-            onMicPressOut={handleDictationPressOut}
-            inputLockReason={nativeChatOverlayInputLockReason}
-            sendErrorMessage={nativeChatSendError.message}
-            onClearSendError={nativeChatSendError.clear}
-            sendSurfaceId={controller.nativeChatScopeKey ?? ''}
-            sessionId={resolveMobileNativeChatSessionId(controller.activeSessionTab)}
-            getSendCompletionGeneration={controller.getSendCompletionGeneration}
-            keyboardInset={keyboardLift}
-            // A workspace routed to another server stops with that server, whose name the phone lacks.
-            hostName={executionHost === undefined && hostProfile ? hostTitle : null}
-          />
+          {/* Collapsed, the chat keeps clear of the Duo's status column like the terminals do. */}
+          <View
+            pointerEvents="box-none"
+            style={[StyleSheet.absoluteFillObject, !duoChatExpanded && sideStripOffset(stripInset)]}
+          >
+            <MobileNativeChatOverlay
+              controller={nativeChatController}
+              imageSource={nativeChatImageSource}
+              activeSessionTabId={controller.activeSessionTab?.id}
+              onOpenFile={handleNativeChatFileTap}
+              images={nativeChatImages}
+              structuredComposer={nativeChatStructuredComposer}
+              onMicPress={dictationEnabled ? handleDictationToggle : undefined}
+              micActive={dictation.isStarting || dictation.isRecording}
+              micStarting={dictation.isStarting}
+              micProcessing={dictation.isProcessing}
+              dictationMode={dictationMode}
+              onMicPressIn={handleDictationPressIn}
+              onMicPressOut={handleDictationPressOut}
+              inputLockReason={nativeChatOverlayInputLockReason}
+              sendErrorMessage={nativeChatSendError.message}
+              onClearSendError={nativeChatSendError.clear}
+              sendSurfaceId={controller.nativeChatScopeKey ?? ''}
+              sessionId={resolveMobileNativeChatSessionId(controller.activeSessionTab)}
+              getSendCompletionGeneration={controller.getSendCompletionGeneration}
+              keyboardInset={keyboardLift}
+              // A workspace routed to another server stops with that server, whose name the phone lacks.
+              hostName={executionHost === undefined && hostProfile ? hostTitle : null}
+            />
+          </View>
         </MobileDictationMeterContext.Provider>
       </MobileNativeChatDictationPreviewContext.Provider>
       {toastMessage && (
