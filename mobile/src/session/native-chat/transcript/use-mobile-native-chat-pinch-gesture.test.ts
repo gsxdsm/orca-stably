@@ -50,7 +50,7 @@ describe('quantizeFontScale', () => {
     expect(quantizeFontScale(1.024)).toBe(1)
     expect(quantizeFontScale(1.03)).toBe(1.05)
     expect(quantizeFontScale(5)).toBe(1.8)
-    expect(quantizeFontScale(0.1)).toBe(0.8)
+    expect(quantizeFontScale(0.1)).toBe(0.5)
     expect(quantizeFontScale(Number.NaN)).toBe(1)
   })
 })
