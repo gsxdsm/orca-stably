@@ -17,6 +17,8 @@ type Props = {
   fullList?: boolean
   /** Each session is its own taller target. Off, a long-press on the workspace still lists them. */
   selectable?: boolean
+  /** Pane open from a session tap. Only that session row is filled. */
+  selectedPaneKey?: string | null
   onLongPress?: () => void
   onPressIn?: () => void
   onPressOut?: () => void
@@ -32,6 +34,7 @@ export function WorktreeAgentList({
   onAgentPress,
   fullList = false,
   selectable = false,
+  selectedPaneKey = null,
   onLongPress,
   onPressIn,
   onPressOut
@@ -65,6 +68,7 @@ export function WorktreeAgentList({
                   now={now}
                   unvisited={unvisited}
                   selectable={selectable}
+                  selected={selectedPaneKey === node.row.paneKey}
                   isReadOnly={isReadOnly}
                   onPress={selectable ? onAgentPress : undefined}
                   onPressIn={onPressIn}

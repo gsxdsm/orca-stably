@@ -28,6 +28,8 @@ type Props = {
   childRow?: AgentChildRowModel
   isReadOnly?: boolean
   selectable?: boolean
+  /** This session is the one open from the sidebar. Child lines share the parent pane and stay unfilled. */
+  selected?: boolean
   onPress?: (paneKey: string) => void
   onPressIn?: () => void
   onPressOut?: () => void
@@ -43,6 +45,7 @@ function WorktreeAgentRowComponent({
   childRow,
   isReadOnly,
   selectable = false,
+  selected = false,
   onPress,
   onPressIn,
   onPressOut,
@@ -108,6 +111,11 @@ function WorktreeAgentRowComponent({
     <Pressable
       disabled={isReadOnly}
       accessibilityRole="button"
+      accessibilityState={selected ? { selected: true } : undefined}
+      style={({ pressed }) => [
+        selectable && selected && styles.rowSelected,
+        selectable && pressed && styles.rowPressed
+      ]}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       onPress={(event) => {
@@ -142,6 +150,12 @@ const styles = themedStyleSheet(() => ({
     minHeight: 44,
     marginTop: spacing.xs,
     paddingVertical: spacing.sm
+  },
+  rowSelected: {
+    backgroundColor: colors.bgPanel
+  },
+  rowPressed: {
+    backgroundColor: colors.bgRaised
   },
   label: {
     flex: 1,
