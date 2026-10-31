@@ -10,7 +10,11 @@ import type { MobileSessionController } from './use-mobile-session-controller'
 import { MobileSessionActiveContent } from './MobileSessionActiveContent'
 import { MobileSessionCommandDock } from './MobileSessionCommandDock'
 import { MobileDictationStatusAnnouncement } from './MobileDictationStatusAnnouncement'
-import { ComposerUsageClientContext } from '../composer-usage/composer-usage-client-context'
+import {
+  ComposerUsageClientContext,
+  ComposerUsageTabAgentContext
+} from '../composer-usage/composer-usage-client-context'
+import { getMobileTerminalTabHostAgentIdentity } from './mobile-terminal-tab-agent'
 import {
   sideStripMargin,
   sideStripPadding,
@@ -37,6 +41,10 @@ export function MobileSessionContentRow({ controller }: { controller: MobileSess
     client,
     connState
   } = controller
+  const tabAgent =
+    (controller.activeSessionTab &&
+      getMobileTerminalTabHostAgentIdentity(controller.activeSessionTab, controller.terminals)) ??
+    null
   const strip = useSessionSideStripInset(canDockPanel && activePanel !== null)
   return (
     <View
@@ -62,11 +70,13 @@ export function MobileSessionContentRow({ controller }: { controller: MobileSess
           </View>
         ) : null}
         <ComposerUsageClientContext.Provider value={connState === 'connected' ? client : null}>
-          <MobileSessionActiveContent controller={controller} />
-          {/* Why: translate instead of resize so keyboard toggles don't trigger a server-side PTY viewport change. */}
-          <View style={sideStripMargin(strip.main)}>
-            <MobileSessionCommandDock controller={controller} />
-          </View>
+          <ComposerUsageTabAgentContext.Provider value={tabAgent}>
+            <MobileSessionActiveContent controller={controller} />
+            {/* Why: translate instead of resize so keyboard toggles don't trigger a server-side PTY viewport change. */}
+            <View style={sideStripMargin(strip.main)}>
+              <MobileSessionCommandDock controller={controller} />
+            </View>
+          </ComposerUsageTabAgentContext.Provider>
         </ComposerUsageClientContext.Provider>
         <MobileDictationStatusAnnouncement dictation={dictation} />
       </View>
