@@ -40,6 +40,8 @@ type Props = {
   status: WorktreeStatus
   onPress: (item: Worktree) => void
   onAgentPress?: (item: Worktree, paneKey: string) => void
+  /** Phone view setting: session rows are taller and open that session. */
+  selectableSessions?: boolean
   statusLive?: boolean
   onLongPress?: (item: Worktree) => void
   onToggleLineage?: (item: Worktree) => void
@@ -57,6 +59,7 @@ function WorktreeListRowComponent({
   status,
   onPress,
   onAgentPress,
+  selectableSessions = false,
   statusLive,
   onLongPress,
   onToggleLineage
@@ -79,6 +82,12 @@ function WorktreeListRowComponent({
     .join(', ')
   // Why: the desktop's compact card keeps an icon-only glyph for remote projects after the host badge goes.
   const showHostGlyph = !cardDetails.metaRow && isRemoteExecutionHostId(hostId)
+  const handleLongPress = onLongPress
+    ? () => {
+        triggerMediumImpact()
+        onLongPress(item)
+      }
+    : undefined
 
   return (
     <Pressable
@@ -90,14 +99,7 @@ function WorktreeListRowComponent({
       ]}
       disabled={isReadOnly}
       onPress={() => onPress(item)}
-      onLongPress={
-        onLongPress
-          ? () => {
-              triggerMediumImpact()
-              onLongPress(item)
-            }
-          : undefined
-      }
+      onLongPress={handleLongPress}
       delayLongPress={400}
     >
       <View style={styles.indicatorCol}>
@@ -215,6 +217,8 @@ function WorktreeListRowComponent({
             isReadOnly={isReadOnly}
             onAgentPress={onAgentPress ? (paneKey) => onAgentPress(item, paneKey) : undefined}
             fullList={agentActivityDisplayMode === 'full'}
+            selectable={selectableSessions}
+            onLongPress={handleLongPress}
           />
         ) : null}
         {count > 0 && onToggleLineage ? (
