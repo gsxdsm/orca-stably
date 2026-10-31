@@ -33,7 +33,7 @@ vi.mock('../storage/preferences', () => ({ saveTerminalTextScale: () => Promise.
 vi.mock('../browser/MobileBrowserPane', () => ({ MobileBrowserPane: () => null }))
 vi.mock('./TerminalPaneView', () => ({ TerminalPaneView: () => null }))
 vi.mock('./MobileNativeChatOverlay', () => ({ MobileNativeChatOverlay: () => null }))
-vi.mock('./MobileSessionStatusColumnKeys', () => ({ MobileSessionStatusColumnKeys: () => null }))
+vi.mock('../transport/use-host-profile', () => ({ useHostProfile: () => null }))
 vi.mock('./MobileSessionFileReader', () => ({ FileReader: () => null }))
 vi.mock('./MobileSessionMarkdownReader', () => ({ MarkdownReader: () => null }))
 vi.mock('./mobile-session-styles', () => ({ styles: {} }))
@@ -56,7 +56,6 @@ function controller(
     showEmptyState: false,
     terminals: [],
     notifyTerminalFrame,
-    insets: { top: 0, right: 0, bottom: 0, left: 0 },
     dictation: { isRecording: false },
     nativeChatSendError: { message: null, clear: () => {} }
   }
@@ -89,4 +88,57 @@ describe('the terminal frame on the page', () => {
     show('terminal')
     expect(heights).toEqual([FRAME.height])
   })
+})
+
+it('shows two terminal panes while focus changes without mounting a second session', async () => {
+  const { TerminalPaneView } = await import('./TerminalPaneView')
+  const { terminalPaneViewport } = await import('./mobile-terminal-pane-layout')
+  const geometry = new Map()
+  const scope = Object.assign(controller('terminal', vi.fn()), {
+    terminals: ['a', 'b', 'c'].map((handle) => ({
+      handle,
+      title: handle,
+      isActive: handle === 'a'
+    })),
+    activeHandle: 'a',
+    visibleTerminalHandles: ['a', 'b'],
+    terminalSplitActive: true,
+    terminalKeyboardMetrics: new Map(),
+    getTerminalPaneViewport: (handle: string) => terminalPaneViewport(geometry, handle),
+    keyboardLift: 0,
+    activeTerminalKeyboardLift: 0
+  })
+  let mounted!: ReturnType<typeof create>
+  try {
+    act(() => {
+      mounted = create(createElement(MobileSessionActiveContent, { controller: scope }))
+    })
+    const panes = () => mounted.root.findAllByType(TerminalPaneView)
+    expect(
+      panes().map((pane) => [pane.props.handle, pane.props.visible, pane.props.active])
+    ).toEqual([
+      ['a', true, true],
+      ['b', true, false],
+      ['c', false, false]
+    ])
+    expect(
+      panes()
+        .slice(0, 2)
+        .map((pane) => pane.props.splitDirection)
+    ).toEqual(['column', 'column'])
+    act(() => {
+      mounted.update(
+        createElement(MobileSessionActiveContent, { controller: { ...scope, activeHandle: 'b' } })
+      )
+    })
+    expect(
+      panes().map((pane) => [pane.props.handle, pane.props.visible, pane.props.active])
+    ).toEqual([
+      ['a', true, false],
+      ['b', true, true],
+      ['c', false, false]
+    ])
+  } finally {
+    act(() => mounted?.unmount())
+  }
 })

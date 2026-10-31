@@ -1,30 +1,24 @@
 import { Stack } from 'expo-router'
+import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { colors } from '../theme/mobile-theme'
+import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { HOST_STACK_SCREENS, type HostStackAnimation } from './host-stack-screens'
-import { HostStackGestureContext } from './host-stack-gesture'
 
-export function HostStack({
-  animation,
-  gestureEnabled
-}: {
-  animation: HostStackAnimation
-  gestureEnabled: boolean
-}) {
+export function HostStack({ animation }: { animation: HostStackAnimation }) {
+  useMobileTranslation()
+  useMobileColorScheme()
   return (
-    <HostStackGestureContext.Provider value={gestureEnabled}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.bgBase },
-          // Swap tablet detail panes instantly so slides cannot reveal the outgoing pane’s underlying screen; phones retain native slides.
-          animation,
-          gestureEnabled
-        }}
-      >
-        {HOST_STACK_SCREENS.map(({ name, title }) => (
-          <Stack.Screen key={name} name={name} options={{ title }} />
-        ))}
-      </Stack>
-    </HostStackGestureContext.Provider>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.bgBase },
+        // Swap tablet detail panes instantly so slides cannot reveal the outgoing pane’s underlying screen; phones retain native slides.
+        animation
+      }}
+    >
+      {HOST_STACK_SCREENS.map(({ name, title }) => (
+        <Stack.Screen key={name} name={name} options={{ title }} />
+      ))}
+    </Stack>
   )
 }

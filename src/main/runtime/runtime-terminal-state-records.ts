@@ -125,6 +125,8 @@ export type RuntimePtyWorktreeRecord = RuntimeTerminalTailState & {
   /** The name a rename gave this terminal: display only, never title evidence (#20626). */
   manualTitle?: string | null
   lastOutputAt: number | null
+  /** When main began receiving a stream that had printed nothing yet; silence since then is measured quiet. */
+  outputObservedSince?: number | null
   /** See terminal-command-paint.ts; absent until the pane's first output, and again after a gap or a new process. */
   commandPaint?: TerminalCommandPaint
 }
@@ -158,6 +160,10 @@ export type RuntimeHeadlessTerminal = {
   outputSequence: number
   writeChain: Promise<void>
   ownership: PtyShellOwnershipMirror
+  /** Output seq a renderer hydration seed already painted; queued live chunks at/below it are not rewritten. */
+  rendererSeedSeq?: number
+  /** Unfinished escape from skipped seed-covered chunks, written before the next uncovered chunk. */
+  rendererSeedEscapeTail?: string
   /** The grid a reattach reflowed the model onto, until a PTY resize off it repaints the TUI. */
   unrepaintedReflowGrid?: { cols: number; rows: number }
 }
@@ -169,6 +175,11 @@ export type RuntimeVisibleTerminalState = {
   isAlternateScreen: boolean
   sequence: number
   generation: number
+}
+
+export type ProviderTerminalBufferWait = {
+  snapshot: PtyProviderBufferSnapshot | null
+  late: Promise<PtyProviderBufferSnapshot | null> | null
 }
 
 export type ProviderBufferAcquisition = {

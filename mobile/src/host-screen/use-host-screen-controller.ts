@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useFocusEffect, useLocalSearchParams, usePathname } from 'expo-router'
+import { useMobileTranslation } from '../i18n/use-mobile-translation'
+import { useLocalSearchParams, usePathname } from 'expo-router'
 import { useRouteHandoff } from '../navigation/route-handoff'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useHostProtocolGates } from '../components/host-protocol-gates-context'
@@ -7,7 +8,6 @@ import { visibleHostRouteNotice } from '../host-route-notice'
 import { useActiveWorktreeScroll } from '../hooks/use-active-worktree-scroll'
 import { useNow } from '../hooks/use-now'
 import { useResponsiveLayout } from '../layout/responsive-layout'
-import { useSideRailAvailable } from '../layout/side-rail'
 import {
   useForgetHostClient,
   useForceReconnect,
@@ -30,6 +30,7 @@ import { countActiveWorkspaceFilters } from '../../../src/shared/workspace-view/
 import { useHostWorktreeActions } from './use-host-worktree-actions'
 import { useHostWorktreeCatalog } from './use-host-worktree-catalog'
 import { useHostDisplay } from '../transport/use-host-display'
+import { classifyConnection } from '../transport/connection-health'
 
 export type HostScreenProps = {
   embedded?: boolean
@@ -43,6 +44,7 @@ export function useHostScreenController({
   hostId: hostIdProp,
   onHideSidebar
 }: HostScreenProps = {}) {
+  useMobileTranslation()
   const params = useLocalSearchParams<{ hostId: string; notice?: string }>()
   const hostId = hostIdProp ?? params.hostId
   const [dismissedNotice, setDismissedNotice] = useState<string | null>(null)
@@ -63,6 +65,13 @@ export function useHostScreenController({
   const { hostCapabilities, floatingWorkspaceEnabled } = useHostProtocolGates()
   const state = useHostScreenState(hostId)
   const settings = useHostViewSettings({ client, connState, state })
+  const connectionVerdict = classifyConnection({
+    state: connState,
+    reconnectAttempts,
+    lastConnectedAt,
+    hostName: state.hostName,
+    ...relayRecovery
+  })
   const hostDisplay = useHostDisplay(
     hostId && state.hostName
       ? { id: hostId, name: state.hostName, ...state.hostStoredDescriptor }
@@ -148,21 +157,9 @@ export function useHostScreenController({
   )
   const existingWorktreePaths = useMemo(() => state.worktrees.map((w) => w.path), [state.worktrees])
   const activeWorktreeScroll = useActiveWorktreeScroll(sectionsResult.sections, collapsedGroups)
-  const sideRailAvailable = useSideRailAvailable()
-  const [focused, setFocused] = useState(true)
-  // Why: the list left mounted under a pushed session must give the rail to the session.
-  useFocusEffect(
-    useCallback(() => {
-      setFocused(true)
-      return () => setFocused(false)
-    }, [])
-  )
-  // A sidebar is never at the window's right edge; the full-screen list is.
-  const actionsInRail = sideRailAvailable && !embedded && focused
 
   return {
     actions,
-    actionsInRail,
     activeFilterCount,
     activeWorktreeScroll,
     catalog,
@@ -170,6 +167,7 @@ export function useHostScreenController({
     feed,
     projectOrderBy,
     client,
+    connectionVerdict,
     connState,
     contentMaxWidth,
     displayWorktrees,

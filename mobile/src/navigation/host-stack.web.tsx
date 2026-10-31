@@ -1,18 +1,16 @@
 import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { Navigator, usePathname } from 'expo-router'
+import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { colors } from '../theme/mobile-theme'
+import { themedStyleSheet } from '../theme/themed-styles'
+import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { HOST_STACK_SCREENS, type HostStackAnimation } from './host-stack-screens'
 import { isOverlayPageRoute } from '../new-workspace/overlay-page-route'
 
 // Expo native-stack’s web view ignores animation and switches display; reuse StackRouter with a view that retains popped screens through their exit slide.
-export function HostStack({
-  animation
-}: {
-  animation: HostStackAnimation
-  // The page has no swipe-back to disable.
-  gestureEnabled: boolean
-}) {
+export function HostStack({ animation }: { animation: HostStackAnimation }) {
+  useMobileTranslation()
   return (
     <Navigator>
       {HOST_STACK_SCREENS.map(({ name, title }) => (
@@ -35,11 +33,7 @@ type Routes = NavigatorContext['state']['routes']
 
 type Transition =
   | Readonly<{ kind: 'push'; enteringKey: string; underKey: string }>
-  | Readonly<{
-      kind: 'pop'
-      leaving: Routes[number]
-      descriptors: Descriptors
-    }>
+  | Readonly<{ kind: 'pop'; leaving: Routes[number]; descriptors: Descriptors }>
 
 type Shown = Readonly<{
   routes: Routes
@@ -59,30 +53,19 @@ function transitionBetween(previous: Shown, next: Routes): Transition | null {
   }
   const nextKeys = next.map((route) => route.key)
   if (nextKeys.at(-2) === previousTop.key) {
-    return {
-      kind: 'push',
-      enteringKey: nextTop.key,
-      underKey: previousTop.key
-    }
+    return { kind: 'push', enteringKey: nextTop.key, underKey: previousTop.key }
   }
   if (!nextKeys.includes(previousTop.key) && previous.routes.some((r) => r.key === nextTop.key)) {
-    return {
-      kind: 'pop',
-      leaving: previousTop,
-      descriptors: previous.descriptors
-    }
+    return { kind: 'pop', leaving: previousTop, descriptors: previous.descriptors }
   }
   return null
 }
 
 function HostStackView({ animation }: { animation: HostStackAnimation }) {
+  useMobileColorScheme()
   const { state, descriptors } = Navigator.useContext()
   const { routes } = state
-  const [shown, setShown] = useState<Shown>({
-    routes,
-    descriptors,
-    transition: null
-  })
+  const [shown, setShown] = useState<Shown>({ routes, descriptors, transition: null })
 
   // Derive during render so a pop’s first frame still contains its outgoing screen.
   if (shown.routes !== routes) {
@@ -136,6 +119,7 @@ function StackScreen({
   onSettled: () => void
   children: ReactNode
 }) {
+  useMobileColorScheme()
   const ref = useRef<View>(null)
   const transparent = isOverlayPageRoute(usePathname())
   // Resume interrupted offsets when a pop reverses an unfinished push.
@@ -154,11 +138,7 @@ function StackScreen({
         ? [{ transform: 'translateX(100%)' }, { transform: 'translateX(0)' }]
         : [{ transform: from ?? 'translateX(0)' }, { transform: 'translateX(100%)' }]
     // Use compositor animations so expensive screen mounts cannot stall slides.
-    const slide = node.animate(frames, {
-      duration: SLIDE_MS,
-      easing: SLIDE_EASING,
-      fill: 'both'
-    })
+    const slide = node.animate(frames, { duration: SLIDE_MS, easing: SLIDE_EASING, fill: 'both' })
     slide.onfinish = onSettled
     const stop = () => {
       stoppedAt.current = getComputedStyle(node).transform
@@ -194,7 +174,7 @@ function StackScreen({
   )
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyleSheet(() => ({
   stack: {
     flex: 1,
     overflow: 'hidden'
@@ -209,4 +189,4 @@ const styles = StyleSheet.create({
   hidden: {
     display: 'none'
   }
-})
+}))

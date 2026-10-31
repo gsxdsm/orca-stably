@@ -19,8 +19,7 @@ type UseTerminalLiveInputFocusOptions<T extends TerminalLiveInputFocusTarget> =
   TerminalLiveInputFocusContext & {
     readonly activeHandleRef: RefObject<string | null>
     readonly inputRef: RefObject<T | null>
-    /** The buffered command field, which can hold the keyboard too. */
-    readonly commandInputRef?: RefObject<{ blur: () => void } | null>
+    readonly commandInputRef: RefObject<TerminalLiveInputFocusTarget | null>
     readonly dismissKeyboard: () => void
     readonly lifecycleIdentity: object | null
     readonly lifecycleKey: string
@@ -69,6 +68,15 @@ export function useTerminalLiveInputFocus<T extends TerminalLiveInputFocusTarget
 
   // Retained Expo routes must not carry focus work across navigation or reconnect scopes.
   useLayoutEffect(() => resetLiveInputFocus, [lifecycleIdentity, lifecycleKey, resetLiveInputFocus])
+
+  useLayoutEffect(() => {
+    const inactive = liveInputEnabled ? commandInputRef : inputRef
+    if (inactive.current?.isFocused?.()) {
+      clearTerminalLiveInputFocusTimer(timerRef)
+      const active = liveInputEnabled ? inputRef : commandInputRef
+      active.current?.focus()
+    }
+  }, [commandInputRef, inputRef, liveInputEnabled, timerRef])
 
   const focusLiveInput = useCallback(() => {
     const context = contextRef.current

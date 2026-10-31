@@ -1,28 +1,15 @@
-import { afterEach, describe, expect, it } from 'vitest'
-import { createFakeBridgePortPair as createPair } from './bridge-port-pair-test-harness'
+import { describe, expect, it } from 'vitest'
+import { createFakeBridgePortPair } from './bridge-port-pair-test-harness'
 import { readBridgeHostMessage } from './bridge-envelope'
 import { createBridgeInitFrame } from './bridge-init-frame'
 import { readShellSession } from './bridge-client-session'
+import type { BridgeFoldDivision } from './bridge-fold-division'
 
-const resources = new Set<ReturnType<typeof createPair>>()
-function createFakeBridgePortPair(
-  ...args: Parameters<typeof createPair>
-): ReturnType<typeof createPair> {
-  const resource = createPair(...args)
-  resources.add(resource)
-  return resource
-}
-function closeResources(): void {
-  for (const resource of resources) {
-    resource.client.close()
-    resource.host.dispose()
-  }
-  resources.clear()
-}
+// iPhone Duo, inner display, half folded: the fold band with UIKit's 20pt margins either side.
+const BOOK: BridgeFoldDivision = { axis: 'vertical', start: 455.5, end: 495.5 }
+const TABLETOP: BridgeFoldDivision = { axis: 'horizontal', start: 455.5, end: 495.5 }
 
-const HINGE = { x: 0, y: 320, width: 951, height: 28 }
-
-function initFrame(foldDivision?: typeof HINGE | null) {
+function initFrame(foldDivision?: BridgeFoldDivision | null) {
   return createBridgeInitFrame({
     sessionId: 'session-a',
     buildId: 'build-a',
@@ -53,58 +40,51 @@ function readInit(json: string) {
 }
 
 describe('foldDivision on init', () => {
-  it('reads an init without the field as flat, which is every shell before it', () => {
-    for (const value of [undefined, null]) {
-      const init = readInit(JSON.stringify(initFrame(value)))
-      expect('foldDivision' in init).toBe(false)
-      expect(readShellSession(init).foldDivision).toBeNull()
-    }
+  it('omits no fold, and the page reads the absent field as none', () => {
+    expect('foldDivision' in initFrame(null)).toBe(false)
+    expect(readShellSession(readInit(JSON.stringify(initFrame()))).foldDivision).toBeNull()
   })
 
-  it('passes the hinge through to the session the page holds', () => {
-    expect(readShellSession(readInit(JSON.stringify(initFrame(HINGE)))).foldDivision).toEqual(HINGE)
+  it('passes the fold through to the session the page holds', () => {
+    expect(readShellSession(readInit(JSON.stringify(initFrame(BOOK)))).foldDivision).toEqual(BOOK)
   })
 
-  it('refuses a negative or non-numeric hinge', () => {
-    for (const bad of [{ ...HINGE, y: -1 }, { ...HINGE, width: '951' }, 'hinge']) {
-      const frame = { ...initFrame(), foldDivision: bad }
-      expect(readBridgeHostMessage(JSON.stringify(frame)).ok, JSON.stringify(bad)).toBe(false)
+  it('drops a fold the page cannot read without refusing the init around it', () => {
+    for (const bad of [
+      { ...BOOK, end: 400 },
+      { ...BOOK, axis: 'diagonal' },
+      { ...BOOK, start: -1 }
+    ]) {
+      const init = readInit(JSON.stringify({ ...initFrame(), foldDivision: bad }))
+      expect(readShellSession(init).foldDivision, JSON.stringify(bad)).toBeNull()
     }
   })
 })
 
-describe('a device that folds under a live page', () => {
-  it('re-sends init when the hinge appears, moves and goes, and the page reads each in place', async () => {
+describe('a fold that moves under a live page', () => {
+  it('re-sends init as the device folds, turns and opens, and the page reads each in place', async () => {
     const pair = createFakeBridgePortPair()
     await pair.flush()
-    const session = pair.client.getShellSession()
-    expect(session?.foldDivision).toBeNull()
-    const seen: (typeof HINGE | null)[] = []
-    const unsubscribe = pair.client.onWindowRegionsUpdate(() =>
-      seen.push(pair.client.getShellSession()?.foldDivision ?? null)
-    )
-    const moved = { ...HINGE, y: 300 }
-    for (const division of [HINGE, moved, null]) {
+    const sessionId = pair.client.getShellSession()?.sessionId
+    const seen: (BridgeFoldDivision | null)[] = []
+    pair.client.onFoldDivisionUpdate((division) => seen.push(division))
+
+    for (const division of [BOOK, TABLETOP, null]) {
       pair.host.publishFoldDivision(division)
       await pair.flush()
       expect(pair.client.getShellSession()?.foldDivision).toEqual(division)
     }
-    expect(seen).toEqual([HINGE, moved, null])
-    unsubscribe()
-    expect(pair.client.getShellSession()?.sessionId).toBe(session?.sessionId)
+    expect(seen).toEqual([BOOK, TABLETOP, null])
+    expect(pair.client.getShellSession()?.sessionId).toBe(sessionId)
   })
 
-  it('sends nothing for a hinge that did not move', async () => {
-    const pair = createFakeBridgePortPair()
-    await pair.flush()
-    pair.host.publishFoldDivision(HINGE)
+  it('sends nothing for a fold that did not move', async () => {
+    const pair = createFakeBridgePortPair({ foldDivision: BOOK })
     await pair.flush()
     const inits = () => pair.readToPage().filter((frame) => frame.type === 'init').length
     const before = inits()
-    pair.host.publishFoldDivision({ ...HINGE })
+    pair.host.publishFoldDivision({ ...BOOK })
     await pair.flush()
     expect(inits()).toBe(before)
   })
 })
-
-afterEach(closeResources)

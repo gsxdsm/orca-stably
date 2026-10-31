@@ -1,104 +1,146 @@
 import {
   createContext,
-  Fragment,
   useContext,
-  useLayoutEffect,
-  useRef,
+  useEffect,
+  useMemo,
+  useState,
   useSyncExternalStore,
   type ReactNode
 } from 'react'
-import type { EdgeInsets } from 'react-native-safe-area-context'
+import { StyleSheet, useWindowDimensions, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useReservedRegions } from './reserved-regions'
+import { useKeyboardOcclusion } from '../platform/keyboard-occlusion'
+import {
+  getSideRailStrip,
+  hasTerminalDirectionPadSpace,
+  sideRailStripAboveKeyboard,
+  type SideRailStrip
+} from './side-rail-strip'
 
-// A one-sided side inset at least this wide holds a column of 44pt buttons beside the status items.
-const SIDE_RAIL_MIN_EXTRA_INSET = 44
+/** One screen's claim on the strip; each screen holds its own. */
+type SideRailOwner = symbol
+
+type RailContent = { owner: SideRailOwner; node: ReactNode }
+
+function createRailStore() {
+  let content: RailContent | null = null
+  const listeners = new Set<() => void>()
+  const notify = () => {
+    for (const listener of listeners) {
+      listener()
+    }
+  }
+  return {
+    read: () => content,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+    show: (owner: SideRailOwner, node: ReactNode) => {
+      content = { owner, node }
+      notify()
+    },
+    // Only the screen that showed it takes it down, so a screen leaving never hides its successor's.
+    hide: (owner: SideRailOwner) => {
+      if (content?.owner === owner) {
+        content = null
+        notify()
+      }
+    }
+  }
+}
+
+type RailStore = ReturnType<typeof createRailStore>
+
+const SideRailContext = createContext<{
+  strip: SideRailStrip | null
+  directionPadAvailable: boolean
+  store: RailStore
+} | null>(null)
 
 /**
- * Width of the right side rail: the iPhone Duo's inner screen held sideways moves the status bar
- * into a right-hand column, an inset with no counterpart on the left. Symmetric landscape insets
- * (the sensor housing on other iPhones) leave nothing to fill.
+ * Lets one screen draw controls in a side inset strip the screens are laid out clear of, such as
+ * the iPhone Duo's status column. Sits outside `SideSafeArea`, which pads every screen out of it.
  */
-export function resolveSideRailWidth(insets: Pick<EdgeInsets, 'left' | 'right'>): number {
-  return insets.right - insets.left >= SIDE_RAIL_MIN_EXTRA_INSET ? insets.right : 0
+export function SideRailProvider({ children }: { children: ReactNode }) {
+  const [store] = useState(createRailStore)
+  const { width, height } = useWindowDimensions()
+  const insets = useSafeAreaInsets()
+  const { occlusions, hasFoldDivision } = useReservedRegions()
+  // Landscape, the keyboard covers the strip's bottom; the rail then holds fewer keys, not hidden ones.
+  const keyboard = Math.max(0, useKeyboardOcclusion())
+  const unoccludedStrip = useMemo(
+    () => getSideRailStrip({ windowWidth: width, windowHeight: height, insets, occlusions }),
+    [width, height, insets, occlusions]
+  )
+  const strip = useMemo(
+    () => sideRailStripAboveKeyboard(unoccludedStrip, keyboard),
+    [unoccludedStrip, keyboard]
+  )
+  // Keyboard clipping changes what fits now, not this device's shortcut defaults.
+  const directionPadAvailable =
+    hasFoldDivision === true || hasTerminalDirectionPadSpace(unoccludedStrip)
+  const value = useMemo(
+    () => ({ strip, directionPadAvailable, store }),
+    [strip, directionPadAvailable, store]
+  )
+  return (
+    <SideRailContext.Provider value={value}>
+      {children}
+      <SideRailOutlet />
+    </SideRailContext.Provider>
+  )
 }
 
-/** Published instead of content by a screen that draws the rail itself (the web shell's page). */
-export const SIDE_RAIL_DRAWN_BY_SCREEN = Symbol('side-rail-drawn-by-screen')
-
-type RailContent = ReactNode | typeof SIDE_RAIL_DRAWN_BY_SCREEN
-
-const sections = new Map<symbol, RailContent>()
-const listeners = new Set<() => void>()
-let snapshot: { content: ReactNode[]; drawnByScreen: boolean } = {
-  content: [],
-  drawnByScreen: false
-}
-
-function publish(): void {
-  const published = [...sections.values()]
-  const drawnByScreen = published.includes(SIDE_RAIL_DRAWN_BY_SCREEN)
-  snapshot = {
-    content: drawnByScreen
-      ? []
-      : published.flatMap((content) =>
-          content === SIDE_RAIL_DRAWN_BY_SCREEN || content === null ? [] : [content]
-        ),
-    drawnByScreen
+function SideRailOutlet() {
+  const context = useContext(SideRailContext)
+  const content = useSyncExternalStore(
+    context?.store.subscribe ?? (() => () => undefined),
+    () => context?.store.read() ?? null
+  )
+  const strip = context?.strip
+  if (!strip || !content) {
+    return null
   }
-  for (const listener of listeners) {
-    listener()
-  }
+  return (
+    <View
+      style={[
+        styles.outlet,
+        { width: strip.width, top: strip.top, bottom: strip.bottom },
+        strip.side === 'right' ? { right: 0 } : { left: 0 }
+      ]}
+    >
+      {content.node}
+    </View>
+  )
 }
 
-function setSection(owner: symbol, content: RailContent | null): void {
-  if (content !== null) {
-    sections.set(owner, content)
-  } else if (!sections.delete(owner)) {
-    return
-  }
-  publish()
+/** The side strip this window has to draw in; null for a window without one. */
+export function useSideRailStrip(): SideRailStrip | null {
+  return useContext(SideRailContext)?.strip ?? null
 }
 
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
+export function useSideRailDirectionPadAvailable(): boolean {
+  return useContext(SideRailContext)?.directionPadAvailable ?? false
 }
 
-function getRailContent(): ReactNode[] {
-  return snapshot.content
+/** Draws `node` in the side strip while this screen is mounted; null draws nothing. */
+export function useSideRailContent(node: ReactNode | null): void {
+  // The store outlives strip changes, which replace the context value; re-registering on them would flash the rail.
+  const store = useContext(SideRailContext)?.store
+  const [owner] = useState(() => Symbol('side-rail-owner'))
+  useEffect(() => {
+    if (!store || node === null) {
+      return
+    }
+    store.show(owner, node)
+    return () => store.hide(owner)
+  }, [store, owner, node])
 }
 
-function getRailDrawnByScreen(): boolean {
-  return snapshot.drawnByScreen
-}
-
-export const SideRailAvailableContext = createContext(false)
-
-/** True when the window has a side rail for screen actions to move into. */
-export function useSideRailAvailable(): boolean {
-  return useContext(SideRailAvailableContext)
-}
-
-/**
- * Shows `content` in the side rail while the caller is mounted; null withdraws it. Content renders
- * at the app root, outside the caller's React context, so it must be driven by props alone.
- * `SIDE_RAIL_DRAWN_BY_SCREEN` hands the rail's column to the caller to draw in itself.
- */
-export function useSideRailContent(content: RailContent | null): void {
-  const owner = useRef(Symbol('side-rail-owner')).current
-  // No dependency list: content is rebuilt every render, and only the rail host re-renders on a set.
-  useLayoutEffect(() => {
-    setSection(owner, content)
-  })
-  useLayoutEffect(() => () => setSection(owner, null), [owner])
-}
-
-/** True while the focused screen draws the rail itself, so the root gives it the column. */
-export function useSideRailDrawnByScreen(): boolean {
-  return useSyncExternalStore(subscribe, getRailDrawnByScreen, getRailDrawnByScreen)
-}
-
-/** Renders what the focused screens published, top to bottom. */
-export function SideRailHost(): ReactNode {
-  const content = useSyncExternalStore(subscribe, getRailContent, getRailContent)
-  return content.map((section, index) => <Fragment key={index}>{section}</Fragment>)
-}
+const styles = StyleSheet.create({
+  outlet: { position: 'absolute' }
+})

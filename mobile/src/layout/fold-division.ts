@@ -1,22 +1,52 @@
-/** Where a partially folded device divides the window at its hinge, in window points. */
-export type FoldDivision = { x: number; y: number; width: number; height: number }
+import type { ReservedRect } from '../../modules/orca-reserved-regions/src'
+
+/** Where a fold splits a frame: the band from `start` to `end` along the axis it divides. */
+export type FoldSplit = {
+  /** `vertical`: the fold runs top to bottom and splits left from right (book posture). */
+  axis: 'vertical' | 'horizontal'
+  start: number
+  end: number
+  /** The frame's extent along the split, so `size - end` is the room after the fold. */
+  size: number
+}
+
+type Frame = { x: number; y: number; width: number; height: number }
+
+function isUsable(rect: ReservedRect): boolean {
+  return (
+    [rect.x, rect.y, rect.width, rect.height].every(Number.isFinite) &&
+    rect.width > 0 &&
+    rect.height > 0
+  )
+}
 
 /**
- * How the hinge splits the window. `stacked`: across it, laptop-style, with a top and a bottom
- * half. `sideBySide`: down it, book-style, with a left and a right half. `flat` when open or closed.
+ * The fold that splits `frame` into two usable halves, in the frame's own coordinates; null when
+ * none does. A fold only counts when it crosses the frame from edge to edge and leaves room on
+ * both sides; one at the frame's edge (a Split View window beside it) splits nothing.
  */
-export type FoldPosture =
-  | { kind: 'flat' }
-  | { kind: 'stacked'; topEnd: number; bottomStart: number }
-  | { kind: 'sideBySide'; leftEnd: number; rightStart: number }
-
-export const FLAT_FOLD_POSTURE: FoldPosture = Object.freeze({ kind: 'flat' })
-
-export function foldPosture(division: FoldDivision | null): FoldPosture {
-  if (division === null) {
-    return FLAT_FOLD_POSTURE
+export function getFoldSplit(divisions: readonly ReservedRect[], frame: Frame): FoldSplit | null {
+  if (!(frame.width > 0 && frame.height > 0)) {
+    return null
   }
-  return division.width >= division.height
-    ? { kind: 'stacked', topEnd: division.y, bottomStart: division.y + division.height }
-    : { kind: 'sideBySide', leftEnd: division.x, rightStart: division.x + division.width }
+  for (const division of divisions) {
+    if (!isUsable(division)) {
+      continue
+    }
+    const vertical = division.height >= division.width
+    const crossStart = vertical ? division.y - frame.y : division.x - frame.x
+    const crossLength = vertical ? division.height : division.width
+    const crossSize = vertical ? frame.height : frame.width
+    if (crossStart > 0 || crossStart + crossLength < crossSize) {
+      continue
+    }
+    const size = vertical ? frame.width : frame.height
+    const start = vertical ? division.x - frame.x : division.y - frame.y
+    const end = start + (vertical ? division.width : division.height)
+    if (start <= 0 || end >= size) {
+      continue
+    }
+    return { axis: vertical ? 'vertical' : 'horizontal', start, end, size }
+  }
+  return null
 }

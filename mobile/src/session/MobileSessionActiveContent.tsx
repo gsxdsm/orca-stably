@@ -1,36 +1,35 @@
+import { useMemo, useState } from 'react'
+import { computeActiveTerminalKeyboardLift } from '../terminal/terminal-keyboard-avoidance-lift'
+import { terminalPaneDirection, terminalPaneKeyboardLayout } from './mobile-terminal-pane-layout'
 import { Animated, View, Text, Pressable, ActivityIndicator } from 'react-native'
-import { useEffect, useRef } from 'react'
-import { MobileSessionStatusColumnKeys } from './MobileSessionStatusColumnKeys'
-import { useStackedFoldBand } from '../layout/use-stacked-fold-band'
 import { saveTerminalTextScale } from '../storage/preferences'
 import { MobileBrowserPane } from '../browser/MobileBrowserPane'
 import { TerminalPaneView } from './TerminalPaneView'
 import { MobileNativeChatOverlay } from './MobileNativeChatOverlay'
+import { MobileNativeChatDictationPreviewContext } from './native-chat/composer/mobile-native-chat-dictation-preview-context'
+import { MobileDictationMeterContext } from './mobile-dictation-meter-context'
 import { resolveMobileNativeChatSessionId } from './native-chat/mobile-native-chat-eligibility'
 import { colors } from '../theme/mobile-theme'
+import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { styles } from './mobile-session-styles'
 import type { MobileSessionController } from './use-mobile-session-controller'
 import { useWorkspaceExecutionHost } from '../navigation/workspace-execution-host'
+import { useHostProfile } from '../transport/use-host-profile'
+import { useHostDisplay } from '../transport/use-host-display'
 import { FileReader } from './MobileSessionFileReader'
 import { MarkdownReader } from './MobileSessionMarkdownReader'
-
-function insetTerminalFrame(
-  size: { width: number; height: number },
-  inset: { right: number; bottom: number }
-): { width: number; height: number } {
-  return {
-    width: Math.max(0, size.width - inset.right),
-    height: Math.max(0, size.height - inset.bottom)
-  }
-}
 
 export function MobileSessionActiveContent({
   controller
 }: {
   controller: MobileSessionController
 }) {
+  useMobileColorScheme()
+  const t = useMobileTranslation()
   const executionHost = useWorkspaceExecutionHost()
-  const foldBand = useStackedFoldBand()
+  const [paneFrame, setPaneFrame] = useState({ width: 0, height: 0 })
+  const paneDirection = terminalPaneDirection(paneFrame, controller.terminalSplitLayout)
   const {
     hostId,
     worktreeId,
@@ -42,6 +41,9 @@ export function MobileSessionActiveContent({
     setTerminalTextScale,
     terminalTextScaleRevisionRef,
     activeHandle,
+    terminalSplitActive,
+    visibleTerminalHandles,
+    notifyTerminalPaneFrame,
     markdownDocs,
     fileDocs,
     diffComments,
@@ -52,6 +54,7 @@ export function MobileSessionActiveContent({
     dictationMode,
     dictationEnabled,
     toastMessage,
+    handleTerminalInteraction,
     handleTerminalTap,
     handleTerminalSwipeDown,
     requestLeaveSession,
@@ -61,6 +64,7 @@ export function MobileSessionActiveContent({
     nativeChatOverlayInputLockReason,
     nativeChatController,
     dictation,
+    chatDictationPreview,
     handleDictationToggle,
     handleDictationPressIn,
     handleDictationPressOut,
@@ -106,36 +110,21 @@ export function MobileSessionActiveContent({
     toastAnimatedStyle,
     createTabBusy
   } = controller
-  // Fit the terminal to the pane area, which the status column (folded) and the hinge (laptop) inset.
-  const paneInset = {
-    right: controller.sessionSideRail === 'fullWidth' ? controller.statusColumnWidth : 0,
-    bottom: foldBand.top !== null ? foldBand.height - foldBand.top : 0
-  }
-  const contentSizeRef = useRef<{ width: number; height: number } | null>(null)
-  const { right: paneInsetRight, bottom: paneInsetBottom } = paneInset
-  const notifyTerminalFrameRef = useRef(notifyTerminalFrame)
-  notifyTerminalFrameRef.current = notifyTerminalFrame
-  const lastInsetRef = useRef({ right: paneInsetRight, bottom: paneInsetBottom })
-  useEffect(() => {
-    // The hinge or fold can move these insets without a new layout of the frame.
-    const last = lastInsetRef.current
-    if (last.right === paneInsetRight && last.bottom === paneInsetBottom) {
-      return
-    }
-    lastInsetRef.current = { right: paneInsetRight, bottom: paneInsetBottom }
-    if (contentSizeRef.current) {
-      notifyTerminalFrameRef.current(
-        insetTerminalFrame(contentSizeRef.current, lastInsetRef.current)
-      )
-    }
-  }, [paneInsetRight, paneInsetBottom])
+  const hostProfile = useHostProfile(hostId)
+  const hostTitle = useHostDisplay(hostProfile).title
+  const nativeChatImageSource = useMemo(
+    () => (client ? { client, worktreeId } : undefined),
+    [client, worktreeId]
+  )
   const content = showLoadingState ? (
     <View style={styles.emptyState}>
       <ActivityIndicator size="small" color={colors.textSecondary} />
     </View>
   ) : showEmptyState ? (
     <View style={styles.emptyState}>
-      <Text style={styles.emptyText}>No tabs in this session</Text>
+      <Text style={styles.emptyText}>
+        {t('session.activeContent.noTabs', 'No tabs in this session')}
+      </Text>
       {createError ? <Text style={styles.createError}>{createError}</Text> : null}
       <View style={styles.emptyActions}>
         <Pressable
@@ -150,7 +139,9 @@ export function MobileSessionActiveContent({
           }}
         >
           <Text style={styles.createButtonText}>
-            {createTabBusy ? 'Creating...' : 'Create Tab'}
+            {createTabBusy
+              ? t('session.activeContent.creatingTab', 'Creating...')
+              : t('session.activeContent.createTab', 'Create Tab')}
           </Text>
         </Pressable>
       </View>
@@ -180,7 +171,7 @@ export function MobileSessionActiveContent({
         documentId={JSON.stringify([hostId, executionHost, worktreeId, activeFileTab.id])}
         client={client}
         doc={fileDocs.get(activeFileTab.id)}
-        title={activeFileTab.title || 'File'}
+        title={activeFileTab.title || t('session.activeContent.fileTitle', 'File')}
         relativePath={activeFileTab.relativePath}
         language={activeFileTab.language}
         diffCommentActions={
@@ -229,92 +220,123 @@ export function MobileSessionActiveContent({
       )}
       <Text style={styles.emptyText}>
         {isPendingTerminalRecoveryParked
-          ? 'Terminal is taking longer than expected'
-          : activePendingTerminalTab.title || 'Loading terminal'}
+          ? t(
+              'session.activeContent.terminalTakingLonger',
+              'Terminal is taking longer than expected'
+            )
+          : activePendingTerminalTab.title ||
+            t('session.activeContent.loadingTerminal', 'Loading terminal')}
       </Text>
       {isPendingTerminalRecoveryParked && (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Retry loading terminal"
+          accessibilityLabel={t(
+            'session.activeContent.retryLoadingTerminal',
+            'Retry loading terminal'
+          )}
           style={({ pressed }) => [styles.createButton, pressed && styles.newTerminalButtonPressed]}
           onPress={() => void retryPendingTerminalRecovery()}
         >
-          <Text style={styles.createButtonText}>Retry</Text>
+          <Text style={styles.createButtonText}>{t('common.retry', 'Retry')}</Text>
         </Pressable>
       )}
     </View>
   ) : (
-    <View ref={foldBand.ref} onLayout={foldBand.onLayout} style={styles.terminalFrame}>
-      {/* Folded, the status column overlays the top right; the grid stays clear while chat runs full width.
-          Half folded laptop-style, the grid ends at the hinge and the input stays below it. */}
-      <View
-        style={[
-          styles.terminalPaneArea,
-          controller.sessionSideRail === 'fullWidth' && { right: controller.statusColumnWidth },
-          foldBand.top !== null && { bottom: foldBand.height - foldBand.top }
-        ]}
-      >
-        {terminals.map((terminal) => (
-          <TerminalPaneView
-            key={terminal.handle}
-            handle={terminal.handle}
-            active={terminal.handle === activeHandle}
-            keyboardLift={terminal.handle === activeHandle ? activeTerminalKeyboardLift : 0}
-            terminalTheme={terminal.terminalTheme}
-            textScale={terminalTextScale}
-            onTextScaleChange={(scale) => {
-              // Why: pinch-to-zoom reports a new preset; persist it so the size sticks across panes and launches.
-              terminalTextScaleRevisionRef.current += 1
-              setTerminalTextScale(scale)
-              void saveTerminalTextScale(scale)
-            }}
-            onRef={setTerminalWebViewRef}
-            onWebReady={handleTerminalWebReady}
-            onCellBoxChange={notifyTerminalCellBoxChange}
-            onSelectionMode={handleSelectionMode}
-            onSelectionCopy={handleSelectionCopy}
-            onSelectionEvicted={handleSelectionEvicted}
-            onClipboardWrite={handleClipboardWrite}
-            onModesChanged={handleModesChanged}
-            onKeyboardAvoidanceMetrics={handleKeyboardAvoidanceMetrics}
-            onHaptic={handleHaptic}
-            onTerminalInput={handleTerminalInput}
-            onTerminalQueryReply={handleTerminalQueryReply}
-            onTerminalTap={handleTerminalTap}
-            onTerminalSwipeDown={handleTerminalSwipeDown}
-            // The terminal owns its touches, so the stack's swipe-back never sees them; it reports the swipe instead.
-            onTerminalSwipeBack={requestLeaveSession}
-            onFileTap={handleFileTap}
-            onOpenUrl={handleTerminalOpenUrl}
+    <View style={styles.terminalFrame}>
+      {terminals.map((terminal) => (
+        <TerminalPaneView
+          key={terminal.handle}
+          handle={terminal.handle}
+          active={terminal.handle === activeHandle}
+          visible={
+            visibleTerminalHandles?.includes(terminal.handle) ?? terminal.handle === activeHandle
+          }
+          splitIndex={
+            terminalSplitActive && visibleTerminalHandles.includes(terminal.handle)
+              ? visibleTerminalHandles.indexOf(terminal.handle)
+              : undefined
+          }
+          splitDirection={paneDirection}
+          splitFrame={paneFrame}
+          keyboardInset={keyboardLift}
+          title={terminal.title}
+          onFrame={notifyTerminalPaneFrame}
+          keyboardLift={
+            terminal.handle !== activeHandle &&
+            !(terminalSplitActive && visibleTerminalHandles.includes(terminal.handle))
+              ? 0
+              : terminalSplitActive
+                ? computeActiveTerminalKeyboardLift({
+                    keyboardLift: terminalPaneKeyboardLayout(
+                      paneFrame,
+                      paneDirection,
+                      visibleTerminalHandles.indexOf(terminal.handle),
+                      keyboardLift
+                    ).occlusion,
+                    metrics: controller.terminalKeyboardMetrics.get(terminal.handle),
+                    terminalFrameHeight:
+                      controller.getTerminalPaneViewport(terminal.handle).terminalFrameRef.current
+                        ?.height ?? 0
+                  })
+                : activeTerminalKeyboardLift
+          }
+          terminalTheme={terminal.terminalTheme}
+          textScale={terminalTextScale}
+          onTextScaleChange={(scale) => {
+            // Why: pinch-to-zoom reports a new preset; persist it so the size sticks across panes and launches.
+            terminalTextScaleRevisionRef.current += 1
+            setTerminalTextScale(scale)
+            void saveTerminalTextScale(scale)
+          }}
+          onRef={setTerminalWebViewRef}
+          onWebReady={handleTerminalWebReady}
+          onCellBoxChange={notifyTerminalCellBoxChange}
+          onSelectionMode={handleSelectionMode}
+          onSelectionCopy={handleSelectionCopy}
+          onSelectionEvicted={handleSelectionEvicted}
+          onClipboardWrite={handleClipboardWrite}
+          onModesChanged={handleModesChanged}
+          onKeyboardAvoidanceMetrics={handleKeyboardAvoidanceMetrics}
+          onHaptic={handleHaptic}
+          onTerminalInput={handleTerminalInput}
+          onTerminalQueryReply={handleTerminalQueryReply}
+          onTerminalInteraction={handleTerminalInteraction}
+          onTerminalTap={handleTerminalTap}
+          onTerminalSwipeDown={handleTerminalSwipeDown}
+          // The terminal owns its touches, so the stack's swipe-back never sees them; it reports the swipe instead.
+          onTerminalSwipeBack={requestLeaveSession}
+          onFileTap={handleFileTap}
+          onOpenUrl={handleTerminalOpenUrl}
+        />
+      ))}
+      <MobileNativeChatDictationPreviewContext.Provider value={chatDictationPreview}>
+        <MobileDictationMeterContext.Provider value={dictation.meter}>
+          <MobileNativeChatOverlay
+            controller={nativeChatController}
+            imageSource={nativeChatImageSource}
+            activeSessionTabId={controller.activeSessionTab?.id}
+            onOpenFile={handleNativeChatFileTap}
+            images={nativeChatImages}
+            structuredComposer={nativeChatStructuredComposer}
+            onMicPress={dictationEnabled ? handleDictationToggle : undefined}
+            micActive={dictation.isStarting || dictation.isRecording}
+            micStarting={dictation.isStarting}
+            micProcessing={dictation.isProcessing}
+            dictationMode={dictationMode}
+            onMicPressIn={handleDictationPressIn}
+            onMicPressOut={handleDictationPressOut}
+            inputLockReason={nativeChatOverlayInputLockReason}
+            sendErrorMessage={nativeChatSendError.message}
+            onClearSendError={nativeChatSendError.clear}
+            sendSurfaceId={controller.nativeChatScopeKey ?? ''}
+            sessionId={resolveMobileNativeChatSessionId(controller.activeSessionTab)}
+            getSendCompletionGeneration={controller.getSendCompletionGeneration}
+            keyboardInset={keyboardLift}
+            // A workspace routed to another server stops with that server, whose name the phone lacks.
+            hostName={executionHost === undefined && hostProfile ? hostTitle : null}
           />
-        ))}
-      </View>
-      {controller.sessionSideRail === 'fullWidth' &&
-      controller.terminalKeysBesideTerminal &&
-      !controller.showNativeChat ? (
-        <MobileSessionStatusColumnKeys controller={controller} />
-      ) : null}
-      <MobileNativeChatOverlay
-        controller={nativeChatController}
-        activeSessionTabId={controller.activeSessionTab?.id}
-        onOpenFile={handleNativeChatFileTap}
-        images={nativeChatImages}
-        structuredComposer={nativeChatStructuredComposer}
-        onMicPress={dictationEnabled ? handleDictationToggle : undefined}
-        micActive={dictation.isRecording}
-        dictationMode={dictationMode}
-        onMicPressIn={handleDictationPressIn}
-        onMicPressOut={handleDictationPressOut}
-        inputLockReason={nativeChatOverlayInputLockReason}
-        sendErrorMessage={nativeChatSendError.message}
-        onClearSendError={nativeChatSendError.clear}
-        sendSurfaceId={controller.nativeChatScopeKey ?? ''}
-        sessionId={resolveMobileNativeChatSessionId(controller.activeSessionTab)}
-        getSendCompletionGeneration={controller.getSendCompletionGeneration}
-        keyboardInset={keyboardLift}
-        bottomInset={insets.bottom}
-        fitScreenCorners={controller.sessionSideRail === 'fullWidth'}
-      />
+        </MobileDictationMeterContext.Provider>
+      </MobileNativeChatDictationPreviewContext.Provider>
       {toastMessage && (
         <Animated.View pointerEvents="none" style={[styles.toast, toastAnimatedStyle]}>
           <Text style={styles.toastText}>{toastMessage}</Text>
@@ -328,8 +350,10 @@ export function MobileSessionActiveContent({
       style={styles.contentFrame}
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout
-        contentSizeRef.current = { width, height }
-        notifyTerminalFrame(insetTerminalFrame({ width, height }, paneInset))
+        notifyTerminalFrame({ width, height })
+        setPaneFrame((previous) =>
+          previous.width === width && previous.height === height ? previous : { width, height }
+        )
       }}
     >
       {content}

@@ -1,9 +1,10 @@
 import { getCellHeight, getTotalScale } from './cell-metrics'
 import type { TerminalDocumentScope } from './document-scope'
-import { scheduleDocumentFrame } from './document-frame-registry'
+import { cancelDocumentFrame, scheduleDocumentFrame } from './document-frame-registry'
 import { touchesInRoot } from './document-host-seams'
 import { clampPan } from './fit-scale'
 import { notify } from './host-notify'
+import { emitKeyboardAvoidanceMetrics } from './keyboard-avoidance-metrics'
 import { attachSurfaceMouseClickDragHandler } from './mouse-click-drag'
 import { routeScrollLines, shouldRouteScrollToTerminalInput } from './mouse-input-encoding'
 import {
@@ -21,13 +22,17 @@ import {
 import { updateTransform } from './viewport-transform'
 import { viewportPoint } from './viewport-cell'
 import { attachSurfaceWheelHandler } from './wheel-scroll'
-import { reportSwipeDown } from './surface-swipe-down'
+import { updateTouchVelocity } from './touch-velocity'
+import { markSwipeStart, reportSwipeRelease, terminalPansHorizontally } from './surface-swipe-down'
 
 const RELEASE_VELOCITY_MAX_AGE_MS = 100
 
-type TerminalGestureSurface = HTMLElement & { __orcaSurfaceHandlersAttached?: boolean }
+type TerminalGestureSurface = HTMLElement & {
+  __orcaSurfaceHandlersAttached?: boolean
+}
 
 export type TerminalTouchState = {
+  active: boolean
   lastX: number
   lastY: number
   lastTime: number
@@ -42,21 +47,6 @@ export type TerminalTouchState = {
   /** Where the current one-finger gesture began; null once a second finger joins. */
   swipeStartX: number | null
   swipeStartY: number | null
-}
-
-export function updateTouchVelocity(scope: TerminalDocumentScope, deltaY: number, dt: number) {
-  if (dt <= 0) {
-    return
-  }
-  const instantVelocity = deltaY / dt
-  if (!Number.isFinite(instantVelocity)) {
-    return
-  }
-  // Smooth uneven WebView event cadence so momentum does not inherit a one-frame spike or pause.
-  scope.touchGesture.velY =
-    scope.touchGesture.velY === 0
-      ? instantVelocity
-      : scope.touchGesture.velY * 0.55 + instantVelocity * 0.45
 }
 
 export function getDistance(a: Touch, b: Touch) {
@@ -104,8 +94,9 @@ export function attachSurfaceEventHandlers(
       if (targetSurface !== scope.surface || dispatcherShouldBlockSurface(scope)) {
         return
       }
+      notify(scope, { type: 'terminal-interaction' })
       if (scope.touchGesture.momentumId) {
-        cancelAnimationFrame(scope.touchGesture.momentumId)
+        cancelDocumentFrame(scope, scope.touchGesture.momentumId)
         scope.touchGesture.momentumId = null
         // A touch that stopped momentum must not also fire a tap.
         scope.tapCandidate = null
@@ -115,8 +106,7 @@ export function attachSurfaceEventHandlers(
         stopSurfaceTouchGestures(scope)
         resetSmoothScrollOffset(scope)
         scope.touchGesture.isPinching = true
-        scope.touchGesture.swipeStartX = null
-        scope.touchGesture.swipeStartY = null
+        markSwipeStart(scope, null)
         scope.touchGesture.pinchDist = getDistance(touches[0], touches[1])
         scope.touchGesture.pinchScale = scope.userScale
         const mid = pinchMidpoint(scope, touches[0], touches[1])
@@ -127,12 +117,12 @@ export function attachSurfaceEventHandlers(
         scope.touchGesture.isPinching = false
         scope.touchGesture.lastX = touches[0].clientX
         scope.touchGesture.lastY = touches[0].clientY
-        scope.touchGesture.swipeStartX = touches[0].clientX
-        scope.touchGesture.swipeStartY = touches[0].clientY
+        markSwipeStart(scope, touches[0])
         scope.touchGesture.lastTime = Date.now()
         scope.touchGesture.velY = 0
         scope.touchGesture.accumDelta = 0
       }
+      scope.touchGesture.active = touches.length > 0
     },
     { capture: true, passive: true }
   )
@@ -140,14 +130,19 @@ export function attachSurfaceEventHandlers(
   targetSurface.addEventListener(
     'touchmove',
     function (e) {
-      if (targetSurface !== scope.surface || dispatcherShouldBlockSurface(scope)) {
+      if (
+        targetSurface !== scope.surface ||
+        scope.touchDispatch.mode === 'select-drag' ||
+        !scope.term
+      ) {
         return
       }
-      if (!scope.term) {
-        return
-      }
+      // Claim inactive and interrupted moves too, or xterm's own touch scroller moves the buffer.
       e.preventDefault()
       e.stopPropagation()
+      if (!scope.interactionActive || !scope.touchGesture.active) {
+        return
+      }
 
       const touches = touchesInRoot(scope.root, e.touches)
       if (touches.length === 2) {
@@ -175,10 +170,7 @@ export function attachSurfaceEventHandlers(
           dt = now - scope.touchGesture.lastTime
 
         // Pan horizontally only on overflow; vertical gestures always drive buffer scroll to keep scrollback reachable.
-        if (
-          scope.term.element &&
-          scope.term.element.scrollWidth * getTotalScale(scope) > scope.viewportRect().width + 1
-        ) {
+        if (terminalPansHorizontally(scope)) {
           scope.panX += x - scope.touchGesture.lastX
           clampPan(scope)
           updateTransform(scope)
@@ -218,7 +210,7 @@ export function attachSurfaceEventHandlers(
       if (targetSurface !== scope.surface || dispatcherShouldBlockSurface(scope)) {
         return
       }
-      if (!scope.term) {
+      if (!scope.term || !scope.touchGesture.active) {
         return
       }
 
@@ -248,12 +240,8 @@ export function attachSurfaceEventHandlers(
       }
 
       if (touches.length === 0) {
-        reportSwipeDown(
-          scope,
-          e.changedTouches ? touchesInRoot(scope.root, e.changedTouches)[0] : undefined,
-          !!scope.term.element &&
-            scope.term.element.scrollWidth * getTotalScale(scope) > scope.viewportRect().width + 1
-        )
+        reportSwipeRelease(scope, e)
+        scope.touchGesture.active = false
         // A finger resting after its last move has no remaining momentum to launch.
         const rested = Date.now() - scope.touchGesture.lastTime > RELEASE_VELOCITY_MAX_AGE_MS
         let vel = rested ? 0 : scope.touchGesture.velY
@@ -312,11 +300,22 @@ export function startSurfaceTouchGestures(scope: TerminalDocumentScope) {
 }
 
 export function stopSurfaceTouchGestures(scope: TerminalDocumentScope) {
+  const interruptedPinch = scope.touchGesture.isPinching
+  scope.touchGesture.active = false
   if (scope.touchGesture.momentumId !== null) {
-    cancelAnimationFrame(scope.touchGesture.momentumId)
+    cancelDocumentFrame(scope, scope.touchGesture.momentumId)
     scope.touchGesture.momentumId = null
   }
   scope.touchGesture.velY = 0
   scope.touchGesture.accumDelta = 0
   scope.touchGesture.isPinching = false
+  if (interruptedPinch) {
+    scope.userScale = 1
+    scope.panX = 0
+    scope.panY = 0
+    if (scope.surface) {
+      updateTransform(scope)
+    }
+    emitKeyboardAvoidanceMetrics(scope)
+  }
 }

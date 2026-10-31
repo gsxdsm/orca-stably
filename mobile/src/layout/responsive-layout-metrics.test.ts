@@ -21,19 +21,6 @@ describe('responsive layout metrics', () => {
     })
   })
 
-  it('uses the split layout on an unfolded iPhone Duo and phone layout on its outer screen', () => {
-    expect(getResponsiveLayoutMetrics(626, 890)).toMatchObject({
-      isTabletLayout: true,
-      isWideLayout: true
-    })
-    expect(getResponsiveLayoutMetrics(890, 626)).toMatchObject({ isWideLayout: true })
-    expect(getResponsiveLayoutMetrics(466, 678)).toMatchObject({
-      isTabletLayout: false,
-      isWideLayout: false
-    })
-    expect(getResponsiveLayoutMetrics(678, 466)).toMatchObject({ isLandscapePhone: true })
-  })
-
   it('keeps narrow iPad split windows phone-like', () => {
     expect(getResponsiveLayoutMetrics(560, 1024)).toMatchObject({
       isTabletLayout: false,
