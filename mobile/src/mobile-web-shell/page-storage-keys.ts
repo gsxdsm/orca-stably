@@ -46,7 +46,9 @@ export const PAGE_STORAGE_EXACT_KEYS = [
   /** The split terminal's chosen direction. */
   'orca:terminalSplitLayout',
   /** Whether every Duo chat runs across the status column. */
-  'orca:duoChatExpanded'
+  'orca:duoChatExpanded',
+  /** Which usage window the composer meter shows. */
+  'orca:composerUsageWindow'
 ] as const
 
 /**
@@ -56,7 +58,8 @@ export const PAGE_STORAGE_EXACT_KEYS = [
  */
 export const NEGOTIATED_PAGE_STORAGE_KEYS = [
   'orca:terminalSplitLayout',
-  'orca:duoChatExpanded'
+  'orca:duoChatExpanded',
+  'orca:composerUsageWindow'
 ] as const
 
 /** Whether a page that declared `storageKeys` (null: declared nothing) reads this key in `init`. */
