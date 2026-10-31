@@ -10,7 +10,7 @@ function agent(
   return {
     paneKey,
     parentPaneKey,
-    state: 'idle',
+    state: 'done',
     agentType: 'codex',
     prompt: `Prompt ${paneKey}`,
     taskTitle: null,
@@ -33,9 +33,9 @@ describe('sidebarSessionJumps', () => {
         2_000
       )
     ).toEqual([
-      { paneKey: 'parent', depth: 0, label: 'Parent' },
-      { paneKey: 'child', depth: 1, label: 'Child' },
-      { paneKey: 'other', depth: 0, label: 'Other' }
+      { paneKey: 'parent', depth: 0, label: 'Parent', agentType: 'codex', dotState: 'done' },
+      { paneKey: 'child', depth: 1, label: 'Child', agentType: 'codex', dotState: 'done' },
+      { paneKey: 'other', depth: 0, label: 'Other', agentType: 'codex', dotState: 'done' }
     ])
   })
 

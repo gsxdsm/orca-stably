@@ -21,6 +21,7 @@ import { MobileRepoIcon } from './MobileRepoIcon'
 import { WorktreeAgentList } from './WorktreeAgentList'
 import { WorktreeMetaGlyphs, prStateColor } from './WorktreeMetaGlyphs'
 import { WORKTREE_ROW_LAYOUT } from './worktree-list-row-layout'
+import { useWorktreeSessionPress } from './worktree-session-press'
 
 // Match desktop formatBranchName by hiding refs/heads/ prefix.
 function displayBranch(branch: string): string {
@@ -83,6 +84,7 @@ function WorktreeListRowComponent({
     .join(', ')
   // Why: the desktop's compact card keeps an icon-only glyph for remote projects after the host badge goes.
   const showHostGlyph = !cardDetails.metaRow && isRemoteExecutionHostId(hostId)
+  const sessionPress = useWorktreeSessionPress(() => onPress(item))
   const handleLongPress = onLongPress
     ? () => {
         triggerMediumImpact()
@@ -99,7 +101,7 @@ function WorktreeListRowComponent({
         pressed && (item.isActive ? styles.worktreeRowActivePressed : styles.worktreeRowPressed)
       ]}
       disabled={isReadOnly}
-      onPress={() => onPress(item)}
+      onPress={sessionPress.press}
       onLongPress={handleLongPress}
       delayLongPress={400}
     >
@@ -222,6 +224,8 @@ function WorktreeListRowComponent({
             onAgentPress={onAgentPress ? (paneKey) => onAgentPress(item, paneKey) : undefined}
             fullList={agentActivityDisplayMode === 'full'}
             selectable={selectableSessions}
+            onPressIn={sessionPress.claim}
+            onPressOut={sessionPress.release}
             onLongPress={handleLongPress}
           />
         ) : null}

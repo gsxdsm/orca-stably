@@ -29,6 +29,8 @@ type Props = {
   isReadOnly?: boolean
   selectable?: boolean
   onPress?: (paneKey: string) => void
+  onPressIn?: () => void
+  onPressOut?: () => void
   onLongPress?: () => void
 }
 
@@ -42,6 +44,8 @@ function WorktreeAgentRowComponent({
   isReadOnly,
   selectable = false,
   onPress,
+  onPressIn,
+  onPressOut,
   onLongPress
 }: Props) {
   useMobileColorScheme()
@@ -105,6 +109,8 @@ function WorktreeAgentRowComponent({
       style={({ pressed }) => pressed && pressedStyle}
       disabled={isReadOnly || !onPress}
       accessibilityRole="button"
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       onPress={(event) => {
         event.stopPropagation()
         onPress(agent.paneKey)
