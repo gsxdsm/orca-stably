@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import type { RuntimeWorktreeAgentRow } from '../../../src/shared/runtime-types'
+import { AgentStateDot } from '../components/AgentStateDot'
+import { MobileAgentIcon } from '../components/MobileAgentIcon'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
@@ -35,13 +37,16 @@ export function WorkspaceSessionJumpList({ agents, now, onJump }: Props) {
               accessibilityLabel={t('hostScreen.hostScreenOverlays.openSession', 'Open {{name}}', {
                 name: jump.label
               })}
-              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+              style={({ pressed }) => [
+                styles.row,
+                { paddingLeft: spacing.md + 2 + jump.depth * INDENT_PER_DEPTH },
+                pressed && styles.rowPressed
+              ]}
               onPress={() => onJump(jump.paneKey)}
             >
-              <Text
-                style={[styles.label, { paddingLeft: jump.depth * INDENT_PER_DEPTH }]}
-                numberOfLines={2}
-              >
+              <AgentStateDot state={jump.dotState} />
+              {jump.agentType ? <MobileAgentIcon agentId={jump.agentType} size={13} /> : null}
+              <Text style={styles.label} numberOfLines={2}>
                 {jump.label}
               </Text>
             </Pressable>
@@ -75,14 +80,17 @@ const styles = themedStyleSheet(() => ({
   },
   row: {
     minHeight: 44,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md + 2
+    paddingRight: spacing.md + 2
   },
   rowPressed: {
     backgroundColor: colors.borderSubtle
   },
   label: {
+    flex: 1,
     fontSize: typography.bodySize,
     fontWeight: '500',
     color: colors.textPrimary

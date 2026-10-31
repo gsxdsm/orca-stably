@@ -18,6 +18,7 @@ vi.mock('../agent-history/worktree-navigation-actions', () => ({
 }))
 vi.mock('../add-project/AddProjectSheet', () => ({ AddProjectSheet: 'AddProjectSheet' }))
 vi.mock('../components/ActionSheetModal', () => ({ ActionSheetContent: 'ActionSheetContent' }))
+vi.mock('../components/MobileAgentIcon', () => ({ MobileAgentIcon: () => null }))
 vi.mock('../components/BottomDrawer', () => ({ BottomDrawer: 'BottomDrawer' }))
 vi.mock('../components/ConfirmModal', () => ({ ConfirmModal: 'ConfirmModal' }))
 vi.mock('../components/NewWorktreeModalController', () => ({
