@@ -18,6 +18,8 @@ type Props = {
   /** Each session is its own taller target. Off, a long-press on the workspace still lists them. */
   selectable?: boolean
   onLongPress?: () => void
+  onPressIn?: () => void
+  onPressOut?: () => void
 }
 
 // Flatten spawn lineage into indented agent rows, matching desktop WorktreeCardAgents.
@@ -30,7 +32,9 @@ export function WorktreeAgentList({
   onAgentPress,
   fullList = false,
   selectable = false,
-  onLongPress
+  onLongPress,
+  onPressIn,
+  onPressOut
 }: Props) {
   const nodes = useMemo(() => flattenAgentRowLineage(agents), [agents])
   const summaryAgents = useMemo(() => {
@@ -63,6 +67,8 @@ export function WorktreeAgentList({
                   selectable={selectable}
                   isReadOnly={isReadOnly}
                   onPress={selectable ? onAgentPress : undefined}
+                  onPressIn={onPressIn}
+                  onPressOut={onPressOut}
                   onLongPress={onLongPress}
                 />
                 {children.map((childRow) => (
@@ -76,6 +82,8 @@ export function WorktreeAgentList({
                     selectable={selectable}
                     isReadOnly={isReadOnly}
                     onPress={onAgentPress}
+                    onPressIn={onPressIn}
+                    onPressOut={onPressOut}
                     onLongPress={onLongPress}
                   />
                 ))}
