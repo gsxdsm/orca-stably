@@ -34,6 +34,7 @@ import { HostPendingCreationRow } from './host-pending-creation-row'
 import { useSlowPendingKeys } from './use-slow-pending-keys'
 import { projectGroupHeaderIndent } from '../worktree/project-group-indent'
 import type { HostScreenController } from './use-host-screen-controller'
+import { useSelectableSidebarSessions } from './selectable-sidebar-sessions'
 
 export function HostWorkspaceList({
   controller,
@@ -47,6 +48,7 @@ export function HostWorkspaceList({
   pageTitle?: { element: ReactElement; collapsing: CollapsingTitle }
 }) {
   const colorScheme = useMobileColorScheme()
+  const selectableSessions = useSelectableSidebarSessions()
   const {
     actions,
     activeWorktreeScroll,
@@ -288,6 +290,7 @@ export function HostWorkspaceList({
               agentActivityDisplayMode={state.view.agentActivityDisplayMode}
               onPress={actions.openWorktreeSession}
               onAgentPress={actions.openWorktreeSession}
+              selectableSessions={selectableSessions}
               statusLive={connState === 'connected' && !item.hostContextHealthLabel}
               onLongPress={
                 item.workspaceKind === 'folder-workspace' ? undefined : state.setActionTarget

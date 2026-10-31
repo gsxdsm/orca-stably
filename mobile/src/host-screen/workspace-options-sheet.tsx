@@ -25,13 +25,17 @@ import { withServerHosts } from '../worktree/server-workspaces'
 import { hostScreenStyles as styles } from './host-screen-styles'
 import type { HostScreenController } from './use-host-screen-controller'
 import { ListGroup, SectionHeader } from '../components/list/ListGroup'
-import { DrillRow } from './workspace-option-rows'
+import { DrillRow, SwitchRow } from './workspace-option-rows'
 import { OptionPager, useOptionPager, type OptionPagerControls } from './workspace-options-pager'
 import {
   WORKSPACE_OPTION_CONTROLS,
   type WorkspaceOptionHost,
   type WorkspaceOptionProps
 } from './workspace-option-controls'
+import {
+  setSelectableSidebarSessions,
+  useSelectableSidebarSessions
+} from './selectable-sidebar-sessions'
 
 function workspaceOptionLabels(t: Translate): Record<WorkspaceViewOptionKey, string> {
   return {
@@ -167,6 +171,7 @@ function WorkspaceOptionsContent({
 }) {
   const t = useMobileTranslation()
   useMobileColorScheme()
+  const selectableSessions = useSelectableSidebarSessions()
   const { settings, state } = controller
   const hosts = useWorkspaceOptionHosts(controller)
   const optionLabels = workspaceOptionLabels(t)
@@ -273,6 +278,20 @@ function WorkspaceOptionsContent({
           </View>
         )
       })}
+      <View testID="workspace-option-section-phone">
+        <SectionHeader title={t('hostScreen.workspaceOptionsSheet.onThisPhone', 'On this phone')} />
+        <ListGroup style={styles.optionGroup}>
+          <SwitchRow
+            label={t('hostScreen.workspaceOptionsSheet.selectSessions', 'Select sessions')}
+            subtitle={t(
+              'hostScreen.workspaceOptionsSheet.selectSessionsDetail',
+              'Taller rows you can tap to open that session.'
+            )}
+            value={selectableSessions}
+            onChange={setSelectableSidebarSessions}
+          />
+        </ListGroup>
+      </View>
     </>
   )
 

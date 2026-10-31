@@ -137,6 +137,36 @@ describe('WorktreeAgentList', () => {
     expect(onAgentPress).toHaveBeenCalledWith('agent-1')
   })
 
+  it('opens the session from a taller row when sessions are selectable', async () => {
+    const onAgentPress = vi.fn()
+    const onLongPress = vi.fn()
+    const stopPropagation = vi.fn()
+    await act(async () => {
+      renderer = create(
+        createElement(WorktreeAgentList, {
+          agents: [agent('agent-1'), agent('agent-2')],
+          now: 2_000,
+          unvisited: false,
+          fullList: true,
+          selectable: true,
+          onAgentPress,
+          onLongPress
+        })
+      )
+    })
+    const rows = renderer!.root.findAll((node) => node.props.agent !== undefined)
+    expect(rows).toHaveLength(2)
+    const session = findByHostType(rows[0], 'Pressable')
+    expect(findByHostType(rows[0], 'View').props.style).toEqual(
+      expect.arrayContaining([expect.objectContaining({ minHeight: 44 })])
+    )
+    await act(async () => session.props.onPress({ stopPropagation }))
+    expect(stopPropagation).toHaveBeenCalledTimes(1)
+    expect(onAgentPress).toHaveBeenCalledWith('agent-1')
+    await act(async () => session.props.onLongPress({ stopPropagation }))
+    expect(onLongPress).toHaveBeenCalledTimes(1)
+  })
+
   it('keeps a single agent visible without a redundant disclosure control', async () => {
     await act(async () => {
       renderer = create(
