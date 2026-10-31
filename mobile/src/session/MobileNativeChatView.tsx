@@ -12,8 +12,8 @@ import {
   Text,
   View
 } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'
+import { useChatBottomFit } from './native-chat/composer/use-chat-bottom-fit'
 import type { AskAnswerSelection } from '../../../src/shared/native-chat-ask-answer'
 import type { AskPrompt } from '../../../src/shared/native-chat/input/native-chat-ask-types'
 import type { NativeChatMessage } from '../../../src/shared/native-chat-types'
@@ -218,8 +218,7 @@ export function MobileNativeChatView({
   keyboardInset = 0
 }: Props): React.JSX.Element {
   useMobileColorScheme()
-  const insets = useSafeAreaInsets()
-  const bottomPad = keyboardInset > 0 ? keyboardInset + insets.bottom : insets.bottom
+  const { bottomPad, fitScreenCorners } = useChatBottomFit(keyboardInset)
   const { fontScale, pinchGesture } = useMobileNativeChatPinchGesture()
 
   // Memoize list derivation to keep downstream autoscroll/renderItem dependencies stable.
@@ -395,6 +394,7 @@ export function MobileNativeChatView({
       {trayContent}
       <View style={promptOwnsInput ? styles.hidden : undefined}>
         <MobileNativeChatDraftComposer
+          fitScreenCorners={fitScreenCorners}
           draftScopeKey={composerScopeKey}
           structured={structuredActivityUi ? structuredComposer : null}
           draftKey={draftKey}
