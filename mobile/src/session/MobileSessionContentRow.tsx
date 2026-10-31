@@ -10,6 +10,7 @@ import type { MobileSessionController } from './use-mobile-session-controller'
 import { MobileSessionActiveContent } from './MobileSessionActiveContent'
 import { MobileSessionCommandDock } from './MobileSessionCommandDock'
 import { MobileDictationStatusAnnouncement } from './MobileDictationStatusAnnouncement'
+import { ComposerUsageClientContext } from '../composer-usage/composer-usage-client-context'
 import {
   sideStripMargin,
   sideStripPadding,
@@ -32,7 +33,9 @@ export function MobileSessionContentRow({ controller }: { controller: MobileSess
     dictation,
     handleFileOpenStart,
     handleOpenedFileDiff,
-    handleSessionContentRowLayout
+    handleSessionContentRowLayout,
+    client,
+    connState
   } = controller
   const strip = useSessionSideStripInset(canDockPanel && activePanel !== null)
   return (
@@ -58,11 +61,13 @@ export function MobileSessionContentRow({ controller }: { controller: MobileSess
             </Pressable>
           </View>
         ) : null}
-        <MobileSessionActiveContent controller={controller} />
-        {/* Why: translate instead of resize so keyboard toggles don't trigger a server-side PTY viewport change. */}
-        <View style={sideStripMargin(strip.main)}>
-          <MobileSessionCommandDock controller={controller} />
-        </View>
+        <ComposerUsageClientContext.Provider value={connState === 'connected' ? client : null}>
+          <MobileSessionActiveContent controller={controller} />
+          {/* Why: translate instead of resize so keyboard toggles don't trigger a server-side PTY viewport change. */}
+          <View style={sideStripMargin(strip.main)}>
+            <MobileSessionCommandDock controller={controller} />
+          </View>
+        </ComposerUsageClientContext.Provider>
         <MobileDictationStatusAnnouncement dictation={dictation} />
       </View>
       {canDockPanel && activePanel !== null && (
