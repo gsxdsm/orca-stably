@@ -16,6 +16,7 @@ import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { hostScreenStyles as styles } from './host-screen-styles'
 import { WorkspaceOptionsSheet } from './workspace-options-sheet'
 import { WorkspaceDetailsSheet } from './workspace-details-sheet'
+import { setSelectedSidebarSession } from './selected-sidebar-session'
 import { WorkspaceSessionJumpList } from './WorkspaceSessionJumpList'
 import type { HostScreenController } from './use-host-screen-controller'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
@@ -176,6 +177,7 @@ export function HostScreenOverlays({ controller }: { controller: HostScreenContr
                     agents={actionTarget.agents}
                     now={controller.now}
                     onJump={(paneKey) => {
+                      setSelectedSidebarSession({ worktreeId: actionTarget.worktreeId, paneKey })
                       actions.openWorktreeSession(actionTarget, paneKey)
                       state.setActionTarget(null)
                     }}
