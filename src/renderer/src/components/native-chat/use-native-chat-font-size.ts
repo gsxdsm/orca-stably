@@ -7,12 +7,18 @@ import { getShortcutPlatform } from '@/lib/shortcut-platform'
 import { useAppStore } from '../../store'
 import { addAppKeyListener, removeAppKeyListener } from '@/lib/app-keyboard-router'
 
+// Trackpad pinch emits many small deltas; one font-size step needs this much travel.
+const PINCH_STEP_DELTA = 12
+const PINCH_IDLE_RESET_MS = 250
+
 export function useNativeChatFontSize(
-  enabled: boolean,
-  rootRef?: RefObject<HTMLDivElement | null>
+  focused: boolean,
+  rootRef?: RefObject<HTMLDivElement | null>,
+  active: boolean = true
 ): void {
+  const enabled = focused && active
   useEffect(() => {
-    if (!enabled) {
+    if (!active) {
       return
     }
     const root = rootRef?.current
@@ -20,6 +26,8 @@ export function useNativeChatFontSize(
       return
     }
     // Trackpad pinch arrives as ctrl+wheel. Claim it on the chat under the fingers, focused or not.
+    let accumulated = 0
+    let lastWheelAt = 0
     const onWheel = (event: WheelEvent): void => {
       if (!event.ctrlKey || event.metaKey || event.altKey || event.deltaY === 0) {
         return
@@ -30,11 +38,24 @@ export function useNativeChatFontSize(
       event.preventDefault()
       event.stopPropagation()
       noteChatWheelPinch()
-      void writeNativeChatFontSize(event.deltaY < 0 ? 'increase' : 'decrease')
+      if (
+        event.timeStamp - lastWheelAt > PINCH_IDLE_RESET_MS ||
+        Math.sign(accumulated) !== Math.sign(event.deltaY)
+      ) {
+        accumulated = 0
+      }
+      lastWheelAt = event.timeStamp
+      accumulated += event.deltaY
+      if (Math.abs(accumulated) < PINCH_STEP_DELTA) {
+        return
+      }
+      const action = accumulated < 0 ? 'increase' : 'decrease'
+      accumulated = 0
+      void writeNativeChatFontSize(action)
     }
     root.addEventListener('wheel', onWheel, { capture: true, passive: false })
     return () => root.removeEventListener('wheel', onWheel, { capture: true })
-  }, [enabled, rootRef])
+  }, [active, rootRef])
 
   useEffect(() => {
     if (!enabled || !isWebClientLocation()) {
