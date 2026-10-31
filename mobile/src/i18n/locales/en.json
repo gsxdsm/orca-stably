@@ -275,7 +275,20 @@
       "connecting": "Connecting to host…",
       "loadingAccounts": "Loading accounts…",
       "manageAccountsHint": "Add or re-authenticate accounts from desktop Settings → Accounts.",
-      "useReset": "Use reset"
+      "useReset": "Use reset",
+      "antigravity": "Antigravity",
+      "antigravityChanged": "The native account changed. Select a saved account again before launching.",
+      "signedIn": "Signed in on this host",
+      "antigravitySaved": "Saved Google account",
+      "antigravityNative": "Native account",
+      "grokUsage": "Usage",
+      "grokMonthlyUsage": "Monthly usage",
+      "grokWeeklyCredits": "Weekly credits",
+      "grokMonthlyHint": "Included monthly usage for this Grok account.",
+      "grokWeeklyHint": "Weekly credits from the Grok CLI sign-in on this host.",
+      "planTotal": "Plan",
+      "mcpMonthly": "MCP monthly",
+      "fable": "Fable"
     }
   },
   "agentHistory": {
@@ -4258,7 +4271,8 @@
   },
   "composerUsage": {
     "meter": {
-      "label": "{{provider}} {{window}} usage: {{percent}}% used. Show details"
+      "label": "{{provider}} {{window}} usage: {{percent}}% used. Show details",
+      "labelIdle": "{{provider}} {{window}} usage: no active window. Show details"
     },
     "sheet": {
       "title": "{{provider}} usage",
@@ -4276,7 +4290,8 @@
       "onPace": "On pace",
       "under": "{{percent}}% under pace",
       "ahead": "{{percent}}% ahead of pace",
-      "aheadRunOut": "{{percent}}% ahead of pace — at this rate you'd run out ~{{duration}} before reset"
+      "aheadRunOut": "{{percent}}% ahead of pace — at this rate you'd run out ~{{duration}} before reset",
+      "exhausted": "Limit reached — out until reset"
     },
     "picker": {
       "label": "Show in composer",
