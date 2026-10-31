@@ -40,7 +40,7 @@ import {
   MobileNativeChatComposerMic,
   type MobileNativeChatMicProps
 } from './MobileNativeChatComposerMic'
-import { MobileNativeChatWidthToggle } from './MobileNativeChatWidthToggle'
+import { MobileNativeChatActionGap } from './MobileNativeChatActionGap'
 
 const NO_FILE_PATHS: string[] = []
 const NO_ATTACHMENTS: PendingNativeChatImage[] = []
@@ -355,8 +355,7 @@ export function MobileNativeChatComposer({
                 }}
               />
             ) : null}
-            <View style={inputStyles.actionSpacer} />
-            {widthToggle ? <MobileNativeChatWidthToggle {...widthToggle} /> : null}
+            <MobileNativeChatActionGap agent={editSession ? null : agent} toggle={widthToggle} />
             {onMicPress ? (
               <MobileNativeChatComposerMic
                 onMicPress={onMicPress}
