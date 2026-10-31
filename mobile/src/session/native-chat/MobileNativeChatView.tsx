@@ -200,7 +200,7 @@ export function MobileNativeChatView({
 }: Props): React.JSX.Element {
   useMobileColorScheme()
   const t = useMobileTranslation()
-  const { bottomPad, fitScreenCorners } = useChatBottomFit(keyboardInset)
+  const { bottomPad, fitScreenCorners, widthToggle } = useChatBottomFit(keyboardInset)
   const { fontScale, pinchGesture } = useMobileNativeChatPinchGesture()
 
   const { data } = useMemo(
@@ -377,7 +377,7 @@ export function MobileNativeChatView({
       {trayContent}
       <View style={promptOwnsInput ? styles.hidden : undefined}>
         <MobileNativeChatDraftComposer
-          fitScreenCorners={fitScreenCorners}
+          {...{ fitScreenCorners, widthToggle }}
           draftScopeKey={composerScopeKey}
           structured={structuredActivityUi && structured ? { ...structured, onOpenFile } : null}
           draftKey={draftKey}
