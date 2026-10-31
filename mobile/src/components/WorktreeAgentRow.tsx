@@ -27,7 +27,9 @@ type Props = {
   unvisited: boolean
   childRow?: AgentChildRowModel
   isReadOnly?: boolean
+  selectable?: boolean
   onPress?: (paneKey: string) => void
+  onLongPress?: () => void
 }
 
 // Match compact desktop DashboardAgentRow: state→identity→message/prompt→age.
@@ -38,7 +40,9 @@ function WorktreeAgentRowComponent({
   unvisited,
   childRow,
   isReadOnly,
-  onPress
+  selectable = false,
+  onPress,
+  onLongPress
 }: Props) {
   useMobileColorScheme()
   const dotState = childRow?.displayState ?? agentDotState(agent, now)
@@ -61,13 +65,26 @@ function WorktreeAgentRowComponent({
         : formatTimeAgo(timeAt, now)
 
   const content = (
-    <View style={[styles.row, { paddingLeft: depth * INDENT_PER_DEPTH }]}>
+    <View
+      style={[
+        styles.row,
+        selectable && styles.rowSelectable,
+        { paddingLeft: depth * INDENT_PER_DEPTH }
+      ]}
+    >
       <AgentStateDot state={dotState} />
       {/* Use desktop-style agent identity logo instead of two-letter code. */}
       {!childRow && agent.agentType ? (
         <MobileAgentIcon agentId={agent.agentType} size={13} />
       ) : null}
-      <Text style={[styles.label, unvisited && styles.labelUnvisited]} numberOfLines={1}>
+      <Text
+        style={[
+          styles.label,
+          selectable && styles.labelSelectable,
+          unvisited && styles.labelUnvisited
+        ]}
+        numberOfLines={selectable ? 2 : 1}
+      >
         {childText ? (
           <>
             {childText.lead}
@@ -80,19 +97,28 @@ function WorktreeAgentRowComponent({
       <Text style={styles.time}>{ts}</Text>
     </View>
   )
-  return childRow ? (
+  if (!onPress) {
+    return content
+  }
+  return (
     <Pressable
-      disabled={isReadOnly || !onPress}
+      disabled={isReadOnly}
       accessibilityRole="button"
       onPress={(event) => {
         event.stopPropagation()
-        onPress?.(agent.paneKey)
+        onPress(agent.paneKey)
       }}
+      onLongPress={
+        onLongPress
+          ? (event) => {
+              event.stopPropagation()
+              onLongPress()
+            }
+          : undefined
+      }
     >
       {content}
     </Pressable>
-  ) : (
-    content
   )
 }
 
@@ -105,10 +131,19 @@ const styles = themedStyleSheet(() => ({
     gap: spacing.xs,
     marginTop: 3
   },
+  // 44pt is the smallest row a finger can hit without opening the workspace behind it.
+  rowSelectable: {
+    minHeight: 44,
+    marginTop: spacing.xs,
+    paddingVertical: spacing.sm
+  },
   label: {
     flex: 1,
     fontSize: 11,
     color: colors.textMuted
+  },
+  labelSelectable: {
+    fontSize: 14
   },
   labelUnvisited: {
     color: colors.textPrimary,
