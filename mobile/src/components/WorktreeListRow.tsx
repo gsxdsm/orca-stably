@@ -20,7 +20,7 @@ import { HostKindIcon } from './HostKindIcon'
 import { MobileRepoIcon } from './MobileRepoIcon'
 import { WorktreeAgentList } from './WorktreeAgentList'
 import { WorktreeMetaGlyphs, prStateColor } from './WorktreeMetaGlyphs'
-import { useWorktreeSessionPress } from './worktree-session-press'
+import { useWorktreeRowSession } from './worktree-session-press'
 
 // Match desktop formatBranchName by hiding refs/heads/ prefix.
 function displayBranch(branch: string): string {
@@ -83,7 +83,7 @@ function WorktreeListRowComponent({
     .join(', ')
   // Why: the desktop's compact card keeps an icon-only glyph for remote projects after the host badge goes.
   const showHostGlyph = !cardDetails.metaRow && isRemoteExecutionHostId(hostId)
-  const sessionPress = useWorktreeSessionPress(() => onPress(item))
+  const sessionPress = useWorktreeRowSession(item, selectableSessions, onPress, onAgentPress)
   const handleLongPress = onLongPress
     ? () => {
         triggerMediumImpact()
@@ -97,7 +97,9 @@ function WorktreeListRowComponent({
         styles.worktreeRow,
         indent > 0 && { paddingLeft: spacing.lg + indent },
         item.isActive && styles.worktreeRowActive,
-        pressed && styles.worktreeRowPressed
+        // The open session keeps this accent and takes the fill; the rest of the card does not.
+        sessionPress.highlightedPane && { backgroundColor: colors.bgBase },
+        pressed && !sessionPress.isClaimed() && styles.worktreeRowPressed
       ]}
       disabled={isReadOnly}
       onPress={sessionPress.press}
@@ -217,7 +219,8 @@ function WorktreeListRowComponent({
             unvisited={item.unread}
             statusLive={statusLive}
             isReadOnly={isReadOnly}
-            onAgentPress={onAgentPress ? (paneKey) => onAgentPress(item, paneKey) : undefined}
+            onAgentPress={sessionPress.openAgent}
+            selectedPaneKey={sessionPress.highlightedPane}
             fullList={agentActivityDisplayMode === 'full'}
             selectable={selectableSessions}
             onPressIn={sessionPress.claim}

@@ -2,6 +2,7 @@ import { createElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { RuntimeWorktreeAgentRow } from '../../../src/shared/runtime-types'
+import { colors } from '../theme/mobile-theme'
 import { WorktreeAgentList } from './WorktreeAgentList'
 import { findAllByHostType, findByHostType } from '../test-support/react-test-renderer-host-nodes'
 
@@ -165,6 +166,44 @@ describe('WorktreeAgentList', () => {
     expect(onAgentPress).toHaveBeenCalledWith('agent-1')
     await act(async () => session.props.onLongPress({ stopPropagation }))
     expect(onLongPress).toHaveBeenCalledTimes(1)
+  })
+
+  it('fills only the tapped session, including while the finger is down', async () => {
+    await act(async () => {
+      renderer = create(
+        createElement(WorktreeAgentList, {
+          agents: [
+            {
+              ...agent('agent-1'),
+              subagentObservation: 'live',
+              subagents: [{ id: 'child', state: 'working', startedAt: 1_000 }]
+            },
+            agent('agent-2')
+          ],
+          now: 2_000,
+          unvisited: false,
+          fullList: true,
+          selectable: true,
+          statusLive: true,
+          selectedPaneKey: 'agent-1',
+          onAgentPress: vi.fn()
+        })
+      )
+    })
+    const rows = renderer!.root.findAll((node) => node.props.agent !== undefined)
+    const fill = (row: (typeof rows)[number], pressed: boolean) => {
+      const style = findByHostType(row, 'Pressable').props.style({ pressed })
+      return Object.assign({}, ...style.filter(Boolean))
+    }
+    expect(rows[0].props.selected).toBe(true)
+    expect(rows[1].props.childRow.id).toBe('child')
+    expect(rows[1].props.selected).toBeUndefined()
+    expect(rows[2].props.selected).toBe(false)
+    expect(fill(rows[0], false).backgroundColor).toBe(colors.bgPanel)
+    expect(fill(rows[0], true).backgroundColor).toBe(colors.bgRaised)
+    expect(fill(rows[1], false).backgroundColor).toBeUndefined()
+    expect(fill(rows[2], true).backgroundColor).toBe(colors.bgRaised)
+    expect(fill(rows[2], false).backgroundColor).toBeUndefined()
   })
 
   it('keeps a single agent visible without a redundant disclosure control', async () => {
