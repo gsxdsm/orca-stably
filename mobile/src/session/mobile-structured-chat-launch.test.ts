@@ -11,13 +11,17 @@ import type { RpcClient } from '../transport/rpc-client'
 import type { RpcResponse } from '../transport/types'
 import {
   loadMobileStructuredChatLaunchContext,
+  readMobileStructuredChatLaunchContext,
   mobileStructuredChatLaunchSurface,
   withMobileStructuredChatLaunch,
   type MobileStructuredChatLaunchContext
 } from './mobile-structured-chat-launch'
 
 vi.mock('@react-native-async-storage/async-storage', () => ({
-  default: { getItem: vi.fn(async () => null), setItem: vi.fn(async () => undefined) }
+  default: {
+    getItem: vi.fn(async () => null),
+    setItem: vi.fn(async () => undefined)
+  }
 }))
 
 const chatHost: MobileStructuredChatLaunchContext = {
@@ -54,15 +58,24 @@ describe('mobileStructuredChatLaunchSurface', () => {
   it('asks for chat only for a registered agent the transcript overlay does not cover', () => {
     expect(mobileStructuredChatLaunchSurface('antigravity', chatHost)).toBe('chat')
     expect(
-      mobileStructuredChatLaunchSurface('hermes', { ...chatHost, registeredAgents: ['hermes'] })
+      mobileStructuredChatLaunchSurface('hermes', {
+        ...chatHost,
+        registeredAgents: ['hermes']
+      })
     ).toBeUndefined()
     expect(mobileStructuredChatLaunchSurface('claude', chatHost)).toBeUndefined()
     expect(mobileStructuredChatLaunchSurface('gemini', chatHost)).toBeUndefined()
     expect(
-      mobileStructuredChatLaunchSurface('antigravity', { ...chatHost, defaultView: 'terminal' })
+      mobileStructuredChatLaunchSurface('antigravity', {
+        ...chatHost,
+        defaultView: 'terminal'
+      })
     ).toBeUndefined()
     expect(
-      mobileStructuredChatLaunchSurface('antigravity', { ...chatHost, canRequestSurface: false })
+      mobileStructuredChatLaunchSurface('antigravity', {
+        ...chatHost,
+        canRequestSurface: false
+      })
     ).toBeUndefined()
     expect(mobileStructuredChatLaunchSurface('antigravity', null)).toBeUndefined()
   })
@@ -87,6 +100,25 @@ describe('loadMobileStructuredChatLaunchContext', () => {
   beforeEach(() => {
     vi.mocked(AsyncStorage.getItem).mockReset()
     vi.mocked(AsyncStorage.getItem).mockResolvedValue(null)
+  })
+
+  it('does not publish an older host response after a newer load', async () => {
+    let finishOlder: (response: RpcResponse) => void = () => {}
+    const olderResponse = new Promise<RpcResponse>((resolve) => {
+      finishOlder = resolve
+    })
+    const capabilities = [STRUCTURED_AGENT_SESSION_REGISTERED_AGENTS_RUNTIME_CAPABILITY]
+    const older = loadMobileStructuredChatLaunchContext({
+      client: client(() => olderResponse),
+      hostCapabilities: capabilities
+    })
+    const newer = await loadMobileStructuredChatLaunchContext({
+      client: client(async () => ok({ agents: [registered('antigravity')] })),
+      hostCapabilities: capabilities
+    })
+    finishOlder(ok({ agents: [registered('hermes')] }))
+    await older
+    expect(readMobileStructuredChatLaunchContext()).toEqual(newer)
   })
 
   it('reads Chat UI and the host registry when the host can launch a surface', async () => {
@@ -156,7 +188,10 @@ describe('loadMobileStructuredChatLaunchContext', () => {
     expect(context.canRequestSurface).toBe(true)
     expect(context.registeredAgents).toEqual(['antigravity', 'claude'])
     expect(
-      mobileStructuredChatLaunchSurface('antigravity', { ...context, defaultView: 'chat' })
+      mobileStructuredChatLaunchSurface('antigravity', {
+        ...context,
+        defaultView: 'chat'
+      })
     ).toBe('chat')
     expect(mobileStructuredChatLaunchSurface('claude', context)).toBeUndefined()
   })
