@@ -179,6 +179,7 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
   private var diagnosticWarmupStarted = false
   private var diagnosticWarmupFinished = false
   private var diagnosticField: UITextField?
+  private var diagnosticWindow: UIWindow?
 
   override func didMoveToWindow() {
     super.didMoveToWindow()
@@ -188,7 +189,14 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
       guard let self, let window, self.window === window else { return }
       let field = UITextField(frame: CGRect(x: -100, y: -100, width: 40, height: 30))
       field.accessibilityElementsHidden = true
-      window.addSubview(field)
+      guard let scene = window.windowScene else { return }
+      let warmWindow = UIWindow(windowScene: scene)
+      warmWindow.frame = window.bounds.offsetBy(dx: -window.bounds.width * 2, dy: 0)
+      warmWindow.windowLevel = UIWindow.Level(rawValue: window.windowLevel.rawValue - 1)
+      warmWindow.rootViewController = UIViewController()
+      warmWindow.isHidden = false
+      warmWindow.rootViewController?.view.addSubview(field)
+      self.diagnosticWindow = warmWindow
       self.diagnosticField = field
       let focused = field.becomeFirstResponder()
       NSLog("DuoA warm native focus=%d window=%@", focused, String(describing: window.bounds))
@@ -197,6 +205,8 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
         self.diagnosticField?.resignFirstResponder()
         self.diagnosticField?.removeFromSuperview()
         self.diagnosticField = nil
+        self.diagnosticWindow?.isHidden = true
+        self.diagnosticWindow = nil
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
           guard let self else { return }
           self.diagnosticWarmupFinished = true
