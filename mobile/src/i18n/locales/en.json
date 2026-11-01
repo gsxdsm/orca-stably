@@ -2094,9 +2094,7 @@
       "switchToTerminalView": "Switch to terminal view",
       "switchToChatView": "Switch to chat view",
       "terminalCannotSwitchToChat": "Can't switch this {{agent}} terminal to Chat",
-      "startNewChatSession": "Start a new session with Chat UI on",
-      "switchHermesTerminalToChat": "Switch to Chat",
-      "startHermesChat": "Start new chat"
+      "startNewChatSession": "Start a new session with Chat UI on"
     },
     "prSidebarState": {
       "loadFailed": "Unable to load pull request"
@@ -2556,9 +2554,6 @@
     "terminalSplitLayout": {
       "saveFailedTitle": "Layout could not be saved",
       "saveFailedMessage": "This layout applies for now. Choose it again to retry saving."
-    },
-    "hermesTerminalChatSwitch": {
-      "openFailed": "Couldn't open Hermes chat."
     }
   },
   "chat": {
