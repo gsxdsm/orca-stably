@@ -23,6 +23,7 @@ import type { MobileWebShellRuntime } from './mobile-web-shell-runtime'
 import { useKeyboardOcclusion } from '../platform/keyboard-occlusion'
 import { useNativeDeviceVerbs } from '../platform/use-native-device-verbs'
 import { useNativePdfViewer } from '../platform/native-pdf-view'
+import { ShellPageBackEdge } from './shell-page-back-edge'
 import { useShellPageBack } from './use-shell-page-back'
 import { useShellStackPop } from './use-shell-stack-pop'
 import { usePageLocationOnFold } from './page-location-on-fold'
@@ -253,7 +254,10 @@ export function MobileWebShellScreen({
     claimed: backClaimed,
     isFocused: () => navigation.isFocused(),
     sendBack: bridge.sendBack,
-    setOptions: navigation.setOptions
+    setOptions: navigation.setOptions,
+    setParentOptions: (options) => {
+      navigation.getParent()?.setOptions(options)
+    }
   })
   useReportedShellOverlayLoad(onOverlayLoad, state, pageFrame, downloadProgress)
 
@@ -348,6 +352,7 @@ export function MobileWebShellScreen({
         <ShellPageCover label={SHELL_OPENING_LABEL} visible={pageFrame === 'unpainted'} />
       )}
       <ShellDevFacts state={state} droppedBinaryFrames={droppedBinaryFrames} />
+      <ShellPageBackEdge active={backClaimed} onBack={bridge.sendBack} />
     </View>
   )
 }
