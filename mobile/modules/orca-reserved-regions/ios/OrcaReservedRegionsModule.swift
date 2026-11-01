@@ -39,7 +39,11 @@ public class OrcaReservedRegionsModule: Module {
     }
   }
 
+  // Diagnostic: this Duo build leaves the regions probe out. Fold and camera layout will be wrong.
+  private static let splitScreenDiagnosticDisablesProbe = true
+
   private func installProbe() {
+    guard !Self.splitScreenDiagnosticDisablesProbe else { return }
     guard let window = UIApplication.shared.delegate?.window ?? nil, probe?.window !== window else {
       return
     }

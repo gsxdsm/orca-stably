@@ -168,9 +168,9 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
   private var bridgeTarget = MobileWebShellBridgeTarget<WKFrameInfo>()
   private var webView: WKWebView!
 
-  // Diagnostic: one Duo build leaves WKContentView's inputAccessoryView alone. The
-  // reserved-regions probe stays installed. The stock accessory bar can show.
-  private static let splitScreenDiagnosticSkipsKeyboardAccessoryOverride = true
+  // Diagnostic: plain WKWebView. No accessory override, no keyboard-observer removal,
+  // and the scroll view keeps UIKit's own content-inset adjustment.
+  private static let splitScreenDiagnosticUsesPlainWebViewKeyboard = true
   private var generationDirectory = ""
   private var sessionId = ""
   private var applied: MobileWebShellAppliedProps?
@@ -200,11 +200,11 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
     webView.isOpaque = false
     webView.backgroundColor = .clear
     webView.scrollView.backgroundColor = .clear
-    webView.scrollView.contentInsetAdjustmentBehavior = .never
-    if !Self.splitScreenDiagnosticSkipsKeyboardAccessoryOverride {
+    if !Self.splitScreenDiagnosticUsesPlainWebViewKeyboard {
+      webView.scrollView.contentInsetAdjustmentBehavior = .never
       hideKeyboardAccessoryBar(of: webView)
+      ignoreKeyboardNotifications(in: webView)
     }
-    ignoreKeyboardNotifications(in: webView)
     webView.translatesAutoresizingMaskIntoConstraints = false
     addSubview(webView)
     NSLayoutConstraint.activate([

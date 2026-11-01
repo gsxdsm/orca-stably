@@ -3,10 +3,14 @@ import UIKit
 
 // iPadOS 26 window controls overlap the plain safe area; fold the corner-adapted inset into the root so all headers clear them.
 public class OrcaWindowControlsInsetSubscriber: ExpoAppDelegateSubscriber {
+  // Diagnostic: this Duo build does not install the window-controls inset probe.
+  private static let splitScreenDiagnosticDisablesProbe = true
+
   public func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    guard !Self.splitScreenDiagnosticDisablesProbe else { return true }
     if let window = application.delegate?.window ?? nil {
       WindowControlsInsetProbe.install(in: window)
     }
