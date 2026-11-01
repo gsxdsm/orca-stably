@@ -94,7 +94,7 @@
       "googleServicesFile": "./google-services.json"
     },
     "plugins": [
-      "expo-router",
+      ["expo-router", { "root": "duo-kb-router" }],
       [
         "expo-localization",
         {
