@@ -31,6 +31,7 @@ import type { AgentTurnOutcome } from './agent-turn-outcome'
 import type { AgentSessionRecord } from './agent-session-record'
 import type { AgentProviderSessionMetadata } from './agent-session-resume'
 import type { NativeChatSubagentEntry } from './native-chat-types'
+import type { NativeChatTaskSeedList } from './native-chat/input/native-chat-claude-task-updates'
 import type { StructuredAgentSessionProjectedStatus } from './structured-agent-session-projection'
 
 export type { AgentSessionHandoffStatus } from './agent-session-handoff-status'
@@ -116,6 +117,8 @@ export type AgentSessionHistoryPage = {
   subagentRoster?: AgentSessionSubagentRosterEntry[]
   /** As of the page's read; a client applies it only from a page that replaces its state. */
   latestTurn?: AgentSessionLatestTurn | null
+  /** Tasks from the whole journal. Absent on older hosts and when the session has none. */
+  taskList?: NativeChatTaskSeedList
 } & AgentSessionCurrentWorkFields
 
 export type AgentSessionHistoryResult =

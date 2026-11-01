@@ -50,6 +50,7 @@ export type { MobileNativeChatInputLockReason } from './mobile-native-chat-view-
 export function MobileNativeChatView({
   messages,
   folded,
+  taskList = null,
   status,
   error,
   readFailedFinally = false,
@@ -129,7 +130,8 @@ export function MobileNativeChatView({
     streaming,
     pending,
     agent,
-    sendSurfaceId
+    sendSurfaceId,
+    taskList
   })
 
   // Memoize list derivation to keep downstream autoscroll/renderItem dependencies stable.

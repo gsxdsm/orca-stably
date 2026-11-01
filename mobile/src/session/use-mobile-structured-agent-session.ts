@@ -276,6 +276,7 @@ export function useMobileStructuredAgentSession(
     imagePreviewsByMessageId: sends.imagePreviewsByMessageId,
     session: {
       messages,
+      taskList: state.taskList,
       status,
       transcriptLoading: status === 'loading',
       error: state.error,
