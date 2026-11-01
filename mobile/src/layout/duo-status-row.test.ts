@@ -49,10 +49,11 @@ describe('the Duo status row', () => {
     const frame = duoRailBackFrame({ ...INNER, strip: strip! })
     expect(frame).toEqual({
       top: column.y + column.height + spacing.sm,
-      left: INNER.windowWidth - 84 + spacing.sm,
+      left: column.x + (column.width - DUO_RAIL_CONTROL_SIZE) / 2,
       size: DUO_RAIL_CONTROL_SIZE
     })
-    expect(frame.left).toBeLessThan(INNER.windowWidth - 84 + (84 - DUO_RAIL_CONTROL_SIZE) / 2)
+    expect(frame.left).toBeGreaterThanOrEqual(column.x)
+    expect(frame.left + frame.size).toBeLessThanOrEqual(column.x + column.width)
     expect(overlaps(frame, column)).toBe(false)
   })
 
@@ -64,10 +65,11 @@ describe('the Duo status row', () => {
     const frame = duoRailBackFrame({ ...COVER, strip: cover! })
     expect(frame).toEqual({
       top: column.y + column.height + spacing.sm,
-      left: COVER.windowWidth - 84 + spacing.sm,
+      left: column.x + (column.width - DUO_RAIL_CONTROL_SIZE) / 2,
       size: DUO_RAIL_CONTROL_SIZE
     })
-    expect(frame.left + frame.size).toBeLessThanOrEqual(COVER.windowWidth - spacing.sm)
+    expect(frame.left).toBeGreaterThanOrEqual(column.x)
+    expect(frame.left + frame.size).toBeLessThanOrEqual(column.x + column.width)
     expect(overlaps(frame, column)).toBe(false)
     expect(overlaps(frame, glyph)).toBe(false)
 
@@ -84,7 +86,9 @@ describe('the Duo status row', () => {
     }
     const turnedFrame = duoRailBackFrame({ ...turned, occlusions: [occlusion] })
     expect(turnedFrame.top).toBe(occlusion.y - spacing.sm - DUO_RAIL_CONTROL_SIZE)
-    expect(turnedFrame.left).toBe(84 - spacing.sm - DUO_RAIL_CONTROL_SIZE)
+    expect(turnedFrame.left).toBe(occlusion.x + (occlusion.width - DUO_RAIL_CONTROL_SIZE) / 2)
+    expect(turnedFrame.left).toBeGreaterThanOrEqual(occlusion.x)
+    expect(turnedFrame.left + turnedFrame.size).toBeLessThanOrEqual(occlusion.x + occlusion.width)
     expect(overlaps(turnedFrame, occlusion)).toBe(false)
   })
 
@@ -99,7 +103,9 @@ describe('the Duo status row', () => {
     }
     const frame = duoRailBackFrame({ ...scene, strip: getSideRailStrip(scene)! })
     expect(frame.top).toBe(column.y - spacing.sm - DUO_RAIL_CONTROL_SIZE)
-    expect(frame.left).toBe(84 - spacing.sm - DUO_RAIL_CONTROL_SIZE)
+    expect(frame.left).toBe(column.x + (column.width - DUO_RAIL_CONTROL_SIZE) / 2)
+    expect(frame.left).toBeGreaterThanOrEqual(column.x)
+    expect(frame.left + frame.size).toBeLessThanOrEqual(column.x + column.width)
     expect(overlaps(frame, column)).toBe(false)
     expect(overlaps(frame, glyph)).toBe(false)
   })
@@ -112,7 +118,7 @@ describe('the Duo status row', () => {
       occlusions: []
     })
     expect(frame.top).toBe(59 + spacing.sm)
-    expect(frame.left).toBe(951 - 84 + spacing.sm)
+    expect(frame.left).toBe(951 - 84 + (84 - DUO_RAIL_CONTROL_SIZE) / 2)
   })
 
   it('puts image close a step off the status-row corner and outside the column', () => {

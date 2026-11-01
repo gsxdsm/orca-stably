@@ -106,7 +106,11 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
         </View>
         {contentRow}
       </View>
-      <DuoRailBackButton chatVisible={controller.showNativeChat} onBack={onRailBack} />
+      <DuoRailBackButton
+        chatVisible={controller.showNativeChat}
+        keyboardInset={controller.keyboardHeight}
+        onBack={onRailBack}
+      />
       <DetailCardLayer>
         <View
           ref={details.layerRef}

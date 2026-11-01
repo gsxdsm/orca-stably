@@ -9,13 +9,15 @@ import { useWindowSafeAreaInsets } from '../layout/side-safe-area'
 import { duoRailBackVisible } from './duo-rail-back'
 import { useDuoChatExpanded } from './duo-chat-width'
 
-/** Back sits below the status occlusion, on the content edge of the column. The free strip stays open. */
+/** Back sits below the status occlusion, centered in the column, and hides while the keyboard is up. */
 
 export function DuoRailBackButton({
   chatVisible,
+  keyboardInset,
   onBack
 }: {
   chatVisible: boolean
+  keyboardInset: number
   onBack: () => void
 }) {
   const t = useMobileTranslation()
@@ -29,7 +31,7 @@ export function DuoRailBackButton({
     insets,
     occlusions
   })
-  if (!duoRailBackVisible({ chatVisible, expanded, strip }) || strip === null) {
+  if (!duoRailBackVisible({ chatVisible, expanded, strip, keyboardInset }) || strip === null) {
     return null
   }
   const frame = duoRailBackFrame({
