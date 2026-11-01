@@ -17,11 +17,10 @@ describe('hermesResumeSessionId', () => {
     expect(hermesResumeSessionId(undefined)).toBeNull()
   })
 
-  it('loads a Hermes ACP uuid and not a TUI timestamp', () => {
-    expect(hermesAcpLoadSessionId('hermes', { providerSessionId: UUID_ID })).toBe(UUID_ID)
-    expect(hermesAcpLoadSessionId('hermes', { providerSessionId: TIMESTAMP_ID })).toBeNull()
+  it('loads only a Hermes id', () => {
+    expect(hermesAcpLoadSessionId('hermes', { providerSessionId: TIMESTAMP_ID })).toBe(TIMESTAMP_ID)
     expect(hermesAcpLoadSessionId('hermes', { providerSessionId: 'provider-1' })).toBeNull()
-    expect(hermesAcpLoadSessionId('claude', { providerSessionId: UUID_ID })).toBeNull()
+    expect(hermesAcpLoadSessionId('claude', { providerSessionId: TIMESTAMP_ID })).toBeNull()
     expect(hermesAcpLoadSessionId('hermes', undefined)).toBeNull()
   })
 })

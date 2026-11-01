@@ -16,7 +16,10 @@ export function getMobileTerminalActionSheetActions<
   hostCapabilities?: readonly string[] | null
   nativeChatTranscriptIsLocalReadable: boolean
   structuredAgents?: readonly string[]
+  hostAgentIdentity?: string | null
+  hermesResumeSupported?: boolean
   onDismiss: () => void
+  onHermesTerminalChat?: (request: { tabId: string; providerSessionId: string | null }) => void
   onToggleChat: (tabId: string) => void
   isPhoneMode: (handle: string) => boolean
   onToggleDisplayMode: (handle: string) => void
@@ -44,7 +47,10 @@ export function getMobileTerminalActionSheetActions<
       isTabChatView: args.isTabChatView,
       nativeChatTranscriptIsLocalReadable: args.nativeChatTranscriptIsLocalReadable,
       structuredAgents: args.structuredAgents,
+      hostAgentIdentity: args.hostAgentIdentity,
+      hermesResumeSupported: args.hermesResumeSupported,
       onClose: args.onDismiss,
+      onHermesTerminalChat: args.onHermesTerminalChat,
       onToggle: args.onToggleChat
     }),
     {
