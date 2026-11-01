@@ -15,6 +15,41 @@ private let networkBlockRules = """
 /// Match Android; both non-configurable and non-writable prevent page replacement.
 private let networkApiBlocker = """
   (function(){
+  var inputReady=false,pending=null,requested=false;
+  var originalFocus=HTMLElement.prototype.focus;
+  var isInput=function(el){return el && el.matches && el.matches('input,textarea,[contenteditable="true"]')};
+  var request=function(el){
+    pending=el;
+    if(!requested){requested=true;window.webkit.messageHandlers.duoAWarm.postMessage('prepare')}
+  };
+  Object.defineProperty(globalThis,'duoAResumeInput',{value:function(){
+    inputReady=true;requested=false;observer.disconnect();
+    document.querySelectorAll('[data-duoa-mode]').forEach(function(el){
+      var mode=el.getAttribute('data-duoa-mode');
+      if(mode){el.setAttribute('inputmode',mode)}else{el.removeAttribute('inputmode')}
+      el.removeAttribute('data-duoa-mode');
+    });
+    var el=pending;pending=null;
+    if(el && el.isConnected){originalFocus.call(el)}
+  }});
+  HTMLElement.prototype.focus=function(){
+    if(!inputReady && isInput(this)){request(this);return}
+    return originalFocus.apply(this,arguments);
+  };
+  document.addEventListener('pointerdown',function(event){
+    var el=event.target.closest && event.target.closest('input,textarea,[contenteditable="true"]');
+    if(!inputReady && el){event.preventDefault();request(el)}
+  },true);
+  var observer=new MutationObserver(function(){
+    if(inputReady){return}
+    document.querySelectorAll('input,textarea,[contenteditable="true"]').forEach(function(el){
+      if(!el.hasAttribute('data-duoa-mode')){
+        el.setAttribute('data-duoa-mode',el.getAttribute('inputmode')||'');el.setAttribute('inputmode','none');
+      }
+      if(el.hasAttribute('autofocus')){el.removeAttribute('autofocus');request(el)}
+    });
+  });
+  observer.observe(document,{childList:true,subtree:true});
   var deny=function(){throw new TypeError('Network access is disabled')};
   try{Object.defineProperty(globalThis,'WebSocket',{value:deny,configurable:false,writable:false})}catch(_){}
   try{Object.defineProperty(Navigator.prototype,'serviceWorker',{get:function(){return undefined},configurable:false})}catch(_){}
@@ -128,6 +163,11 @@ private final class MobileWebShellBridgeReceiver: NSObject, WKScriptMessageHandl
     _ controller: WKUserContentController,
     didReceive message: WKScriptMessage
   ) {
+    if message.name == "duoAWarm" {
+      guard message.frameInfo.isMainFrame else { return }
+      view?.prepareDiagnosticInput()
+      return
+    }
     view?.receiveBridgeMessage(message)
   }
 }
@@ -176,34 +216,10 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
   private var isolationFailed = false
   private let loadState = MobileWebShellLoadStateMachine()
 
-  private var diagnosticWarmupStarted = false
-  private var diagnosticWarmupFinished = false
-  private var diagnosticField: UITextField?
-
-  override func didMoveToWindow() {
-    super.didMoveToWindow()
-    guard let window, !diagnosticWarmupStarted else { return }
-    diagnosticWarmupStarted = true
-    DispatchQueue.main.async { [weak self, weak window] in
-      guard let self, let window, self.window === window else { return }
-      let field = UITextField(frame: CGRect(x: -100, y: -100, width: 40, height: 30))
-      field.accessibilityElementsHidden = true
-      window.addSubview(field)
-      self.diagnosticField = field
-      let focused = field.becomeFirstResponder()
-      NSLog("DuoA warm native focus=%d window=%@", focused, String(describing: window.bounds))
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
-        guard let self else { return }
-        self.diagnosticField?.resignFirstResponder()
-        self.diagnosticField?.removeFromSuperview()
-        self.diagnosticField = nil
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-          guard let self else { return }
-          self.diagnosticWarmupFinished = true
-          NSLog("DuoA warm complete; allowing document")
-          self.loadWhenIsolated()
-        }
-      }
+  fileprivate func prepareDiagnosticInput() {
+    guard let window else { return }
+    DuoLazyKeyboardWarmup.prepare(in: window) { [weak self] in
+      self?.webView.evaluateJavaScript("globalThis.duoAResumeInput && globalThis.duoAResumeInput()", completionHandler: nil)
     }
   }
 
@@ -219,6 +235,7 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
     configuration.setURLSchemeHandler(schemeHandler, forURLScheme: MobileWebShellOrigin.scheme)
     configuration.userContentController.addUserScript(Self.makeBlockerScript())
     bridgeReceiver.view = self
+    configuration.userContentController.add(bridgeReceiver, name: "duoAWarm")
     webView = WKWebView(frame: bounds, configuration: configuration)
     webView.navigationDelegate = self
     webView.uiDelegate = self
@@ -423,7 +440,7 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
   }
 
   private func loadWhenIsolated() {
-    guard diagnosticWarmupFinished, isolationReady, let url = pendingDocumentUrl else { return }
+    guard isolationReady, let url = pendingDocumentUrl else { return }
     pendingDocumentUrl = nil
     // Only our own load raises this flag; every document ending clears it.
     loadState.shellLoadStarted()
