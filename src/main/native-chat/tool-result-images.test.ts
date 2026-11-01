@@ -3,12 +3,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { foldToolMessages } from '../../shared/native-chat/tools/native-chat-tool-fold'
-import { projectStructuredItemToNativeChat } from '../../shared/structured-agent-session-projection'
+import { projectStructuredItemToNativeChat } from '../../shared/agent-session/view/structured-agent-session-projection'
 import {
   claudeToolBody,
   claudeToolResults,
   readClaudeMessageEnvelope
-} from '../claude/claude-structured-item-translation'
+} from '../claude/structured/journal/claude-structured-item-translation'
 import { decodeClaudeTranscriptLine } from './transcript-line-decoders-claude'
 import { readNativeChatTranscript } from './transcript-reader'
 import { attachResolvedToolImages, resolveToolResultImageRefs } from './tool-result-images'
