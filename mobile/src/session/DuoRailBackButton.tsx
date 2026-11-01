@@ -9,10 +9,7 @@ import { useWindowSafeAreaInsets } from '../layout/side-safe-area'
 import { duoRailBackVisible } from './duo-rail-back'
 import { useDuoChatExpanded } from './duo-chat-width'
 
-/**
- * Back shares the status row and sits on the content edge of that column. On the cover the camera
- * fills that edge, so the control steps just below the cutout. The free strip stays open.
- */
+/** Back sits below the status occlusion, on the content edge of the column. The free strip stays open. */
 
 export function DuoRailBackButton({
   chatVisible,
