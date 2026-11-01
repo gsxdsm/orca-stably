@@ -56,4 +56,27 @@ describe('retryHeldHermesSubmit', () => {
     await task
     expect(send).not.toHaveBeenCalled()
   })
+
+  it.each(['hello  world', 'hello world '])(
+    'does not retry a draft edited to differ only in whitespace: %j',
+    async (draft) => {
+      vi.useFakeTimers()
+      const read = vi.fn().mockResolvedValue({
+        ok: true,
+        result: { terminal: { source: 'screen', draft } }
+      })
+      const task = retryHeldHermesSubmit({
+        // SAFETY: The retry reads only sendRequest from this client.
+        client: { sendRequest: read } as unknown as RpcClient,
+        terminal: 't',
+        text: 'hello world',
+        deadline: Date.now() + 10_000,
+        deviceToken: null,
+        isCurrent: () => true
+      })
+      await vi.runAllTimersAsync()
+      await task
+      expect(send).not.toHaveBeenCalled()
+    }
+  )
 })
