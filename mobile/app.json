@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Orca",
+    "name": "DuoKbCore",
     "slug": "orca-mobile",
     "version": "0.0.61",
     "orientation": "default",
@@ -28,9 +28,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.stably.orca.mobile",
+      "bundleIdentifier": "com.gsxdsm.duokbcore",
       "buildNumber": "1",
       "infoPlist": {
+        "UIViewControllerBasedStatusBarAppearance": true,
         "CFBundleAllowMixedLocalizations": true,
         "NSLocalNetworkUsageDescription": "Orca connects to the desktop app on your LAN.",
         "NSMicrophoneUsageDescription": "Allow Orca to record voice dictation and transcribe it on your paired desktop.",

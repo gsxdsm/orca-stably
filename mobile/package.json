@@ -2,7 +2,7 @@
   "name": "orca-mobile",
   "version": "0.0.1",
   "private": true,
-  "main": "index.js",
+  "main": "duo-kb-core-entry.js",
   "scripts": {
     "start": "node scripts/start-expo.mjs",
     "android": "expo run:android",

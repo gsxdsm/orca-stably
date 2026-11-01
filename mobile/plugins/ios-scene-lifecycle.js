@@ -142,6 +142,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 module.exports = function withIosSceneLifecycle(config) {
   config = withInfoPlist(config, (cfg) => {
     cfg.modResults.UIApplicationSceneManifest = SCENE_MANIFEST
+    // Expo's Info.plist template writes this false.
+    cfg.modResults.UIViewControllerBasedStatusBarAppearance = true
     return cfg
   })
 
