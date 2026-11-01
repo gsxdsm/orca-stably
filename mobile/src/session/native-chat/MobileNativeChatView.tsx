@@ -5,6 +5,7 @@ import {
   MobileNativeChatDisclosureContext,
   useMobileNativeChatDisclosures
 } from './transcript/mobile-native-chat-disclosure-store'
+import { MobileNativeChatOpenSubagentProvider } from './input/mobile-native-chat-open-subagent'
 import { type NativeScrollEvent, type NativeSyntheticEvent, Text, View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
@@ -276,26 +277,28 @@ export function MobileNativeChatView({
       ) : (
         <GestureHandlerRootView style={[styles.listWrap, transcriptInset]}>
           <MobileNativeChatDisclosureContext.Provider value={disclosures}>
-            <MobileNativeChatScrollRootsBoundary
-              {...{ rowKeys, layoutKey }}
-              roots={disclosures.roots}
-              runPlacements={rowKeys.runPlacements}
-            >
-              <MobileNativeChatRowList
-                {...{ tail, rowKeys, renderItem, footer, emptyStateView, onScroll, layoutKey }}
-                {...{
-                  header,
-                  hasHeader: historyHasMore === true,
-                  onNearTop: loadEarlierNearTop
-                }}
-                pinchGesture={pinchGesture}
-                pinchTarget={pinchTarget}
-                rows={turns.listMessages}
-                runs={turns.presentation.workRuns.heads}
+            <MobileNativeChatOpenSubagentProvider onOpen={subagent.onFocusSubagent}>
+              <MobileNativeChatScrollRootsBoundary
+                {...{ rowKeys, layoutKey }}
                 roots={disclosures.roots}
-                contentContainerStyle={styles.listContent}
-              />
-            </MobileNativeChatScrollRootsBoundary>
+                runPlacements={rowKeys.runPlacements}
+              >
+                <MobileNativeChatRowList
+                  {...{ tail, rowKeys, renderItem, footer, emptyStateView, onScroll, layoutKey }}
+                  {...{
+                    header,
+                    hasHeader: historyHasMore === true,
+                    onNearTop: loadEarlierNearTop
+                  }}
+                  pinchGesture={pinchGesture}
+                  pinchTarget={pinchTarget}
+                  rows={turns.listMessages}
+                  runs={turns.presentation.workRuns.heads}
+                  roots={disclosures.roots}
+                  contentContainerStyle={styles.listContent}
+                />
+              </MobileNativeChatScrollRootsBoundary>
+            </MobileNativeChatOpenSubagentProvider>
           </MobileNativeChatDisclosureContext.Provider>
           <MobileNativeChatFloatingControls
             showJumpToTail={tail.showJumpToTail}
