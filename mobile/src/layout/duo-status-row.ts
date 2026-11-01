@@ -88,20 +88,31 @@ export function duoStatusRowCenter(args: RowArgs): number {
 }
 
 /**
- * Below the reported status occlusion, on the content edge of the column.
+ * Below the reported status occlusion, centered in the column.
  * A column that touches the bottom clears upward, toward the content.
  */
 export function duoRailBackFrame(args: RowArgs): DuoRailControlFrame {
   const size = DUO_RAIL_CONTROL_SIZE
-  const left =
-    args.strip.side === 'right'
-      ? args.windowWidth - args.strip.width + spacing.sm
-      : args.strip.width - spacing.sm - size
   const column = statusColumn(args)
+  const span = columnSpan(args, column)
+  const left = span.start + (span.width - size) / 2
   const fromTop = column !== null ? column.y <= 1 : args.strip.top > 1
   const occludedEdge = statusOcclusionEdge(args, column, fromTop)
   const top = fromTop ? occludedEdge + spacing.sm : occludedEdge - spacing.sm - size
   return { top, left, size }
+}
+
+function columnSpan(
+  args: RowArgs,
+  column: ReservedRect | null
+): { start: number; width: number } {
+  if (column !== null) {
+    return { start: column.x, width: column.width }
+  }
+  if (args.strip.side === 'right') {
+    return { start: args.windowWidth - args.strip.width, width: args.strip.width }
+  }
+  return { start: 0, width: args.strip.width }
 }
 
 function statusOcclusionEdge(args: RowArgs, column: ReservedRect | null, fromTop: boolean): number {
