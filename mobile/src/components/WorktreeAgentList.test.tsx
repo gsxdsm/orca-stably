@@ -166,6 +166,46 @@ describe('WorktreeAgentList', () => {
     expect(onAgentPress).toHaveBeenCalledWith('agent-1')
     await act(async () => session.props.onLongPress({ stopPropagation }))
     expect(onLongPress).toHaveBeenCalledTimes(1)
+    expect(onLongPress).toHaveBeenCalledWith('agent-1')
+  })
+
+  it('opens the workspace from a tap and names that session on long-press when sessions are not selectable', async () => {
+    const onAgentPress = vi.fn()
+    const onLongPress = vi.fn()
+    const onWorkspacePress = vi.fn()
+    const stopPropagation = vi.fn()
+    await act(async () => {
+      renderer = create(
+        createElement(WorktreeAgentList, {
+          agents: [
+            {
+              ...agent('agent-1'),
+              subagentObservation: 'live',
+              subagents: [{ id: 'child', state: 'working', startedAt: 1_000 }]
+            }
+          ],
+          now: 2_000,
+          unvisited: false,
+          fullList: true,
+          statusLive: true,
+          onAgentPress,
+          onLongPress,
+          onWorkspacePress
+        })
+      )
+    })
+    const rows = renderer!.root.findAll((node) => node.props.agent !== undefined)
+    const parent = findByHostType(rows[0], 'Pressable')
+    const child = findByHostType(rows[1], 'Pressable')
+    await act(async () => parent.props.onPress({ stopPropagation }))
+    expect(onWorkspacePress).toHaveBeenCalledTimes(1)
+    expect(onAgentPress).not.toHaveBeenCalled()
+    await act(async () => parent.props.onLongPress({ stopPropagation }))
+    expect(onLongPress).toHaveBeenCalledWith('agent-1')
+    await act(async () => child.props.onPress({ stopPropagation }))
+    expect(onAgentPress).toHaveBeenCalledWith('agent-1')
+    await act(async () => child.props.onLongPress({ stopPropagation }))
+    expect(onLongPress).toHaveBeenLastCalledWith('agent-1')
   })
 
   it('fills only the tapped session, including while the finger is down', async () => {

@@ -46,6 +46,8 @@ type Props = {
   selectableSessions?: boolean
   statusLive?: boolean
   onLongPress?: (item: Worktree) => void
+  /** Actions for one session. The card long-press stays the workspace menu. */
+  onSessionLongPress?: (item: Worktree, paneKey: string) => void
   onToggleLineage?: (item: Worktree) => void
 }
 
@@ -64,6 +66,7 @@ function WorktreeListRowComponent({
   selectableSessions = false,
   statusLive,
   onLongPress,
+  onSessionLongPress,
   onToggleLineage
 }: Props) {
   useMobileColorScheme()
@@ -85,12 +88,11 @@ function WorktreeListRowComponent({
   // Why: the desktop's compact card keeps an icon-only glyph for remote projects after the host badge goes.
   const showHostGlyph = !cardDetails.metaRow && isRemoteExecutionHostId(hostId)
   const sessionPress = useWorktreeRowSession(item, selectableSessions, onPress, onAgentPress)
-  const handleLongPress = onLongPress
-    ? () => {
-        triggerMediumImpact()
-        onLongPress(item)
-      }
-    : undefined
+  const handleLongPress = sessionPress.cardLongPress(onLongPress, triggerMediumImpact)
+  const handleSessionLongPress = sessionPress.sessionLongPress(
+    onSessionLongPress,
+    triggerMediumImpact
+  )
 
   return (
     <Pressable
@@ -231,7 +233,8 @@ function WorktreeListRowComponent({
             selectable={selectableSessions}
             onPressIn={sessionPress.claim}
             onPressOut={sessionPress.release}
-            onLongPress={handleLongPress}
+            onWorkspacePress={sessionPress.openWorkspace}
+            onLongPress={handleSessionLongPress}
           />
         ) : null}
         {count > 0 && onToggleLineage ? (
