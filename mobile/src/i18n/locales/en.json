@@ -2122,9 +2122,7 @@
       "switchToTerminalView": "Switch to terminal view",
       "switchToChatView": "Switch to chat view",
       "terminalCannotSwitchToChat": "Can't switch this {{agent}} terminal to Chat",
-      "startNewChatSession": "Start a new session with Chat UI on",
-      "switchHermesTerminalToChat": "Switch to Chat",
-      "startHermesChat": "Start new chat"
+      "startNewChatSession": "Start a new session with Chat UI on"
     },
     "prSidebarState": {
       "loadFailed": "Unable to load pull request"
@@ -2594,9 +2592,6 @@
       "unknown": "{{agent}}'s chat could not be found on this host. Reconnect to its computer and try again.",
       "unsupported": "{{agent}}'s chat can't be reopened until Orca is updated.",
       "unreachable": "{{agent}}'s chat is not available yet. Retry in a moment."
-    },
-    "hermesTerminalChatSwitch": {
-      "openFailed": "Couldn't open Hermes chat."
     }
   },
   "chat": {

@@ -22,7 +22,7 @@ vi.mock('@react-native-async-storage/async-storage', () => ({
 
 const chatHost: MobileStructuredChatLaunchContext = {
   defaultView: 'chat',
-  registeredAgents: ['hermes', 'claude'],
+  registeredAgents: ['antigravity', 'claude'],
   canRequestSurface: true,
   hostCapabilities: [
     AGENT_LAUNCH_SURFACE_RUNTIME_CAPABILITY,
@@ -52,29 +52,32 @@ function client(sendRequest: RpcClient['sendRequest']): RpcClient {
 
 describe('mobileStructuredChatLaunchSurface', () => {
   it('asks for chat only for a registered agent the transcript overlay does not cover', () => {
-    expect(mobileStructuredChatLaunchSurface('hermes', chatHost)).toBe('chat')
+    expect(mobileStructuredChatLaunchSurface('antigravity', chatHost)).toBe('chat')
+    expect(
+      mobileStructuredChatLaunchSurface('hermes', { ...chatHost, registeredAgents: ['hermes'] })
+    ).toBeUndefined()
     expect(mobileStructuredChatLaunchSurface('claude', chatHost)).toBeUndefined()
     expect(mobileStructuredChatLaunchSurface('gemini', chatHost)).toBeUndefined()
     expect(
-      mobileStructuredChatLaunchSurface('hermes', { ...chatHost, defaultView: 'terminal' })
+      mobileStructuredChatLaunchSurface('antigravity', { ...chatHost, defaultView: 'terminal' })
     ).toBeUndefined()
     expect(
-      mobileStructuredChatLaunchSurface('hermes', { ...chatHost, canRequestSurface: false })
+      mobileStructuredChatLaunchSurface('antigravity', { ...chatHost, canRequestSurface: false })
     ).toBeUndefined()
-    expect(mobileStructuredChatLaunchSurface('hermes', null)).toBeUndefined()
+    expect(mobileStructuredChatLaunchSurface('antigravity', null)).toBeUndefined()
   })
 
   it('marks only those new-tab rows as opening in chat', () => {
     expect(
       withMobileStructuredChatLaunch(
         [
-          { agent: 'hermes', label: 'Hermes' },
+          { agent: 'antigravity', label: 'Antigravity' },
           { agent: 'claude', label: 'Claude' }
         ],
         chatHost
       )
     ).toEqual([
-      { agent: 'hermes', label: 'Hermes', opensAsChat: true },
+      { agent: 'antigravity', label: 'Antigravity', opensAsChat: true },
       { agent: 'claude', label: 'Claude' }
     ])
   })
@@ -90,7 +93,7 @@ describe('loadMobileStructuredChatLaunchContext', () => {
     vi.mocked(AsyncStorage.getItem).mockResolvedValue('chat')
     const sendRequest = vi.fn(async (method: string) => {
       expect(method).toBe(AGENT_SESSION_AGENTS_METHOD)
-      return ok({ agents: [registered('hermes'), registered('claude')] })
+      return ok({ agents: [registered('antigravity'), registered('claude')] })
     })
     const context = await loadMobileStructuredChatLaunchContext({
       client: client(sendRequest),
@@ -130,7 +133,7 @@ describe('loadMobileStructuredChatLaunchContext', () => {
     })
     expect(context.registeredAgents).toEqual([])
     expect(context.canRequestSurface).toBe(true)
-    expect(mobileStructuredChatLaunchSurface('hermes', context)).toBeUndefined()
+    expect(mobileStructuredChatLaunchSurface('antigravity', context)).toBeUndefined()
   })
 
   it('reads a fresh status when the gate capability list is still empty', async () => {
@@ -144,21 +147,21 @@ describe('loadMobileStructuredChatLaunchContext', () => {
         })
       }
       expect(method).toBe(AGENT_SESSION_AGENTS_METHOD)
-      return ok({ agents: [registered('hermes'), registered('claude')] })
+      return ok({ agents: [registered('antigravity'), registered('claude')] })
     })
     const context = await loadMobileStructuredChatLaunchContext({
       client: client(sendRequest),
       hostCapabilities: []
     })
     expect(context.canRequestSurface).toBe(true)
-    expect(context.registeredAgents).toEqual(['hermes', 'claude'])
-    expect(mobileStructuredChatLaunchSurface('hermes', { ...context, defaultView: 'chat' })).toBe(
-      'chat'
-    )
+    expect(context.registeredAgents).toEqual(['antigravity', 'claude'])
+    expect(
+      mobileStructuredChatLaunchSurface('antigravity', { ...context, defaultView: 'chat' })
+    ).toBe('chat')
     expect(mobileStructuredChatLaunchSurface('claude', context)).toBeUndefined()
   })
 
-  it('uses the page store for Chat UI and marks Hermes only once Chat UI is on', async () => {
+  it('uses the page store for Chat UI and marks Antigravity only once Chat UI is on', async () => {
     vi.mocked(AsyncStorage.getItem).mockImplementation((key: string) =>
       pageAsyncStorage.getItem(key)
     )
@@ -172,16 +175,16 @@ describe('loadMobileStructuredChatLaunchContext', () => {
           ]
         })
       }
-      return ok({ agents: [registered('hermes')] })
+      return ok({ agents: [registered('antigravity')] })
     })
     const unread = await loadMobileStructuredChatLaunchContext({
       client: client(sendRequest),
       hostCapabilities: null
     })
     expect(unread.defaultView).toBe('terminal')
-    expect(withMobileStructuredChatLaunch([{ agent: 'hermes', label: 'Hermes' }], unread)).toEqual([
-      { agent: 'hermes', label: 'Hermes' }
-    ])
+    expect(
+      withMobileStructuredChatLaunch([{ agent: 'antigravity', label: 'Antigravity' }], unread)
+    ).toEqual([{ agent: 'antigravity', label: 'Antigravity' }])
 
     publishPageStorage(
       {},
@@ -197,7 +200,7 @@ describe('loadMobileStructuredChatLaunchContext', () => {
       hostCapabilities: null
     })
     expect(fromShell.defaultView).toBe('chat')
-    expect(mobileStructuredChatLaunchSurface('hermes', fromShell)).toBe('chat')
+    expect(mobileStructuredChatLaunchSurface('antigravity', fromShell)).toBe('chat')
 
     publishPageStorage({}, () => true, 'host-1', '/h/host-1/session/wt-1')
     refreshPageTerminalShortcuts({ 'orca:defaultSessionView': 'chat' }, [])
@@ -206,6 +209,6 @@ describe('loadMobileStructuredChatLaunchContext', () => {
       hostCapabilities: null
     })
     expect(refreshed.defaultView).toBe('chat')
-    expect(mobileStructuredChatLaunchSurface('hermes', refreshed)).toBe('chat')
+    expect(mobileStructuredChatLaunchSurface('antigravity', refreshed)).toBe('chat')
   })
 })

@@ -28,6 +28,7 @@ export function useMobileNativeChatController(args: {
   activeHandleRef: MutableRefObject<string | null>
   deviceTokenRef: MutableRefObject<string | null>
   nativeChatTranscriptIsLocalReadable: boolean
+  hostCapabilities?: readonly string[] | null
   nativeChatInputLeaseReady: boolean
   /** Live socket state; the lease collapses on disconnect but one render later. */
   connState: ConnectionState
