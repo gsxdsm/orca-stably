@@ -12,7 +12,9 @@ export async function retryHeldHermesSubmit(args: {
   isCurrent: () => boolean
 }): Promise<void> {
   const expected = normalize(args.text)
-  if (!expected) {return}
+  if (!expected) {
+    return
+  }
   const held = async (): Promise<boolean> => {
     const response = await args.client.sendRequest('terminal.read', {
       terminal: args.terminal,
@@ -23,8 +25,9 @@ export async function retryHeldHermesSubmit(args: {
       !response.result ||
       typeof response.result !== 'object' ||
       !('terminal' in response.result)
-    )
-      {return false}
+    ) {
+      return false
+    }
     const terminal = response.result.terminal
     return (
       !!terminal &&
@@ -38,9 +41,13 @@ export async function retryHeldHermesSubmit(args: {
   }
   try {
     await new Promise<void>((resolve) => setTimeout(resolve, 1_000))
-    if (!args.isCurrent() || !(await held())) {return}
+    if (!args.isCurrent() || !(await held())) {
+      return
+    }
     await new Promise<void>((resolve) => setTimeout(resolve, 250))
-    if (!args.isCurrent() || !(await held()) || !args.isCurrent()) {return}
+    if (!args.isCurrent() || !(await held()) || !args.isCurrent()) {
+      return
+    }
     await sendMobileNativeChatMessageWithOutcome({
       client: args.client,
       terminal: args.terminal,
