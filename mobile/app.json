@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "DuoKbReal",
+    "name": "DuoAWarm",
     "slug": "orca-mobile",
     "version": "0.0.61",
     "orientation": "default",
@@ -28,7 +28,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.gsxdsm.duokbcore.real",
+      "bundleIdentifier": "com.gsxdsm.duokbcore.astrawarm",
       "buildNumber": "1",
       "infoPlist": {
         "UIViewControllerBasedStatusBarAppearance": true,
@@ -59,7 +59,8 @@
           "UIInterfaceOrientationPortraitUpsideDown",
           "UIInterfaceOrientationLandscapeLeft",
           "UIInterfaceOrientationLandscapeRight"
-        ]
+        ],
+        "CFBundleDisplayName": "DuoAWarm"
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,

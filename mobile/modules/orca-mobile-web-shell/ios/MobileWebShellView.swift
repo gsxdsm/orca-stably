@@ -176,6 +176,37 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
   private var isolationFailed = false
   private let loadState = MobileWebShellLoadStateMachine()
 
+  private var diagnosticWarmupStarted = false
+  private var diagnosticWarmupFinished = false
+  private var diagnosticField: UITextField?
+
+  override func didMoveToWindow() {
+    super.didMoveToWindow()
+    guard let window, !diagnosticWarmupStarted else { return }
+    diagnosticWarmupStarted = true
+    DispatchQueue.main.async { [weak self, weak window] in
+      guard let self, let window, self.window === window else { return }
+      let field = UITextField(frame: CGRect(x: -100, y: -100, width: 40, height: 30))
+      field.accessibilityElementsHidden = true
+      window.addSubview(field)
+      self.diagnosticField = field
+      let focused = field.becomeFirstResponder()
+      NSLog("DuoA warm native focus=%d window=%@", focused, NSStringFromCGRect(window.bounds))
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+        guard let self else { return }
+        self.diagnosticField?.resignFirstResponder()
+        self.diagnosticField?.removeFromSuperview()
+        self.diagnosticField = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+          guard let self else { return }
+          self.diagnosticWarmupFinished = true
+          NSLog("DuoA warm complete; allowing document")
+          self.loadWhenIsolated()
+        }
+      }
+    }
+  }
+
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
     let configuration = WKWebViewConfiguration()
@@ -392,7 +423,7 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
   }
 
   private func loadWhenIsolated() {
-    guard isolationReady, let url = pendingDocumentUrl else { return }
+    guard diagnosticWarmupFinished, isolationReady, let url = pendingDocumentUrl else { return }
     pendingDocumentUrl = nil
     // Only our own load raises this flag; every document ending clears it.
     loadState.shellLoadStarted()
