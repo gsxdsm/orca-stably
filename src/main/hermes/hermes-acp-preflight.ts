@@ -36,7 +36,7 @@ export async function assertHermesAcpDependency(input: HermesAcpPreflightInput):
   }
   if (/No module named ["']acp(?:\.[^"']*)?["']/.test(output)) {
     throw new Error(
-      'Hermes ACP requires the agent-client-protocol dependency. Install the Hermes ACP extra and try again.'
+      'Hermes ACP requires the agent-client-protocol dependency. Run `hermes acp --check` for the install command.'
     )
   }
 }

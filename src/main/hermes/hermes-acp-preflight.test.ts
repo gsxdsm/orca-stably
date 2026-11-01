@@ -23,7 +23,7 @@ describe('Hermes ACP dependency preflight', () => {
       outputTruncated: false
     })
     await expect(assertHermesAcpDependency(invocation)).rejects.toThrow(
-      'Install the Hermes ACP extra'
+      'Run `hermes acp --check` for the install command'
     )
     expect(run).toHaveBeenCalledWith(
       expect.objectContaining({ program: 'hermes', args: ['acp', '--check'], env: invocation.env })
