@@ -69,4 +69,24 @@ describe('useWorktreeRowSession', () => {
     expect(onPress).toHaveBeenCalledWith(item)
     expect(hold.current?.highlightedPane).toBeNull()
   })
+
+  it('opens the workspace after the session row claimed the touch', () => {
+    const onPress = vi.fn()
+    const onAgentPress = vi.fn()
+    const item = { worktreeId: 'wt-1', isActive: true }
+    const hold: { current?: ReturnType<typeof useWorktreeRowSession> } = {}
+    function Probe(): null {
+      hold.current = useWorktreeRowSession(item, true, onPress, onAgentPress)
+      return null
+    }
+    act(() => {
+      create(createElement(Probe))
+    })
+    act(() => hold.current?.openAgent?.('pane-a'))
+    act(() => hold.current?.claim())
+    act(() => hold.current?.openWorkspace())
+    expect(onPress).toHaveBeenCalledWith(item)
+    expect(onAgentPress).toHaveBeenCalledTimes(1)
+    expect(hold.current?.highlightedPane).toBeNull()
+  })
 })

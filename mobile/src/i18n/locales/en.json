@@ -570,6 +570,9 @@
       "primaryWorktreeDeleteHint": "Primary worktree — can't be deleted. Remove the project instead.",
       "sessions": "Sessions",
       "openSession": "Open {{name}}",
+      "closeSessionConfirm": "Close \"{{name}}\"?",
+      "closeSessionMissing": "This session is no longer open.",
+      "closeSessionFailed": "This session could not be closed.",
       "removeHost": "Remove Host",
       "removeHostMessage": "Remove \"{{name}}\"? You can re-pair later."
     },

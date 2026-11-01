@@ -53,6 +53,15 @@ export function useWorktreeRowSession<T extends SessionRowTarget>(
   isClaimed: () => boolean
   highlightedPane: string | null
   openAgent?: (paneKey: string) => void
+  openWorkspace: () => void
+  cardLongPress: (
+    onLongPress: ((item: T) => void) | undefined,
+    impact: () => void
+  ) => (() => void) | undefined
+  sessionLongPress: (
+    onSessionLongPress: ((item: T, paneKey: string) => void) | undefined,
+    impact: () => void
+  ) => ((paneKey: string) => void) | undefined
 } {
   const selected = useSelectedSidebarSession()
   const sessionPress = useWorktreeSessionPress(() => {
@@ -69,5 +78,54 @@ export function useWorktreeRowSession<T extends SessionRowTarget>(
         onAgentPress(item, paneKey)
       }
     : undefined
-  return { ...sessionPress, highlightedPane, openAgent }
+  // The session row claims the touch, so the card's press handler would drop this tap.
+  const openWorkspace = () => {
+    setSelectedSidebarSession(null)
+    onPress(item)
+  }
+  return {
+    ...sessionPress,
+    highlightedPane,
+    openAgent,
+    openWorkspace,
+    cardLongPress: (onLongPress, impact) =>
+      workspaceCardLongPress(sessionPress.isClaimed, onLongPress, item, impact),
+    sessionLongPress: (onSessionLongPress, impact) =>
+      sessionRowLongPress(sessionPress.claim, onSessionLongPress, item, impact)
+  }
+}
+
+function workspaceCardLongPress<T>(
+  claimed: () => boolean,
+  onLongPress: ((item: T) => void) | undefined,
+  item: T,
+  impact: () => void
+): (() => void) | undefined {
+  if (!onLongPress) {
+    return undefined
+  }
+  return () => {
+    // A session row claimed this touch, so its menu is the one that applies.
+    if (claimed()) {
+      return
+    }
+    impact()
+    onLongPress(item)
+  }
+}
+
+function sessionRowLongPress<T>(
+  claim: () => void,
+  onSessionLongPress: ((item: T, paneKey: string) => void) | undefined,
+  item: T,
+  impact: () => void
+): ((paneKey: string) => void) | undefined {
+  if (!onSessionLongPress) {
+    return undefined
+  }
+  return (paneKey: string) => {
+    claim()
+    impact()
+    onSessionLongPress(item, paneKey)
+  }
 }

@@ -6,6 +6,21 @@ import { WorktreeAgentRow } from './WorktreeAgentRow'
 import { WorktreeAgentSummary } from './WorktreeAgentSummary'
 import { worktreeAgentChildRows } from '../worktree/worktree-agent-child-rows'
 
+function parentSessionPress(
+  selectable: boolean,
+  onAgentPress: ((paneKey: string) => void) | undefined,
+  onLongPress: ((paneKey: string) => void) | undefined,
+  onWorkspacePress: (() => void) | undefined
+): ((paneKey: string) => void) | undefined {
+  if (selectable && onAgentPress) {
+    return onAgentPress
+  }
+  if (onLongPress) {
+    return onWorkspacePress
+  }
+  return undefined
+}
+
 type Props = {
   agents: RuntimeWorktreeAgentRow[]
   now: number
@@ -15,11 +30,13 @@ type Props = {
   onAgentPress?: (paneKey: string) => void
   /** The desktop's "Full list" agent activity layout: every row, no summary. */
   fullList?: boolean
-  /** Each session is its own taller target. Off, a long-press on the workspace still lists them. */
+  /** Each session is its own taller target. Off, a long-press on the card still lists every session. */
   selectable?: boolean
   /** Pane open from a session tap. Only that session row is filled. */
   selectedPaneKey?: string | null
-  onLongPress?: () => void
+  onLongPress?: (paneKey: string) => void
+  /** Tap on a session row while sessions are not selectable. Opens the workspace, not that session. */
+  onWorkspacePress?: () => void
   onPressIn?: () => void
   onPressOut?: () => void
 }
@@ -36,6 +53,7 @@ export function WorktreeAgentList({
   selectable = false,
   selectedPaneKey = null,
   onLongPress,
+  onWorkspacePress,
   onPressIn,
   onPressOut
 }: Props) {
@@ -70,7 +88,12 @@ export function WorktreeAgentList({
                   selectable={selectable}
                   selected={selectedPaneKey === node.row.paneKey}
                   isReadOnly={isReadOnly}
-                  onPress={selectable ? onAgentPress : undefined}
+                  onPress={parentSessionPress(
+                    selectable,
+                    onAgentPress,
+                    onLongPress,
+                    onWorkspacePress
+                  )}
                   onPressIn={onPressIn}
                   onPressOut={onPressOut}
                   onLongPress={onLongPress}

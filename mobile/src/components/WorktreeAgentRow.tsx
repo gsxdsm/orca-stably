@@ -33,7 +33,7 @@ type Props = {
   onPress?: (paneKey: string) => void
   onPressIn?: () => void
   onPressOut?: () => void
-  onLongPress?: () => void
+  onLongPress?: (paneKey: string) => void
 }
 
 // Match compact desktop DashboardAgentRow: state→identity→message/prompt→age.
@@ -104,7 +104,7 @@ function WorktreeAgentRowComponent({
       <Text style={styles.time}>{ts}</Text>
     </View>
   )
-  if (!onPress) {
+  if (!onPress && !onLongPress) {
     return content
   }
   return (
@@ -112,21 +112,26 @@ function WorktreeAgentRowComponent({
       disabled={isReadOnly}
       accessibilityRole="button"
       accessibilityState={selected ? { selected: true } : undefined}
+      delayLongPress={400}
       style={({ pressed }) => [
         selectable && selected && styles.rowSelected,
         selectable && pressed && styles.rowPressed
       ]}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
-      onPress={(event) => {
-        event.stopPropagation()
-        onPress(agent.paneKey)
-      }}
+      onPress={
+        onPress
+          ? (event) => {
+              event.stopPropagation()
+              onPress(agent.paneKey)
+            }
+          : undefined
+      }
       onLongPress={
         onLongPress
           ? (event) => {
               event.stopPropagation()
-              onLongPress()
+              onLongPress(agent.paneKey)
             }
           : undefined
       }
