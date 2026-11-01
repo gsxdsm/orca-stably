@@ -188,6 +188,7 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
       guard let self, let window, self.window === window else { return }
       let field = UITextField(frame: CGRect(x: -100, y: -100, width: 40, height: 30))
       field.accessibilityElementsHidden = true
+      field.inputView = UIView(frame: .zero)
       window.addSubview(field)
       self.diagnosticField = field
       let focused = field.becomeFirstResponder()
