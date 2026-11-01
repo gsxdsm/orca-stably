@@ -43,7 +43,9 @@ async function waitForHermesSessionStart(
   const since = Date.now() - 2_000
   const deadline = Date.now() + 60_000
   while (Date.now() < deadline) {
-    if (host.readHermesSessionStart?.(ptyId, since)) return true
+    if (host.readHermesSessionStart?.(ptyId, since)) {
+      return true
+    }
     await new Promise<void>((resolve) => setTimeout(resolve, 100))
   }
   return true
