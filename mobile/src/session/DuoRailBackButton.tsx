@@ -9,7 +9,7 @@ import { useWindowSafeAreaInsets } from '../layout/side-safe-area'
 import { duoRailBackVisible } from './duo-rail-back'
 import { useDuoChatExpanded } from './duo-chat-width'
 
-/** Back sits below the status occlusion, centered in the column, and hides while the keyboard is up. */
+/** Back sits below the status occlusion, on the cluster's midX, and hides while the keyboard is up. */
 
 export function DuoRailBackButton({
   chatVisible,

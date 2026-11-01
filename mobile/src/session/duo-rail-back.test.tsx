@@ -2,7 +2,11 @@ import { createElement, type ReactElement } from 'react'
 import { Pressable } from 'react-native'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { DUO_RAIL_CONTROL_SIZE } from '../layout/duo-status-row'
+import {
+  DUO_RAIL_CONTROL_SIZE,
+  DUO_STATUS_GLYPH_FROM_EDGE,
+  DUO_STATUS_GLYPH_SIZE
+} from '../layout/duo-status-row'
 import { getSideRailStrip } from '../layout/side-rail-strip'
 import { spacing } from '../theme/mobile-theme'
 import { DuoRailBackButton } from './DuoRailBackButton'
@@ -115,7 +119,10 @@ describe('the Duo rail back button', () => {
     const column = RIGHT_RAIL.occlusions[0]!
     expect(railSlot(collapsed)?.props.style).toMatchObject({
       top: column.y + column.height + spacing.sm,
-      left: column.x + (column.width - DUO_RAIL_CONTROL_SIZE) / 2,
+      left:
+        RIGHT_RAIL.windowWidth -
+        (DUO_STATUS_GLYPH_FROM_EDGE + DUO_STATUS_GLYPH_SIZE / 2) -
+        DUO_RAIL_CONTROL_SIZE / 2,
       width: DUO_RAIL_CONTROL_SIZE,
       height: DUO_RAIL_CONTROL_SIZE
     })
@@ -153,7 +160,7 @@ describe('the Duo rail back button', () => {
     scene.occlusions = [occlusion]
     const left = mount(railButton(true, vi.fn()))
     expect(railSlot(left)?.props.style).toMatchObject({
-      left: (84 - DUO_RAIL_CONTROL_SIZE) / 2,
+      left: DUO_STATUS_GLYPH_FROM_EDGE + DUO_STATUS_GLYPH_SIZE / 2 - DUO_RAIL_CONTROL_SIZE / 2,
       width: DUO_RAIL_CONTROL_SIZE,
       top: occlusion.y - spacing.sm - DUO_RAIL_CONTROL_SIZE
     })
@@ -171,10 +178,11 @@ describe('the Duo rail back button', () => {
     const slot = railSlot(cover)?.props.style
     expect(slot).toMatchObject({
       top: column.y + column.height + spacing.sm,
-      left: column.x + (column.width - DUO_RAIL_CONTROL_SIZE) / 2,
+      left: glyph.x + glyph.width / 2 - DUO_RAIL_CONTROL_SIZE / 2,
       width: DUO_RAIL_CONTROL_SIZE,
       height: DUO_RAIL_CONTROL_SIZE
     })
+    expect(slot.left + slot.width / 2).toBe(glyph.x + glyph.width / 2)
     const misses = (region: { x: number; y: number; width: number; height: number }) =>
       slot.left + slot.width <= region.x ||
       slot.left >= region.x + region.width ||

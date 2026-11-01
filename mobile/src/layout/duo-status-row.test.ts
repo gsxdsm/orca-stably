@@ -41,17 +41,19 @@ function overlaps(
 }
 
 describe('the Duo status row', () => {
-  it('places the inner control below the status occlusion, against the content edge', () => {
+  it('places the inner control below the status occlusion, on the cluster midX', () => {
     const strip = getSideRailStrip(INNER)
     const column = INNER.occlusions[0]!
+    const midX = INNER.windowWidth - ROW_CENTER
     expect(strip).not.toBeNull()
     expect(duoStatusRowCenter({ ...INNER, strip: strip! })).toBe(ROW_CENTER)
     const frame = duoRailBackFrame({ ...INNER, strip: strip! })
     expect(frame).toEqual({
       top: column.y + column.height + spacing.sm,
-      left: column.x + (column.width - DUO_RAIL_CONTROL_SIZE) / 2,
+      left: midX - DUO_RAIL_CONTROL_SIZE / 2,
       size: DUO_RAIL_CONTROL_SIZE
     })
+    expect(frame.left + frame.size / 2).toBe(midX)
     expect(frame.left).toBeGreaterThanOrEqual(column.x)
     expect(frame.left + frame.size).toBeLessThanOrEqual(column.x + column.width)
     expect(overlaps(frame, column)).toBe(false)
@@ -62,12 +64,14 @@ describe('the Duo status row', () => {
     const glyph = COVER.occlusions[0]!
     const column = COVER.occlusions[1]!
     expect(duoStatusRowCenter({ ...COVER, strip: cover! })).toBe(glyph.y + glyph.height / 2)
+    const midX = glyph.x + glyph.width / 2
     const frame = duoRailBackFrame({ ...COVER, strip: cover! })
     expect(frame).toEqual({
       top: column.y + column.height + spacing.sm,
-      left: column.x + (column.width - DUO_RAIL_CONTROL_SIZE) / 2,
+      left: midX - DUO_RAIL_CONTROL_SIZE / 2,
       size: DUO_RAIL_CONTROL_SIZE
     })
+    expect(frame.left + frame.size / 2).toBe(midX)
     expect(frame.left).toBeGreaterThanOrEqual(column.x)
     expect(frame.left + frame.size).toBeLessThanOrEqual(column.x + column.width)
     expect(overlaps(frame, column)).toBe(false)
@@ -86,7 +90,7 @@ describe('the Duo status row', () => {
     }
     const turnedFrame = duoRailBackFrame({ ...turned, occlusions: [occlusion] })
     expect(turnedFrame.top).toBe(occlusion.y - spacing.sm - DUO_RAIL_CONTROL_SIZE)
-    expect(turnedFrame.left).toBe(occlusion.x + (occlusion.width - DUO_RAIL_CONTROL_SIZE) / 2)
+    expect(turnedFrame.left).toBe(ROW_CENTER - DUO_RAIL_CONTROL_SIZE / 2)
     expect(turnedFrame.left).toBeGreaterThanOrEqual(occlusion.x)
     expect(turnedFrame.left + turnedFrame.size).toBeLessThanOrEqual(occlusion.x + occlusion.width)
     expect(overlaps(turnedFrame, occlusion)).toBe(false)
@@ -103,7 +107,8 @@ describe('the Duo status row', () => {
     }
     const frame = duoRailBackFrame({ ...scene, strip: getSideRailStrip(scene)! })
     expect(frame.top).toBe(column.y - spacing.sm - DUO_RAIL_CONTROL_SIZE)
-    expect(frame.left).toBe(column.x + (column.width - DUO_RAIL_CONTROL_SIZE) / 2)
+    expect(frame.left).toBe(glyph.x + glyph.width / 2 - DUO_RAIL_CONTROL_SIZE / 2)
+    expect(frame.left + frame.size / 2).toBe(glyph.x + glyph.width / 2)
     expect(frame.left).toBeGreaterThanOrEqual(column.x)
     expect(frame.left + frame.size).toBeLessThanOrEqual(column.x + column.width)
     expect(overlaps(frame, column)).toBe(false)
@@ -118,7 +123,22 @@ describe('the Duo status row', () => {
       occlusions: []
     })
     expect(frame.top).toBe(59 + spacing.sm)
-    expect(frame.left).toBe(951 - 84 + (84 - DUO_RAIL_CONTROL_SIZE) / 2)
+    expect(frame.left).toBe(951 - ROW_CENTER - DUO_RAIL_CONTROL_SIZE / 2)
+  })
+
+  it('keeps the control inside the column when the cluster sits near the screen edge', () => {
+    const glyph = { x: 430, y: 29.33, width: 30, height: 37 }
+    const column = { x: 382, y: 0, width: 84, height: 174 }
+    const scene = {
+      windowWidth: 466,
+      windowHeight: 678,
+      insets: { top: 0, right: 84, bottom: 34, left: 0 },
+      occlusions: [glyph, column]
+    }
+    const frame = duoRailBackFrame({ ...scene, strip: getSideRailStrip(scene)! })
+    expect(frame.left).toBe(column.x + column.width - DUO_RAIL_CONTROL_SIZE)
+    expect(frame.left).toBeGreaterThanOrEqual(column.x)
+    expect(frame.left + frame.size).toBeLessThanOrEqual(column.x + column.width)
   })
 
   it('puts image close a step off the status-row corner and outside the column', () => {
