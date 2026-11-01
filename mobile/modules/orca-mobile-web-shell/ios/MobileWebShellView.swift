@@ -15,6 +15,32 @@ private let networkBlockRules = """
 /// Match Android; both non-configurable and non-writable prevent page replacement.
 private let networkApiBlocker = """
   (function(){
+  var armed=false;
+  var originalFocus=HTMLElement.prototype.focus;
+  HTMLElement.prototype.focus=function(){if(armed){return originalFocus.apply(this,arguments)}};
+  var quarantine=function(){
+    document.querySelectorAll('input,textarea,[contenteditable]').forEach(function(el){
+      if(el.hasAttribute('autofocus')){el.removeAttribute('autofocus')}
+      if(!el.hasAttribute('data-duoa-inputmode')){
+        el.setAttribute('data-duoa-inputmode',el.getAttribute('inputmode')||'');
+        el.setAttribute('inputmode','none');
+      }
+    });
+  };
+  var observer=new MutationObserver(function(){if(!armed){quarantine()}});
+  observer.observe(document,{childList:true,subtree:true});
+  document.addEventListener('pointerdown',function(event){
+    if(!event.isTrusted||performance.now()<1500){return}
+    armed=true;observer.disconnect();
+    document.querySelectorAll('[data-duoa-inputmode]').forEach(function(el){
+      var mode=el.getAttribute('data-duoa-inputmode');
+      if(mode){el.setAttribute('inputmode',mode)}else{el.removeAttribute('inputmode')}
+      el.removeAttribute('data-duoa-inputmode');
+    });
+  },true);
+  document.addEventListener('focusin',function(event){
+    if(!armed && event.target instanceof HTMLElement){event.target.blur()}
+  },true);
   var deny=function(){throw new TypeError('Network access is disabled')};
   try{Object.defineProperty(globalThis,'WebSocket',{value:deny,configurable:false,writable:false})}catch(_){}
   try{Object.defineProperty(Navigator.prototype,'serviceWorker',{get:function(){return undefined},configurable:false})}catch(_){}
