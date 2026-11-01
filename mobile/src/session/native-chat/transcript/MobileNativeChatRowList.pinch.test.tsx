@@ -35,6 +35,10 @@ const tail = {
     onEndDistance: () => {}
   },
   showJumpToTail: false,
+  showPreviousMessage: false,
+  previousStopsRef: { current: [] as readonly string[] },
+  jumpToPreviousMessage: () => {},
+  refreshPreviousMessage: () => {},
   pinToTail: () => {},
   pinToTailAfterContentResize: () => {},
   jumpToTail: () => {},
