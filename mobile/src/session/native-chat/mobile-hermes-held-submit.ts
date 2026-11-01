@@ -1,7 +1,7 @@
 import type { RpcClient } from '../../transport/rpc-client'
 import { sendMobileNativeChatMessageWithOutcome } from './mobile-native-chat-send'
 
-const normalize = (text: string): string => text.replace(/\r\n?/g, '\n').trimEnd()
+const normalize = (text: string): string => text.replace(/\r\n?/g, '\n')
 
 export async function retryHeldHermesSubmit(args: {
   client: RpcClient
