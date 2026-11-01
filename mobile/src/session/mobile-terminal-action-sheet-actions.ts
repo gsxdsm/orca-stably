@@ -15,6 +15,7 @@ export function getMobileTerminalActionSheetActions<
   isTabChatView: (tabId: string) => boolean
   hostCapabilities?: readonly string[] | null
   nativeChatTranscriptIsLocalReadable: boolean
+  structuredAgents?: readonly string[]
   onDismiss: () => void
   onToggleChat: (tabId: string) => void
   isPhoneMode: (handle: string) => boolean
@@ -42,6 +43,7 @@ export function getMobileTerminalActionSheetActions<
       tabs: args.tabs,
       isTabChatView: args.isTabChatView,
       nativeChatTranscriptIsLocalReadable: args.nativeChatTranscriptIsLocalReadable,
+      structuredAgents: args.structuredAgents,
       onClose: args.onDismiss,
       onToggle: args.onToggleChat
     }),
