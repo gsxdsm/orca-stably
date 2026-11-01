@@ -39,6 +39,10 @@ async function main() {
     legalComments: 'none',
     logLevel: 'silent',
     nodePaths: [path.join(mobileRoot, 'node_modules')],
+    // KaTeX is ~270KB and only typesets $$ labels. The stub keeps those labels as text.
+    alias: {
+      katex: path.join(mobileRoot, 'scripts', 'mermaid-katex-stub.mjs')
+    },
     define: { 'process.env.NODE_ENV': '"production"' }
   })
   const bundle = Buffer.from(outputFiles[0].contents).toString('utf8')
