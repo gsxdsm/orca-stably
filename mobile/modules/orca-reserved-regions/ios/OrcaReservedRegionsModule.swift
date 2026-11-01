@@ -40,22 +40,8 @@ public class OrcaReservedRegionsModule: Module {
   }
 
   private func installProbe() {
-    guard let window = UIApplication.shared.delegate?.window ?? nil, probe?.window !== window else {
-      return
-    }
-    probe?.removeFromSuperview()
-    probe = nil
-    #if canImport(UIKit, _version: 9127.0.85)
-      // 9127.0.85 is UIKit in the iOS 27.1 SDK, the first with reserved regions; older Xcodes skip this.
-      if #available(iOS 27.1, *) {
-        let probe = ReservedRegionsProbe(frame: window.bounds)
-        probe.onChange = { [weak self] payload in
-          self?.sendEvent("onChange", payload)
-        }
-        window.insertSubview(probe, at: 0)
-        self.probe = probe
-      }
-    #endif
+    // Diagnostic: remove all reserved-region reads and window probe side effects.
+
   }
 }
 
