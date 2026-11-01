@@ -39,7 +39,12 @@ public class OrcaReservedRegionsModule: Module {
     }
   }
 
+  // Diagnostic only: skip the probe so a Duo focus test can tell whether it still
+  // causes the split-screen keyboard crash. Fold and camera layout will be wrong.
+  private static let splitScreenDiagnosticDisablesProbe = true
+
   private func installProbe() {
+    guard !Self.splitScreenDiagnosticDisablesProbe else { return }
     guard let window = UIApplication.shared.delegate?.window ?? nil, probe?.window !== window else {
       return
     }
