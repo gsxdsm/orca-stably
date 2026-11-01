@@ -1,6 +1,6 @@
-import { type Dirent } from 'node:fs'
+import type { Dirent } from 'node:fs'
 import { dirname, extname, join } from 'node:path'
-import type { NativeChatMessage } from '../../shared/native-chat/native-chat-types'
+import type { NativeChatMessage } from '../../shared/native-chat-types'
 import {
   isSubagentTranscriptFileName,
   SUBAGENT_TRANSCRIPT_PREFIX,

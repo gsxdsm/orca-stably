@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { extractPendingAsk } from '../../shared/native-chat/input/native-chat-ask'
 import { decodeCodexTranscriptLine } from './transcript-line-decoders-codex'
 import { readNativeChatTranscript } from './transcript-reader'
-import { readNativeChatTranscriptTail } from './transcript-tail-reader'
+import { readNativeChatTranscriptTail } from './transcript-live-tail'
 
 let tempRoots: string[] = []
 

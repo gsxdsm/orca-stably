@@ -17,7 +17,7 @@ vi.mock('node:fs/promises', async (importOriginal) => ({
   open: mocks.open
 }))
 
-import { readNativeChatTranscriptTail } from './transcript-tail-reader'
+import { readNativeChatTranscriptTail } from './transcript-live-tail'
 import {
   resetWslTranscriptFsGateForTests,
   WSL_TRANSCRIPT_FS_EXACT_TIMEOUT_MS,

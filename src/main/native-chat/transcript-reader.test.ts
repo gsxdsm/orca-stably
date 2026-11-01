@@ -3,9 +3,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { readNativeChatTranscript } from './transcript-reader'
+import { readNativeChatTranscriptTail } from './transcript-live-tail'
 import {
   nativeChatLineDecoderForAgent,
-  readNativeChatTranscriptTail,
   readNativeChatTranscriptTailFile
 } from './transcript-tail-reader'
 

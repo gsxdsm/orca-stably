@@ -2,8 +2,8 @@ import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { NativeChatMessage } from '../../shared/native-chat/native-chat-types'
-import { projectNativeChatTranscript } from '../../shared/native-chat/transcript/native-chat-transcript-projection'
+import type { NativeChatMessage } from '../../shared/native-chat-types'
+import { projectNativeChatTranscript } from '../../shared/native-chat-transcript-projection'
 import { decodeClaudeTranscriptLine } from './transcript-line-decoders-claude'
 import { decodeCodexTranscriptLine } from './transcript-line-decoders-codex'
 import { decodeGrokTranscriptLine } from './transcript-line-decoders-grok'
@@ -11,7 +11,7 @@ import {
   appendNativeChatChildTranscripts,
   windowNativeChatWithChildren
 } from './transcript-subagent-children'
-import { readNativeChatTranscriptTail } from './transcript-tail-reader'
+import { readNativeChatTranscriptTail } from './transcript-live-tail'
 import { subscribeNativeChatTranscript } from './transcript-watch'
 
 const THREAD_ID = '01a19597-ae9a-7a90-87a1-eedc6d3a4eba'
@@ -162,7 +162,13 @@ describe('subagent child transcripts', () => {
       join(day, `rollout-2026-10-31T00-00-00-${threadId}.jsonl`),
       `${JSON.stringify({
         type: 'response_item',
-        payload: { type: 'function_call', id: 'fc-1', name: 'shell', call_id: 'call-1', arguments: '{}' }
+        payload: {
+          type: 'function_call',
+          id: 'fc-1',
+          name: 'shell',
+          call_id: 'call-1',
+          arguments: '{}'
+        }
       })}\n${JSON.stringify({
         type: 'event_msg',
         payload: {
@@ -243,9 +249,11 @@ describe('subagent child transcripts', () => {
       await new Promise((resolve) => setTimeout(resolve, 10))
     }
     subscription.unsubscribe()
-    expect(snapshots[0]?.some((entry) => entry.agentId === 'abc123' && text(entry).includes('Fixed and pushed'))).toBe(
-      true
-    )
+    expect(
+      snapshots[0]?.some(
+        (entry) => entry.agentId === 'abc123' && text(entry).includes('Fixed and pushed')
+      )
+    ).toBe(true)
   })
 
   it('skips a Codex child whose rollout file is gone', async () => {

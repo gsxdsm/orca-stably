@@ -12,7 +12,7 @@ vi.mock('node:fs/promises', async (importOriginal) => ({
   stat: fsMocks.stat
 }))
 
-import { readNativeChatTranscriptTail } from './transcript-tail-reader'
+import { readNativeChatTranscriptTail } from './transcript-live-tail'
 
 describe('native chat transcript tail cancellation', () => {
   beforeEach(() => {

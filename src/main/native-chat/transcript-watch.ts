@@ -19,7 +19,7 @@ import { nativeChatLineDecoderForAgent } from './transcript-tail-reader'
 import { WslTranscriptFsError, wslTranscriptFsRefusal } from './wsl-transcript-fs-gate'
 import { observeRunningWslDistros } from './wsl-transcript-running-observer'
 
-export { readNativeChatTranscriptTail } from './transcript-tail-reader'
+export { readNativeChatTranscriptTail } from './transcript-live-tail'
 export { getActiveNativeChatWatcherCount } from './transcript-watcher-count'
 export type {
   NativeChatTranscriptSubscription,
