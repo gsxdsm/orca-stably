@@ -2,7 +2,13 @@ import { createElement, type ReactElement } from 'react'
 import { Pressable } from 'react-native'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  DUO_RAIL_CONTROL_SIZE,
+  DUO_STATUS_GLYPH_FROM_EDGE,
+  DUO_STATUS_GLYPH_SIZE
+} from '../layout/duo-status-row'
 import { getSideRailStrip } from '../layout/side-rail-strip'
+import { spacing } from '../theme/mobile-theme'
 import { DuoRailBackButton } from './DuoRailBackButton'
 import { duoRailBackVisible, performSessionRailBack } from './duo-rail-back'
 import { useSessionRailBack } from './use-duo-rail-back.web'
@@ -98,12 +104,22 @@ describe('the Duo rail back button', () => {
     const collapsed = mount(createElement(DuoRailBackButton, { chatVisible: true, onBack }))
     const button = backs(collapsed)
     expect(button).toHaveLength(1)
+    const rowCenter = DUO_STATUS_GLYPH_FROM_EDGE + DUO_STATUS_GLYPH_SIZE / 2
     expect(railSlot(collapsed)?.props.style).toMatchObject({
-      top: 124,
-      width: 84,
-      right: 0,
-      paddingTop: 8
+      top: rowCenter - DUO_RAIL_CONTROL_SIZE / 2,
+      left: RIGHT_RAIL.windowWidth - 84 + spacing.sm,
+      width: DUO_RAIL_CONTROL_SIZE,
+      height: DUO_RAIL_CONTROL_SIZE
     })
+    expect(button[0]?.props.hitSlop).toBe(0)
+    const drawn = [button[0]?.props.style({ pressed: false })].flat()
+    expect(Object.assign({}, ...drawn)).toMatchObject({
+      width: DUO_RAIL_CONTROL_SIZE,
+      height: DUO_RAIL_CONTROL_SIZE
+    })
+    expect(
+      collapsed.root.findAll((node) => hostNamed(node.type, 'ChevronLeft'))[0]?.props.size
+    ).toBe(DUO_RAIL_CONTROL_SIZE / 2)
     act(() => {
       button[0]?.props.onPress()
     })
@@ -131,7 +147,14 @@ describe('the Duo rail back button', () => {
     scene.insets = { top: 0, right: 0, bottom: 34, left: 84 }
     scene.occlusions = [{ x: 0, y: 545, width: 84, height: 124 }]
     const left = mount(createElement(DuoRailBackButton, { chatVisible: true, onBack: vi.fn() }))
-    expect(railSlot(left)?.props.style).toMatchObject({ left: 0, width: 84 })
+    expect(railSlot(left)?.props.style).toMatchObject({
+      left: 84 - spacing.sm - DUO_RAIL_CONTROL_SIZE,
+      width: DUO_RAIL_CONTROL_SIZE,
+      top:
+        scene.height -
+        (DUO_STATUS_GLYPH_FROM_EDGE + DUO_STATUS_GLYPH_SIZE / 2) -
+        DUO_RAIL_CONTROL_SIZE / 2
+    })
     expect(left.root.findAll((node) => hostNamed(node.type, 'ChevronLeft'))).toHaveLength(1)
   })
 

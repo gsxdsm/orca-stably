@@ -1,0 +1,122 @@
+import type { ReservedRect } from '../../modules/orca-reserved-regions/src'
+import { spacing } from '../theme/mobile-theme'
+import { getSideRailStrip, type SideRailStrip } from './side-rail-strip'
+
+/** iOS minimum control. The header's 36pt buttons grow to this with hit slop; the rail draws it outright. */
+export const DUO_RAIL_CONTROL_SIZE = 44
+
+/**
+ * The Duo cover's status glyph, measured on iOS 27.1: a 37pt mark 29.33pt from the screen edge.
+ * The inner display reports only the status column, so its row uses this glyph's center.
+ */
+export const DUO_STATUS_GLYPH_FROM_EDGE = 29.33
+export const DUO_STATUS_GLYPH_SIZE = 37
+
+const STATUS_ROW_CENTER_FROM_EDGE = DUO_STATUS_GLYPH_FROM_EDGE + DUO_STATUS_GLYPH_SIZE / 2
+
+export type DuoRailControlFrame = {
+  top: number
+  left: number
+  size: number
+}
+
+type RowArgs = {
+  windowWidth: number
+  windowHeight: number
+  strip: SideRailStrip
+  occlusions: readonly ReservedRect[]
+}
+
+function statusColumn(args: RowArgs): ReservedRect | null {
+  const start = args.strip.side === 'right' ? args.windowWidth - args.strip.width : 0
+  const end = start + args.strip.width
+  return (
+    args.occlusions.find(
+      (region) =>
+        region.x <= start + 1 &&
+        region.x + region.width >= end - 1 &&
+        (region.y <= 1 || region.y + region.height >= args.windowHeight - 1)
+    ) ?? null
+  )
+}
+
+function glyphCenter(column: ReservedRect, occlusions: readonly ReservedRect[]): number | null {
+  const fromTop = column.y <= 1
+  let mark: ReservedRect | null = null
+  for (const region of occlusions) {
+    const inside =
+      region !== column &&
+      region.width < column.width - 1 &&
+      region.x + region.width > column.x &&
+      region.x < column.x + column.width &&
+      region.y + region.height > column.y &&
+      region.y < column.y + column.height
+    if (!inside) {
+      continue
+    }
+    if (mark === null) {
+      mark = region
+      continue
+    }
+    const closerToEdge = fromTop
+      ? region.y + region.height / 2 < mark.y + mark.height / 2
+      : region.y + region.height / 2 > mark.y + mark.height / 2
+    if (closerToEdge) {
+      mark = region
+    }
+  }
+  return mark === null ? null : mark.y + mark.height / 2
+}
+
+/** Vertical center of the battery, wifi and Control Center row, in window points. */
+export function duoStatusRowCenter(args: RowArgs): number {
+  const column = statusColumn(args)
+  const measured = column === null ? null : glyphCenter(column, args.occlusions)
+  if (measured !== null) {
+    return measured
+  }
+  const fromTop = column !== null ? column.y <= 1 : args.strip.top > 1
+  return fromTop ? STATUS_ROW_CENTER_FROM_EDGE : args.windowHeight - STATUS_ROW_CENTER_FROM_EDGE
+}
+
+/** The rail control, on the status row and against the content edge of the column. */
+export function duoRailBackFrame(args: RowArgs): DuoRailControlFrame {
+  const size = DUO_RAIL_CONTROL_SIZE
+  const left =
+    args.strip.side === 'right'
+      ? args.windowWidth - args.strip.width + spacing.sm
+      : args.strip.width - spacing.sm - size
+  return { top: duoStatusRowCenter(args) - size / 2, left, size }
+}
+
+export type DuoImageCloseFrame = {
+  top: number
+  left: number
+  /** Set on a Duo rail so the close control matches the rail button. Null keeps the padded phone button. */
+  size: number | null
+}
+
+/** Phone: below the status bar, on the left. Duo: the same status row as the rail, clear of the column. */
+export function duoImageCloseFrame(args: {
+  windowWidth: number
+  windowHeight: number
+  insets: { top: number; right: number; bottom: number; left: number }
+  occlusions: readonly ReservedRect[]
+}): DuoImageCloseFrame {
+  const strip = getSideRailStrip(args)
+  if (strip === null) {
+    return {
+      top: args.insets.top + spacing.sm,
+      left: args.insets.left + spacing.lg,
+      size: null
+    }
+  }
+  const row = duoRailBackFrame({ ...args, strip })
+  let left = args.insets.left + spacing.lg
+  if (strip.side === 'left') {
+    left = Math.max(left, strip.width + spacing.lg)
+  } else if (left + DUO_RAIL_CONTROL_SIZE > args.windowWidth - strip.width - spacing.sm) {
+    left = args.windowWidth - strip.width - spacing.sm - DUO_RAIL_CONTROL_SIZE
+  }
+  return { top: row.top, left, size: DUO_RAIL_CONTROL_SIZE }
+}
