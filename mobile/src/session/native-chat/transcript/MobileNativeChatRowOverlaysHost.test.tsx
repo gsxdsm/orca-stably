@@ -17,7 +17,8 @@ vi.mock('react-native', async () => ({
   Pressable: 'Pressable',
   ScrollView: 'ScrollView',
   View: 'View',
-  StyleSheet: { create: (styles: unknown) => styles }
+  StyleSheet: { create: (styles: unknown) => styles },
+  useWindowDimensions: () => ({ width: 390, height: 844 })
 }))
 vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 })

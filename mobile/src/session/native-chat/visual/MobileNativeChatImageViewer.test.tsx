@@ -1,11 +1,24 @@
 import { createElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  DUO_RAIL_CONTROL_SIZE,
+  DUO_STATUS_GLYPH_FROM_EDGE,
+  DUO_STATUS_GLYPH_SIZE
+} from '../../../layout/duo-status-row'
 import { spacing } from '../../../theme/mobile-theme'
 import { MobileNativeChatImageViewer } from './MobileNativeChatImageViewer'
 
 const scene = vi.hoisted(() => ({
-  insets: { top: 0, right: 84, bottom: 34, left: 0 }
+  width: 951,
+  height: 669,
+  insets: { top: 0, right: 84, bottom: 34, left: 0 },
+  occlusions: [{ x: 867, y: 0, width: 84, height: 124 }] as {
+    x: number
+    y: number
+    width: number
+    height: number
+  }[]
 }))
 
 vi.mock('react-native', () => {
@@ -27,9 +40,13 @@ vi.mock('react-native', () => {
     Modal: 'Modal',
     Platform: { OS: 'ios' },
     Pressable: 'Pressable',
-    StyleSheet: { create: (styles: unknown) => styles }
+    StyleSheet: { create: (styles: unknown) => styles },
+    useWindowDimensions: () => ({ width: scene.width, height: scene.height })
   }
 })
+vi.mock('../../../layout/reserved-regions', () => ({
+  useReservedRegions: () => ({ divisions: [], occlusions: scene.occlusions })
+}))
 vi.mock('lucide-react-native', () => ({ X: 'X' }))
 vi.mock('../../../layout/side-safe-area', () => ({
   useWindowSafeAreaInsets: () => scene.insets
@@ -47,7 +64,13 @@ vi.mock('../../../platform/use-reduced-motion', () => ({
   useReducedMotionEnabled: () => true
 }))
 
-function closeStyle(): { left?: number; right?: number; top?: number } {
+function closeStyle(): {
+  left?: number
+  right?: number
+  top?: number
+  width?: number
+  height?: number
+} {
   let renderer: ReactTestRenderer | undefined
   act(() => {
     renderer = create(
@@ -65,20 +88,32 @@ function closeStyle(): { left?: number; right?: number; top?: number } {
 
 describe('MobileNativeChatImageViewer close button', () => {
   beforeEach(() => {
+    scene.width = 951
+    scene.height = 669
     scene.insets = { top: 0, right: 84, bottom: 34, left: 0 }
+    scene.occlusions = [{ x: 867, y: 0, width: 84, height: 124 }]
   })
 
-  it('sits on the left so it clears the Duo camera and Control Center', () => {
+  it('shares the Duo status row and stays out of the column', () => {
     const style = closeStyle()
+    const rowTop =
+      DUO_STATUS_GLYPH_FROM_EDGE + DUO_STATUS_GLYPH_SIZE / 2 - DUO_RAIL_CONTROL_SIZE / 2
+    expect(style.top).toBe(rowTop)
     expect(style.left).toBe(spacing.lg)
+    expect(style.width).toBe(DUO_RAIL_CONTROL_SIZE)
+    expect(style.height).toBe(DUO_RAIL_CONTROL_SIZE)
+    expect((style.left ?? 0) + (style.width ?? 0)).toBeLessThan(951 - 84)
     expect(style.right).toBeUndefined()
-    expect(style.top).toBe(spacing.sm)
   })
 
   it('keeps the left inset when that side has the cutout', () => {
+    scene.width = 390
+    scene.height = 844
     scene.insets = { top: 12, right: 0, bottom: 21, left: 47 }
+    scene.occlusions = []
     const style = closeStyle()
     expect(style.left).toBe(47 + spacing.lg)
     expect(style.top).toBe(12 + spacing.sm)
+    expect(style.width).toBeUndefined()
   })
 })
