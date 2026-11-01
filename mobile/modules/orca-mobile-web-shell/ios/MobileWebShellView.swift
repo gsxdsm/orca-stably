@@ -190,11 +190,12 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
       field.accessibilityElementsHidden = true
       window.addSubview(field)
       self.diagnosticField = field
-      let focused = field.becomeFirstResponder()
+      var focused = false
+      UIView.performWithoutAnimation { focused = field.becomeFirstResponder() }
       NSLog("DuoA warm native focus=%d window=%@", focused, String(describing: window.bounds))
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+      let finishWarmup: () -> Void = { [weak self] in
         guard let self else { return }
-        self.diagnosticField?.resignFirstResponder()
+        UIView.performWithoutAnimation { self.diagnosticField?.resignFirstResponder() }
         self.diagnosticField?.removeFromSuperview()
         self.diagnosticField = nil
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
@@ -204,6 +205,7 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
           self.loadWhenIsolated()
         }
       }
+      finishWarmup()
     }
   }
 
