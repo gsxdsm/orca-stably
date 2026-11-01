@@ -43,7 +43,11 @@ describe('bridge client handshake', () => {
       {
         v: BRIDGE_PROTOCOL_VERSION,
         type: 'ready',
-        storageKeys: ['orca:terminalSplitLayout', 'orca:composerUsageWindow'],
+        storageKeys: [
+          'orca:terminalSplitLayout',
+          'orca:composerUsageWindow',
+          'orca:composerUsageDisplay'
+        ],
         connectionPathFrames: true
       }
     ])
