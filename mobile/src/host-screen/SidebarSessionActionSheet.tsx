@@ -80,12 +80,14 @@ function SessionSheetBody({
   return (
     <ActionSheetContent
       title={session.label}
+      titleLines={2}
       actions={[
         {
           id: 'open',
           label: t('hostScreen.hostScreenOverlays.openSession', 'Open {{name}}', {
             name: session.label
           }),
+          lines: 2,
           onPress: () => onOpen(session)
         },
         {
@@ -115,7 +117,7 @@ function SessionCloseConfirm({
     <View>
       <View style={styles.confirmContent}>
         <Text style={styles.confirmTitle}>{t('common.close', 'Close')}</Text>
-        <Text style={styles.confirmMessage}>
+        <Text style={styles.confirmMessage} numberOfLines={2}>
           {t('hostScreen.hostScreenOverlays.closeSessionConfirm', 'Close "{{name}}"?', {
             name: label
           })}
