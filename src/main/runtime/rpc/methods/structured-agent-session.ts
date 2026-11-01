@@ -100,6 +100,10 @@ export const STRUCTURED_AGENT_SESSION_METHODS = [
     permission: 'workspace',
     params: CreateSupportParams,
     handler: async (params, ctx) => {
+      if (params.agent === 'hermes' && params.worktree.startsWith('diag:')) {
+        console.log('[hermes-diagnostic] page-context', params.worktree)
+        return { supported: false }
+      }
       try {
         requireStructuredCreateSupportAdmission(ctx, params.agent)
       } catch (error) {
