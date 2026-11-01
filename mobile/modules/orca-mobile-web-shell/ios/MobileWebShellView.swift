@@ -191,7 +191,7 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
       window.addSubview(field)
       self.diagnosticField = field
       let focused = field.becomeFirstResponder()
-      NSLog("DuoA warm native focus=%d window=%@", focused, NSStringFromCGRect(window.bounds))
+      NSLog("DuoA warm native focus=%d window=%@", focused, String(describing: window.bounds))
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
         guard let self else { return }
         self.diagnosticField?.resignFirstResponder()
