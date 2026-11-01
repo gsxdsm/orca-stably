@@ -1,6 +1,11 @@
 import { createElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  IMAGE_VIEWER_DISMISS_DISTANCE,
+  IMAGE_VIEWER_DISMISS_VELOCITY
+} from '../../../components/image-viewer-swipe'
+import type { MobilePanZoomDismiss } from '../../../components/use-mobile-pan-zoom'
 import {
   DUO_RAIL_CONTROL_SIZE,
   DUO_STATUS_GLYPH_FROM_EDGE,
@@ -18,23 +23,31 @@ const scene = vi.hoisted(() => ({
     y: number
     width: number
     height: number
-  }[]
+  }[],
+  reduced: true
+}))
+const seen = vi.hoisted(() => ({
+  dismiss: null as MobilePanZoomDismiss | null
 }))
 
 vi.mock('react-native', () => {
   class Value {
-    interpolate(): number {
-      return 1
+    setValue(): void {}
+    interpolate(): this {
+      return this
     }
   }
+  const animation = () => ({
+    start: (done?: (result: { finished: boolean }) => void) => done?.({ finished: true }),
+    stop() {}
+  })
   return {
     Animated: {
       Value,
       View: 'AnimatedView',
-      timing: () => ({
-        start: (done?: (result: { finished: boolean }) => void) => done?.({ finished: true }),
-        stop() {}
-      })
+      timing: animation,
+      spring: animation,
+      multiply: (left: unknown) => left
     },
     Easing: { bezier: () => () => 0 },
     Modal: 'Modal',
@@ -58,11 +71,20 @@ vi.mock('../../../i18n/use-mobile-translation', () => ({
   useMobileTranslation: () => (_key: string, fallback: string) => fallback
 }))
 vi.mock('../../../components/MobilePanZoomImage', () => ({
-  MobilePanZoomImage: 'MobilePanZoomImage'
+  MobilePanZoomImage: (props: { dismiss?: MobilePanZoomDismiss | null }) => {
+    seen.dismiss = props.dismiss ?? null
+    return null
+  }
 }))
 vi.mock('../../../platform/use-reduced-motion', () => ({
-  useReducedMotionEnabled: () => true
+  useReducedMotionEnabled: () => scene.reduced
 }))
+
+let renderer: ReactTestRenderer | null = null
+afterEach(() => {
+  act(() => renderer?.unmount())
+  renderer = null
+})
 
 function closeStyle(): {
   left?: number
@@ -71,7 +93,6 @@ function closeStyle(): {
   width?: number
   height?: number
 } {
-  let renderer: ReactTestRenderer | undefined
   act(() => {
     renderer = create(
       createElement(MobileNativeChatImageViewer, {
@@ -92,6 +113,8 @@ describe('MobileNativeChatImageViewer close button', () => {
     scene.height = 669
     scene.insets = { top: 0, right: 84, bottom: 34, left: 0 }
     scene.occlusions = [{ x: 867, y: 0, width: 84, height: 124 }]
+    scene.reduced = true
+    seen.dismiss = null
   })
 
   it('shares the Duo status row and stays out of the column', () => {
@@ -137,5 +160,80 @@ describe('MobileNativeChatImageViewer close button', () => {
       (style.top ?? 0) < glyph.y + glyph.height &&
       bottom > glyph.y
     expect(hitsGlyph).toBe(false)
+  })
+})
+
+function render(onClose = vi.fn()): { onClose: ReturnType<typeof vi.fn> } {
+  act(() => {
+    renderer = create(
+      createElement(MobileNativeChatImageViewer, {
+        uri: 'file:///tmp/shot.png',
+        label: 'shot',
+        onClose
+      })
+    )
+  })
+  return { onClose }
+}
+
+describe('MobileNativeChatImageViewer swipe dismiss', () => {
+  beforeEach(() => {
+    scene.width = 390
+    scene.height = 844
+    scene.insets = { top: 12, right: 0, bottom: 21, left: 0 }
+    scene.occlusions = []
+    scene.reduced = false
+    seen.dismiss = null
+  })
+
+  it('keeps the close button as the accessible way out', () => {
+    const onClose = vi.fn()
+    render(onClose)
+    const button = renderer!.root.findByProps({ accessibilityLabel: 'Close image' })
+    expect(button.props.accessibilityRole).toBe('button')
+    act(() => {
+      button.props.onPress()
+    })
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('closes on a vertical release past the distance or a flick, from either direction', () => {
+    const { onClose } = render()
+    act(() => {
+      seen.dismiss?.onRelease(IMAGE_VIEWER_DISMISS_DISTANCE, 0)
+    })
+    expect(onClose).toHaveBeenCalledOnce()
+
+    const upward = render()
+    act(() => {
+      seen.dismiss?.onRelease(-IMAGE_VIEWER_DISMISS_DISTANCE, 0)
+    })
+    expect(upward.onClose).toHaveBeenCalledOnce()
+
+    const flick = render()
+    act(() => {
+      seen.dismiss?.onRelease(24, IMAGE_VIEWER_DISMISS_VELOCITY)
+    })
+    expect(flick.onClose).toHaveBeenCalledOnce()
+  })
+
+  it('springs back when the finger stops short, including a flick back toward rest', () => {
+    const { onClose } = render()
+    act(() => {
+      seen.dismiss?.onRelease(40, 0)
+    })
+    act(() => {
+      seen.dismiss?.onRelease(220, -IMAGE_VIEWER_DISMISS_VELOCITY * 3)
+    })
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('still closes under Reduce Motion, by fading rather than refusing the swipe', () => {
+    scene.reduced = true
+    const { onClose } = render()
+    act(() => {
+      seen.dismiss?.onRelease(-IMAGE_VIEWER_DISMISS_DISTANCE, 0)
+    })
+    expect(onClose).toHaveBeenCalledOnce()
   })
 })
