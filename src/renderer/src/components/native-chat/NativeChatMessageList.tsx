@@ -156,7 +156,7 @@ export function NativeChatMessageList({
     latestTurn
   )
   const view = useNativeChatSubagentTranscript({
-    sessionId: session.sessionId,
+    session,
     messages,
     subagentRows,
     subagentRoster,
