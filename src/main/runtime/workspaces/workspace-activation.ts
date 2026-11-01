@@ -252,6 +252,15 @@ export abstract class OrcaRuntimeWithActivateManagedWorktree extends OrcaRuntime
     return {
       readiness: this.getWorktreeStartupReadinessHost(),
       readForeground: (ptyId, agent) => this.readLaunchedAgentForeground(ptyId, agent),
+      readHermesSessionStart: (ptyId, since) =>
+        [...this.collectPaneKeysForPty(ptyId)].some((paneKey) =>
+          this.getAgentStatusSnapshotForPaneFn?.(paneKey).some(
+            (row) =>
+              row.agentType === 'hermes' &&
+              row.sessionBoundary === true &&
+              (row.evidenceObservedAt ?? row.receivedAt) >= since
+          )
+        ),
       readHold: (ptyId) =>
         readPtyFreshComposerHold(this.ptysById.get(ptyId), this.readLiveTerminalScreenLines(ptyId))
     }

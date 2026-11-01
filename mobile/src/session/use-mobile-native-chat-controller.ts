@@ -97,6 +97,7 @@ export function useMobileNativeChatController(args: {
     clearDraftForSend,
     restoreRejectedDraft,
     acceptSend,
+    discardPendingSend,
     holdUnconfirmedSend
   } = useMobileNativeChatDrafts({
     hostId,
@@ -182,6 +183,7 @@ export function useMobileNativeChatController(args: {
     clearDraftForSend,
     restoreRejectedDraft,
     acceptSend,
+    discardPendingSend,
     holdUnconfirmedSend,
     onSendError
   })
