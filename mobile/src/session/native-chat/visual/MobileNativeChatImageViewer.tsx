@@ -44,7 +44,8 @@ export function MobileNativeChatImageViewer({
         <Pressable
           style={({ pressed }) => [
             styles.close,
-            { top: insets.top + spacing.sm },
+            // Top-right is the Duo camera cutout and the Control Center corner.
+            { top: insets.top + spacing.sm, left: insets.left + spacing.lg },
             pressed && { opacity: feedback.pressedOpacity }
           ]}
           onPress={close}
@@ -108,7 +109,6 @@ const styles = themedStyleSheet(() => ({
   },
   close: {
     position: 'absolute',
-    right: spacing.lg,
     padding: spacing.sm,
     borderRadius: radii.pill,
     backgroundColor: colors.bgRaised
