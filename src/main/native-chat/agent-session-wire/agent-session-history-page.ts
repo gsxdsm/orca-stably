@@ -268,7 +268,10 @@ function readForward(
     // Unsplittable removal IDs require whole-state reset; resume at the live cursor past the oversized row.
     return historyReset(snapshot, 'cursor_compacted', reader)
   }
-  const lastSequence = rows.at(-1)?.seq ?? cursor.sequence
+  // A complete read moves past trailing writes that saved nothing. `through` cannot run ahead of
+  // `snapshot`: each write commits and adopts its state in one synchronous step on the write lane.
+  const lastSequence =
+    since.rows.length > rows.length ? (rows.at(-1)?.seq ?? cursor.sequence) : since.through
   return {
     ok: true,
     page: buildPage({

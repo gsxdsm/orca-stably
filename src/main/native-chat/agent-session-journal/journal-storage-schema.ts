@@ -30,6 +30,7 @@ const [
 const [
   messageBody,
   agentStartBody,
+  agentHandoffBody,
   toolCallBody,
   diffBody,
   approvalBody,
@@ -146,6 +147,7 @@ export const storedMessageBody = messageBody.extend({
 export const storedItemBody = z.discriminatedUnion('kind', [
   storedMessageBody,
   agentStartBody.extend({ worker: sender.nullable().optional() }),
+  agentHandoffBody.extend({ agent: sender.nullable().optional() }),
   toolCallBody,
   diffBody,
   approvalBody,

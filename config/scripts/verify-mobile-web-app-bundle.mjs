@@ -26,17 +26,14 @@ export function mobileWebAppBundleMaxAssets(routeCount, imageCount, catalogChunk
 }
 
 // UI-language catalogs have their own allowance, like the font: one chunk per non-English locale,
-// fetched only for the active language, never before the first route. Code keeps the Phase C fence.
+// fetched only for the active language, never before the first route. Code keeps its own fence.
 export const MOBILE_WEB_APP_BUNDLE_MAX_CATALOG_CHUNKS = 10
 export const MOBILE_WEB_APP_BUNDLE_MAX_CATALOG_BYTES = 3 * 1024 * 1024
 
-// Keep total app byte budget below phone’s per-asset contract ceiling to fail at build; splitting alone cannot shrink code size.
-// Fork only, not for upstream. Fork main plus the pending Resources page is about 9,539,221 bytes,
-// ~102 KB over the upstream 9 MiB Phase C fence. 9,600,000 leaves ~60 KB of slack until the shrink
-// commits land and this raise is reverted.
-export const MOBILE_WEB_APP_BUNDLE_MAX_TOTAL_BYTES = 9_600_000
+// Upstream's 9.5 MiB fence is above the old fork floor of 9,600,000, so the fork keeps it.
+export const MOBILE_WEB_APP_BUNDLE_MAX_TOTAL_BYTES = 9.5 * 1024 * 1024
 
-// Only this licensed desktop-identical asset has its own allowance; code retains the Phase C fence.
+// Only this licensed desktop-identical asset has its own allowance; code keeps its own fence.
 export const MOBILE_WEB_APP_TERMINAL_FONT_MAX_BYTES = 1200 * 1024
 const TERMINAL_FONT_SHA256 = '8efa6ba89f0a1f3eefde028f36aa64a13e36282e15ea0ca6929c664501037467'
 const TERMINAL_FONT_BYTES = 1_177_916
@@ -82,11 +79,11 @@ export const MOBILE_WEB_APP_BUNDLE_SCRIPT_SWEEP = [
   ['./h/[hostId]/new-workspace.tsx', 66],
   ['./h/[hostId]/pr/[worktreeId].tsx', 67],
   ['./h/[hostId]/resources.tsx', 74],
-  ['./h/[hostId]/review/[worktreeId].tsx', 88],
-  ['./h/[hostId]/session/[worktreeId].tsx', 103],
-  ['./h/[hostId]/source-control/[worktreeId].tsx', 110],
-  ['./h/[hostId]/tasks.tsx', 126],
-  ['./h/_layout.tsx', 130]
+  ['./h/[hostId]/review/[worktreeId].tsx', 80],
+  ['./h/[hostId]/session/[worktreeId].tsx', 95],
+  ['./h/[hostId]/source-control/[worktreeId].tsx', 104],
+  ['./h/[hostId]/tasks.tsx', 119],
+  ['./h/_layout.tsx', 123]
 ]
 
 const sweptScripts = MOBILE_WEB_APP_BUNDLE_SCRIPT_SWEEP.map(([, scripts]) => scripts)

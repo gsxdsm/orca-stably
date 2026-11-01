@@ -1818,7 +1818,6 @@
       },
       "file": {
         "preview": {
-          "pairedOutsideWorktree": "Просмотр файлов за пределами рабочего пространства пока недоступен на сопряжённом сервере.",
           "webClientUnavailable": "Просмотр документов недоступен в веб-клиенте."
         }
       },
@@ -20415,6 +20414,8 @@
         "unnamedSender": "агента",
         "messageFromCoordinator": "Сообщение от координатора",
         "startedWorker": "Исполнитель запущен",
+        "handedOffToAgent": "Передано агенту",
+        "startedAgent": "Агент запущен",
         "taskFromCoordinator": "Задача от координатора",
         "updateFromWorker": "Обновление от исполнителя"
       },
