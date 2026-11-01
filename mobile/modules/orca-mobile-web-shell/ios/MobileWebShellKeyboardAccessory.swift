@@ -30,6 +30,23 @@ func hideKeyboardAccessoryBar(of webView: WKWebView) {
   object_setClass(content, subclass)
 }
 
+/// Diagnostic: empty the shortcut bar before the first keyboard. The accessory subclass is unchanged.
+@discardableResult
+func clearInputAssistantItem(of webView: WKWebView) -> Bool {
+  webView.inputAssistantItem.leadingBarButtonGroups = []
+  webView.inputAssistantItem.trailingBarButtonGroups = []
+  guard
+    let content = webView.scrollView.subviews.first(where: {
+      String(describing: type(of: $0)).hasPrefix("WKContent")
+    })
+  else {
+    return false
+  }
+  content.inputAssistantItem.leadingBarButtonGroups = []
+  content.inputAssistantItem.trailingBarButtonGroups = []
+  return true
+}
+
 /// Suppress WebKit’s keyboard scrolling: the shell already reports the height used to lift the page.
 func ignoreKeyboardNotifications(in webView: WKWebView) {
   for name in [

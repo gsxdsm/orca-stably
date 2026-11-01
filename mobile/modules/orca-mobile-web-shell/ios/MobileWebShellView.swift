@@ -167,6 +167,7 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
   private var bridgeInstalled = false
   private var bridgeTarget = MobileWebShellBridgeTarget<WKFrameInfo>()
   private var webView: WKWebView!
+  private var assistantItemCleared = false
   private var generationDirectory = ""
   private var sessionId = ""
   private var applied: MobileWebShellAppliedProps?
@@ -199,6 +200,7 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
     webView.scrollView.contentInsetAdjustmentBehavior = .never
     hideKeyboardAccessoryBar(of: webView)
     ignoreKeyboardNotifications(in: webView)
+    assistantItemCleared = clearInputAssistantItem(of: webView)
     webView.translatesAutoresizingMaskIntoConstraints = false
     addSubview(webView)
     NSLayoutConstraint.activate([
@@ -493,7 +495,15 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
 
   /// history.replaceState changes the path before finish; finished() uses commit state instead of URL equality.
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+    // WKContent is absent at init, so the shortcut bar is cleared again once the document exists.
+    assistantItemCleared = clearInputAssistantItem(of: webView)
     emit(loadState.finished())
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    guard !assistantItemCleared, let shell = webView else { return }
+    assistantItemCleared = clearInputAssistantItem(of: shell)
   }
 
   func webView(
