@@ -31,6 +31,7 @@ import {
 } from './structured-agent-session-latest-request'
 import {
   isStructuredAgentSessionToolAction,
+  journalToolImageBlocks,
   structuredAgentSessionToolCallBlock
 } from './agent-session/structured-agent-session-tool-call-block'
 
@@ -103,7 +104,8 @@ function itemBlocks(item: AgentJournalRenderItem): {
                 isError: agentJournalToolCallLifecycle(body) === 'failed'
               }
             ]
-          : [])
+          : []),
+        ...journalToolImageBlocks(body.images)
       ]
     }
   }
