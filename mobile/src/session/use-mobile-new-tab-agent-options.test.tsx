@@ -47,7 +47,7 @@ function probes(client: { sendRequest: ReturnType<typeof vi.fn> }): unknown[] {
 
 function mountDrawer(
   hostId: string,
-  hostCapabilities = [PREFLIGHT_OTHER_RUNTIME_REFUSAL_RUNTIME_CAPABILITY]
+  hostCapabilities: string[] = [PREFLIGHT_OTHER_RUNTIME_REFUSAL_RUNTIME_CAPABILITY]
 ) {
   const setLoadState = vi.fn()
   const setOptions = vi.fn()
@@ -100,9 +100,15 @@ describe('useMobileNewTabAgentOptions', () => {
     const reply = Promise.withResolvers<RpcResponse>()
     const client = createClient({ agents: () => claude })
     client.sendRequest.mockImplementation(async (method: string) => {
-      if (method === 'agentSession.agents') return reply.promise
-      if (method === 'settings.get') return { ok: true, result: { settings: {} } }
-      if (method === 'preflight.detectAgents') return claude
+      if (method === 'agentSession.agents') {
+        return reply.promise
+      }
+      if (method === 'settings.get') {
+        return { ok: true, result: { settings: {} } }
+      }
+      if (method === 'preflight.detectAgents') {
+        return claude
+      }
       throw new Error(`unexpected request: ${method}`)
     })
     await drawer.render(client, true)
