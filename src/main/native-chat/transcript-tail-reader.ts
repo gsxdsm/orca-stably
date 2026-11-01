@@ -32,6 +32,7 @@ import {
   readTranscriptFile,
   transcriptFileStat
 } from './wsl-transcript-fs-access'
+import { appendNativeChatChildTranscripts as appendChildTranscripts } from './transcript-subagent-children'
 import { wslTranscriptFsRefusal } from './wsl-transcript-fs-gate'
 import { attachResolvedToolImages } from './tool-result-images'
 
@@ -298,6 +299,9 @@ export async function readNativeChatTranscriptTail(
       args.sourceOrder
     )
     signal?.throwIfAborted()
+    if (args.beforeOffset === undefined && args.limit > 0) {
+      result.messages = await appendChildTranscripts(filePath, decode, result.messages, signal)
+    }
     return {
       messages: result.messages,
       // Historical pages cannot rewind live lifecycle; only the current tail describes present turn state.
