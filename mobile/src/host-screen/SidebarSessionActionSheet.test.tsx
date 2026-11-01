@@ -118,6 +118,29 @@ describe('SidebarSessionActionSheet', () => {
     await act(async () => confirm[1].props.onPress())
     expect(onCloseSession).toHaveBeenCalledTimes(1)
   })
+
+  it('opens on the actions again after the confirm step is dismissed', async () => {
+    const session = sidebarSessionAction(worktree(), 'pane-1', 1)
+    const props = {
+      onDismiss: vi.fn(),
+      onOpen: vi.fn(),
+      onCloseSession: vi.fn()
+    }
+    await act(async () => {
+      renderer = create(createElement(SidebarSessionActionSheet, { session, ...props }))
+    })
+    const sheet = renderer!.root.find((node) => String(node.type) === 'ActionSheetContent')
+    await act(async () => sheet.props.actions[1].onPress())
+    await act(async () => {
+      renderer!.update(createElement(SidebarSessionActionSheet, { session: null, ...props }))
+    })
+    await act(async () => {
+      renderer!.update(createElement(SidebarSessionActionSheet, { session, ...props }))
+    })
+    expect(
+      renderer!.root.findAll((node) => String(node.type) === 'ActionSheetContent')
+    ).toHaveLength(1)
+  })
 })
 
 describe('clearClosedSidebarSession', () => {

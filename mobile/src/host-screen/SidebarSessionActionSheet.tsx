@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { ActionSheetContent } from '../components/ActionSheetModal'
 import { BottomDrawer } from '../components/BottomDrawer'
@@ -18,6 +18,12 @@ export function SidebarSessionActionSheet({ session, onDismiss, onOpen, onCloseS
   useMobileColorScheme()
   const sessionKey = session ? `${session.worktree.worktreeId}\0${session.paneKey}` : null
   const [phase, setPhase] = useState<{ key: string; closing: boolean } | null>(null)
+  // The drawer stays mounted, so a leftover confirm step would reopen on the next long-press.
+  useEffect(() => {
+    if (session === null) {
+      setPhase(null)
+    }
+  }, [session])
   const confirming = phase?.key === sessionKey && sessionKey !== null
   const closing = confirming && phase?.closing === true
   const confirmClose = () => {
