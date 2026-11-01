@@ -208,6 +208,12 @@
       "pending_other": "{{count}} pending"
     }
   },
+  "resources": {
+    "screen": {
+      "cores_one": "{{count}} core",
+      "cores_other": "{{count}} cores"
+    }
+  },
   "session": {
     "agentChildRow": {
       "days_one": "{{count}}d",
