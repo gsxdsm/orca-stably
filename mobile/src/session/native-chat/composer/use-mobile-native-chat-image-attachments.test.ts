@@ -268,6 +268,23 @@ describe('useMobileNativeChatImageAttachments', () => {
     }
   })
 
+  it('passes the Hermes startup budget through to the text send', async () => {
+    vi.useFakeTimers()
+    try {
+      const client = makeClient([])
+      const baseSend = vi.fn().mockResolvedValue('accepted')
+      // SAFETY: This test only uses the mocked sendRequest member.
+      mount(baseArgs({ client: client as unknown as RpcClient, agent: 'hermes', baseSend }))
+      const pressedAt = Date.now()
+      await act(async () => {
+        await hook!.sendNativeChat('hello')
+      })
+      expect(baseSend.mock.calls[0]?.[2]).toBe(pressedAt + 75_000)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it.each([
     ['empty', ''],
     ['whitespace-only', '   ']
