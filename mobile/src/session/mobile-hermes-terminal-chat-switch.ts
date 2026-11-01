@@ -33,14 +33,10 @@ async function openHermesChat(args: {
 }): Promise<MobileStructuredAgentLaunchResult> {
   const lock = chatLock()
   args.pendingSelectionRef.current = launchedSelection(lock, {}, null)
-  const created = await createMobileStructuredAgentSession(
-    args.client,
-    args.worktreeId,
-    'hermes',
-    args.providerSessionId
-      ? { resumeFrom: { providerSessionId: args.providerSessionId } }
-      : undefined
-  )
+  const created = await createMobileStructuredAgentSession(args.client, args.worktreeId, 'hermes', {
+    explicitChat: true,
+    ...(args.providerSessionId ? { resumeFrom: { providerSessionId: args.providerSessionId } } : {})
+  })
   if (created.kind !== 'created') {
     args.pendingSelectionRef.current = withoutUnansweredLaunch(
       args.pendingSelectionRef.current,

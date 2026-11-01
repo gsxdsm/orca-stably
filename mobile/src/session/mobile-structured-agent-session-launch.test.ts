@@ -38,6 +38,24 @@ const acceptedCreateResult = {
 const acceptedCreate = { ok: true, result: acceptedCreateResult }
 
 describe('mobile structured agent-session launch', () => {
+  it('creates an explicitly requested resumed chat without using the host launch preference', async () => {
+    const client = clientReturning(acceptedCreate)
+    const resumeFrom = { providerSessionId: '11111111-1111-4111-8111-111111111111' }
+
+    await expect(
+      createMobileStructuredAgentSession(client, 'workspace-1', 'hermes', {
+        explicitChat: true,
+        resumeFrom
+      })
+    ).resolves.toMatchObject({ kind: 'created' })
+    expect(client.sendRequest).toHaveBeenCalledTimes(1)
+    expect(client.sendRequest).toHaveBeenCalledWith(
+      'agentSession.create',
+      expect.objectContaining({ agent: 'hermes', resumeFrom }),
+      expect.anything()
+    )
+  })
+
   it.each([false, true])(
     'keeps the no-message startup fallback from the host (nested refusal %s)',
     async (nested) => {

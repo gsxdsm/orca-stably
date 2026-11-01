@@ -46,6 +46,7 @@ describe('switchMobileHermesTerminalToChat', () => {
       ...scope
     })
     expect(createMobileStructuredAgentSession).toHaveBeenCalledWith({}, 'workspace-1', 'hermes', {
+      explicitChat: true,
       resumeFrom: { providerSessionId: SESSION_ID }
     })
     expect(scope.closeTerminalTab).toHaveBeenCalledWith(terminalTab)
@@ -77,7 +78,7 @@ describe('switchMobileHermesTerminalToChat', () => {
       {},
       'workspace-1',
       'hermes',
-      undefined
+      { explicitChat: true }
     )
     expect(scope.closeTerminalTab).not.toHaveBeenCalled()
   })
@@ -115,12 +116,9 @@ describe('switchMobileHermesTerminalToChat', () => {
       terminalTab,
       ...scope
     })
-    expect(createMobileStructuredAgentSession).toHaveBeenCalledWith(
-      {},
-      'workspace-1',
-      'hermes',
-      undefined
-    )
+    expect(createMobileStructuredAgentSession).toHaveBeenCalledWith({}, 'workspace-1', 'hermes', {
+      explicitChat: true
+    })
     expect(scope.closeTerminalTab).not.toHaveBeenCalled()
   })
 
@@ -138,12 +136,9 @@ describe('switchMobileHermesTerminalToChat', () => {
       terminalTab,
       ...scope
     })
-    expect(createMobileStructuredAgentSession).toHaveBeenCalledWith(
-      {},
-      'workspace-1',
-      'hermes',
-      undefined
-    )
+    expect(createMobileStructuredAgentSession).toHaveBeenCalledWith({}, 'workspace-1', 'hermes', {
+      explicitChat: true
+    })
     expect(scope.closeTerminalTab).not.toHaveBeenCalled()
   })
 })

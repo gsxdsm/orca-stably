@@ -89,45 +89,48 @@ export async function createMobileStructuredAgentSession(
   client: RpcClient,
   worktreeId: string,
   agent: StructuredAgentId,
-  options?: { resumeFrom?: StructuredAgentSessionResumeSource }
+  options?: { resumeFrom?: StructuredAgentSessionResumeSource; explicitChat?: boolean }
 ): Promise<MobileStructuredAgentLaunchResult> {
   const worktree = `id:${worktreeId}`
-  let supportResponse
-  for (let attempt = 0; ; attempt += 1) {
-    try {
-      supportResponse = await structuredAgentSupportProbe.request(client, { worktree, agent })
-    } catch (error) {
+  // Legacy support probes apply the host's default even to an explicit phone choice.
+  if (!options?.explicitChat) {
+    let supportResponse
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        supportResponse = await structuredAgentSupportProbe.request(client, { worktree, agent })
+      } catch (error) {
+        const retryDelayMs = CREATE_SUPPORT_RETRY_DELAYS_MS[attempt]
+        if (
+          retryDelayMs === undefined ||
+          !hasRuntimeRpcErrorCode(error, SELECTOR_NOT_RESOLVABLE_CODE)
+        ) {
+          return { kind: 'unsupported' }
+        }
+        await delay(retryDelayMs)
+        continue
+      }
       const retryDelayMs = CREATE_SUPPORT_RETRY_DELAYS_MS[attempt]
       if (
-        retryDelayMs === undefined ||
-        !hasRuntimeRpcErrorCode(error, SELECTOR_NOT_RESOLVABLE_CODE)
+        retryDelayMs !== undefined &&
+        hasRuntimeRpcErrorCode(supportResponse, SELECTOR_NOT_RESOLVABLE_CODE)
       ) {
-        return { kind: 'unsupported' }
+        await delay(retryDelayMs)
+        continue
       }
-      await delay(retryDelayMs)
-      continue
+      break
     }
-    const retryDelayMs = CREATE_SUPPORT_RETRY_DELAYS_MS[attempt]
     if (
-      retryDelayMs !== undefined &&
-      hasRuntimeRpcErrorCode(supportResponse, SELECTOR_NOT_RESOLVABLE_CODE)
+      !supportResponse ||
+      typeof supportResponse !== 'object' ||
+      typeof supportResponse.ok !== 'boolean' ||
+      !supportResponse.ok
     ) {
-      await delay(retryDelayMs)
-      continue
+      return { kind: 'unsupported' }
     }
-    break
-  }
-  if (
-    !supportResponse ||
-    typeof supportResponse !== 'object' ||
-    typeof supportResponse.ok !== 'boolean' ||
-    !supportResponse.ok
-  ) {
-    return { kind: 'unsupported' }
-  }
-  const support = supportResponse.result as StructuredCreateSupport | null
-  if (!support || typeof support !== 'object' || support.supported !== true) {
-    return { kind: 'unsupported', reason: support?.reason }
+    const support = supportResponse.result as StructuredCreateSupport | null
+    if (!support || typeof support !== 'object' || support.supported !== true) {
+      return { kind: 'unsupported', reason: support?.reason }
+    }
   }
 
   const params = createParamsFor(agent, worktree, options?.resumeFrom)
