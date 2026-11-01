@@ -6,14 +6,16 @@ import { HOST_STACK_SCREENS, type HostStackAnimation } from './host-stack-screen
 
 export function HostStack({ animation }: { animation: HostStackAnimation }) {
   useMobileTranslation()
-  useMobileColorScheme()
+  const colorScheme = useMobileColorScheme()
   return (
     <Stack
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.bgBase },
         // Swap tablet detail panes instantly so slides cannot reveal the outgoing pane’s underlying screen; phones retain native slides.
-        animation
+        animation,
+        // The focused host screen is this stack, so it has to carry the same view-controller style as the root.
+        statusBarStyle: colorScheme === 'dark' ? 'light' : 'dark'
       }}
     >
       {HOST_STACK_SCREENS.map(({ name, title }) => (
