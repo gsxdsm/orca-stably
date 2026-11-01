@@ -68,6 +68,8 @@ import type { HostScopedWorktreeKey } from '../../../shared/worktree/host-qualif
 
 import { RuntimeConstructionServices } from './runtime-construction-services'
 
+type PtyLivenessObservation = { verdict: PtyLivenessVerdict; observedAt: number }
+
 export abstract class OrcaRuntimeWithRuntimeId extends RuntimeConstructionServices {
   protected abstract claimIdleShellPromptForPty(ptyId: string): Promise<boolean>
   protected readonly runtimeId = randomUUID()
@@ -390,10 +392,7 @@ export abstract class OrcaRuntimeWithRuntimeId extends RuntimeConstructionServic
 
   protected ptyController: RuntimePtyController | null = null
 
-  protected readonly ptyLivenessVerdictByPtyId = new Map<
-    string,
-    { verdict: PtyLivenessVerdict; observedAt: number }
-  >()
+  protected readonly ptyLivenessVerdictByPtyId = new Map<string, PtyLivenessObservation>()
 
   protected ptyLivenessObservationSequence = 0
 }
