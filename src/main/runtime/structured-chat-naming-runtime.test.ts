@@ -217,7 +217,7 @@ describe('structured chat naming runtime', () => {
 
   it.each(
     STRUCTURED_AGENT_RUNTIME_CATALOG.map(({ metadata }) => metadata.definition.agent).filter(
-      (agent) => agent !== 'pi' && agent !== 'omp' && agent !== 'hermes'
+      (agent) => agent !== 'pi' && agent !== 'omp'
     )
   )('names a %s chat with its own agent regardless of global selection', async (provider) => {
     const state = rig()
