@@ -2,28 +2,17 @@ import { ChevronLeft } from 'lucide-react-native'
 import { View, useWindowDimensions } from 'react-native'
 import { NavBarButton } from '../components/nav-bar/NavBarButton'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
+import { duoRailBackFrame } from '../layout/duo-status-row'
 import { useReservedRegions } from '../layout/reserved-regions'
-import { getSideRailStrip, type SideRailStrip } from '../layout/side-rail-strip'
+import { getSideRailStrip } from '../layout/side-rail-strip'
 import { useWindowSafeAreaInsets } from '../layout/side-safe-area'
-import { spacing } from '../theme/mobile-theme'
 import { duoRailBackVisible } from './duo-rail-back'
 import { useDuoChatExpanded } from './duo-chat-width'
 
 /**
- * Back sits at the top of the free status column. The cluster above that run is the system status,
- * and a collapsed chat still lays its composer across the bottom of the column.
+ * Back shares the status row (battery, wifi, Control Center) and sits on the content edge of that
+ * column, clear of the screen edge and camera. The free strip below stays open for the composer.
  */
-function slotStyle(strip: SideRailStrip) {
-  return {
-    position: 'absolute' as const,
-    top: strip.top,
-    height: strip.height,
-    width: strip.width,
-    alignItems: 'center' as const,
-    paddingTop: spacing.sm,
-    ...(strip.side === 'right' ? { right: 0 } : { left: 0 })
-  }
-}
 
 export function DuoRailBackButton({
   chatVisible,
@@ -46,12 +35,28 @@ export function DuoRailBackButton({
   if (!duoRailBackVisible({ chatVisible, expanded, strip }) || strip === null) {
     return null
   }
+  const frame = duoRailBackFrame({
+    windowWidth: width,
+    windowHeight: height,
+    strip,
+    occlusions
+  })
   return (
-    <View pointerEvents="box-none" style={slotStyle(strip)}>
+    <View
+      pointerEvents="box-none"
+      style={{
+        position: 'absolute',
+        top: frame.top,
+        left: frame.left,
+        width: frame.size,
+        height: frame.size
+      }}
+    >
       <NavBarButton
         accessibilityLabel={t('session.header.backToWorktrees', 'Back to worktrees')}
         icon={ChevronLeft}
         onPress={onBack}
+        size={frame.size}
       />
     </View>
   )
