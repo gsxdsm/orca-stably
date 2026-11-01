@@ -97,6 +97,9 @@ export async function createMobileStructuredAgentSession(
     try {
       supportResponse = await structuredAgentSupportProbe.request(client, { worktree, agent })
     } catch (error) {
+      if (agent === 'hermes') {
+        console.log('[hermes-diagnostic] createSupport exception', error instanceof Error ? error.name : typeof error)
+      }
       const retryDelayMs = CREATE_SUPPORT_RETRY_DELAYS_MS[attempt]
       if (
         retryDelayMs === undefined ||
@@ -116,6 +119,9 @@ export async function createMobileStructuredAgentSession(
       continue
     }
     break
+  }
+  if (agent === 'hermes') {
+    console.log('[hermes-diagnostic] createSupport response', JSON.stringify(supportResponse))
   }
   if (
     !supportResponse ||

@@ -46,6 +46,9 @@ export function mobileStructuredChatLaunchSurface(
   agent: string,
   context: MobileStructuredChatLaunchContext | null
 ): 'chat' | undefined {
+  if (agent === 'hermes') {
+    console.log('[hermes-diagnostic] launch decision', JSON.stringify(context))
+  }
   if (!context?.canRequestSurface || context.defaultView !== 'chat') {
     return undefined
   }
