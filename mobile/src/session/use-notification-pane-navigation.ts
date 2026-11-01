@@ -37,7 +37,10 @@ export function useNotificationPaneNavigation({
   const applied = useRef<string | null>(null)
   const sawLocalPane = useRef(false)
   // Shell init and the document route can both carry the opening pane. Apply the shell one once.
-  const suppressInitialLocal = useRef((opened ?? '') !== '' && localPaneKey !== '')
+  // A different document pane is its own request and must not be cleared in favor of the shell pane.
+  const suppressInitialLocal = useRef(
+    (opened ?? '') !== '' && localPaneKey !== '' && opened === localPaneKey
+  )
   const [asked, setAsked] = useState(0)
 
   useEffect(() => {

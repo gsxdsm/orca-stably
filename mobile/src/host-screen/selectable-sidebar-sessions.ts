@@ -74,9 +74,8 @@ async function reload(): Promise<void> {
     return
   }
   if (raw === null) {
-    const adopted = writeChain.then(() => adoptLegacy(loadRevision))
-    writeChain = adopted.catch(() => undefined)
-    await adopted
+    writeChain = writeChain.then(() => adoptLegacy(loadRevision)).catch(() => undefined)
+    await writeChain
     return
   }
   publish(raw === '1')

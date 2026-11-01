@@ -227,6 +227,21 @@ describe('the page pane hook', () => {
     expect(switched.map((tab) => tab.id)).toEqual(['second'])
     expect(setParams).toHaveBeenCalledWith({ paneKey: '' })
   })
+
+  it('applies the shell pane once when the document route names that same pane', () => {
+    bridge.route = { pathname: '/h/host-1/session/wt-1', params: { paneKey: `tab-b:${LEAF}` } }
+    routeParams.paneKey = `tab-b:${LEAF}`
+    render(true)
+    expect(switched.map((tab) => tab.id)).toEqual(['second'])
+    expect(setParams).toHaveBeenCalledWith({ paneKey: '' })
+  })
+
+  it('applies a document pane that differs from the shell pane', () => {
+    bridge.route = { pathname: '/h/host-1/session/wt-1', params: { paneKey: `tab-a:${LEAF}` } }
+    routeParams.paneKey = `tab-b:${LEAF}`
+    render(true)
+    expect(switched.map((tab) => tab.id)).toEqual(['second'])
+  })
 })
 
 it('opens a missing canonical native notification once, only after inventory loads', () => {

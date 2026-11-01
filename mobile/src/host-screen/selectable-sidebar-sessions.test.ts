@@ -122,4 +122,20 @@ describe('select sessions in the native shell', () => {
     expect(nativeStore.get(KEY)).toBe('1')
     expect(nativeStore.has(LEGACY_KEY)).toBe(false)
   })
+
+  it('stays readable when the legacy copy cannot be saved', async () => {
+    vi.resetModules()
+    vi.doMock('@react-native-async-storage/async-storage', () => ({
+      default: {
+        getItem: async (key: string) => (key === LEGACY_KEY ? '1' : null),
+        setItem: async () => {
+          throw new Error('disk')
+        },
+        removeItem: async () => {}
+      }
+    }))
+    const pref = await import('./selectable-sidebar-sessions')
+    const view = await mount(pref)
+    expect(view.read()).toBe(false)
+  })
 })
