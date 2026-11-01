@@ -12,6 +12,9 @@ import {
 } from './MobileNativeChatView.render-stubs.test-fixture'
 
 vi.mock('../components/DragReorderList', () => ({ DragReorderList: 'DragReorderList' }))
+vi.mock('./native-chat/input/MobileNativeChatActivityBar', () => ({
+  MobileNativeChatActivityBar: () => null
+}))
 vi.mock('react-native-reanimated', async () => {
   const { useRef } = await import('react')
   return {

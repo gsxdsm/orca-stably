@@ -23,6 +23,9 @@ import { useMobileNativeChatDrafts } from './native-chat/composer/use-mobile-nat
 import type { MobileNativeChatController } from './mobile-native-chat-controller-contract'
 import { useMobileStructuredAgentSession } from './use-mobile-structured-agent-session'
 
+vi.mock('./native-chat/input/MobileNativeChatActivityBar', () => ({
+  MobileNativeChatActivityBar: () => null
+}))
 vi.mock('@react-native-async-storage/async-storage', () => ({
   default: { getItem: vi.fn(async () => null), setItem: vi.fn(), removeItem: vi.fn() }
 }))

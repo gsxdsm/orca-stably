@@ -1,5 +1,9 @@
 import { vi } from 'vitest'
 
+vi.mock('../native-chat/input/MobileNativeChatActivityBar', () => ({
+  MobileNativeChatActivityBar: () => null
+}))
+
 vi.mock('react-native', async () => {
   const React = await import('react')
   return {

@@ -21,6 +21,9 @@ import { stubRpcClient } from '../transport/rpc-client-test-stub'
 import { MobileNativeChatView } from './MobileNativeChatView'
 import { MobileNativeChatRowContent } from './native-chat/transcript/MobileNativeChatRowItemSource'
 
+vi.mock('./native-chat/input/MobileNativeChatActivityBar', () => ({
+  MobileNativeChatActivityBar: () => null
+}))
 vi.mock('react-native', async () => ({
   ActivityIndicator: 'ActivityIndicator',
   ScrollView: 'ScrollView',
