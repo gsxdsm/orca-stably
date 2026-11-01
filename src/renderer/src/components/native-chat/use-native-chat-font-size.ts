@@ -11,6 +11,15 @@ import { addAppKeyListener, removeAppKeyListener } from '@/lib/app-keyboard-rout
 const PINCH_STEP_DELTA = 12
 const PINCH_IDLE_RESET_MS = 250
 
+export function useChatFontPinch(
+  focused: boolean,
+  visible: boolean,
+  ready: boolean,
+  rootRef?: RefObject<HTMLDivElement | null>
+): void {
+  useNativeChatFontSize(focused, rootRef, ready && visible)
+}
+
 export function useNativeChatFontSize(
   focused: boolean,
   rootRef?: RefObject<HTMLDivElement | null>,
