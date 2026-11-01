@@ -14,7 +14,8 @@ import type { NativeChatLiveSession } from './use-native-chat-live-session'
 import { useNativeChatTranscriptProjection } from './use-native-chat-transcript-projection'
 import { desktopStructuredTranscript } from './structured-agent-session-message-projection'
 import { nativeChatTaskListPredecessors } from '../../../../shared/native-chat/input/native-chat-task-list-history'
-import { NativeChatDockedTaskList } from './NativeChatDockedTaskList'
+import { NativeChatActivityBar } from './NativeChatActivityBar'
+import { useNativeChatSubagentTranscript } from './use-native-chat-subagent-transcript'
 import { useNativeChatTurnStatus } from './use-native-chat-turn-status'
 import { NativeChatAwaitingInputRow } from './NativeChatAwaitingInputRow'
 import type { RuntimeFileOperationArgs } from '@/runtime/runtime-file-client-types'
@@ -154,21 +155,36 @@ export function NativeChatMessageList({
     journalSubmissions,
     latestTurn
   )
+  const view = useNativeChatSubagentTranscript({
+    sessionId: session.sessionId,
+    messages,
+    subagentRows,
+    subagentRoster,
+    isWorking,
+    awaitingInput,
+    stopping,
+    activityText: turnActivity?.text,
+    lifecycleWorking: session.transcriptLifecycle?.state === 'working'
+  })
   const {
     sections: subagentSections,
     subagentRowsInOrder,
     subagentChoices,
     subagentDisclosure,
     openSubagentSections
-  } = useNativeChatSubagentSections(messages, subagentRows, subagentRoster)
+  } = useNativeChatSubagentSections(view.transcriptMessages, view.sectionRows, view.sectionRoster)
   // Folded subagent rows stay loaded, so a reopened reply keeps its reveal.
   const loadedMessageIds = useMemo(
-    () => new Set([...messages.map(({ id }) => id), ...subagentSections.pathOf.keys()]),
-    [messages, subagentSections]
+    () =>
+      new Set([...view.transcriptMessages.map(({ id }) => id), ...subagentSections.pathOf.keys()]),
+    [view.transcriptMessages, subagentSections]
   )
-  const taskListPredecessors = useMemo(() => nativeChatTaskListPredecessors(messages), [messages])
+  const taskListPredecessors = useMemo(
+    () => nativeChatTaskListPredecessors(view.transcriptMessages),
+    [view.transcriptMessages]
+  )
   const turnRows = useNativeChatTurnMembership(
-    messages,
+    view.transcriptMessages,
     journalItems,
     journalSubmissions,
     latestTurn
@@ -183,14 +199,13 @@ export function NativeChatMessageList({
   const turnStatuses = useNativeChatTurnStatus({
     turnKeys,
     liveTurnKey,
-    isWorking,
+    isWorking: view.shownWorking,
     workingStartedAt,
     settledTurns,
     thinking
   })
   // Only unshown prompts need a waiting tail row; prompt cards explain their own wait.
-  const tailRow = transcriptTailRow(isWorking, awaitingInput)
-  const lifecycleWorking = session.transcriptLifecycle?.state === 'working'
+  const tailRow = transcriptTailRow(view.shownWorking, view.shownAwaitingInput)
   const { measureContent, typography } = useNativeChatRowTypography(contentRef)
   const { slots: allSlots, liveLine } = useNativeChatTranscriptSlots({
     typography,
@@ -202,15 +217,15 @@ export function NativeChatMessageList({
     turnStatuses,
     turnDiffs,
     expandedTurnKeys: expandedTurnIds,
-    isWorking,
-    lifecycleWorking,
+    isWorking: view.shownWorking,
+    lifecycleWorking: view.shownLifecycleWorking,
     subagentSections,
     subagentChoices,
     line: {
       draws: tailRow === 'activity',
       thinking: turnStatuses.active?.thinking === true,
-      stopping,
-      activityText: turnActivity?.text
+      stopping: view.shownStopping,
+      activityText: view.shownActivityText
     }
   })
   // A message waiting behind the live turn draws after that turn's live activity, not inside it.
@@ -219,11 +234,11 @@ export function NativeChatMessageList({
       splitNativeChatSlotsWaitingBehindLiveTurn(
         allSlots,
         journalItems,
-        stopping,
+        view.shownStopping,
         journalSubmissions,
         { latestTurn, ...hostWork }
       ),
-    [allSlots, journalItems, stopping, journalSubmissions, latestTurn, hostWork]
+    [allSlots, journalItems, view.shownStopping, journalSubmissions, latestTurn, hostWork]
   )
   const transcriptWindow = useNativeChatTranscriptWindow({
     scrollRef,
@@ -237,7 +252,7 @@ export function NativeChatMessageList({
     scrollRef,
     contentRef,
     itemCount: slots.length,
-    isWorking,
+    isWorking: view.shownWorking,
     showsTailRow: tailRow !== null,
     isVisible,
     alignToViewportTop: transcriptWindow.alignToViewportTop,
@@ -414,7 +429,7 @@ export function NativeChatMessageList({
           />
           <NativeChatJumpToLatest visible={showJump} onJump={jumpToLatest} />
         </div>
-        <NativeChatDockedTaskList key={session.sessionId} messages={messages} />
+        <NativeChatActivityBar key={session.sessionId} {...view.activity} />
       </div>
     </NativeChatDisclosureContext.Provider>
   )
