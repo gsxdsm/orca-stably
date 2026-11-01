@@ -100,11 +100,25 @@ export const STRUCTURED_AGENT_SESSION_METHODS = [
     permission: 'workspace',
     params: CreateSupportParams,
     handler: async (params, ctx) => {
-      requireStructuredCreateSupportAdmission(ctx, params.agent)
+      try {
+        requireStructuredCreateSupportAdmission(ctx, params.agent)
+      } catch (error) {
+        if (params.agent === 'hermes') {
+          console.log('[hermes-diagnostic] createSupport admission refused', {
+            clientKind: ctx.clientKind,
+            clientCapabilities: ctx.clientCapabilities,
+            error: String(error)
+          })
+        }
+        throw error
+      }
       const support = await ctx.runtime.getStructuredAgentSessionCreateSupport(
         params.worktree,
         params.agent
       )
+      if (params.agent === 'hermes') {
+        console.log('[hermes-diagnostic] createSupport result', support)
+      }
       // Optional: older clients ignore it, and a client seeds its picker with what create will use.
       const seedOptions = support.supported
         ? ctx.runtime.structuredAgentSessionLaunchSeedOptions(params.agent)
