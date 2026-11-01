@@ -28,7 +28,10 @@ import { useMobileTranslation } from '../../../i18n/use-mobile-translation'
 import { nativeChatHostStatusCopy } from './native-chat-notice-copy'
 import { pressedStyle } from '../../../theme/mobile-theme'
 import { routeNativeChatHref } from '../../../../../src/shared/native-chat/native-chat-href-routing'
-import { isRuntimePathAbsolute } from '../../../../../src/shared/cross-platform-path'
+import {
+  isRuntimePathAbsolute,
+  isWindowsAbsolutePathLike
+} from '../../../../../src/shared/cross-platform-path'
 import { isRasterImagePath } from '../../../../../src/shared/file-preview-kind'
 import { isKnownRasterImageMimeType } from '../../../../../src/shared/raster-image-preview-limits'
 import { isSvgFilePath } from '../../../../../src/shared/svg-document'
@@ -43,7 +46,18 @@ function markdownImageBlock(href: string, alt: string): NativeChatImageRefBlock 
       ? { type: 'image-ref', url: source, ...label }
       : null
   }
-  const route = routeNativeChatHref(source)
+  let route = routeNativeChatHref(source)
+  if (route.kind === 'none') {
+    // Markdown percent-encodes backslashes, so C:\shot.png arrives as C:%5Cshot.png.
+    try {
+      const decoded = decodeURIComponent(source)
+      if (decoded !== source && isWindowsAbsolutePathLike(decoded)) {
+        route = routeNativeChatHref(decoded)
+      }
+    } catch {
+      // A broken escape stays unclassified.
+    }
+  }
   if (route.kind === 'web') {
     return /^https:/i.test(route.url) && !isSvgFilePath(route.url.split(/[?#]/, 1)[0] ?? '')
       ? { type: 'image-ref', url: route.url, ...label }
