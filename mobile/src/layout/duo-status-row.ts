@@ -76,15 +76,6 @@ function glyphCenter(column: ReservedRect, occlusions: readonly ReservedRect[]):
   return mark === null ? null : mark.y + mark.height / 2
 }
 
-function intersects(frame: DuoRailControlFrame, region: ReservedRect): boolean {
-  return (
-    frame.left < region.x + region.width &&
-    frame.left + frame.size > region.x &&
-    frame.top < region.y + region.height &&
-    frame.top + frame.size > region.y
-  )
-}
-
 /** Vertical center of the battery, wifi and Control Center row, in window points. */
 export function duoStatusRowCenter(args: RowArgs): number {
   const column = statusColumn(args)
@@ -96,24 +87,28 @@ export function duoStatusRowCenter(args: RowArgs): number {
   return fromTop ? STATUS_ROW_CENTER_FROM_EDGE : args.windowHeight - STATUS_ROW_CENTER_FROM_EDGE
 }
 
-/** On the status row, at the column's content edge. The cover camera fills that edge, so the control steps just below the cutout. */
+/**
+ * Below the reported status occlusion, on the content edge of the column.
+ * A column that touches the bottom clears upward, toward the content.
+ */
 export function duoRailBackFrame(args: RowArgs): DuoRailControlFrame {
   const size = DUO_RAIL_CONTROL_SIZE
   const left =
     args.strip.side === 'right'
       ? args.windowWidth - args.strip.width + spacing.sm
       : args.strip.width - spacing.sm - size
-  const frame = { top: duoStatusRowCenter(args) - size / 2, left, size }
   const column = statusColumn(args)
-  const glyph = column === null ? null : statusGlyph(column, args.occlusions)
-  if (column === null || glyph === null || !intersects(frame, glyph)) {
-    return frame
+  const fromTop = column !== null ? column.y <= 1 : args.strip.top > 1
+  const occludedEdge = statusOcclusionEdge(args, column, fromTop)
+  const top = fromTop ? occludedEdge + spacing.sm : occludedEdge - spacing.sm - size
+  return { top, left, size }
+}
+
+function statusOcclusionEdge(args: RowArgs, column: ReservedRect | null, fromTop: boolean): number {
+  if (column !== null) {
+    return fromTop ? column.y + column.height : column.y
   }
-  const fromTop = column.y <= 1
-  return {
-    ...frame,
-    top: fromTop ? glyph.y + glyph.height + spacing.sm : glyph.y - spacing.sm - size
-  }
+  return fromTop ? args.strip.top : args.windowHeight - args.strip.bottom
 }
 
 export type DuoImageCloseFrame = {

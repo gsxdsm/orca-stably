@@ -2,11 +2,7 @@ import { createElement, type ReactElement } from 'react'
 import { Pressable } from 'react-native'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  DUO_RAIL_CONTROL_SIZE,
-  DUO_STATUS_GLYPH_FROM_EDGE,
-  DUO_STATUS_GLYPH_SIZE
-} from '../layout/duo-status-row'
+import { DUO_RAIL_CONTROL_SIZE } from '../layout/duo-status-row'
 import { getSideRailStrip } from '../layout/side-rail-strip'
 import { spacing } from '../theme/mobile-theme'
 import { DuoRailBackButton } from './DuoRailBackButton'
@@ -104,9 +100,9 @@ describe('the Duo rail back button', () => {
     const collapsed = mount(createElement(DuoRailBackButton, { chatVisible: true, onBack }))
     const button = backs(collapsed)
     expect(button).toHaveLength(1)
-    const rowCenter = DUO_STATUS_GLYPH_FROM_EDGE + DUO_STATUS_GLYPH_SIZE / 2
+    const column = RIGHT_RAIL.occlusions[0]!
     expect(railSlot(collapsed)?.props.style).toMatchObject({
-      top: rowCenter - DUO_RAIL_CONTROL_SIZE / 2,
+      top: column.y + column.height + spacing.sm,
       left: RIGHT_RAIL.windowWidth - 84 + spacing.sm,
       width: DUO_RAIL_CONTROL_SIZE,
       height: DUO_RAIL_CONTROL_SIZE
@@ -145,36 +141,39 @@ describe('the Duo rail back button', () => {
 
   it('follows the rail to the left and keeps the header chevron', () => {
     scene.insets = { top: 0, right: 0, bottom: 34, left: 84 }
-    scene.occlusions = [{ x: 0, y: 545, width: 84, height: 124 }]
+    const occlusion = { x: 0, y: 545, width: 84, height: 124 }
+    scene.occlusions = [occlusion]
     const left = mount(createElement(DuoRailBackButton, { chatVisible: true, onBack: vi.fn() }))
     expect(railSlot(left)?.props.style).toMatchObject({
       left: 84 - spacing.sm - DUO_RAIL_CONTROL_SIZE,
       width: DUO_RAIL_CONTROL_SIZE,
-      top:
-        scene.height -
-        (DUO_STATUS_GLYPH_FROM_EDGE + DUO_STATUS_GLYPH_SIZE / 2) -
-        DUO_RAIL_CONTROL_SIZE / 2
+      top: occlusion.y - spacing.sm - DUO_RAIL_CONTROL_SIZE
     })
     expect(left.root.findAll((node) => hostNamed(node.type, 'ChevronLeft'))).toHaveLength(1)
   })
 
-  it('steps below the cover camera instead of covering it', () => {
+  it('sits below the cover status occlusion instead of under the camera', () => {
     const glyph = { x: 399.67, y: 29.33, width: 37, height: 37 }
+    const column = { x: 382, y: 0, width: 84, height: 174 }
     scene.width = 466
     scene.height = 678
     scene.insets = { top: 0, right: 84, bottom: 34, left: 0 }
-    scene.occlusions = [glyph, { x: 382, y: 0, width: 84, height: 174 }]
+    scene.occlusions = [glyph, column]
     const cover = mount(createElement(DuoRailBackButton, { chatVisible: true, onBack: vi.fn() }))
     const slot = railSlot(cover)?.props.style
     expect(slot).toMatchObject({
-      top: glyph.y + glyph.height + spacing.sm,
+      top: column.y + column.height + spacing.sm,
       left: 466 - 84 + spacing.sm,
       width: DUO_RAIL_CONTROL_SIZE,
       height: DUO_RAIL_CONTROL_SIZE
     })
-    expect(slot.top).toBeGreaterThanOrEqual(glyph.y + glyph.height)
-    expect(slot.left + slot.width).toBeLessThanOrEqual(glyph.x + glyph.width)
-    expect(slot.top + slot.height <= glyph.y || slot.top >= glyph.y + glyph.height).toBe(true)
+    const misses = (region: { x: number; y: number; width: number; height: number }) =>
+      slot.left + slot.width <= region.x ||
+      slot.left >= region.x + region.width ||
+      slot.top + slot.height <= region.y ||
+      slot.top >= region.y + region.height
+    expect(misses(column)).toBe(true)
+    expect(misses(glyph)).toBe(true)
   })
 
   it('presses through the page Back claim, and the session back when the page cannot', () => {
