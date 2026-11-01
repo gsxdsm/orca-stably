@@ -112,7 +112,9 @@ export function useMobileNativeChatMessageSend(args: {
           ? acceptSend(origin, text, images, true)
           : undefined
       const discardOptimistic = () => {
-        if (optimisticId) discardPendingSend?.(optimisticId)
+        if (optimisticId) {
+          discardPendingSend?.(optimisticId)
+        }
       }
       // Heal orphaned input before clearing draft; failed heals preserve typing, and heal/text spend the same action deadline.
       const deadline = sharedDeadline ?? openMobileNativeChatSendBudget(agent)
@@ -200,7 +202,9 @@ export function useMobileNativeChatMessageSend(args: {
         return 'rejected'
       }
       if (classification === 'chat') {
-        if (!optimisticId) acceptSend(origin, text, images)
+        if (!optimisticId) {
+          acceptSend(origin, text, images)
+        }
       } else if (recordControlSend) {
         // The session-option catalog can recognize controls omitted from the
         // autocomplete catalog (for example Claude `/model` and `/fast`).
