@@ -3,7 +3,7 @@ import { registerPushDismissalTask } from '../src/notifications/push-background-
 import { readNativeNotificationData } from '../src/notifications/native-notification-data'
 import { setNotificationViewingWorkspace } from '../src/notifications/notification-viewing-policy'
 import { useCallback, useEffect } from 'react'
-import { View } from 'react-native'
+import { Platform, View } from 'react-native'
 import { Stack, useGlobalSearchParams, usePathname } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import * as SplashScreen from 'expo-splash-screen'
@@ -183,7 +183,9 @@ export default function RootLayout() {
   return (
     <RpcClientProvider>
       <View style={styles.root} onLayout={onNavigatorLayout}>
-        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        {Platform.OS === 'ios' ? null : (
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        )}
         <SideRailProvider>
           <SideSafeArea>
             <Stack
@@ -192,7 +194,9 @@ export default function RootLayout() {
                 headerTintColor: colors.textPrimary,
                 headerTitleStyle: { fontSize: 16, fontWeight: '600' },
                 contentStyle: { backgroundColor: colors.bgBase },
-                headerShadowVisible: false
+                headerShadowVisible: false,
+                // iOS: screens applies this per view controller. RN StatusBar no-ops once the plist key is true.
+                statusBarStyle: colorScheme === 'dark' ? 'light' : 'dark'
                 // Leave orientation unset: react-native-screens overrides rotation lock even for default; Android manifest fullUser honors the user’s setting.
               }}
             >

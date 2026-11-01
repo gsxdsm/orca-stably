@@ -35,6 +35,7 @@ vi.mock('react-native', () => ({
   Text: 'Text',
   View: 'View',
   Pressable: 'Pressable',
+  Platform: { OS: 'ios' },
   StyleSheet: { create: (styles: unknown) => styles }
 }))
 vi.mock('expo-linking', () => ({
