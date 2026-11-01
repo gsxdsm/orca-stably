@@ -273,7 +273,8 @@ describe('useMobileNativeChatImageAttachments', () => {
     try {
       const client = makeClient([])
       const baseSend = vi.fn().mockResolvedValue('accepted')
-      mount(baseArgs({ client: client as RpcClient, agent: 'hermes', baseSend }))
+      // SAFETY: This test only uses the mocked sendRequest member.
+      mount(baseArgs({ client: client as unknown as RpcClient, agent: 'hermes', baseSend }))
       const pressedAt = Date.now()
       await act(async () => {
         await hook!.sendNativeChat('hello')
