@@ -83,6 +83,7 @@ describe('SidebarSessionActionSheet', () => {
     expect(session.label).toBe('Fix the list')
     const sheet = renderer!.root.find((node) => String(node.type) === 'ActionSheetContent')
     expect(sheet.props.title).toBe('Fix the list')
+    expect(sheet.props.titleLines).toBe(2)
     expect(sheet.props.actions.map((action: { id: string }) => action.id)).toEqual([
       'open',
       'close'
@@ -91,6 +92,7 @@ describe('SidebarSessionActionSheet', () => {
       'Open Fix the list',
       'Close'
     ])
+    expect(sheet.props.actions[0].lines).toBe(2)
 
     await act(async () => sheet.props.actions[0].onPress())
     expect(onOpen).toHaveBeenCalledWith(session)
@@ -103,6 +105,12 @@ describe('SidebarSessionActionSheet', () => {
       .findAll((node) => String(node.type) === 'Text')
       .map((node) => node.props.children)
     expect(texts).toContain('Close "Fix the list"?')
+    const confirmMessage = renderer!.root.find(
+      (node) =>
+        String(node.type) === 'Text' &&
+        String(node.props.children).includes('Close "Fix the list"?')
+    )
+    expect(confirmMessage.props.numberOfLines).toBe(2)
 
     const confirm = renderer!.root.findAll((node) => String(node.type) === 'Pressable')
     await act(async () => confirm[1].props.onPress())
