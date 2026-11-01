@@ -158,6 +158,25 @@ describe('the Duo rail back button', () => {
     expect(left.root.findAll((node) => hostNamed(node.type, 'ChevronLeft'))).toHaveLength(1)
   })
 
+  it('steps below the cover camera instead of covering it', () => {
+    const glyph = { x: 399.67, y: 29.33, width: 37, height: 37 }
+    scene.width = 466
+    scene.height = 678
+    scene.insets = { top: 0, right: 84, bottom: 34, left: 0 }
+    scene.occlusions = [glyph, { x: 382, y: 0, width: 84, height: 174 }]
+    const cover = mount(createElement(DuoRailBackButton, { chatVisible: true, onBack: vi.fn() }))
+    const slot = railSlot(cover)?.props.style
+    expect(slot).toMatchObject({
+      top: glyph.y + glyph.height + spacing.sm,
+      left: 466 - 84 + spacing.sm,
+      width: DUO_RAIL_CONTROL_SIZE,
+      height: DUO_RAIL_CONTROL_SIZE
+    })
+    expect(slot.top).toBeGreaterThanOrEqual(glyph.y + glyph.height)
+    expect(slot.left + slot.width).toBeLessThanOrEqual(glyph.x + glyph.width)
+    expect(slot.top + slot.height <= glyph.y || slot.top >= glyph.y + glyph.height).toBe(true)
+  })
+
   it('presses through the page Back claim, and the session back when the page cannot', () => {
     const nativeBack = vi.fn()
     const pageBack = vi.fn(() => true)

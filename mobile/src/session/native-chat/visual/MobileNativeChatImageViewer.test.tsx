@@ -98,8 +98,8 @@ describe('MobileNativeChatImageViewer close button', () => {
     const style = closeStyle()
     const rowTop =
       DUO_STATUS_GLYPH_FROM_EDGE + DUO_STATUS_GLYPH_SIZE / 2 - DUO_RAIL_CONTROL_SIZE / 2
-    expect(style.top).toBe(rowTop)
-    expect(style.left).toBe(spacing.lg)
+    expect(style.top).toBe(rowTop + spacing.sm)
+    expect(style.left).toBe(spacing.lg + spacing.sm)
     expect(style.width).toBe(DUO_RAIL_CONTROL_SIZE)
     expect(style.height).toBe(DUO_RAIL_CONTROL_SIZE)
     expect((style.left ?? 0) + (style.width ?? 0)).toBeLessThan(951 - 84)
@@ -115,5 +115,27 @@ describe('MobileNativeChatImageViewer close button', () => {
     expect(style.left).toBe(47 + spacing.lg)
     expect(style.top).toBe(12 + spacing.sm)
     expect(style.width).toBeUndefined()
+  })
+
+  it('stays off the cover camera, the status column, and the corner', () => {
+    const glyph = { x: 399.67, y: 29.33, width: 37, height: 37 }
+    scene.width = 466
+    scene.height = 678
+    scene.insets = { top: 0, right: 84, bottom: 34, left: 0 }
+    scene.occlusions = [glyph, { x: 382, y: 0, width: 84, height: 174 }]
+    const style = closeStyle()
+    const rowTop = glyph.y + glyph.height / 2 - DUO_RAIL_CONTROL_SIZE / 2
+    expect(style.top).toBe(rowTop + spacing.sm)
+    expect(style.left).toBe(spacing.lg + spacing.sm)
+    expect(style.width).toBe(DUO_RAIL_CONTROL_SIZE)
+    const right = (style.left ?? 0) + (style.width ?? 0)
+    const bottom = (style.top ?? 0) + (style.height ?? 0)
+    expect(right).toBeLessThan(382)
+    const hitsGlyph =
+      (style.left ?? 0) < glyph.x + glyph.width &&
+      right > glyph.x &&
+      (style.top ?? 0) < glyph.y + glyph.height &&
+      bottom > glyph.y
+    expect(hitsGlyph).toBe(false)
   })
 })

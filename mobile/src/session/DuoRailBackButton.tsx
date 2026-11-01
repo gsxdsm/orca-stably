@@ -10,8 +10,8 @@ import { duoRailBackVisible } from './duo-rail-back'
 import { useDuoChatExpanded } from './duo-chat-width'
 
 /**
- * Back shares the status row (battery, wifi, Control Center) and sits on the content edge of that
- * column, clear of the screen edge and camera. The free strip below stays open for the composer.
+ * Back shares the status row and sits on the content edge of that column. On the cover the camera
+ * fills that edge, so the control steps just below the cutout. The free strip stays open.
  */
 
 export function DuoRailBackButton({

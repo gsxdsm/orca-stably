@@ -40,7 +40,10 @@ function statusColumn(args: RowArgs): ReservedRect | null {
   )
 }
 
-function glyphCenter(column: ReservedRect, occlusions: readonly ReservedRect[]): number | null {
+function statusGlyph(
+  column: ReservedRect,
+  occlusions: readonly ReservedRect[]
+): ReservedRect | null {
   const fromTop = column.y <= 1
   let mark: ReservedRect | null = null
   for (const region of occlusions) {
@@ -65,7 +68,21 @@ function glyphCenter(column: ReservedRect, occlusions: readonly ReservedRect[]):
       mark = region
     }
   }
+  return mark
+}
+
+function glyphCenter(column: ReservedRect, occlusions: readonly ReservedRect[]): number | null {
+  const mark = statusGlyph(column, occlusions)
   return mark === null ? null : mark.y + mark.height / 2
+}
+
+function intersects(frame: DuoRailControlFrame, region: ReservedRect): boolean {
+  return (
+    frame.left < region.x + region.width &&
+    frame.left + frame.size > region.x &&
+    frame.top < region.y + region.height &&
+    frame.top + frame.size > region.y
+  )
 }
 
 /** Vertical center of the battery, wifi and Control Center row, in window points. */
@@ -79,14 +96,24 @@ export function duoStatusRowCenter(args: RowArgs): number {
   return fromTop ? STATUS_ROW_CENTER_FROM_EDGE : args.windowHeight - STATUS_ROW_CENTER_FROM_EDGE
 }
 
-/** The rail control, on the status row and against the content edge of the column. */
+/** On the status row, at the column's content edge. The cover camera fills that edge, so the control steps just below the cutout. */
 export function duoRailBackFrame(args: RowArgs): DuoRailControlFrame {
   const size = DUO_RAIL_CONTROL_SIZE
   const left =
     args.strip.side === 'right'
       ? args.windowWidth - args.strip.width + spacing.sm
       : args.strip.width - spacing.sm - size
-  return { top: duoStatusRowCenter(args) - size / 2, left, size }
+  const frame = { top: duoStatusRowCenter(args) - size / 2, left, size }
+  const column = statusColumn(args)
+  const glyph = column === null ? null : statusGlyph(column, args.occlusions)
+  if (column === null || glyph === null || !intersects(frame, glyph)) {
+    return frame
+  }
+  const fromTop = column.y <= 1
+  return {
+    ...frame,
+    top: fromTop ? glyph.y + glyph.height + spacing.sm : glyph.y - spacing.sm - size
+  }
 }
 
 export type DuoImageCloseFrame = {
@@ -96,7 +123,7 @@ export type DuoImageCloseFrame = {
   size: number | null
 }
 
-/** Phone: below the status bar, on the left. Duo: the same status row as the rail, clear of the column. */
+/** Phone: below the status bar, on the left. Duo: the status row, a step off the corner and clear of the column. */
 export function duoImageCloseFrame(args: {
   windowWidth: number
   windowHeight: number
@@ -111,12 +138,14 @@ export function duoImageCloseFrame(args: {
       size: null
     }
   }
-  const row = duoRailBackFrame({ ...args, strip })
-  let left = args.insets.left + spacing.lg
+  const center = duoStatusRowCenter({ ...args, strip })
+  const fromTop = center < args.windowHeight / 2
+  const top = center - DUO_RAIL_CONTROL_SIZE / 2 + (fromTop ? spacing.sm : -spacing.sm)
+  let left = args.insets.left + spacing.lg + spacing.sm
   if (strip.side === 'left') {
-    left = Math.max(left, strip.width + spacing.lg)
+    left = Math.max(left, strip.width + spacing.lg + spacing.sm)
   } else if (left + DUO_RAIL_CONTROL_SIZE > args.windowWidth - strip.width - spacing.sm) {
     left = args.windowWidth - strip.width - spacing.sm - DUO_RAIL_CONTROL_SIZE
   }
-  return { top: row.top, left, size: DUO_RAIL_CONTROL_SIZE }
+  return { top, left, size: DUO_RAIL_CONTROL_SIZE }
 }
