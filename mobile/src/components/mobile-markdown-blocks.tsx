@@ -131,7 +131,6 @@ function renderTable(node: Table, key: number, ctx: MarkdownBlockContext): React
   )
 }
 
-<<<<<<< HEAD
 function isBlankInline(node: PhrasingContent): boolean {
   return node.type === 'break' || (node.type === 'text' && node.value.trim() === '')
 }
@@ -202,57 +201,6 @@ function trimRunEdges(run: PhrasingContent[]): PhrasingContent[] {
     trimmed[trimmed.length - 1] = { ...last, value: last.value.trimEnd() }
   }
   return trimmed
-=======
-function isBlankPhrase(node: PhrasingContent): boolean {
-  return node.type === 'break' || (node.type === 'text' && node.value.trim() === '')
-}
-
-// Consecutive screenshots are one paragraph. The inline image fallback is a link, and a thumbnail cannot sit inside that text.
-function renderParagraphImages(
-  children: readonly PhrasingContent[],
-  ctx: MarkdownBlockContext,
-  text: ParagraphText,
-  key: number
-): ReactNode | null {
-  if (!ctx.renderImage || !children.some((child) => child.type === 'image')) {
-    return null
-  }
-  const parts: ReactNode[] = []
-  let inline: PhrasingContent[] = []
-  let renderedImage = false
-  const flush = (): void => {
-    if (inline.every(isBlankPhrase)) {
-      inline = []
-      return
-    }
-    parts.push(
-      <MarkdownText
-        key={`${key}:text:${parts.length}`}
-        selectable={text.selectable}
-        style={text.style}
-      >
-        {renderInline(inline, ctx)}
-      </MarkdownText>
-    )
-    inline = []
-  }
-  children.forEach((child, index) => {
-    if (child.type !== 'image') {
-      inline.push(child)
-      return
-    }
-    const rendered = ctx.renderImage?.(child.url, child.alt ?? '')
-    if (rendered == null) {
-      inline.push(child)
-      return
-    }
-    flush()
-    renderedImage = true
-    parts.push(<Fragment key={`${key}:image:${index}`}>{rendered}</Fragment>)
-  })
-  flush()
-  return renderedImage ? <Fragment key={key}>{parts}</Fragment> : null
->>>>>>> f23ca5555a5 (fix(mobile): render stacked chat images inline)
 }
 
 function renderBlock(
@@ -284,15 +232,9 @@ function renderBlock(
           </Fragment>
         ) : null
       }
-<<<<<<< HEAD
       const withImages = renderImageParagraph(node.children, key, ctx, text)
       if (withImages) {
         return withImages
-=======
-      const images = renderParagraphImages(node.children, ctx, text, key)
-      if (images) {
-        return images
->>>>>>> f23ca5555a5 (fix(mobile): render stacked chat images inline)
       }
       if (node.children.length === 1 && only?.type === 'image' && /^https?:\/\//i.test(only.url)) {
         return (
