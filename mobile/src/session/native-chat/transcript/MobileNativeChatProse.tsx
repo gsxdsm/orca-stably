@@ -1,8 +1,7 @@
-import { useContext, useEffect, useState } from 'react'
+import { useCallback, useContext, useEffect, useState } from 'react'
 import { Image, Pressable, Text, View } from 'react-native'
 import { INLINE_TEXT_SELECTION } from '../../../components/inline-text-selection'
 import { MobileMarkdown } from '../../../components/MobileMarkdown'
-import { fileUriToFilesystemPath } from '../../../../../src/shared/file-uri-path'
 import {
   isImageRefBlock,
   isTextBlock,
@@ -28,6 +27,35 @@ import { useMobileColorScheme } from '../../../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../../../i18n/use-mobile-translation'
 import { nativeChatHostStatusCopy } from './native-chat-notice-copy'
 import { pressedStyle } from '../../../theme/mobile-theme'
+import { routeNativeChatHref } from '../../../../../src/shared/native-chat/native-chat-href-routing'
+import { isRuntimePathAbsolute } from '../../../../../src/shared/cross-platform-path'
+import { isRasterImagePath } from '../../../../../src/shared/file-preview-kind'
+import { isKnownRasterImageMimeType } from '../../../../../src/shared/raster-image-preview-limits'
+import { isSvgFilePath } from '../../../../../src/shared/svg-document'
+
+/** Raster https, data and absolute-path images draw on the phone (paths through the chat's host); anything else stays a link.
+ *  The shell's CSP refuses plain http, and React Native's Image cannot draw SVG. */
+function markdownImageBlock(href: string, alt: string): NativeChatImageRefBlock | null {
+  const label = alt.trim() ? { alt } : {}
+  const source = href.trim()
+  if (/^data:/i.test(source)) {
+    return isKnownRasterImageMimeType(source.slice(5).split(/[;,]/, 1)[0])
+      ? { type: 'image-ref', url: source, ...label }
+      : null
+  }
+  const pathSource = /^[A-Za-z]:%5c/i.test(source) ? source.replace(/%5c/gi, '\\') : source
+  const route = routeNativeChatHref(pathSource)
+  if (route.kind === 'web') {
+    return /^https:/i.test(route.url) && !isSvgFilePath(route.url.split(/[?#]/, 1)[0] ?? '')
+      ? { type: 'image-ref', url: route.url, ...label }
+      : null
+  }
+  return route.kind === 'file' &&
+    isRuntimePathAbsolute(route.pathText) &&
+    isRasterImagePath(route.pathText)
+    ? { type: 'image-ref', path: route.pathText, ...label }
+    : null
+}
 
 export function Prose({
   block,
@@ -55,6 +83,15 @@ export function Prose({
 }): React.JSX.Element | null {
   useMobileColorScheme()
   const t = useMobileTranslation()
+  const renderImage = useCallback(
+    (href: string, alt: string): React.ReactNode => {
+      const image = markdownImageBlock(href, alt)
+      return image ? (
+        <ImageAttachment block={image} fontScale={fontScale} onLongPress={onLongPress} />
+      ) : null
+    },
+    [fontScale, onLongPress]
+  )
   if (isTextBlock(block)) {
     if (isAgentSessionHostStatusPresentation(block.presentation)) {
       return (
@@ -65,12 +102,6 @@ export function Prose({
           {nativeChatHostStatusCopy(t)[block.presentation]}
         </Text>
       )
-    }
-    const renderImage = (href: string, alt: string) => {
-      const block = chatMarkdownImageBlock(href, alt)
-      return block ? (
-        <ImageAttachment block={block} fontScale={fontScale} onLongPress={onLongPress} />
-      ) : null
     }
     if (userMessage) {
       return (
@@ -106,41 +137,6 @@ export function Prose({
     return <ImageAttachment block={block} fontScale={fontScale} onLongPress={onLongPress} />
   }
   return null
-}
-
-function chatMarkdownImageBlock(href: string, alt: string): NativeChatImageRefBlock | null {
-  const label = alt ? { alt } : {}
-  if (/^https?:\/\//i.test(href)) {
-    return { type: 'image-ref', url: href, ...label }
-  }
-  const path = absoluteMarkdownImagePath(href)
-  return path ? { type: 'image-ref', path, ...label } : null
-}
-
-function absoluteMarkdownImagePath(href: string): string | null {
-  const decoded = decodeLocalImagePath(href)
-  if (href.startsWith('/') && !href.startsWith('//')) {
-    return decoded
-  }
-  if (/^[A-Za-z]:[\\/]/.test(decoded)) {
-    return decoded
-  }
-  if (!href.startsWith('file://')) {
-    return null
-  }
-  try {
-    return fileUriToFilesystemPath(new URL(href))
-  } catch {
-    return null
-  }
-}
-
-function decodeLocalImagePath(path: string): string {
-  try {
-    return decodeURIComponent(path)
-  } catch {
-    return path
-  }
 }
 
 // Host paths cannot load on the phone; the chat's host reads them, and a refused read stays a placeholder.

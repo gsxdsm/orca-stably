@@ -3,11 +3,11 @@ import { FlatList, Platform, ScrollView, View, type ScrollViewProps } from 'reac
 import { GestureDetector } from 'react-native-gesture-handler'
 import type { ComposedGesture } from 'react-native-gesture-handler'
 import type { MobileNativeChatRowKeys } from './mobile-native-chat-row-keys'
-import { MobileNativeChatPageList } from '../../MobileNativeChatPageList'
+import { MobileNativeChatPageList } from './MobileNativeChatPageList'
 import {
   mobileNativeChatRowAnchor,
   type MobileNativeChatTailFollow
-} from '../../use-mobile-native-chat-tail-follow'
+} from './use-mobile-native-chat-tail-follow'
 
 type PageProps = ComponentProps<typeof MobileNativeChatPageList>
 

@@ -39,6 +39,7 @@ export type MarkdownBlockContext = MarkdownInlineContext & {
   /** Interactive children own their touches and must forward the row action. */
   rowLongPress?: () => void
   directives: readonly NativeChatVisualDirective[]
+  /** Null or undefined leaves the image a link. */
   renderImage?: (href: string, alt: string) => ReactNode
   renderVisual?: (directive: NativeChatVisualDirective, index: number) => ReactNode
   mermaidOccurrences: Map<string, number>
@@ -130,55 +131,76 @@ function renderTable(node: Table, key: number, ctx: MarkdownBlockContext): React
   )
 }
 
-function isBlankPhrase(node: PhrasingContent): boolean {
+function isBlankInline(node: PhrasingContent): boolean {
   return node.type === 'break' || (node.type === 'text' && node.value.trim() === '')
 }
 
-// Consecutive screenshots are one paragraph. The inline image fallback is a link, and a thumbnail cannot sit inside that text.
-function renderParagraphImages(
-  children: readonly PhrasingContent[],
+/** Images draw as blocks between the paragraph's text runs; an image `renderImage` declines stays a link. */
+function renderImageParagraph(
+  children: PhrasingContent[],
+  key: number,
   ctx: MarkdownBlockContext,
-  text: ParagraphText,
-  key: number
-): ReactNode | null {
-  if (!ctx.renderImage || !children.some((child) => child.type === 'image')) {
+  text: ParagraphText
+): ReactNode {
+  const { renderImage } = ctx
+  if (!renderImage || !children.some((child) => child.type === 'image')) {
     return null
   }
   const parts: ReactNode[] = []
-  let inline: PhrasingContent[] = []
-  let renderedImage = false
-  const flush = (): void => {
-    if (inline.every(isBlankPhrase)) {
-      inline = []
-      return
+  let drewImage = false
+  let run: PhrasingContent[] = []
+  const flushRun = (): void => {
+    if (!run.every(isBlankInline)) {
+      parts.push(
+        <MarkdownText key={parts.length} selectable={text.selectable} style={text.style}>
+          {renderInline(trimRunEdges(run), ctx)}
+        </MarkdownText>
+      )
     }
-    parts.push(
-      <MarkdownText
-        key={`${key}:text:${parts.length}`}
-        selectable={text.selectable}
-        style={text.style}
-      >
-        {renderInline(inline, ctx)}
-      </MarkdownText>
-    )
-    inline = []
+    run = []
   }
-  children.forEach((child, index) => {
-    if (child.type !== 'image') {
-      inline.push(child)
-      return
+  for (const child of children) {
+    const image = child.type === 'image' ? renderImage(child.url, child.alt ?? '') : null
+    if (image === null || image === undefined) {
+      run.push(child)
+      continue
     }
-    const rendered = ctx.renderImage?.(child.url, child.alt ?? '')
-    if (rendered == null) {
-      inline.push(child)
-      return
-    }
-    flush()
-    renderedImage = true
-    parts.push(<Fragment key={`${key}:image:${index}`}>{rendered}</Fragment>)
-  })
-  flush()
-  return renderedImage ? <Fragment key={key}>{parts}</Fragment> : null
+    flushRun()
+    parts.push(<Fragment key={parts.length}>{image}</Fragment>)
+    drewImage = true
+  }
+  if (!drewImage) {
+    return null
+  }
+  flushRun()
+  // One wrapper whatever the part count, so a growing paragraph never remounts its images.
+  return (
+    <View key={key} style={styles.imageParagraph}>
+      {parts}
+    </View>
+  )
+}
+
+// The line breaks beside an image would otherwise leave blank lines in the text around it.
+function trimRunEdges(run: PhrasingContent[]): PhrasingContent[] {
+  let start = 0
+  let end = run.length
+  while (start < end && run[start]?.type === 'break') {
+    start += 1
+  }
+  while (end > start && run[end - 1]?.type === 'break') {
+    end -= 1
+  }
+  const trimmed = run.slice(start, end)
+  const first = trimmed[0]
+  if (first?.type === 'text') {
+    trimmed[0] = { ...first, value: first.value.trimStart() }
+  }
+  const last = trimmed.at(-1)
+  if (last?.type === 'text') {
+    trimmed[trimmed.length - 1] = { ...last, value: last.value.trimEnd() }
+  }
+  return trimmed
 }
 
 function renderBlock(
@@ -210,9 +232,9 @@ function renderBlock(
           </Fragment>
         ) : null
       }
-      const images = renderParagraphImages(node.children, ctx, text, key)
-      if (images) {
-        return images
+      const withImages = renderImageParagraph(node.children, key, ctx, text)
+      if (withImages) {
+        return withImages
       }
       if (node.children.length === 1 && only?.type === 'image' && /^https?:\/\//i.test(only.url)) {
         return (

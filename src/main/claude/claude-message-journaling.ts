@@ -17,6 +17,7 @@ import {
   type ClaudeToolUse
 } from './structured/journal/claude-structured-item-translation'
 import { resolveToolResultImageRefs, toolInputFilePath } from '../native-chat/tool-result-images'
+import { claudeEnvelopeStopHookFeedbackRow } from './claude-stop-hook-feedback'
 import {
   appendUnmodeledContent,
   type ClaudeProviderFrameFallback
@@ -124,6 +125,15 @@ export function journalClaudeMessage(
     } else {
       ctx.sink.appendItem(identity, body, { ...stamp(identity, body), lifecycle: true })
     }
+    changed = true
+  }
+  const stopHookFeedback = claudeEnvelopeStopHookFeedbackRow(envelope)
+  if (stopHookFeedback) {
+    ctx.turn.ensureOpen(message, source, observedAt)
+    ctx.sink.appendItem(identity, stopHookFeedback, {
+      ...stamp(identity, stopHookFeedback),
+      lifecycle: true
+    })
     changed = true
   }
   for (const tool of claudeToolUses(outputEnvelope)) {
