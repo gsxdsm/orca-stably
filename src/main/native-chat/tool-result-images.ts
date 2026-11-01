@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { statSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { basename, extname, isAbsolute } from 'node:path'
 import type { NativeChatImageRefBlock, NativeChatMessage } from '../../shared/native-chat-types'
 import { IMAGE_FILE_MIME_TYPES } from '../../shared/image-file-extensions'
@@ -46,12 +46,19 @@ export function resolveToolResultImageRefs(args: {
       refs.push(imageRef(undefined, source.url, source.alt))
       continue
     }
-    if (paired && !usedPaired && !source.path && !source.url) {
+    const decoded = source.base64 ? decodeSpoolableImage(source.base64) : null
+    if (
+      paired &&
+      !usedPaired &&
+      !source.path &&
+      !source.url &&
+      decoded &&
+      matchesFile(paired, decoded.bytes)
+    ) {
       usedPaired = true
       refs.push(imageRef(paired, undefined, source.alt))
       continue
     }
-    const decoded = source.base64 ? decodeSpoolableImage(source.base64) : null
     if (!decoded) {
       continue
     }
@@ -61,6 +68,14 @@ export function resolveToolResultImageRefs(args: {
     }
   }
   return refs
+}
+
+function matchesFile(path: string, bytes: Buffer): boolean {
+  try {
+    return statSync(path).size === bytes.length && readFileSync(path).equals(bytes)
+  } catch {
+    return false
+  }
 }
 
 /** Pair tool-result images with the call's file path before the messages leave the host. */
