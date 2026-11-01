@@ -7,7 +7,7 @@ function DuoKbCore() {
   const [value, setValue] = useState('')
   return (
     <View style={{ flex: 1, padding: 24, paddingTop: 80 }}>
-      <Text>DuoKbCore. Tap the field. It does not focus itself.</Text>
+      <Text>DuoKbCoreKeyFalse. Tap the field. It does not focus itself.</Text>
       <TextInput
         value={value}
         onChangeText={setValue}
