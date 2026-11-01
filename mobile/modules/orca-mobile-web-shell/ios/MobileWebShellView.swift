@@ -176,6 +176,60 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
   private var isolationFailed = false
   private let loadState = MobileWebShellLoadStateMachine()
 
+  private var diagnosticAttached = false
+  private var diagnosticAttach: DispatchWorkItem?
+
+  override func didMoveToWindow() {
+    super.didMoveToWindow()
+    scheduleDiagnosticAttach()
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    scheduleDiagnosticAttach()
+  }
+
+  override func safeAreaInsetsDidChange() {
+    super.safeAreaInsetsDidChange()
+    scheduleDiagnosticAttach()
+  }
+
+  override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+    super.traitCollectionDidChange(previousTraitCollection)
+    scheduleDiagnosticAttach()
+  }
+
+  private func scheduleDiagnosticAttach() {
+    diagnosticAttach?.cancel()
+    guard !diagnosticAttached, let window, bounds.width > 0, bounds.height > 0 else { return }
+    let expectedBounds = window.bounds
+    let expectedInsets = window.safeAreaInsets
+    let work = DispatchWorkItem { [weak self, weak window] in
+      guard let self, let window, self.window === window else { return }
+      guard window.bounds == expectedBounds, window.safeAreaInsets == expectedInsets,
+        window.windowScene?.activationState == .foregroundActive else {
+        self.scheduleDiagnosticAttach()
+        return
+      }
+      self.attachDiagnosticWebView()
+    }
+    diagnosticAttach = work
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: work)
+  }
+
+  private func attachDiagnosticWebView() {
+    diagnosticAttached = true
+    addSubview(webView)
+    NSLayoutConstraint.activate([
+      webView.topAnchor.constraint(equalTo: topAnchor),
+      webView.bottomAnchor.constraint(equalTo: bottomAnchor),
+      webView.leadingAnchor.constraint(equalTo: leadingAnchor),
+      webView.trailingAnchor.constraint(equalTo: trailingAnchor)
+    ])
+    NSLog("DuoA settled attach window=%@", NSStringFromCGRect(window?.bounds ?? .zero))
+    loadWhenIsolated()
+  }
+
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
     let configuration = WKWebViewConfiguration()
@@ -200,13 +254,6 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
     hideKeyboardAccessoryBar(of: webView)
     ignoreKeyboardNotifications(in: webView)
     webView.translatesAutoresizingMaskIntoConstraints = false
-    addSubview(webView)
-    NSLayoutConstraint.activate([
-      webView.topAnchor.constraint(equalTo: topAnchor),
-      webView.bottomAnchor.constraint(equalTo: bottomAnchor),
-      webView.leadingAnchor.constraint(equalTo: leadingAnchor),
-      webView.trailingAnchor.constraint(equalTo: trailingAnchor)
-    ])
     installNetworkBlock(into: configuration.userContentController)
   }
 
@@ -392,7 +439,7 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
   }
 
   private func loadWhenIsolated() {
-    guard isolationReady, let url = pendingDocumentUrl else { return }
+    guard diagnosticAttached, isolationReady, let url = pendingDocumentUrl else { return }
     pendingDocumentUrl = nil
     // Only our own load raises this flag; every document ending clears it.
     loadState.shellLoadStarted()
