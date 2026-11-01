@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "DuoKbReal",
+    "name": "DuoKbAssist",
     "slug": "orca-mobile",
     "version": "0.0.61",
     "orientation": "default",
@@ -28,7 +28,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.gsxdsm.duokbcore.real",
+      "bundleIdentifier": "com.gsxdsm.duokbcore.assist",
       "buildNumber": "1",
       "infoPlist": {
         "UIViewControllerBasedStatusBarAppearance": true,
