@@ -226,7 +226,7 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
       webView.leadingAnchor.constraint(equalTo: leadingAnchor),
       webView.trailingAnchor.constraint(equalTo: trailingAnchor)
     ])
-    NSLog("DuoA settled attach window=%@", NSStringFromCGRect(window?.bounds ?? .zero))
+    NSLog("DuoA settled attach window=%@", String(describing: window?.bounds ?? .zero))
     loadWhenIsolated()
   }
 
