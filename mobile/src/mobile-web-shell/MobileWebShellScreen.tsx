@@ -32,6 +32,7 @@ import { useShellStackPop } from './use-shell-stack-pop'
 import { usePageLocationOnFold } from './page-location-on-fold'
 import { useMobileWebShellSession } from './use-mobile-web-shell-session'
 import { useShellPageStorageRefresh } from './use-shell-page-storage-refresh'
+import { useDuoChatWidthPublish } from './use-duo-chat-width-publish'
 import { usePageHostSnapshot } from './use-page-host-snapshot'
 import { useReportedHostAreaServing } from './host-area-serving'
 import { isHostRouteOf } from './page-route-policy'
@@ -259,6 +260,7 @@ export function MobileWebShellScreen({
 
   // paneKey changes keep the session mounted; the host deduplicates routes and preserves in-flight frames.
   useShellPageStorageRefresh(refreshStorage, bridge.publishStorage)
+  useDuoChatWidthPublish(bridge.publishStorage)
   useEffect(() => bridge.publishRoute(route), [bridge.publishRoute, route])
 
   usePublishedSafeAreaInsets(bridge.publishSafeAreaInsets, pageInsets)

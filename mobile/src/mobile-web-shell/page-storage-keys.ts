@@ -36,6 +36,12 @@ export function pageRefreshKeepsStoredValue(key: string): boolean {
   return key === 'orca:defaultSessionView'
 }
 
+// Native settings and the device-wide Duo chat width. A later storage frame copies these into a page that is already open.
+export const LIVE_PAGE_STORAGE_KEYS = [
+  ...NATIVE_PAGE_STORAGE_REFRESH_KEYS,
+  'orca:duoChatExpanded'
+] as const
+
 export const PAGE_STORAGE_EXACT_KEYS = [
   'orca:last-visited-worktree',
   'orca:hostSidebarWidth',
@@ -56,7 +62,9 @@ export const PAGE_STORAGE_EXACT_KEYS = [
   /** Whether that meter shows percent used or percent left. */
   'orca:composerUsageDisplay',
   /** Whether a sidebar session row opens that session. */
-  'orca:selectableSidebarSessions'
+  'orca:selectableSidebarSessions',
+  /** Whether every Duo chat runs across the status column. */
+  'orca:duoChatExpanded'
 ] as const
 
 /**
@@ -68,7 +76,8 @@ export const NEGOTIATED_PAGE_STORAGE_KEYS = [
   'orca:terminalSplitLayout',
   'orca:composerUsageWindow',
   'orca:composerUsageDisplay',
-  'orca:selectableSidebarSessions'
+  'orca:selectableSidebarSessions',
+  'orca:duoChatExpanded'
 ] as const
 
 /** Prefixes added after pages stopped sharing one allowlist. Declared as the prefix, not each id. */

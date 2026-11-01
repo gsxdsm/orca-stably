@@ -48,6 +48,7 @@ describe('bridge client handshake', () => {
           'orca:composerUsageWindow',
           'orca:composerUsageDisplay',
           'orca:selectableSidebarSessions',
+          'orca:duoChatExpanded',
           'orca:dismissedSubagents:'
         ],
         connectionPathFrames: true
