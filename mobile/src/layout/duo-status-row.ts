@@ -88,18 +88,40 @@ export function duoStatusRowCenter(args: RowArgs): number {
 }
 
 /**
- * Below the reported status occlusion, centered in the column.
- * A column that touches the bottom clears upward, toward the content.
+ * Below the reported status occlusion, on the status cluster's midX.
+ * The full control stays inside the column. A bottom column clears upward.
  */
 export function duoRailBackFrame(args: RowArgs): DuoRailControlFrame {
   const size = DUO_RAIL_CONTROL_SIZE
   const column = statusColumn(args)
   const span = columnSpan(args, column)
-  const left = span.start + (span.width - size) / 2
+  const left = controlLeft(clusterMidX(args, column), span, size)
   const fromTop = column !== null ? column.y <= 1 : args.strip.top > 1
   const occludedEdge = statusOcclusionEdge(args, column, fromTop)
   const top = fromTop ? occludedEdge + spacing.sm : occludedEdge - spacing.sm - size
   return { top, left, size }
+}
+
+function clusterMidX(args: RowArgs, column: ReservedRect | null): number {
+  const mark = column === null ? null : statusGlyph(column, args.occlusions)
+  if (mark !== null) {
+    return mark.x + mark.width / 2
+  }
+  const onRight =
+    column !== null
+      ? column.x + column.width / 2 > args.windowWidth / 2
+      : args.strip.side === 'right'
+  return onRight ? args.windowWidth - STATUS_ROW_CENTER_FROM_EDGE : STATUS_ROW_CENTER_FROM_EDGE
+}
+
+function controlLeft(
+  midX: number,
+  span: { start: number; width: number },
+  size: number
+): number {
+  const min = span.start
+  const max = span.start + span.width - size
+  return Math.min(Math.max(midX - size / 2, min), max)
 }
 
 function columnSpan(
