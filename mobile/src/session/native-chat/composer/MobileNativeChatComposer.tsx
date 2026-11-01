@@ -10,7 +10,7 @@ import {
   pruneMobileNativeChatDraftSkills
 } from './mobile-native-chat-draft-inputs'
 import type { NativeChatSkillDiscoverySnapshot } from '../../../../../src/shared/native-chat/input/native-chat-picker-items'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Keyboard, type TextInput, View } from 'react-native'
 import { colors } from '../../../theme/mobile-theme'
 import { useMobileColorScheme } from '../../../theme/use-mobile-color-scheme'
@@ -29,6 +29,9 @@ import {
 import type { PendingNativeChatImage } from './mobile-native-chat-image-attachment'
 import type { MobileNativeChatStructuredComposer } from './mobile-native-chat-composer-menu'
 export type { MobileNativeChatStructuredComposer } from './mobile-native-chat-composer-menu'
+import type { MobileComposerImagePasteHandler } from './mobile-native-chat-composer-image-paste'
+import { MobileNativeChatImagePasteContext } from './mobile-native-chat-image-paste-context'
+import { useMobileComposerClipboardImageReader } from './use-mobile-composer-clipboard-image'
 import { useMobileNativeChatComposerMenu } from './use-mobile-native-chat-composer-menu'
 import { mobileNativeChatComposerShowsStop } from './mobile-native-chat-composer-layout'
 import { MobileNativeChatStopButton } from '../input/MobileNativeChatStopButton'
@@ -71,6 +74,7 @@ type Props = MobileNativeChatMicProps & {
   agent?: string | null
   sessionOptions?: MobileNativeChatSessionOptionPickersProps | null
   onAttachImage?: () => void
+  onPasteImages?: MobileComposerImagePasteHandler
   attachments?: PendingNativeChatImage[]
   onRemoveAttachment?: (id: string) => void
   isAttaching?: boolean
@@ -110,6 +114,7 @@ export function MobileNativeChatComposer({
   structured = null,
   sessionOptions,
   onAttachImage,
+  onPasteImages,
   attachments = NO_ATTACHMENTS,
   onRemoveAttachment,
   isAttaching = false,
@@ -134,6 +139,9 @@ export function MobileNativeChatComposer({
 }: Props): React.JSX.Element {
   useMobileColorScheme()
   const t = useMobileTranslation()
+  const clipboardImage = useMobileComposerClipboardImageReader()
+  const imagePasteFromRoute = useContext(MobileNativeChatImagePasteContext)
+  const imagePaste = onPasteImages ?? imagePasteFromRoute
   const fallbackInputRef = useRef<TextInput>(null)
   const fieldRef = inputRef ?? fallbackInputRef
   const [focused, setFocused] = useState(false)
@@ -265,6 +273,7 @@ export function MobileNativeChatComposer({
 
   return (
     <View>
+      {imagePaste && !editSession?.locked ? clipboardImage.host : null}
       {menu.rows.length > 0 ? (
         <MobileNativeChatComposerMenu
           rows={menu.rows}
@@ -311,6 +320,8 @@ export function MobileNativeChatComposer({
             }
             placeholderTextColor={colors.textMuted}
             selectionColor={colors.accentBlue}
+            onPasteImages={editSession?.locked ? undefined : imagePaste}
+            readClipboardImage={clipboardImage.read}
             multiline
             editable={!editSession?.locked}
             // Why: never revoke `editable` — iOS resigns first responder on a focused
