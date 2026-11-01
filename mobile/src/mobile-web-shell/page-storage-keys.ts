@@ -53,6 +53,8 @@ export const PAGE_STORAGE_EXACT_KEYS = [
   'orca:terminalSplitLayout',
   /** Which usage window the composer meter shows. */
   'orca:composerUsageWindow',
+  /** Whether that meter shows percent used or percent left. */
+  'orca:composerUsageDisplay',
   /** Whether a sidebar session row opens that session. */
   'orca:selectableSidebarSessions'
 ] as const
@@ -65,6 +67,7 @@ export const PAGE_STORAGE_EXACT_KEYS = [
 export const NEGOTIATED_PAGE_STORAGE_KEYS = [
   'orca:terminalSplitLayout',
   'orca:composerUsageWindow',
+  'orca:composerUsageDisplay',
   'orca:selectableSidebarSessions'
 ] as const
 

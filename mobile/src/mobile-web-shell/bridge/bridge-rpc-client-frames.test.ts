@@ -46,6 +46,7 @@ describe('bridge client handshake', () => {
         storageKeys: [
           'orca:terminalSplitLayout',
           'orca:composerUsageWindow',
+          'orca:composerUsageDisplay',
           'orca:selectableSidebarSessions'
         ],
         connectionPathFrames: true
