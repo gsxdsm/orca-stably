@@ -8,7 +8,10 @@ import { resolveNativeChatTranscriptAgent } from '../../shared/native-chat/nativ
 import { readOpenCodeNativeChatTranscriptTail } from './transcript-opencode'
 import { canReadHermesTranscriptHere, hermesTranscriptDeps } from './transcript-hermes'
 import { resolveSessionFilePath, type ResolveSessionFileOptions } from './session-file-resolver'
-import { appendNativeChatChildTranscripts } from './transcript-subagent-children'
+import {
+  readNativeChatSubagentPage,
+  type NativeChatChildPage
+} from './transcript-subagent-children'
 import {
   nativeChatLineDecoderForAgent,
   readNativeChatTranscriptTailFile,
@@ -31,7 +34,6 @@ type LiveTailPage = {
   oversizedRecordCount?: number
 }
 
-/** Parent handle is closed before child files open. Nesting those reads deadlocks the scan slot. */
 export async function readNativeChatLiveTail(
   filePath: string,
   limit: number,
@@ -43,7 +45,7 @@ export async function readNativeChatLiveTail(
   onConsumedBoundary?: (boundary: Buffer) => void,
   sourceOrder = false
 ): Promise<LiveTailPage> {
-  const page = await readNativeChatTranscriptTailFile(
+  return readNativeChatTranscriptTailFile(
     filePath,
     limit,
     decode,
@@ -54,11 +56,26 @@ export async function readNativeChatLiveTail(
     onConsumedBoundary,
     sourceOrder
   )
-  if (endOffset !== undefined || limit <= 0) {
-    return page
-  }
-  const messages = await appendNativeChatChildTranscripts(filePath, decode, page.messages, signal)
-  return messages.length === page.messages.length ? page : { ...page, messages }
+}
+
+function readChildFile(
+  decode: NativeChatLineDecoder,
+  childPath: string,
+  childLimit: number,
+  endOffset: number | undefined,
+  childSignal: AbortSignal | undefined
+): Promise<NativeChatChildPage> {
+  return readNativeChatTranscriptTailFile(
+    childPath,
+    childLimit,
+    decode,
+    true,
+    endOffset,
+    null,
+    childSignal,
+    undefined,
+    true
+  )
 }
 
 export async function readNativeChatTranscriptTail(
@@ -70,6 +87,8 @@ export async function readNativeChatTranscriptTail(
     limit: number
     beforeOffset?: number
     sourceOrder?: boolean
+    /** One child's file. Absent reads the parent and does not embed other children. */
+    subagentId?: string
   },
   signal?: AbortSignal
 ): Promise<
@@ -81,6 +100,12 @@ export async function readNativeChatTranscriptTail(
     }
   | { error: string; notFound?: true }
 > {
+  if (
+    args.subagentId &&
+    (args.agent === 'hermes' || resolveNativeChatTranscriptAgent(args.agent) === 'opencode')
+  ) {
+    return { error: 'Transcript unavailable', notFound: true }
+  }
   if (args.agent === 'hermes' && !canReadHermesTranscriptHere(args)) {
     return { error: 'Transcript unavailable', notFound: true }
   }
@@ -111,6 +136,19 @@ export async function readNativeChatTranscriptTail(
     return { error: 'Transcript unavailable', notFound: true }
   }
   try {
+    if (args.subagentId) {
+      const page = await readNativeChatSubagentPage({
+        parentPath: filePath,
+        decode,
+        agentId: args.subagentId,
+        limit: args.limit,
+        beforeOffset: args.beforeOffset,
+        signal,
+        readTail: (childPath, childLimit, endOffset, childSignal) =>
+          readChildFile(decode, childPath, childLimit, endOffset, childSignal)
+      })
+      return page ?? { error: 'Transcript unavailable', notFound: true }
+    }
     const result = await readNativeChatLiveTail(
       filePath,
       args.limit,
