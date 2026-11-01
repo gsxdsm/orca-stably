@@ -28,6 +28,12 @@ export const TERMINAL_SETTINGS_STORAGE_KEYS = [
   'orca:terminalLinkOpenMode'
 ] as const
 
+// Native Settings writes Chat UI after the page primes; a later refresh must copy it.
+export const NATIVE_PAGE_STORAGE_REFRESH_KEYS = [
+  ...TERMINAL_SETTINGS_STORAGE_KEYS,
+  'orca:defaultSessionView'
+] as const
+
 export const PAGE_STORAGE_EXACT_KEYS = [
   'orca:last-visited-worktree',
   'orca:hostSidebarWidth',
