@@ -1,12 +1,15 @@
 import type { SideRailStrip } from '../layout/side-rail-strip'
 
-/** The rail is free only while chat is up and kept clear of the status column. */
+/** The rail is free only while chat is collapsed, a status column exists, and the keyboard is down. */
 export function duoRailBackVisible(args: {
   chatVisible: boolean
   expanded: boolean
   strip: SideRailStrip | null
+  keyboardInset: number
 }): boolean {
-  return args.chatVisible && !args.expanded && args.strip !== null
+  return (
+    args.chatVisible && !args.expanded && args.strip !== null && !(args.keyboardInset > 0)
+  )
 }
 
 /**

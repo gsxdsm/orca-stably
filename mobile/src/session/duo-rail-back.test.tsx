@@ -15,6 +15,7 @@ const scene = vi.hoisted(() => ({
   insets: { top: 0, right: 84, bottom: 34, left: 0 },
   occlusions: [{ x: 867, y: 0, width: 84, height: 124 }],
   expanded: false,
+  keyboardInset: 0,
   pressBack: null as (() => boolean) | null
 }))
 
@@ -52,7 +53,16 @@ function resetScene(): void {
   scene.insets = { ...RIGHT_RAIL.insets }
   scene.occlusions = RIGHT_RAIL.occlusions.map((region) => ({ ...region }))
   scene.expanded = false
+  scene.keyboardInset = 0
   scene.pressBack = null
+}
+
+function railButton(chatVisible: boolean, onBack: () => void): ReactElement {
+  return createElement(DuoRailBackButton, {
+    chatVisible,
+    keyboardInset: scene.keyboardInset,
+    onBack
+  })
 }
 
 function mount(element: ReactElement): ReactTestRenderer {
@@ -91,19 +101,21 @@ describe('the Duo rail back button', () => {
 
   it('shows only while chat is collapsed beside a status column', () => {
     const strip = getSideRailStrip(RIGHT_RAIL)
-    expect(duoRailBackVisible({ chatVisible: true, expanded: false, strip })).toBe(true)
-    expect(duoRailBackVisible({ chatVisible: true, expanded: true, strip })).toBe(false)
-    expect(duoRailBackVisible({ chatVisible: false, expanded: false, strip })).toBe(false)
-    expect(duoRailBackVisible({ chatVisible: true, expanded: false, strip: null })).toBe(false)
+    const shown = { chatVisible: true, expanded: false, strip, keyboardInset: 0 }
+    expect(duoRailBackVisible(shown)).toBe(true)
+    expect(duoRailBackVisible({ ...shown, expanded: true })).toBe(false)
+    expect(duoRailBackVisible({ ...shown, chatVisible: false })).toBe(false)
+    expect(duoRailBackVisible({ ...shown, strip: null })).toBe(false)
+    expect(duoRailBackVisible({ ...shown, keyboardInset: 312 })).toBe(false)
 
     const onBack = vi.fn()
-    const collapsed = mount(createElement(DuoRailBackButton, { chatVisible: true, onBack }))
+    const collapsed = mount(railButton(true, onBack))
     const button = backs(collapsed)
     expect(button).toHaveLength(1)
     const column = RIGHT_RAIL.occlusions[0]!
     expect(railSlot(collapsed)?.props.style).toMatchObject({
       top: column.y + column.height + spacing.sm,
-      left: RIGHT_RAIL.windowWidth - 84 + spacing.sm,
+      left: column.x + (column.width - DUO_RAIL_CONTROL_SIZE) / 2,
       width: DUO_RAIL_CONTROL_SIZE,
       height: DUO_RAIL_CONTROL_SIZE
     })
@@ -123,29 +135,25 @@ describe('the Duo rail back button', () => {
 
     scene.expanded = true
     expect(
-      backs(mount(createElement(DuoRailBackButton, { chatVisible: true, onBack })))
+      backs(mount(railButton(true, onBack)))
     ).toHaveLength(0)
 
     scene.expanded = false
     scene.insets = { top: 0, right: 0, bottom: 34, left: 0 }
     scene.occlusions = []
-    expect(
-      backs(mount(createElement(DuoRailBackButton, { chatVisible: true, onBack })))
-    ).toHaveLength(0)
+    expect(backs(mount(railButton(true, onBack)))).toHaveLength(0)
 
     resetScene()
-    expect(
-      backs(mount(createElement(DuoRailBackButton, { chatVisible: false, onBack })))
-    ).toHaveLength(0)
+    expect(backs(mount(railButton(false, onBack)))).toHaveLength(0)
   })
 
   it('follows the rail to the left and keeps the header chevron', () => {
     scene.insets = { top: 0, right: 0, bottom: 34, left: 84 }
     const occlusion = { x: 0, y: 545, width: 84, height: 124 }
     scene.occlusions = [occlusion]
-    const left = mount(createElement(DuoRailBackButton, { chatVisible: true, onBack: vi.fn() }))
+    const left = mount(railButton(true, vi.fn()))
     expect(railSlot(left)?.props.style).toMatchObject({
-      left: 84 - spacing.sm - DUO_RAIL_CONTROL_SIZE,
+      left: (84 - DUO_RAIL_CONTROL_SIZE) / 2,
       width: DUO_RAIL_CONTROL_SIZE,
       top: occlusion.y - spacing.sm - DUO_RAIL_CONTROL_SIZE
     })
@@ -159,11 +167,11 @@ describe('the Duo rail back button', () => {
     scene.height = 678
     scene.insets = { top: 0, right: 84, bottom: 34, left: 0 }
     scene.occlusions = [glyph, column]
-    const cover = mount(createElement(DuoRailBackButton, { chatVisible: true, onBack: vi.fn() }))
+    const cover = mount(railButton(true, vi.fn()))
     const slot = railSlot(cover)?.props.style
     expect(slot).toMatchObject({
       top: column.y + column.height + spacing.sm,
-      left: 466 - 84 + spacing.sm,
+      left: column.x + (column.width - DUO_RAIL_CONTROL_SIZE) / 2,
       width: DUO_RAIL_CONTROL_SIZE,
       height: DUO_RAIL_CONTROL_SIZE
     })
@@ -172,8 +180,17 @@ describe('the Duo rail back button', () => {
       slot.left >= region.x + region.width ||
       slot.top + slot.height <= region.y ||
       slot.top >= region.y + region.height
+    expect(slot.left).toBeGreaterThanOrEqual(column.x)
+    expect(slot.left + slot.width).toBeLessThanOrEqual(column.x + column.width)
     expect(misses(column)).toBe(true)
     expect(misses(glyph)).toBe(true)
+  })
+
+  it('hides while the keyboard is up and returns when it closes', () => {
+    scene.keyboardInset = 320
+    expect(backs(mount(railButton(true, vi.fn())))).toHaveLength(0)
+    scene.keyboardInset = 0
+    expect(backs(mount(railButton(true, vi.fn())))).toHaveLength(1)
   })
 
   it('presses through the page Back claim, and the session back when the page cannot', () => {
