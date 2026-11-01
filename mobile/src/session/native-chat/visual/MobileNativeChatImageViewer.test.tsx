@@ -47,6 +47,7 @@ vi.mock('react-native', () => {
       View: 'AnimatedView',
       timing: animation,
       spring: animation,
+      parallel: () => animation(),
       multiply: (left: unknown) => left
     },
     Easing: { bezier: () => () => 0 },
@@ -197,22 +198,35 @@ describe('MobileNativeChatImageViewer swipe dismiss', () => {
     expect(onClose).toHaveBeenCalledOnce()
   })
 
-  it('closes on a vertical release past the distance or a flick, from either direction', () => {
+  it('closes on a release past the distance or a flick, in any direction', () => {
     const { onClose } = render()
     act(() => {
-      seen.dismiss?.onRelease(IMAGE_VIEWER_DISMISS_DISTANCE, 0)
+      seen.dismiss?.onRelease(IMAGE_VIEWER_DISMISS_DISTANCE, 0, 0, 0)
     })
     expect(onClose).toHaveBeenCalledOnce()
 
     const upward = render()
     act(() => {
-      seen.dismiss?.onRelease(-IMAGE_VIEWER_DISMISS_DISTANCE, 0)
+      seen.dismiss?.onRelease(0, -IMAGE_VIEWER_DISMISS_DISTANCE, 0, 0)
     })
     expect(upward.onClose).toHaveBeenCalledOnce()
 
+    const sideways = render()
+    act(() => {
+      seen.dismiss?.onRelease(-IMAGE_VIEWER_DISMISS_DISTANCE, 0, 0, 0)
+    })
+    expect(sideways.onClose).toHaveBeenCalledOnce()
+
+    const diagonal = IMAGE_VIEWER_DISMISS_DISTANCE / Math.SQRT2
+    const across = render()
+    act(() => {
+      seen.dismiss?.onRelease(diagonal, diagonal, 0, 0)
+    })
+    expect(across.onClose).toHaveBeenCalledOnce()
+
     const flick = render()
     act(() => {
-      seen.dismiss?.onRelease(24, IMAGE_VIEWER_DISMISS_VELOCITY)
+      seen.dismiss?.onRelease(24, 0, IMAGE_VIEWER_DISMISS_VELOCITY, 0)
     })
     expect(flick.onClose).toHaveBeenCalledOnce()
   })
@@ -220,10 +234,10 @@ describe('MobileNativeChatImageViewer swipe dismiss', () => {
   it('springs back when the finger stops short, including a flick back toward rest', () => {
     const { onClose } = render()
     act(() => {
-      seen.dismiss?.onRelease(40, 0)
+      seen.dismiss?.onRelease(40, 0, 0, 0)
     })
     act(() => {
-      seen.dismiss?.onRelease(220, -IMAGE_VIEWER_DISMISS_VELOCITY * 3)
+      seen.dismiss?.onRelease(220, 30, -IMAGE_VIEWER_DISMISS_VELOCITY * 3, 0)
     })
     expect(onClose).not.toHaveBeenCalled()
   })
@@ -232,7 +246,7 @@ describe('MobileNativeChatImageViewer swipe dismiss', () => {
     scene.reduced = true
     const { onClose } = render()
     act(() => {
-      seen.dismiss?.onRelease(-IMAGE_VIEWER_DISMISS_DISTANCE, 0)
+      seen.dismiss?.onRelease(0, -IMAGE_VIEWER_DISMISS_DISTANCE, 0, 0)
     })
     expect(onClose).toHaveBeenCalledOnce()
   })
