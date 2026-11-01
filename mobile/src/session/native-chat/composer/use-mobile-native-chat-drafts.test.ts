@@ -83,6 +83,31 @@ describe('useMobileNativeChatDrafts', () => {
     await act(async () => renderer?.update(createElement(Harness, { tabId })))
   }
 
+  it('keeps an early pending message visible until its new session transcript arrives', async () => {
+    await act(async () => {
+      renderer = create(createElement(Harness, { tabId: 'a', sessionId: null }))
+    })
+    const origin = state!.captureSendOrigin('hello')!
+    act(() => {
+      state!.acceptSend(origin, 'hello', undefined, true)
+    })
+    expect(state!.pending.map((item) => item.text)).toEqual(['hello'])
+    await act(async () => {
+      renderer!.update(createElement(Harness, { tabId: 'a', sessionId: 'new-session' }))
+    })
+    expect(state!.pending.map((item) => item.text)).toEqual(['hello'])
+    await act(async () => {
+      renderer!.update(
+        createElement(Harness, {
+          tabId: 'a',
+          sessionId: 'new-session',
+          messages: [userTextMessage('u1', 'hello')]
+        })
+      )
+    })
+    expect(state!.pending).toEqual([])
+  })
+
   it('keeps drafts and accepted pending messages on their originating tabs', async () => {
     await mount('a')
     act(() => state?.setComposerText('from a'))
