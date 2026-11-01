@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect, useLocalSearchParams } from 'expo-router'
@@ -39,6 +39,11 @@ export function MobileAccountsScreen() {
   const router = useRouteHandoff()
   const insets = useSafeAreaInsets()
   const { hostId } = useLocalSearchParams<{ hostId: string }>()
+  const currentHost = useRef({ hostId })
+  if (currentHost.current.hostId !== hostId) {
+    currentHost.current = { hostId }
+  }
+  const hostScope = currentHost.current
 
   // Why: shared client per host. See docs/mobile-shared-client-per-host.md.
   const { client, state: connState } = useHostClient(hostId)
@@ -51,15 +56,31 @@ export function MobileAccountsScreen() {
   const [notice, setNotice] = useState<AccountsNotice | null>(null)
   const [providerAccountReload, setProviderAccountReload] = useState(0)
 
-  const acceptSnapshot = useCallback((nextSnapshot: AccountsSnapshot) => {
-    setSnapshot(nextSnapshot)
+  useEffect(() => {
+    setSnapshot(null)
     setError(null)
-  }, [])
+    setRefreshing(false)
+    setBusyAccountId(null)
+    setNotice(null)
+  }, [hostId])
+
+  const acceptSnapshot = useCallback(
+    (nextSnapshot: AccountsSnapshot) => {
+      if (currentHost.current === hostScope) {
+        setSnapshot(nextSnapshot)
+        setError(null)
+      }
+    },
+    [hostScope]
+  )
   const rejectInvalidSnapshot = useCallback(() => {
+    if (currentHost.current !== hostScope) {
+      return
+    }
     // Fail closed on unrecognized snapshot: stale data can expose finite reset for wrong account.
     setSnapshot(null)
     setError(t('accounts.screen.invalidSnapshot', 'Invalid accounts snapshot from host'))
-  }, [t])
+  }, [hostScope, t])
   const {
     supported: codexResetSupported,
     resetting: resettingCodex,
@@ -130,28 +151,36 @@ export function MobileAccountsScreen() {
   }, [acceptSnapshot, client, connState, rejectInvalidSnapshot])
 
   const refresh = useCallback(async () => {
-    if (!client) {
+    if (!client || currentHost.current !== hostScope) {
       return
     }
     setRefreshing(true)
     setProviderAccountReload((value) => value + 1)
     try {
       const res = await client.sendRequest('accounts.list')
+      if (currentHost.current !== hostScope) {
+        return
+      }
       if (res.ok) {
         acceptSnapshot(decodeAccountsSnapshot(res.result))
       } else {
         setError(res.error.message)
       }
     } catch (e) {
+      if (currentHost.current !== hostScope) {
+        return
+      }
       if (e instanceof AccountsSnapshotError) {
         rejectInvalidSnapshot()
       } else {
         setError(e instanceof Error ? e.message : String(e))
       }
     } finally {
-      setRefreshing(false)
+      if (currentHost.current === hostScope) {
+        setRefreshing(false)
+      }
     }
-  }, [acceptSnapshot, client, rejectInvalidSnapshot])
+  }, [acceptSnapshot, client, hostScope, rejectInvalidSnapshot])
 
   const selectAccount = useCallback(
     async (provider: ProviderKey, accountId: string | null) => {
