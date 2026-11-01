@@ -12,8 +12,6 @@ const SPOOL_BASE64_MAX_CHARS = Math.ceil(RUNTIME_PREVIEWABLE_BINARY_MAX_BYTES / 
 
 export type ToolImageSpool = (bytes: Buffer, extension: string) => string | null
 
-const spooledImages = new Map<string, string>()
-
 export function toolInputFilePath(input: unknown): string | null {
   const record = asRecord(input) ?? (typeof input === 'string' ? parseJsonObject(input) : null)
   if (!record) {
@@ -32,6 +30,9 @@ export function resolveToolResultImageRefs(args: {
   filePath?: string | null
   spool?: ToolImageSpool
 }): NativeChatImageRefBlock[] {
+  if (args.sources.length === 0) {
+    return []
+  }
   const paired = existingImageFile(args.filePath)
   let usedPaired = false
   const refs: NativeChatImageRefBlock[] = []
@@ -230,13 +231,5 @@ function spoolImage(
 function defaultSpool(bytes: Buffer, extension: string): string | null {
   const hash = createHash('sha256').update(bytes).digest('hex')
   const name = `chat-image-${hash}${extension}`
-  const cached = spooledImages.get(name)
-  if (cached) {
-    return cached
-  }
-  const stored = getAgentSessionAttachmentStore()?.storeImageOnce(name, bytes) ?? null
-  if (stored) {
-    spooledImages.set(name, stored)
-  }
-  return stored
+  return getAgentSessionAttachmentStore()?.storeImageOnce(name, bytes) ?? null
 }
