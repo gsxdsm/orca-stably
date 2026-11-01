@@ -109,12 +109,12 @@ function WorktreeAgentRowComponent({
   }
   return (
     <Pressable
-      style={({ pressed }) => pressed && pressedStyle}
-      disabled={isReadOnly || !onPress}
+      disabled={isReadOnly}
       accessibilityRole="button"
       accessibilityState={selected ? { selected: true } : undefined}
       delayLongPress={400}
       style={({ pressed }) => [
+        pressed && pressedStyle,
         selectable && selected && styles.rowSelected,
         selectable && pressed && styles.rowPressed
       ]}
