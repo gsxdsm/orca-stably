@@ -5,7 +5,7 @@ import {
   parseJsonObject,
   timestampMs
 } from '../ai-vault/session-scanner-values'
-import { claudeContentBlocks, toolResultOutput } from './transcript-record-blocks'
+import { claudeContentBlocks, toolResultBlocks } from './transcript-record-blocks'
 import { AGENT_SESSION_PASTED_IMAGE_SUFFIX_SOURCE } from '../../shared/agent-session/agent-session-attachments'
 
 export function decodeGrokTranscriptLine(
@@ -88,17 +88,14 @@ export function decodeGrokTranscriptLine(
   }
 
   if (type === 'tool_result') {
-    const output = toolResultOutput(record.content ?? record.output ?? record.result)
+    const callId = extractString(record.tool_use_id) ?? extractString(record.call_id) ?? undefined
     return {
       id,
       role: 'tool',
-      blocks: [
-        {
-          type: 'tool-result',
-          output,
-          ...(record.is_error === true || record.isError === true ? { isError: true } : {})
-        }
-      ],
+      blocks: toolResultBlocks(record.content ?? record.output ?? record.result, {
+        ...(callId ? { callId } : {}),
+        ...(record.is_error === true || record.isError === true ? { isError: true } : {})
+      }),
       timestamp,
       source: 'transcript'
     }
