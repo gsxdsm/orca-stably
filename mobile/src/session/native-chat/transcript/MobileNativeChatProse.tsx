@@ -1,8 +1,7 @@
-import { useCallback, useContext, useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { Image, Pressable, Text, View } from 'react-native'
 import { INLINE_TEXT_SELECTION } from '../../../components/inline-text-selection'
 import { MobileMarkdown } from '../../../components/MobileMarkdown'
-import { fileUriToFilesystemPath } from '../../../../../src/shared/file-uri-path'
 import {
   isImageRefBlock,
   isTextBlock,
@@ -83,15 +82,6 @@ export function Prose({
 }): React.JSX.Element | null {
   useMobileColorScheme()
   const t = useMobileTranslation()
-  const renderImage = useCallback(
-    (href: string, alt: string): React.ReactNode => {
-      const image = markdownImageBlock(href, alt)
-      return image ? (
-        <ImageAttachment block={image} fontScale={fontScale} onLongPress={onLongPress} />
-      ) : null
-    },
-    [fontScale, onLongPress]
-  )
   if (isTextBlock(block)) {
     if (isAgentSessionHostStatusPresentation(block.presentation)) {
       return (
@@ -104,9 +94,9 @@ export function Prose({
       )
     }
     const renderImage = (href: string, alt: string) => {
-      const block = chatMarkdownImageBlock(href, alt)
-      return block ? (
-        <ImageAttachment block={block} fontScale={fontScale} onLongPress={onLongPress} />
+      const image = markdownImageBlock(href, alt)
+      return image ? (
+        <ImageAttachment block={image} fontScale={fontScale} onLongPress={onLongPress} />
       ) : null
     }
     if (userMessage) {
@@ -143,41 +133,6 @@ export function Prose({
     return <ImageAttachment block={block} fontScale={fontScale} onLongPress={onLongPress} />
   }
   return null
-}
-
-function chatMarkdownImageBlock(href: string, alt: string): NativeChatImageRefBlock | null {
-  const label = alt ? { alt } : {}
-  if (/^https?:\/\//i.test(href)) {
-    return { type: 'image-ref', url: href, ...label }
-  }
-  const path = absoluteMarkdownImagePath(href)
-  return path ? { type: 'image-ref', path, ...label } : null
-}
-
-function absoluteMarkdownImagePath(href: string): string | null {
-  const decoded = decodeLocalImagePath(href)
-  if (href.startsWith('/') && !href.startsWith('//')) {
-    return decoded
-  }
-  if (/^[A-Za-z]:[\\/]/.test(decoded)) {
-    return decoded
-  }
-  if (!href.startsWith('file://')) {
-    return null
-  }
-  try {
-    return fileUriToFilesystemPath(new URL(href))
-  } catch {
-    return null
-  }
-}
-
-function decodeLocalImagePath(path: string): string {
-  try {
-    return decodeURIComponent(path)
-  } catch {
-    return path
-  }
 }
 
 // Host paths cannot load on the phone; the chat's host reads them, and a refused read stays a placeholder.
