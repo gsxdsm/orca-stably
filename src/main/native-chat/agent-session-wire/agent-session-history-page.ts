@@ -301,7 +301,6 @@ function buildPage(input: {
 }): AgentSessionHistoryPage {
   const epoch = input.snapshot.cursor.epoch
   const pageItemIds = new Set(input.items.map((item) => item.itemId))
-  const oldest = input.items[0]
   const newest = input.items.at(-1)
   return {
     sessionId: input.snapshot.sessionId,
@@ -314,7 +313,7 @@ function buildPage(input: {
       pageItemIds.has(agentJournalSubmissionKey(submission.clientMessageId))
     ),
     window: {
-      oldest: oldest ? { epoch, sequence: oldest.sequence } : null,
+      oldest: input.items[0] ? { epoch, sequence: input.items[0].sequence } : null,
       newest: newest ? { epoch, sequence: newest.sequence } : null,
       nextCursor: input.nextCursor ?? input.fallbackCursor
     },
