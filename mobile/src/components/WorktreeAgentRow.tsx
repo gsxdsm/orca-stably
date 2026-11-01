@@ -115,6 +115,7 @@ function WorktreeAgentRowComponent({
       delayLongPress={400}
       style={({ pressed }) => [
         pressed && pressedStyle,
+        selectable && (selected || pressed) && styles.rowHighlight,
         selectable && selected && styles.rowSelected,
         selectable && pressed && styles.rowPressed
       ]}
@@ -156,6 +157,15 @@ const styles = themedStyleSheet(() => ({
     minHeight: 44,
     marginTop: spacing.xs,
     paddingVertical: spacing.sm
+  },
+  // Pad the fill, not the text: the negative margin puts that padding back, so idle rows stay aligned.
+  // Radius is desktop `rounded-sm` (`--radius-sm` = 0.6 × `--radius`).
+  rowHighlight: {
+    marginHorizontal: -spacing.sm,
+    marginVertical: -spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 6
   },
   rowSelected: {
     backgroundColor: colors.bgPanel
