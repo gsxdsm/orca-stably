@@ -23,11 +23,6 @@ import { WorktreeMetaGlyphs, prStateColor } from './WorktreeMetaGlyphs'
 import { WORKTREE_ROW_LAYOUT } from './worktree-list-row-layout'
 import { useWorktreeRowSession } from './worktree-session-press'
 
-// Match desktop formatBranchName by hiding refs/heads/ prefix.
-function displayBranch(branch: string): string {
-  return branch.replace(/^refs\/heads\//, '')
-}
-
 type Props = {
   item: Worktree
   isReadOnly: boolean
@@ -74,7 +69,7 @@ function WorktreeListRowComponent({
   const isFolderWorkspace = item.workspaceKind === 'folder-workspace'
   const folderMeta =
     item.comment?.trim() || item.path || t('components.worktreeListRow.folder', 'Folder')
-  const metaText = isFolderWorkspace ? folderMeta : displayBranch(item.branch)
+  const metaText = isFolderWorkspace ? folderMeta : item.branch.replace(/^refs\/heads\//, '')
   const lineageDepth = Math.max(0, item.lineageDepth ?? 0)
   const indent = projectGroupRowIndent(item) + lineageDepth * 18
   const count = item.lineageChildCount ?? 0
@@ -85,7 +80,7 @@ function WorktreeListRowComponent({
   const hostAccessibilityLabel = [item.hostContextLabel, item.hostContextHealthLabel]
     .filter(Boolean)
     .join(', ')
-  // Why: the desktop's compact card keeps an icon-only glyph for remote projects after the host badge goes.
+  // The desktop's compact card keeps an icon-only glyph for remote projects after the host badge goes.
   const showHostGlyph = !cardDetails.metaRow && isRemoteExecutionHostId(hostId)
   const sessionPress = useWorktreeRowSession(item, selectableSessions, onPress, onAgentPress)
   const handleLongPress = sessionPress.cardLongPress(onLongPress, triggerMediumImpact)

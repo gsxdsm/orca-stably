@@ -208,6 +208,7 @@ describe('WorktreeAgentList', () => {
         })
       )
     })
+    await pressByLabel(renderer!, 'Show 1 child agent')
     const rows = renderer!.root.findAll((node) => node.props.agent !== undefined)
     const parent = findByHostType(rows[0], 'Pressable')
     const child = findByHostType(rows[1], 'Pressable')
@@ -244,6 +245,7 @@ describe('WorktreeAgentList', () => {
         })
       )
     })
+    await pressByLabel(renderer!, 'Show 1 child agent')
     const rows = renderer!.root.findAll((node) => node.props.agent !== undefined)
     const fill = (row: (typeof rows)[number], pressed: boolean) => {
       const style = findByHostType(row, 'Pressable').props.style({ pressed })
