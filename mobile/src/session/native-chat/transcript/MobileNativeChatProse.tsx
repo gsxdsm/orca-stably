@@ -3,12 +3,13 @@ import { Image, Pressable, Text, View } from 'react-native'
 import { INLINE_TEXT_SELECTION } from '../../../components/inline-text-selection'
 import { MobileMarkdown } from '../../../components/MobileMarkdown'
 import { fileUriToFilesystemPath } from '../../../../../src/shared/file-uri-path'
-import { isImageRefBlock, isTextBlock } from '../../../../../src/shared/native-chat-types'
-import type {
-  NativeChatBlock,
-  NativeChatImageRefBlock
-} from '../../../../../src/shared/native-chat-types'
-import { isAgentSessionHostStatusPresentation } from '../../../../../src/shared/agent-session-host-status-rows'
+import {
+  isImageRefBlock,
+  isTextBlock,
+  type NativeChatBlock,
+  type NativeChatImageRefBlock
+} from '../../../../../src/shared/native-chat/native-chat-types'
+import { isAgentSessionHostStatusPresentation } from '../../../../../src/shared/agent-session/view/agent-session-host-status-rows'
 import { withoutPendingNativeChatVisualDirectiveTail } from '../../../../../src/shared/native-chat/native-chat-visual-directive'
 import { MobileNativeChatRowOverlaysContext } from './mobile-native-chat-row-overlays'
 import {
@@ -26,6 +27,7 @@ import type { MobileNativeChatVisualRender } from '../visual/mobile-native-chat-
 import { useMobileColorScheme } from '../../../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../../../i18n/use-mobile-translation'
 import { nativeChatHostStatusCopy } from './native-chat-notice-copy'
+import { pressedStyle } from '../../../theme/mobile-theme'
 
 export function Prose({
   block,
@@ -190,6 +192,7 @@ function ImageAttachment({
   }
   return (
     <Pressable
+      style={({ pressed }) => pressed && pressedStyle}
       onPress={() => openImage({ uri, label })}
       onLongPress={onLongPress}
       accessibilityRole="imagebutton"

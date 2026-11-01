@@ -16,20 +16,12 @@ import { MOBILE_ADD_PROJECT_RUNTIME_CAPABILITY } from '../../../src/shared/proto
 import { serverUpdateNeededNotice } from '../host-route-notice'
 import type { ConnectionState } from '../transport/types'
 import { leaveHostRoute } from '../host-route-exit'
-import {
-  getWorktreeRowIdentity,
-  isSameWorktreeRow,
-  removeWorktreeRow
-} from '../worktree/worktree-host-row-identity'
+import { getWorktreeRowIdentity, isSameWorktreeRow } from '../worktree/worktree-host-row-identity'
 import { noteLastVisitedWorktree } from '../worktree/last-visited-worktree-by-host'
 import { isWorktreePinned, type Worktree } from '../worktree/workspace-list-sections'
-import {
-  worktreeActivate,
-  worktreePinWrite,
-  worktreeRemove,
-  worktreeSleep
-} from './host-screen-operations'
+import { worktreeActivate, worktreePinWrite, worktreeSleep } from './host-screen-operations'
 import type { HostScreenState } from './use-host-screen-state'
+import { useHostWorktreeDelete } from './use-host-worktree-delete'
 
 export function useHostWorktreeActions(args: {
   client: RpcClient | null
@@ -186,34 +178,7 @@ export function useHostWorktreeActions(args: {
     [client, setSleptIds]
   )
 
-  const handleDeleteWorktree = useCallback(
-    async (item: Worktree) => {
-      const rowClient = clientForRow(item)
-      if (!rowClient) {
-        return
-      }
-
-      const removeFromList = (list: Worktree[]) => removeWorktreeRow(list, item)
-      setWorktrees(removeFromList)
-      setLastKnownWorktrees(removeFromList)
-
-      try {
-        const reply = await worktreeRemove.request(rowClient, {
-          worktree: `id:${item.worktreeId}`,
-          force: true
-        })
-        if (!worktreeRemove.interpret(reply).accepted) {
-          setWorktrees((prev) => [...prev, item])
-          setLastKnownWorktrees((prev) => [...prev, item])
-        }
-        void fetchWorktrees()
-      } catch {
-        setWorktrees((prev) => [...prev, item])
-        setLastKnownWorktrees((prev) => [...prev, item])
-      }
-    },
-    [clientForRow, fetchWorktrees]
-  )
+  const worktreeDelete = useHostWorktreeDelete({ client, clientForRow, fetchWorktrees, state })
 
   const handleRemoveHost = useCallback(async () => {
     if (!hostId) {
@@ -312,7 +277,7 @@ export function useHostWorktreeActions(args: {
   }, [hostId, navigateFromHostList])
 
   return {
-    handleDeleteWorktree,
+    ...worktreeDelete,
     handleRemoveHost,
     leaveHost,
     navigateFromHostList,

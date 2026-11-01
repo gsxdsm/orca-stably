@@ -1,14 +1,14 @@
 // A chat paints a tail. The pills need the calls that happened before that tail.
 
 import { stat } from 'node:fs/promises'
-import type { AgentType } from '../../shared/native-chat-types'
+import type { AgentType } from '../../shared/agent-status-types'
 import {
   latestNativeChatTaskSeed,
   nativeChatSubagentActivities,
   type NativeChatSubagentActivity
 } from '../../shared/native-chat/input/native-chat-activity'
 import type { NativeChatTaskSeedList } from '../../shared/native-chat/input/native-chat-claude-task-updates'
-import { projectNativeChatTranscript } from '../../shared/native-chat-transcript-projection'
+import { projectNativeChatTranscript } from '../../shared/native-chat/transcript/native-chat-transcript-projection'
 import { foldToolMessages } from '../../shared/native-chat/tools/native-chat-tool-fold'
 import { readNativeChatTranscript } from './transcript-reader'
 import { fillSubagentRosterActivity } from './transcript-subagent-roster-activity'

@@ -1,6 +1,6 @@
-import type { AgentJournalSnapshot } from '../../../shared/agent-session-journal-types'
-import type { AgentSessionLatestTurn } from '../../../shared/agent-session-wire'
-import { latestStructuredAgentSessionTurn } from '../../../shared/structured-agent-session-live-turn'
+import type { AgentJournalSnapshot } from '../../../shared/agent-session/journal/agent-session-journal-types'
+import type { AgentSessionLatestTurn } from '../../../shared/agent-session/agent-session-wire'
+import { latestStructuredAgentSessionTurn } from '../../../shared/agent-session/view/structured-agent-session-live-turn'
 
 export { historyPageTaskList as pageTaskList } from '../../../shared/native-chat/input/native-chat-journal-task-list'
 

@@ -1,6 +1,6 @@
 import { defineFixture } from '../../component-fixtures/component-fixture'
-import type { NativeChatSubagentRow } from '../../../../shared/native-chat-transcript-projection'
-import type { NativeChatMessage } from '../../../../shared/native-chat-types'
+import type { NativeChatSubagentRow } from '../../../../shared/native-chat/transcript/native-chat-transcript-projection'
+import type { NativeChatMessage } from '../../../../shared/native-chat/native-chat-types'
 import { NativeChatActivityBar } from './NativeChatActivityBar'
 
 const messages: NativeChatMessage[] = [

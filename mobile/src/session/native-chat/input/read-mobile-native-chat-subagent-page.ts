@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import type { NativeChatMessage } from '../../../../../src/shared/native-chat-types'
+import type { NativeChatMessage } from '../../../../../src/shared/native-chat/native-chat-types'
 import type { RpcClient } from '../../../transport/rpc-client'
 import { nativeChatSessionPageRead } from '../../mobile-session-read-operations'
 import type { MobileNativeChatSubagentRead } from './use-mobile-native-chat-subagent-page'

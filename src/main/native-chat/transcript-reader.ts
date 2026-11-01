@@ -1,11 +1,11 @@
 import { readOpenCodeNativeChatTranscriptFull } from './transcript-opencode'
 import { canReadHermesTranscriptHere, hermesTranscriptDeps } from './transcript-hermes'
 import { isENOENT } from '../ipc/filesystem/filesystem-path-containment'
+import type { AgentType } from '../../shared/agent-status-types'
 import type {
-  AgentType,
   NativeChatMessage,
   NativeChatTurnLifecycle
-} from '../../shared/native-chat-types'
+} from '../../shared/native-chat/native-chat-types'
 import { resolveNativeChatTranscriptAgent } from '../../shared/native-chat/native-chat-agent-support'
 import { errorMessage } from '../ai-vault/session-scanner-values'
 import { resolveSessionFilePath, type ResolveSessionFileOptions } from './session-file-resolver'

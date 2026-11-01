@@ -7,6 +7,7 @@ vi.mock('../native-chat/input/MobileNativeChatActivityBar', () => ({
 vi.mock('react-native', async () => {
   const React = await import('react')
   return {
+    ...(await import('../../test-support/react-native-motion-stub')).reactNativeMotionStub(),
     ActivityIndicator: 'ActivityIndicator',
     Image: 'Image',
     Platform: { OS: 'ios' },

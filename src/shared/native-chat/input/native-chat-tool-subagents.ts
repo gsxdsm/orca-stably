@@ -4,7 +4,7 @@ import {
   NATIVE_CHAT_SUBAGENT_STATES,
   type NativeChatMessage,
   type NativeChatSubagentState
-} from '../../native-chat-types'
+} from '../native-chat-types'
 import { foldToolMessages } from '../tools/native-chat-tool-fold'
 import { pairToolBlocks } from '../tools/native-chat-tool-pairs'
 import { nativeChatRosterActivityLine } from './native-chat-roster-activity-line'

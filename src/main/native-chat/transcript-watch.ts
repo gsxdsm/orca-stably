@@ -3,7 +3,7 @@ import { subscribeOpenCodeNativeChatTranscript } from './transcript-opencode-sub
 import { resolveNativeChatTranscriptAgent } from '../../shared/native-chat/native-chat-agent-support'
 import { canReadHermesTranscriptHere, hermesTranscriptDeps } from './transcript-hermes'
 import { extname } from 'node:path'
-import type { NativeChatMessage } from '../../shared/native-chat-types'
+import type { NativeChatMessage } from '../../shared/native-chat/native-chat-types'
 import {
   needsWslHostResolution,
   toHostReadableTranscriptPath,

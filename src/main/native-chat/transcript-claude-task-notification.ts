@@ -1,5 +1,8 @@
 import { nativeChatRosterActivityLine } from '../../shared/native-chat/input/native-chat-roster-activity-line'
-import type { NativeChatMessage, NativeChatSubagentState } from '../../shared/native-chat-types'
+import type {
+  NativeChatMessage,
+  NativeChatSubagentState
+} from '../../shared/native-chat/native-chat-types'
 import { timestampMs } from '../ai-vault/session-scanner-values'
 
 const NOTICE = /<task-notification>[\s\S]*?<\/task-notification>/

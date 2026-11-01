@@ -6,7 +6,7 @@ import { composerInputStyles } from '../../../components/composer-input/composer
 export const COMPOSER_INSET_TOP = 6
 
 const composerInset = {
-  paddingHorizontal: 10,
+  paddingHorizontal: spacing.md,
   paddingTop: COMPOSER_INSET_TOP,
   paddingBottom: spacing.sm
 }

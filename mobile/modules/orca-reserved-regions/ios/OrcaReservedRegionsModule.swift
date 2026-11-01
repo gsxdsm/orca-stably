@@ -60,7 +60,9 @@ public class OrcaReservedRegionsModule: Module {
 }
 
 #if canImport(UIKit, _version: 9127.0.85)
-  /// Invisible full-window view reporting reserved regions and keyboard geometry.
+  /// Invisible full-window view: laid out on resize, safe-area and keyboard moves, and again when
+  /// reserved regions change without a size change. Not keyboardLayoutGuide: constraints on it crash
+  /// UIKit's split keyboard on an unfolded Duo.
   @available(iOS 27.1, *)
   private final class ReservedRegionsProbe: UIView {
     var onChange: (([String: Any]) -> Void)?

@@ -3,7 +3,7 @@ import { makePaneKey } from '../../../src/shared/stable-pane-id'
 import {
   structuredAgentSessionPaneKey,
   structuredAgentSessionTabId
-} from '../../../src/shared/structured-agent-session-projection'
+} from '../../../src/shared/agent-session/view/structured-agent-session-projection'
 import { sidebarSessionTabForPane, sidebarSessionTabs } from './sidebar-session-tab'
 
 const LEAF = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'

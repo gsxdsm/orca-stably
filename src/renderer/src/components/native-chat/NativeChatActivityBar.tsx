@@ -10,11 +10,11 @@ import {
 } from '../../../../shared/native-chat/input/native-chat-activity'
 import { nativeChatCompletedTaskCount } from '../../../../shared/native-chat/input/native-chat-task-list'
 import type { NativeChatTaskSeedList } from '../../../../shared/native-chat/input/native-chat-claude-task-updates'
-import type { NativeChatSubagentRow } from '../../../../shared/native-chat-transcript-projection'
+import type { NativeChatSubagentRow } from '../../../../shared/native-chat/transcript/native-chat-transcript-projection'
 import type {
   NativeChatMessage,
   NativeChatSubagentState
-} from '../../../../shared/native-chat-types'
+} from '../../../../shared/native-chat/native-chat-types'
 import { NativeChatTaskList } from './NativeChatTaskList'
 
 function stateLabel(state: NativeChatSubagentState): string {
@@ -209,7 +209,7 @@ export function NativeChatActivityBar({
                 <p className="border-b border-border px-3 py-2 text-xs font-medium text-foreground">
                   {translate('components.native-chat.activity.subagentsTitle', 'Subagents')}
                 </p>
-                <ul className="max-h-80 overflow-y-auto py-1">
+                <ul className="scrollbar-sleek max-h-80 overflow-y-auto py-1">
                   {focused ? (
                     <li>
                       <SubagentChoice

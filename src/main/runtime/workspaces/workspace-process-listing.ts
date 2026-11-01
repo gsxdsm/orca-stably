@@ -60,12 +60,10 @@ import {
   withoutHiddenHosts
 } from '../runtime-visible-catalog'
 import { isWorkspaceNotificationMuted } from '../workspace-notification-mute'
-import { WorkerAutoReleaseActivity } from '../orchestration/worker-auto-release-activity'
+import { WorkerAutoReleaseActivity as Release } from '../orchestration/worker-auto-release-activity'
 
 export abstract class OrcaRuntimeWithGetWorktreePs extends OrcaRuntimeWithWorktreePsDependencies {
-  protected readonly workerAutoReleaseActivity = new WorkerAutoReleaseActivity(
-    () => this._orchestrationDb
-  )
+  protected readonly workerAutoReleaseActivity = new Release(() => this._orchestrationDb)
 
   async getWorktreePs(
     limit = DEFAULT_WORKTREE_PS_LIMIT,
@@ -304,6 +302,9 @@ export abstract class OrcaRuntimeWithGetWorktreePs extends OrcaRuntimeWithWorktr
         readWorkspaceLabels: (scope) =>
           readStructuredAttentionWorkspaceLabels(this.requireStore(), scope),
         isWorkspaceMuted: (scope) => this.isWorkspaceNotificationMuted(scope.workspaceId),
+        // The same contexts the session's chat row carries.
+        readOrchestration: (paneKey) =>
+          this.agentOrchestrationProjection.buildByPaneKey()?.[paneKey],
         dispatch: (event) => this.mobileNotifications.dispatch(event),
         reconcile: (state) => this.mobileNotifications.reconcileStructuredPromptAttention(state),
         now: () => Date.now()

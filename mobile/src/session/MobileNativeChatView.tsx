@@ -1,18 +1,13 @@
+import { MobileStateView } from '../components/MobileStateView'
 import { useCallback, useMemo } from 'react'
 import { nativeChatTaskListPredecessors } from '../../../src/shared/native-chat/input/native-chat-task-list-history'
 import {
   MobileNativeChatDisclosureContext,
   useMobileNativeChatDisclosures
 } from './native-chat/transcript/mobile-native-chat-disclosure-store'
-import {
-  ActivityIndicator,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-  Text,
-  View
-} from 'react-native'
+import { type NativeScrollEvent, type NativeSyntheticEvent, Text, View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import { colors } from '../theme/mobile-theme'
+import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { styles } from './mobile-native-chat-view-styles'
 import { MobileNativeChatEmptyStateView } from './MobileNativeChatEmptyStateView'
@@ -124,6 +119,7 @@ export function MobileNativeChatView({
   keyboardInset = 0
 }: MobileNativeChatViewProps): React.JSX.Element {
   useMobileColorScheme()
+  const t = useMobileTranslation()
   const { bottomPad, composerFit, transcriptInset } = useChatBottomFit(keyboardInset)
   const { fontScale, pinchGesture, pinchTarget } = useMobileNativeChatPinchGesture()
   const subagent = useMobileNativeChatSubagentTranscript({
@@ -270,9 +266,10 @@ export function MobileNativeChatView({
   return (
     <View style={[styles.root, { paddingBottom: bottomPad }]}>
       {status === 'loading' && messages.length === 0 ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.textSecondary} />
-        </View>
+        <MobileStateView
+          loading
+          title={t('session.nativeChatView.loading', 'Loading conversation…')}
+        />
       ) : (
         <GestureHandlerRootView style={[styles.listWrap, transcriptInset]}>
           <MobileNativeChatDisclosureContext.Provider value={disclosures}>

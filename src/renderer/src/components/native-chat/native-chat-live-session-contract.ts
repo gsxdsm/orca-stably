@@ -2,7 +2,7 @@ import type {
   NativeChatMessage,
   NativeChatSession,
   NativeChatTurnLifecycle
-} from '../../../../shared/native-chat-types'
+} from '../../../../shared/native-chat/native-chat-types'
 import type { NativeChatSubagentActivity } from '../../../../shared/native-chat/input/native-chat-activity'
 import type { NativeChatTaskSeedList } from '../../../../shared/native-chat/input/native-chat-claude-task-updates'
 import type { NativeChatOlderPageResult } from './native-chat-pagination'

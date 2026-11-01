@@ -1,5 +1,5 @@
 import { defineFixture } from '../../component-fixtures/component-fixture'
-import type { NativeChatMessage } from '../../../../shared/native-chat-types'
+import type { NativeChatMessage } from '../../../../shared/native-chat/native-chat-types'
 import { MessageRow } from './NativeChatMessageRow'
 import { NativeChatMarkdownImageOwnerContext } from './native-chat-markdown-image-owner'
 

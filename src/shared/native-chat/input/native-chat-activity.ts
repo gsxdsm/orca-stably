@@ -1,8 +1,8 @@
 // Latest task list and subagent roster, read from the transcript both clients already have.
 // A snapshot replaces the list. Grok merges todo_write by id. Claude's Task* tools edit one row.
 
-import { agentJournalItemSubagentId } from '../../agent-session-journal-producer'
-import type { NativeChatMessage, NativeChatSubagentState } from '../../native-chat-types'
+import { agentJournalItemSubagentId } from '../../agent-session/journal/agent-session-journal-producer'
+import type { NativeChatMessage, NativeChatSubagentState } from '../native-chat-types'
 import { namedSubagents } from '../transcript/native-chat-subagent-items'
 import {
   canReplaceSubagentState,

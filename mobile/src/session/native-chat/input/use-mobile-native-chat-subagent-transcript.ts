@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { agentJournalItemSubagentId } from '../../../../../src/shared/agent-session-journal-producer'
+import { agentJournalItemSubagentId } from '../../../../../src/shared/agent-session/journal/agent-session-journal-producer'
 import {
   nativeChatSubagentActivities,
   nativeChatVisibleTaskList,
@@ -7,8 +7,8 @@ import {
 } from '../../../../../src/shared/native-chat/input/native-chat-activity'
 import type { NativeChatTaskList } from '../../../../../src/shared/native-chat/input/native-chat-task-list'
 import type { NativeChatTaskSeedList } from '../../../../../src/shared/native-chat/input/native-chat-claude-task-updates'
-import { projectNativeChatTranscript } from '../../../../../src/shared/native-chat-transcript-projection'
-import type { NativeChatMessage } from '../../../../../src/shared/native-chat-types'
+import { projectNativeChatTranscript } from '../../../../../src/shared/native-chat/transcript/native-chat-transcript-projection'
+import type { NativeChatMessage } from '../../../../../src/shared/native-chat/native-chat-types'
 import {
   foldMobileNativeChatAgentMessages,
   type MobileNativeChatPendingItem

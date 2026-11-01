@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { Ban, ChevronLeft, ListChecks, Users } from 'lucide-react-native'
-import type { NativeChatSubagentState } from '../../../../../src/shared/native-chat-types'
+import type { NativeChatSubagentState } from '../../../../../src/shared/native-chat/native-chat-types'
 import {
   nativeChatCompletedTaskCount,
   type NativeChatTaskList

@@ -1,7 +1,10 @@
 import { createHash } from 'node:crypto'
 import { readFileSync, statSync } from 'node:fs'
 import { basename, extname, isAbsolute } from 'node:path'
-import type { NativeChatImageRefBlock, NativeChatMessage } from '../../shared/native-chat-types'
+import type {
+  NativeChatImageRefBlock,
+  NativeChatMessage
+} from '../../shared/native-chat/native-chat-types'
 import { IMAGE_FILE_MIME_TYPES } from '../../shared/image-file-extensions'
 import { asRecord, extractString, parseJsonObject } from '../ai-vault/session-scanner-values'
 import { RUNTIME_PREVIEWABLE_BINARY_MAX_BYTES } from '../runtime/files/file-preview-budget'

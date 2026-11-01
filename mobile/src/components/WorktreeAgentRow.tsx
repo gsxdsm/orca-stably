@@ -1,9 +1,9 @@
 import { agentNoUpdateLabel } from '../../../src/shared/agent-row-decay-state'
-import { memo } from 'react'
+import { memo, type ReactNode } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import type { RuntimeWorktreeAgentRow } from '../../../src/shared/runtime-types'
 import { withoutNativeChatVisualDirectiveLines } from '../../../src/shared/native-chat/native-chat-visual-directive'
-import { colors, spacing } from '../theme/mobile-theme'
+import { colors, spacing, pressedStyle } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import {
@@ -17,7 +17,7 @@ import { MobileAgentIcon } from './MobileAgentIcon'
 import type { AgentChildRowModel } from '../../../src/shared/agent-child-row-model'
 import { mobileAgentChildRowText } from '../session/mobile-agent-child-row-text'
 
-const INDENT_PER_DEPTH = 14
+export const AGENT_ROW_INDENT_PER_DEPTH = 14
 
 type Props = {
   agent: RuntimeWorktreeAgentRow
@@ -34,6 +34,7 @@ type Props = {
   onPressIn?: () => void
   onPressOut?: () => void
   onLongPress?: (paneKey: string) => void
+  trailing?: ReactNode
 }
 
 // Match compact desktop DashboardAgentRow: state→identity→message/prompt→age.
@@ -49,7 +50,8 @@ function WorktreeAgentRowComponent({
   onPress,
   onPressIn,
   onPressOut,
-  onLongPress
+  onLongPress,
+  trailing
 }: Props) {
   useMobileColorScheme()
   const dotState = childRow?.displayState ?? agentDotState(agent, now)
@@ -76,7 +78,7 @@ function WorktreeAgentRowComponent({
       style={[
         styles.row,
         selectable && styles.rowSelectable,
-        { paddingLeft: depth * INDENT_PER_DEPTH }
+        { paddingLeft: depth * AGENT_ROW_INDENT_PER_DEPTH }
       ]}
     >
       <AgentStateDot state={dotState} />
@@ -101,6 +103,7 @@ function WorktreeAgentRowComponent({
           label
         )}
       </Text>
+      {trailing}
       <Text style={styles.time}>{ts}</Text>
     </View>
   )
@@ -114,6 +117,7 @@ function WorktreeAgentRowComponent({
       accessibilityState={selected ? { selected: true } : undefined}
       delayLongPress={400}
       style={({ pressed }) => [
+        pressed && pressedStyle,
         selectable && selected && styles.rowSelected,
         selectable && pressed && styles.rowPressed
       ]}

@@ -10,7 +10,7 @@ import {
 import type {
   NativeChatMessage,
   NativeChatTurnLifecycle
-} from '../../../src/shared/native-chat-types'
+} from '../../../src/shared/native-chat/native-chat-types'
 import type { NativeChatSubagentActivity } from '../../../src/shared/native-chat/input/native-chat-activity'
 import {
   readNativeChatTaskSeedList,

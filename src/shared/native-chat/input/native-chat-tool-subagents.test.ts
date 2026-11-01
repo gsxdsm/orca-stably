@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { NativeChatBlock, NativeChatMessage } from '../../native-chat-types'
+import type { NativeChatBlock, NativeChatMessage } from '../native-chat-types'
 import { nativeChatSubagentActivities } from './native-chat-activity'
 import {
   nativeChatToolSubagentActivities,

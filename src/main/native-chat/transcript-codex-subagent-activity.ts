@@ -1,4 +1,7 @@
-import type { NativeChatMessage, NativeChatSubagentState } from '../../shared/native-chat-types'
+import type {
+  NativeChatMessage,
+  NativeChatSubagentState
+} from '../../shared/native-chat/native-chat-types'
 import { asRecord, extractString } from '../ai-vault/session-scanner-values'
 
 function pathLabel(agentPath: string): string {
