@@ -24,6 +24,7 @@ import {
   buildAgentTuiClearInputForText
 } from '../../../../../src/shared/agent-tui-input-clear'
 import { buildNativeChatPasteBytes } from '../../../../../src/shared/native-chat-paste-bytes'
+import { retryHeldHermesSubmit } from '../mobile-hermes-held-submit'
 
 export type MobileNativeChatMessageSend = {
   send: (text: string, images?: string[]) => Promise<boolean>
@@ -200,6 +201,16 @@ export function useMobileNativeChatMessageSend(args: {
         }
         onSendError('Message not sent')
         return 'rejected'
+      }
+      if (agent === 'hermes' && classification === 'chat') {
+        await retryHeldHermesSubmit({
+          client,
+          terminal: handle,
+          text,
+          deadline,
+          deviceToken: deviceTokenRef.current,
+          isCurrent: () => handleRef.current === handle && agentRef.current === 'hermes'
+        })
       }
       if (classification === 'chat') {
         if (!optimisticId) {
