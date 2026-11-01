@@ -501,13 +501,22 @@ describe('the hybrid shell screen', () => {
 
   it('takes the stack swipe away while the session says the page is holding the key', async () => {
     dependencies.backClaimed = true
-    await renderScreen(readyState('session-one'))
+    const tree = await renderScreen(readyState('session-one'))
     expect(dependencies.setScreenOptions).toHaveBeenCalledWith({ gestureEnabled: false })
+    // The host document is the only screen, so the swipe to the server list is the parent’s.
+    expect(dependencies.setParentScreenOptions).toHaveBeenCalledWith({ gestureEnabled: false })
+    expect(byName(tree, 'View').some((node) => node.props.testID === 'shell-page-back-edge')).toBe(
+      true
+    )
   })
 
   it('leaves the swipe alone while the page is holding nothing', async () => {
-    await renderScreen(readyState('session-one'))
+    const tree = await renderScreen(readyState('session-one'))
     expect(dependencies.setScreenOptions).toHaveBeenCalledWith({ gestureEnabled: true })
+    expect(dependencies.setParentScreenOptions).not.toHaveBeenCalled()
+    expect(byName(tree, 'View').some((node) => node.props.testID === 'shell-page-back-edge')).toBe(
+      false
+    )
   })
 
   it('pops nothing when this page is the first screen on the stack, rather than dismissing it', async () => {
