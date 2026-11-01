@@ -108,10 +108,7 @@ public class OrcaReservedRegionsModule: Module {
           self.setNeedsLayout()
         })
       }
-      regionsTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-        guard let self, UIApplication.shared.applicationState == .active else { return }
-        self.setNeedsLayout()
-      }
+
     }
 
     required init?(coder: NSCoder) {
