@@ -30,6 +30,7 @@ import {
   mobileComposerSkippedPasteNotice
 } from './composer/mobile-composer-skipped-paste-notice'
 import type { MobileComposerImagePasteHandler } from './composer/mobile-native-chat-composer-image-paste'
+import { MobileSessionCrewActivity } from './input/MobileSessionCrewActivity'
 
 type Props = {
   controller: MobileNativeChatController
@@ -58,6 +59,8 @@ type Props = {
   /** The Orca host that runs this chat, named for notices; null when unnamed. */
   hostName: string | null
   showToast?: (message: string, durationMs?: number) => void
+  /** Terminal handle for the crew subscription; agent chats use sessionId. */
+  crewTerminal?: string | null
 }
 
 // Keep the terminal subscription and streaming gate above view toggles; the chat list unmounts below this boundary.
@@ -85,7 +88,8 @@ export function MobileNativeChatOverlay({
   getSendCompletionGeneration,
   keyboardInset,
   hostName,
-  showToast
+  showToast,
+  crewTerminal = null
 }: Props): React.JSX.Element | null {
   const session = controller.nativeChatSession
   const agent = controller.nativeChatAgent ?? ''
@@ -313,6 +317,14 @@ export function MobileNativeChatOverlay({
                           hostId && worktreeId ? { hostId, worktreeId, sessionId } : null
                         }
                         keyboardInset={keyboardInset}
+                        activityBar={
+                          <MobileSessionCrewActivity
+                            client={imageSource?.client ?? null}
+                            sessionId={sessionId}
+                            terminal={crewTerminal}
+                            setComposerText={controller.setChatComposerText}
+                          />
+                        }
                       />
                     </MobileNativeChatImagePasteContext.Provider>
                   </MobileNativeChatImagePasteSkipContext.Provider>

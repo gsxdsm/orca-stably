@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { computeActiveTerminalKeyboardLift } from '../terminal/terminal-keyboard-avoidance-lift'
 import { terminalPaneDirection, terminalPaneKeyboardLayout } from './mobile-terminal-pane-layout'
 import { Animated, View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native'
@@ -13,6 +13,7 @@ import { TerminalPaneView } from './TerminalPaneView'
 import { MobileNativeChatOverlay } from './native-chat/MobileNativeChatOverlay'
 import { MobileAgentMessageProvider } from './native-chat/transcript/MobileAgentMessageProvider'
 import { useMobileAgentMessageNavigation } from './use-mobile-agent-message-navigation'
+import { mobileCrewTerminal, useMobileSenderRoute } from './mobile-session-crew-route'
 import { MobileNativeChatDictationPreviewContext } from './native-chat/composer/mobile-native-chat-dictation-preview-context'
 import { MobileDictationMeterContext } from './mobile-dictation-meter-context'
 import { resolveMobileNativeChatSessionId } from './native-chat/mobile-native-chat-eligibility'
@@ -29,7 +30,11 @@ import { MobileSessionContentState } from './MobileSessionContentState'
 import { MarkdownReader } from './MobileSessionMarkdownReader'
 import { loadMarkdownPreviewImage } from '../files/mobile-markdown-image-source'
 
-export function MobileSessionActiveContent({ controller }: { controller: MobileSessionController }) {
+export function MobileSessionActiveContent({
+  controller
+}: {
+  controller: MobileSessionController
+}) {
   useMobileColorScheme()
   const t = useMobileTranslation()
   const executionHost = useWorkspaceExecutionHost()
@@ -123,15 +128,7 @@ export function MobileSessionActiveContent({ controller }: { controller: MobileS
     () => (client ? { client, worktreeId } : undefined),
     [client, worktreeId]
   )
-  const navigateToSender = useCallback(
-    (senderWorktreeId: string, paneKey: string) => {
-      const execution = executionHost ? `&executionHost=${encodeURIComponent(executionHost)}` : ''
-      controller.router.push(
-        `/h/${encodeURIComponent(hostId)}/session/${encodeURIComponent(senderWorktreeId)}?paneKey=${encodeURIComponent(paneKey)}${execution}`
-      )
-    },
-    [controller.router, hostId, executionHost]
-  )
+  const navigateToSender = useMobileSenderRoute(controller.router, hostId, executionHost)
   const openSender = useMobileAgentMessageNavigation(
     client,
     navigateToSender,
@@ -371,6 +368,7 @@ export function MobileSessionActiveContent({ controller }: { controller: MobileS
                 keyboardInset={keyboardLift}
                 // A workspace routed to another server stops with that server, whose name the phone lacks.
                 hostName={executionHost === undefined && hostProfile ? hostTitle : null}
+                crewTerminal={mobileCrewTerminal(controller.activeSessionTab)}
               />
             </MobileAgentMessageProvider>
           </MobileDictationMeterContext.Provider>

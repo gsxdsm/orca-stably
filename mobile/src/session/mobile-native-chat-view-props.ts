@@ -26,6 +26,7 @@ import type { NativeChatTaskSeedList } from '../../../src/shared/native-chat/inp
 import type { OlderPagePhase } from './use-mobile-older-page-loader'
 import type { MobileNativeChatSubagentRead } from './native-chat/input/use-mobile-native-chat-subagent-page'
 import type { MobileDismissedSubagentScope } from './native-chat/input/use-mobile-dismissed-subagents'
+import type { ReactNode } from 'react'
 
 export type MobileNativeChatInputLockReason = 'disconnected' | 'waiting'
 
@@ -105,4 +106,5 @@ type ChatViewProps = MobileNativeChatSendProps & {
   onOpenFile?: (relativePath: string) => void
   dismissalScope?: MobileDismissedSubagentScope | null
   keyboardInset?: number
+  activityBar?: ReactNode
 }

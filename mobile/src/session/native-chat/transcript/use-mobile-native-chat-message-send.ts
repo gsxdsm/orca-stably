@@ -25,6 +25,7 @@ import {
 } from '../../../../../src/shared/agent-tui-input-clear'
 import { buildNativeChatPasteBytes } from '../../../../../src/shared/native-chat/input/native-chat-paste-bytes'
 import { retryHeldHermesSubmit } from '../mobile-hermes-held-submit'
+import { projectMobileCrewMentions } from '../../orchestration-crew/mobile-orchestration-crew'
 
 export type MobileNativeChatMessageSend = {
   send: (text: string, images?: string[]) => Promise<boolean>
@@ -181,7 +182,7 @@ export function useMobileNativeChatMessageSend(args: {
         : await sendMobileNativeChatMessageWithOutcome({
             client,
             terminal: handle,
-            text: buildNativeChatPasteBytes(text),
+            text: buildNativeChatPasteBytes(projectMobileCrewMentions(text)),
             ...(resolvedLaunchDraft ? { resolvedLaunchDraft } : {}),
             deadline,
             ...(mobileClient ? { mobileClient } : {})

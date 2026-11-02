@@ -32,6 +32,9 @@ vi.mock('../terminal/TerminalWebView', () => ({ TerminalWebView: hosts.TerminalW
 vi.mock('../storage/preferences', () => ({ saveTerminalTextScale: () => Promise.resolve() }))
 vi.mock('../browser/MobileBrowserPane', () => ({ MobileBrowserPane: () => null }))
 vi.mock('./native-chat/MobileNativeChatOverlay', () => ({ MobileNativeChatOverlay: () => null }))
+vi.mock('./native-chat/input/MobileOrchestrationCrewBar', () => ({
+  MobileOrchestrationCrewBar: () => null
+}))
 vi.mock('./MobileSessionFileReader', () => ({ FileReader: () => null }))
 vi.mock('./MobileSessionMarkdownReader', () => ({ MarkdownReader: () => null }))
 vi.mock('./mobile-session-styles', () => ({ styles: {} }))

@@ -3198,6 +3198,31 @@
       "updateFromWorker": "Update from worker",
       "messageFrom": "Message from",
       "showMore": "Show more"
+    },
+    "crew": {
+      "worker": "{{count}} worker",
+      "workers": "{{count}} workers",
+      "runningOne": "{{count}} running",
+      "running": "{{count}} running",
+      "workersRunning": "{{workers}} · {{running}}",
+      "manager": "{{count}} manager",
+      "managers": "{{count}} managers",
+      "peer": "{{count}} peer",
+      "peers": "{{count}} peers",
+      "sectionManager": "Manager",
+      "sectionWorkers": "Workers",
+      "sectionPeers": "Peers",
+      "open": "Crew, {{label}}",
+      "title": "Crew",
+      "status": {
+        "running": "Running",
+        "waiting": "Waiting",
+        "done": "Done",
+        "failed": "Failed"
+      },
+      "openAgent": "Open {{name}}",
+      "mention": "Mention {{name}}",
+      "mentionShort": "Mention"
     }
   },
   "sourceControl": {

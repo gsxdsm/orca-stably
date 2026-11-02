@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { ChevronLeft, ListChecks, Users } from 'lucide-react-native'
 import {
@@ -28,7 +28,8 @@ export function MobileNativeChatActivityBar({
   focusedTranscriptEmpty,
   fontScale,
   onFocusSubagent,
-  dismissalScope = null
+  dismissalScope = null,
+  accessory = null
 }: {
   list: NativeChatTaskList | null
   subagents: readonly NativeChatSubagentActivity[]
@@ -37,6 +38,8 @@ export function MobileNativeChatActivityBar({
   fontScale: number
   onFocusSubagent: (agentId: string | null) => void
   dismissalScope?: MobileDismissedSubagentScope | null
+  /** Crew pill, in the same row as the task and subagent pills. */
+  accessory?: ReactNode
 }): React.JSX.Element | null {
   useMobileColorScheme()
   const t = useMobileTranslation()
@@ -51,7 +54,7 @@ export function MobileNativeChatActivityBar({
   }, [visible.length])
   const showTasks = list != null && list.tasks.length > 0
   if (!showTasks && visible.length === 0 && !focused) {
-    return null
+    return accessory ? <View style={styles.bar}>{accessory}</View> : null
   }
   const completed = list ? nativeChatCompletedTaskCount(list) : 0
   const total = list?.tasks.length ?? 0
@@ -137,6 +140,7 @@ export function MobileNativeChatActivityBar({
             {working ? <View style={styles.dot} /> : null}
           </Pressable>
         ) : null}
+        {accessory}
       </View>
       <BottomDrawer visible={tasksOpen} onClose={() => setTasksOpen(false)} dragContentToDismiss>
         {list ? (

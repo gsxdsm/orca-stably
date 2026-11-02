@@ -38,6 +38,9 @@ vi.mock('../storage/preferences', () => ({ saveTerminalTextScale: () => Promise.
 vi.mock('../browser/MobileBrowserPane', () => ({ MobileBrowserPane: () => null }))
 vi.mock('./TerminalPaneView', () => ({ TerminalPaneView: () => null }))
 vi.mock('./native-chat/MobileNativeChatOverlay', () => ({ MobileNativeChatOverlay: () => null }))
+vi.mock('./native-chat/input/MobileOrchestrationCrewBar', () => ({
+  MobileOrchestrationCrewBar: () => null
+}))
 vi.mock('../transport/use-host-profile', () => ({ useHostProfile: () => null }))
 vi.mock('./MobileSessionFileReader', () => ({ FileReader: () => null }))
 vi.mock('./MobileSessionMarkdownReader', () => ({ MarkdownReader: () => null }))

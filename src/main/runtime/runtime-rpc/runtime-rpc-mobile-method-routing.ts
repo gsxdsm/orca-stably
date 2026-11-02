@@ -160,6 +160,8 @@ export const EXECUTION_HOST_METHODS = [
   'nativeChat.unsubscribe',
   // Sender cards resolve on the host that owns the orchestration records.
   'orchestration.partyLocation',
+  // Same read model as the desktop crew panel. An older host refuses it; the phone hides the pill.
+  'orchestration.crewSubscribe',
   // The worker's own host keeps it open and owns its countdown; older phones still report typing and viewing.
   'orchestration.workerTerminalUserInput',
   'orchestration.workerChatTouch',
