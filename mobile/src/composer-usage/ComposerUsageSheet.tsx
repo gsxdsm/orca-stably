@@ -1,5 +1,5 @@
 import { Text, View } from 'react-native'
-import { BottomDrawer } from '../components/BottomDrawer'
+import { BottomDrawer } from '../components/bottom-drawer/BottomDrawer'
 import { useNow } from '../hooks/use-now'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { colors, spacing, typography } from '../theme/mobile-theme'
