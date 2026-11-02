@@ -2,6 +2,7 @@ import {
   createContext,
   forwardRef,
   useContext,
+  useEffect,
   useLayoutEffect,
   useRef,
   type ComponentProps,
@@ -66,6 +67,16 @@ function PreviousMessageCell({
   children
 }: PreviousMessageCellProps): ReactElement {
   const bag = useContext(NativeJumpContext)
+  const key = bag?.keyOf(item)
+  // A cell outside the render window is unmounted. Its old y would scroll to the wrong place after earlier rows change.
+  useEffect(() => {
+    if (!bag || key === undefined) {
+      return
+    }
+    return () => {
+      bag.layouts.delete(key)
+    }
+  }, [bag, key])
   // SAFETY: VirtualizedList hands the cell onFocusCapture so a focused row stays rendered. View's public props omit it.
   const focusProps = { onFocusCapture } as ViewProps
   return (
