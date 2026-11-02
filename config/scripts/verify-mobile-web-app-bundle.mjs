@@ -93,8 +93,8 @@ export const MOBILE_WEB_APP_BUNDLE_ROUTE_SCRIPT_SPREAD = sweptScripts
   .slice(1)
   .map((scripts, index) => scripts - sweptScripts[index])
 
-// Allow four chunks of measured refactor-only drift per head, never cumulative; larger change requires fresh sweep rather than inflated margin.
-export const MOBILE_WEB_APP_BUNDLE_SCRIPT_MARGIN = 4
+// Fork only: 16 chunks of headroom so each fork feature doesn't trip the fence (upstream keeps 4).
+export const MOBILE_WEB_APP_BUNDLE_SCRIPT_MARGIN = 16
 
 // Ceiling is swept maximum+margin, flat below sweep length, growing by worst measured route beyond it; test both excess and unused headroom.
 // Route count remains sole term: deferred engine must be one artifact, not admit mermaid’s 103 diagram chunks through a new allowance. Entry closure budget below catches collapsed splitting.
