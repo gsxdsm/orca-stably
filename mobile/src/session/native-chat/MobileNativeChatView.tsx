@@ -124,7 +124,7 @@ export function MobileNativeChatView({
   useMobileColorScheme()
   const t = useMobileTranslation()
   const { bottomPad, composerFit, transcriptInset } = useChatBottomFit(keyboardInset)
-  const { fontScale, pinchGesture, pinchTarget } = useMobileNativeChatPinchGesture()
+  const { fontScale, scaleReady, pinchGesture, pinchTarget } = useMobileNativeChatPinchGesture()
   const subagent = useMobileNativeChatSubagentTranscript({
     messages,
     folded,
@@ -262,6 +262,11 @@ export function MobileNativeChatView({
   )
   const emptyStateView =
     emptyState && !suppressEmptyState ? <MobileNativeChatEmptyStateView copy={emptyState} /> : null
+
+  // The stored size is already in fontScale when the page cache was published. Otherwise wait.
+  if (!scaleReady) {
+    return <View style={[styles.root, { paddingBottom: bottomPad }]} />
+  }
 
   if (readFailedFinally && emptyStateView) {
     return <View style={[styles.root, { paddingBottom: bottomPad }]}>{emptyStateView}</View>

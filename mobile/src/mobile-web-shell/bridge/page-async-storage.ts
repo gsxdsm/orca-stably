@@ -34,6 +34,8 @@ export class PageStorageRefusedError extends Error {
 }
 
 const values = new Map<string, string>()
+let published = false
+const keyListeners = new Map<string, Set<(value: string | null) => void>>()
 let write: PageStorageWriter = () => false
 // Refuse withheld oversized keys as too-large: the page holds no starting value, so any write would overwrite rather than extend the native value (ruling 33.6).
 let oversizeKeys: ReadonlySet<string> = new Set()
@@ -53,6 +55,7 @@ export function publishPageStorage(
   forWorkspaceKeyReader: ((key: string) => Promise<string | null>) | null = null,
   forNativePreferenceReader: ((key: string) => Promise<string | null>) | null = null
 ): void {
+  published = true
   values.clear()
   oversizeKeys = new Set(forOversizeKeys)
   for (const [key, value] of Object.entries(entries)) {
@@ -65,7 +68,7 @@ export function publishPageStorage(
   readNativePreference = forNativePreferenceReader
 }
 
-/** Apply native settings the page does not own, without replacing page-owned drafts or pending journals. */
+/** Apply native settings and the shared chat text size without replacing drafts the page still owns. */
 export function refreshPageTerminalShortcuts(
   entries: Readonly<Record<string, string>>,
   oversize: readonly string[]
@@ -75,10 +78,10 @@ export function refreshPageTerminalShortcuts(
     const value = entries[key]
     if (value === undefined) {
       if (!pageRefreshKeepsStoredValue(key)) {
-        values.delete(key)
+        put(key, null)
       }
     } else {
-      values.set(key, value)
+      put(key, value)
     }
     if (oversize.includes(key)) {
       nextOversize.add(key)
@@ -87,6 +90,46 @@ export function refreshPageTerminalShortcuts(
     }
   }
   oversizeKeys = nextOversize
+}
+
+function put(key: string, value: string | null): void {
+  const had = values.has(key)
+  const prev = had ? (values.get(key) ?? null) : null
+  if ((value === null && !had) || prev === value) {
+    return
+  }
+  if (value === null) {
+    values.delete(key)
+  } else {
+    values.set(key, value)
+  }
+  for (const listener of keyListeners.get(key) ?? []) {
+    listener(value)
+  }
+}
+
+function subscribePageStorage(key: string, listener: (value: string | null) => void): () => void {
+  const forKey = keyListeners.get(key) ?? new Set<(value: string | null) => void>()
+  keyListeners.set(key, forKey)
+  forKey.add(listener)
+  return () => {
+    forKey.delete(listener)
+  }
+}
+
+// Undefined until publish: a missing key and a cache the shell has not primed are different answers.
+function getItemSync(key: string): string | null | undefined {
+  if (!published || (readWorkspaceKey !== null && isHostWorkspaceStorageKey(key, hostId))) {
+    return undefined
+  }
+  const held = values.get(key)
+  if (held !== undefined) {
+    return held
+  }
+  if (readNativePreference !== null && isNativePagePreferenceKey(key)) {
+    return undefined
+  }
+  return null
 }
 
 function rememberPreference(key: string, value: string | null): string | null {
@@ -134,11 +177,7 @@ function accept(key: string, value: string | null): PageStorageRefusal | null {
   if (!write(key, value)) {
     return 'not-delivered'
   }
-  if (value === null) {
-    values.delete(key)
-  } else {
-    values.set(key, value)
-  }
+  put(key, value)
   return null
 }
 
@@ -175,6 +214,8 @@ function applyBatch(pairs: readonly (readonly [string, string | null])[]): Promi
 
 const pageAsyncStorage = {
   getItem,
+  getItemSync,
+  subscribePageStorage,
   setItem: (key: string, value: string): Promise<void> => settle(key, accept(key, value)),
   removeItem: (key: string): Promise<void> => settle(key, accept(key, null)),
   multiGet: (keys: readonly string[]): Promise<[string, string | null][]> =>

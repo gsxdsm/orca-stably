@@ -31,15 +31,19 @@ export function isNativePagePreferenceKey(key: string): boolean {
   return NATIVE_PAGE_STORAGE_REFRESH_KEYS.some((item) => item === key)
 }
 
+export const NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY = 'orca:nativeChatTextScale'
+
 // Off is the string 'terminal'. An omitted refresh is an older shell that did not copy this key, not a cleared setting.
+// A pinch has no clear action, so an older shell that omits the chat size must not wipe it.
 export function pageRefreshKeepsStoredValue(key: string): boolean {
-  return key === 'orca:defaultSessionView'
+  return key === 'orca:defaultSessionView' || key === NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY
 }
 
-// Native settings and the device-wide Duo chat width. A later storage frame copies these into a page that is already open.
+// Native settings, the device-wide Duo chat width, and the pinched chat text size.
 export const LIVE_PAGE_STORAGE_KEYS = [
   ...NATIVE_PAGE_STORAGE_REFRESH_KEYS,
-  'orca:duoChatExpanded'
+  'orca:duoChatExpanded',
+  NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY
 ] as const
 
 export const PAGE_STORAGE_EXACT_KEYS = [
@@ -64,7 +68,8 @@ export const PAGE_STORAGE_EXACT_KEYS = [
   /** Whether a sidebar session row opens that session. */
   'orca:selectableSidebarSessions',
   /** Whether every Duo chat runs across the status column. */
-  'orca:duoChatExpanded'
+  'orca:duoChatExpanded',
+  NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY
 ] as const
 
 /**
@@ -77,7 +82,8 @@ export const NEGOTIATED_PAGE_STORAGE_KEYS = [
   'orca:composerUsageWindow',
   'orca:composerUsageDisplay',
   'orca:selectableSidebarSessions',
-  'orca:duoChatExpanded'
+  'orca:duoChatExpanded',
+  NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY
 ] as const
 
 /** Prefixes added after pages stopped sharing one allowlist. Declared as the prefix, not each id. */

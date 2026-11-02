@@ -10,7 +10,10 @@ import {
   retainMirroredStorage,
   writeMirroredStorage
 } from '../storage/mirrored-storage-keys'
-import { NATIVE_PAGE_STORAGE_REFRESH_KEYS } from './page-storage-keys'
+import {
+  NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY,
+  NATIVE_PAGE_STORAGE_REFRESH_KEYS
+} from './page-storage-keys'
 
 const store = vi.hoisted(() => ({
   values: new Map<string, string>(),
@@ -154,3 +157,19 @@ it.each(NATIVE_PAGE_STORAGE_REFRESH_KEYS)(
     releaseKeys()
   }
 )
+
+it('pushes a pinched chat size to other open pages', () => {
+  const publish = vi.fn()
+  function Harness(): null {
+    useShellPageStorageRefresh(async () => undefined, publish)
+    return null
+  }
+  let renderer!: ReturnType<typeof create>
+  act(() => {
+    renderer = create(createElement(Harness))
+  })
+  const before = publish.mock.calls.length
+  writeMirroredStorage(NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY, '1.35')
+  expect(publish).toHaveBeenCalledTimes(before + 1)
+  act(() => renderer.unmount())
+})
