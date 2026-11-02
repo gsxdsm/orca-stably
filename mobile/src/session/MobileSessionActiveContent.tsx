@@ -12,7 +12,7 @@ import { MobileNativeChatDictationPreviewContext } from './native-chat/composer/
 import { MobileDictationMeterContext } from './mobile-dictation-meter-context'
 import { resolveMobileNativeChatSessionId } from './native-chat/mobile-native-chat-eligibility'
 import { appendCrewMention, mobileCrewParty } from './orchestration-crew/mobile-orchestration-crew'
-import { MobileOrchestrationCrewBar } from './native-chat/input/MobileOrchestrationCrewBar'
+import { MobileSessionCrewActivity } from './native-chat/input/MobileSessionCrewActivity'
 import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
@@ -362,7 +362,7 @@ export function MobileSessionActiveContent({
                 // A workspace routed to another server stops with that server, whose name the phone lacks.
                 hostName={executionHost === undefined && hostProfile ? hostTitle : null}
                 activityBar={
-                  <MobileOrchestrationCrewBar
+                  <MobileSessionCrewActivity
                     client={client}
                     party={crewParty}
                     onMention={mentionCrew}
