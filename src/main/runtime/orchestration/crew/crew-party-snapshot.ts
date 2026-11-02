@@ -170,7 +170,7 @@ export function buildCrewSnapshot(
         fresh?.activity.state ??
         (assignment
           ? ['pending', 'dispatched'].includes(assignment.status)
-            ? 'working'
+            ? 'idle'
             : 'done'
           : 'unknown'),
       ...(title && assignment ? { task: { title, state: assignment.task_status } } : {}),

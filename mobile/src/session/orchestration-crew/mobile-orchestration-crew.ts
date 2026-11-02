@@ -54,14 +54,12 @@ export function mobileCrewStatus(row: OrchestrationCrewRow): MobileCrewStatus {
   if (row.status === 'failed' || row.task?.state === 'failed' || row.task?.state === 'cancelled') {
     return 'failed'
   }
-  if (
-    row.status === 'working' ||
-    row.status === 'monitoring' ||
-    row.task?.state === 'dispatched' ||
-    row.task?.state === 'running' ||
-    row.task?.state === 'pending'
-  ) {
+  // A dispatched or kept-open task is not activity. Running is the agent's own busy state.
+  if (row.status === 'working' || row.status === 'monitoring') {
     return 'running'
+  }
+  if (row.status === 'idle' || row.status === 'unknown') {
+    return 'waiting'
   }
   return 'done'
 }

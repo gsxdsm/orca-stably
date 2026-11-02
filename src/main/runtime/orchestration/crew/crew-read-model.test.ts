@@ -254,7 +254,7 @@ it('uses qualified terminal status and keeps canonical native status without req
     { ...status, clock: { kind: 'observed', at: now - 31 * 60_000 } }
   ] satisfies FleetAgentStatusEvidence[]) {
     deps.statuses = [invalid]
-    expect(read()?.status).toBe('working')
+    expect(read()?.status).toBe('idle')
     expect(read()?.agentKind).toBe('Agent')
   }
   deps.statuses = [status]
