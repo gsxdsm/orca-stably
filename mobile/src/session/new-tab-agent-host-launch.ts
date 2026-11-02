@@ -20,7 +20,7 @@ import {
 } from './pending-session-selection'
 import {
   loadMobileStructuredChatLaunchContext,
-  mobileStructuredChatLaunchSurface
+  mobileNewTabHostLaunchSurface
 } from './mobile-structured-chat-launch'
 
 export const PROMPT_UNCONFIRMED_MESSAGE =
@@ -77,7 +77,7 @@ export async function launchNewTabAgentThroughHost(args: {
         hostCapabilities: args.hostCapabilities
       })
   const hostCapabilities = launchContext?.hostCapabilities ?? args.hostCapabilities
-  const surface = mobileStructuredChatLaunchSurface(args.agent, launchContext)
+  const surface = mobileNewTabHostLaunchSurface(args.agent, launchContext)
   const afterTabId = hostCapabilities?.includes(AGENT_LAUNCH_PLACEMENT_RUNTIME_CAPABILITY)
     ? hostTabIdOf(args.getSessionTabs(), args.activeSessionTabId)
     : undefined
