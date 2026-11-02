@@ -199,8 +199,41 @@ describe('buildMobileNativeChatTransientData', () => {
       source: 'transcript'
     })
     const folded = fold([user('u1', 'audit'), own('a'), assistant('a1', 'started'), own('b')])
-    expect(folded.map((message) => message.id)).toEqual(['u1', 'subagent:a', 'a1'])
+    expect(folded.map((message) => message.id)).toEqual([
+      'u1',
+      'spawn:subagent:a',
+      'subagent:a',
+      'a1'
+    ])
     expect(folded[1]?.blocks).toEqual([
+      {
+        type: 'tool-call',
+        name: 'spawn_agent',
+        callId: 'spawn:a',
+        state: 'completed',
+        input: { task_name: 'a' }
+      },
+      {
+        type: 'tool-result',
+        callId: 'spawn:a',
+        output: '',
+        subagent: { id: 'a', state: 'working' }
+      },
+      {
+        type: 'tool-call',
+        name: 'spawn_agent',
+        callId: 'spawn:b',
+        state: 'completed',
+        input: { task_name: 'b' }
+      },
+      {
+        type: 'tool-result',
+        callId: 'spawn:b',
+        output: '',
+        subagent: { id: 'b', state: 'working' }
+      }
+    ])
+    expect(folded[2]?.blocks).toEqual([
       {
         type: 'subagent-group',
         groupId: 'turn-1',
