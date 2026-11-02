@@ -45,6 +45,7 @@ import { publishExternalLinkOpener } from '../src/platform/external-links/extern
 import { publishHapticsNotifier } from '../src/platform/haptics/haptics.web'
 import { startBlurringOnKeyboardClose } from '../src/platform/keyboard/keyboard-close-blur.web'
 import { publishShellKeyboardSource } from '../src/platform/keyboard/keyboard-occlusion.web'
+import { startIgnoringPressableIconHits } from '../src/platform/pressable-svg-hits.web'
 // Select the page-client provider explicitly; the builder aliases extensionless screen imports to this same web module.
 import { RpcClientProvider } from '../src/transport/connection/client-context.web'
 import { OrcaQueryProvider } from '../src/query/orca-query-provider.web'
@@ -198,6 +199,7 @@ bootstrapShellPage({
       subscribe: client.onKeyboardInsetUpdate
     })
     startBlurringOnKeyboardClose()
+    startIgnoringPressableIconHits()
     // Without a host in init, leave every storage key unwritable for older shells.
     publishPageStorage(
       session.storage,
