@@ -11,8 +11,9 @@ import type { MobileSessionFeedbackCapabilitiesModel } from './use-mobile-sessio
 import type { MobileSessionTab } from './mobile-session-route-types'
 import type { ConnectionState } from '../transport/types'
 import { structuredAgentSessionHostSupport } from './mobile-structured-agent-session-host-support'
+import { HERMES_TRANSCRIPT_RUNTIME_CAPABILITY } from '../../../src/shared/native-chat/native-chat-hermes-capability'
 
-const device = vi.hoisted(() => ({ opens: 0, recording: false }))
+const device = vi.hoisted(() => ({ opens: 0, recording: false, chatView: false }))
 const draft = vi.hoisted(() => ({ text: 'Draft' }))
 vi.mock('react-native', () => ({
   AppState: { addEventListener: () => ({ remove: () => {} }) },
@@ -61,7 +62,7 @@ vi.mock('./native-chat/use-mobile-native-chat-input-lease', () => ({
 vi.mock('./use-mobile-session-view-mode', () => ({
   useMobileSessionViewMode: () => ({
     ready: true,
-    isTabChatView: () => false,
+    isTabChatView: () => device.chatView,
     setTabView: () => {},
     toggleTabChatView: () => {}
   })
@@ -120,12 +121,14 @@ type SessionScope = Pick<
   | 'liveInputEnabled'
   | 'showToast'
   | 'resetLiveInputFocus'
+  | 'hostCapabilities'
 >
 type ProbeOptions = {
   client: FakeRpcClient
   tab: MobileSessionTab
   connState: ConnectionState
   dictationEnabled: boolean
+  hostCapabilities?: string[]
 }
 
 const agentTab: MobileSessionTab = {
@@ -147,7 +150,7 @@ let renderer: ReactTestRenderer | null = null
 let current: ReturnType<typeof useMobileSessionNativeChatDictation> | null = null
 let terminalText = ''
 
-function Probe({ client, tab, connState, dictationEnabled }: ProbeOptions): null {
+function Probe({ client, tab, connState, dictationEnabled, hostCapabilities }: ProbeOptions): null {
   const activeHandle = tab.type === 'terminal' ? tab.terminal : null
   const activeHandleRef = useRef(activeHandle)
   const gate = resolveMobileTerminalInputGate({
@@ -184,7 +187,8 @@ function Probe({ client, tab, connState, dictationEnabled }: ProbeOptions): null
     canCompose: gate.canCompose,
     liveInputEnabled: false,
     showToast: () => {},
-    resetLiveInputFocus: () => {}
+    resetLiveInputFocus: () => {},
+    hostCapabilities: hostCapabilities ?? []
   }
   current = useMobileSessionNativeChatDictation(
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: SessionScope checks every consumed field; the remaining session subsystems are unused by this hook.
@@ -234,6 +238,7 @@ beforeEach(() => {
   current = null
   device.opens = 0
   device.recording = false
+  device.chatView = false
   draft.text = 'Draft'
   terminalText = ''
 })
@@ -277,6 +282,22 @@ describe('dictation uses the active composer readiness', () => {
       expect(model().dictation.status).toBe('idle')
     }
   )
+
+  it('opens Hermes chat only when the host can serve its transcript', async () => {
+    const client = createFakeRpcClient()
+    const tab = { ...terminalTab, launchAgent: 'hermes' as const }
+    device.chatView = true
+    await render({ client, tab, connState: 'connected', dictationEnabled: false })
+    expect(model().showNativeChat).toBe(false)
+    await render({
+      client,
+      tab,
+      connState: 'connected',
+      dictationEnabled: false,
+      hostCapabilities: [HERMES_TRANSCRIPT_RUNTIME_CAPABILITY]
+    })
+    expect(model().showNativeChat).toBe(true)
+  })
 
   it('keeps buffered terminal dictation working', async () => {
     const client = createFakeRpcClient()
