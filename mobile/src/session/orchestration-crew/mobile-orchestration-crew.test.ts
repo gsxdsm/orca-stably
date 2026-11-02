@@ -86,6 +86,26 @@ describe('mobile orchestration crew', () => {
     ])
   })
 
+  it('does not count an idle kept-open dispatch as running', () => {
+    const idle = row({
+      status: 'idle',
+      task: { title: 'Wait for the next turn', state: 'dispatched' }
+    })
+    const parked = row({
+      partyKey: 'parked',
+      status: 'done',
+      task: { title: 'Parked', state: 'running' }
+    })
+    expect(mobileCrewStatus(idle)).toBe('waiting')
+    expect(mobileCrewStatus(parked)).toBe('done')
+    expect(
+      mobileCrewRunningWorkers({
+        status: 'ok',
+        sections: { managedBy: [], managing: [idle, parked], talkingWith: [] }
+      })
+    ).toBe(0)
+  })
+
   it('uses the terminal handle for a terminal tab and the session address for a chat', () => {
     expect(mobileCrewParty({ type: 'terminal', terminal: 'term_agent', sessionId: 'sess_1' })).toBe(
       'term_agent'
