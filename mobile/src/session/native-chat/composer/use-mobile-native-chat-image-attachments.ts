@@ -12,6 +12,7 @@ import type { RpcClient } from '../../../transport/rpc-client'
 import type { ConnectionState } from '../../../transport/types'
 import type { MobileImageSource } from '../../../platform/media-picker-contract'
 import type { MobileComposerPastedImage } from './mobile-native-chat-composer-image-paste'
+import { mobileComposerSkippedPasteNotice } from './mobile-composer-skipped-paste-notice'
 import type { PendingNativeChatImage } from './mobile-native-chat-image-attachment'
 import {
   MOBILE_NATIVE_CHAT_IMAGE_SETTLE_MS,
@@ -98,6 +99,7 @@ export type MobileNativeChatImageAttachments = {
   /** Ride any pending images along with `text`, then submit; clears the sent
    *  chips (and only those) once the send is accepted. */
   readonly sendNativeChat: (text: string, intent?: MobileNativeChatSendIntent) => Promise<boolean>
+  readonly notifySkippedPaste?: (count: number) => void
 }
 
 const NO_FILES: readonly PendingNativeChatFile[] = []
@@ -334,6 +336,11 @@ export function useMobileNativeChatImageAttachments({
     attachImage,
     attachPickedImages,
     removeAttachment,
-    sendNativeChat
+    sendNativeChat,
+    notifySkippedPaste(count: number): void {
+      if (count > 0) {
+        showToast(mobileComposerSkippedPasteNotice(count), 1500)
+      }
+    }
   }
 }
