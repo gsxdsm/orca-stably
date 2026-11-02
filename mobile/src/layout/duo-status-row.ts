@@ -1,6 +1,6 @@
 import type { ReservedRect } from '../../modules/orca-reserved-regions/src'
 import { spacing } from '../theme/mobile-theme'
-import { getSideRailStrip, type SideRailStrip } from './side-rail-strip'
+import type { SideRailStrip } from './side-rail-strip'
 
 /** iOS minimum control. The header's 36pt buttons grow to this with hit slop; the rail draws it outright. */
 export const DUO_RAIL_CONTROL_SIZE = 44
@@ -114,20 +114,13 @@ function clusterMidX(args: RowArgs, column: ReservedRect | null): number {
   return onRight ? args.windowWidth - STATUS_ROW_CENTER_FROM_EDGE : STATUS_ROW_CENTER_FROM_EDGE
 }
 
-function controlLeft(
-  midX: number,
-  span: { start: number; width: number },
-  size: number
-): number {
+function controlLeft(midX: number, span: { start: number; width: number }, size: number): number {
   const min = span.start
   const max = span.start + span.width - size
   return Math.min(Math.max(midX - size / 2, min), max)
 }
 
-function columnSpan(
-  args: RowArgs,
-  column: ReservedRect | null
-): { start: number; width: number } {
+function columnSpan(args: RowArgs, column: ReservedRect | null): { start: number; width: number } {
   if (column !== null) {
     return { start: column.x, width: column.width }
   }
@@ -142,38 +135,4 @@ function statusOcclusionEdge(args: RowArgs, column: ReservedRect | null, fromTop
     return fromTop ? column.y + column.height : column.y
   }
   return fromTop ? args.strip.top : args.windowHeight - args.strip.bottom
-}
-
-export type DuoImageCloseFrame = {
-  top: number
-  left: number
-  /** Set on a Duo rail so the close control matches the rail button. Null keeps the padded phone button. */
-  size: number | null
-}
-
-/** Phone: below the status bar, on the left. Duo: the status row, a step off the corner and clear of the column. */
-export function duoImageCloseFrame(args: {
-  windowWidth: number
-  windowHeight: number
-  insets: { top: number; right: number; bottom: number; left: number }
-  occlusions: readonly ReservedRect[]
-}): DuoImageCloseFrame {
-  const strip = getSideRailStrip(args)
-  if (strip === null) {
-    return {
-      top: args.insets.top + spacing.sm,
-      left: args.insets.left + spacing.lg,
-      size: null
-    }
-  }
-  const center = duoStatusRowCenter({ ...args, strip })
-  const fromTop = center < args.windowHeight / 2
-  const top = center - DUO_RAIL_CONTROL_SIZE / 2 + (fromTop ? spacing.sm : -spacing.sm)
-  let left = args.insets.left + spacing.lg + spacing.sm
-  if (strip.side === 'left') {
-    left = Math.max(left, strip.width + spacing.lg + spacing.sm)
-  } else if (left + DUO_RAIL_CONTROL_SIZE > args.windowWidth - strip.width - spacing.sm) {
-    left = args.windowWidth - strip.width - spacing.sm - DUO_RAIL_CONTROL_SIZE
-  }
-  return { top, left, size: DUO_RAIL_CONTROL_SIZE }
 }

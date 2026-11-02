@@ -6,11 +6,6 @@ import {
   IMAGE_VIEWER_DISMISS_VELOCITY
 } from '../../../components/image-viewer-swipe'
 import type { MobilePanZoomDismiss } from '../../../components/use-mobile-pan-zoom'
-import {
-  DUO_RAIL_CONTROL_SIZE,
-  DUO_STATUS_GLYPH_FROM_EDGE,
-  DUO_STATUS_GLYPH_SIZE
-} from '../../../layout/duo-status-row'
 import { spacing } from '../../../theme/mobile-theme'
 import { MobileNativeChatImageViewer } from './MobileNativeChatImageViewer'
 
@@ -18,12 +13,6 @@ const scene = vi.hoisted(() => ({
   width: 951,
   height: 669,
   insets: { top: 0, right: 84, bottom: 34, left: 0 },
-  occlusions: [{ x: 867, y: 0, width: 84, height: 124 }] as {
-    x: number
-    y: number
-    width: number
-    height: number
-  }[],
   reduced: true
 }))
 const seen = vi.hoisted(() => ({
@@ -58,9 +47,6 @@ vi.mock('react-native', () => {
     useWindowDimensions: () => ({ width: scene.width, height: scene.height })
   }
 })
-vi.mock('../../../layout/reserved-regions', () => ({
-  useReservedRegions: () => ({ divisions: [], occlusions: scene.occlusions })
-}))
 vi.mock('lucide-react-native', () => ({ X: 'X' }))
 vi.mock('../../../layout/side-safe-area', () => ({
   useWindowSafeAreaInsets: () => scene.insets
@@ -87,13 +73,7 @@ afterEach(() => {
   renderer = null
 })
 
-function closeStyle(): {
-  left?: number
-  right?: number
-  top?: number
-  width?: number
-  height?: number
-} {
+function closeButton() {
   act(() => {
     renderer = create(
       createElement(MobileNativeChatImageViewer, {
@@ -103,7 +83,17 @@ function closeStyle(): {
       })
     )
   })
-  const button = renderer!.root.findByProps({ accessibilityLabel: 'Close image' })
+  return renderer!.root.findByProps({ accessibilityLabel: 'Close image' })
+}
+
+function closeStyle(): {
+  left?: number
+  right?: number
+  top?: number
+  width?: number
+  height?: number
+} {
+  const button = closeButton()
   const style = button.props.style({ pressed: false })
   return Object.assign({}, ...[style].flat())
 }
@@ -113,54 +103,60 @@ describe('MobileNativeChatImageViewer close button', () => {
     scene.width = 951
     scene.height = 669
     scene.insets = { top: 0, right: 84, bottom: 34, left: 0 }
-    scene.occlusions = [{ x: 867, y: 0, width: 84, height: 124 }]
     scene.reduced = true
     seen.dismiss = null
   })
 
-  it('shares the Duo status row and stays out of the column', () => {
-    const style = closeStyle()
-    const rowTop =
-      DUO_STATUS_GLYPH_FROM_EDGE + DUO_STATUS_GLYPH_SIZE / 2 - DUO_RAIL_CONTROL_SIZE / 2
-    expect(style.top).toBe(rowTop + spacing.sm)
-    expect(style.left).toBe(spacing.lg + spacing.sm)
-    expect(style.width).toBe(DUO_RAIL_CONTROL_SIZE)
-    expect(style.height).toBe(DUO_RAIL_CONTROL_SIZE)
-    expect((style.left ?? 0) + (style.width ?? 0)).toBeLessThan(951 - 84)
-    expect(style.right).toBeUndefined()
+  it('stays on the right, clear of the inner status column', () => {
+    const button = closeButton()
+    const style = Object.assign({}, ...[button.props.style({ pressed: false })].flat()) as {
+      left?: number
+      right?: number
+      top?: number
+      width?: number
+      height?: number
+    }
+    expect(button.props.hitSlop).toBeUndefined()
+    expect(style.top).toBe(spacing.sm)
+    expect(style.right).toBe(84 + spacing.lg)
+    expect(style.width).toBe(44)
+    expect(style.height).toBe(44)
+    expect(style.left).toBeUndefined()
+    const buttonRight = 951 - (style.right ?? 0)
+    expect(buttonRight).toBeLessThan(867)
   })
 
-  it('keeps the left inset when that side has the cutout', () => {
+  it('stays on the right when the cutout is on the left', () => {
     scene.width = 390
     scene.height = 844
     scene.insets = { top: 12, right: 0, bottom: 21, left: 47 }
-    scene.occlusions = []
     const style = closeStyle()
-    expect(style.left).toBe(47 + spacing.lg)
+    expect(style.right).toBe(spacing.lg)
     expect(style.top).toBe(12 + spacing.sm)
-    expect(style.width).toBeUndefined()
+    expect(style.left).toBeUndefined()
+    expect(style.width).toBe(44)
   })
 
-  it('stays off the cover camera, the status column, and the corner', () => {
+  it('stays off the folded cover camera and status column', () => {
     const glyph = { x: 399.67, y: 29.33, width: 37, height: 37 }
+    const column = { x: 382, y: 0, width: 84, height: 174 }
     scene.width = 466
     scene.height = 678
     scene.insets = { top: 0, right: 84, bottom: 34, left: 0 }
-    scene.occlusions = [glyph, { x: 382, y: 0, width: 84, height: 174 }]
     const style = closeStyle()
-    const rowTop = glyph.y + glyph.height / 2 - DUO_RAIL_CONTROL_SIZE / 2
-    expect(style.top).toBe(rowTop + spacing.sm)
-    expect(style.left).toBe(spacing.lg + spacing.sm)
-    expect(style.width).toBe(DUO_RAIL_CONTROL_SIZE)
-    const right = (style.left ?? 0) + (style.width ?? 0)
+    expect(style.top).toBe(spacing.sm)
+    expect(style.right).toBe(84 + spacing.lg)
+    expect(style.width).toBe(44)
+    const left = 466 - (style.right ?? 0) - (style.width ?? 0)
+    const right = left + (style.width ?? 0)
     const bottom = (style.top ?? 0) + (style.height ?? 0)
-    expect(right).toBeLessThan(382)
-    const hitsGlyph =
-      (style.left ?? 0) < glyph.x + glyph.width &&
-      right > glyph.x &&
-      (style.top ?? 0) < glyph.y + glyph.height &&
-      bottom > glyph.y
-    expect(hitsGlyph).toBe(false)
+    const hits = (region: { x: number; y: number; width: number; height: number }) =>
+      left < region.x + region.width &&
+      right > region.x &&
+      (style.top ?? 0) < region.y + region.height &&
+      bottom > region.y
+    expect(hits(glyph)).toBe(false)
+    expect(hits(column)).toBe(false)
   })
 })
 
@@ -182,7 +178,6 @@ describe('MobileNativeChatImageViewer swipe dismiss', () => {
     scene.width = 390
     scene.height = 844
     scene.insets = { top: 12, right: 0, bottom: 21, left: 0 }
-    scene.occlusions = []
     scene.reduced = false
     seen.dismiss = null
   })

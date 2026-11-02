@@ -1,8 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Animated, Easing, Modal, Platform, Pressable, useWindowDimensions } from 'react-native'
 import { X } from 'lucide-react-native'
-import { duoImageCloseFrame } from '../../../layout/duo-status-row'
-import { useReservedRegions } from '../../../layout/reserved-regions'
 import { useWindowSafeAreaInsets } from '../../../layout/side-safe-area'
 import { colors, feedback, radii, spacing } from '../../../theme/mobile-theme'
 import { themedStyleSheet } from '../../../theme/themed-styles'
@@ -49,13 +47,6 @@ export function MobileNativeChatImageViewer({
   const t = useMobileTranslation()
   const insets = useWindowSafeAreaInsets()
   const { width, height } = useWindowDimensions()
-  const { occlusions } = useReservedRegions()
-  const closeFrame = duoImageCloseFrame({
-    windowWidth: width,
-    windowHeight: height,
-    insets,
-    occlusions
-  })
   const { backdropStyle, stageStyle, chromeStyle, close, dismiss } = useViewerPresence(
     onClose,
     width,
@@ -78,18 +69,10 @@ export function MobileNativeChatImageViewer({
           <Pressable
             style={({ pressed }) => [
               styles.close,
-              { top: closeFrame.top, left: closeFrame.left },
-              closeFrame.size !== null && {
-                width: closeFrame.size,
-                height: closeFrame.size,
-                padding: 0,
-                alignItems: 'center' as const,
-                justifyContent: 'center' as const
-              },
+              { top: insets.top + spacing.sm, right: insets.right + spacing.lg },
               pressed && { opacity: feedback.pressedOpacity }
             ]}
             onPress={close}
-            hitSlop={12}
             accessibilityRole="button"
             accessibilityLabel={t('chat.nativeChatImageViewer.closeImage', 'Close image')}
           >
@@ -306,9 +289,13 @@ const styles = themedStyleSheet(() => ({
     bottom: 0,
     left: 0
   },
+  // Page Pressables ignore hitSlop, so the button itself is the 44pt target.
   close: {
     position: 'absolute',
-    padding: spacing.sm,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: radii.pill,
     backgroundColor: colors.bgRaised
   }

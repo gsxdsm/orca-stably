@@ -4,7 +4,6 @@ import {
   DUO_RAIL_CONTROL_SIZE,
   DUO_STATUS_GLYPH_FROM_EDGE,
   DUO_STATUS_GLYPH_SIZE,
-  duoImageCloseFrame,
   duoRailBackFrame,
   duoStatusRowCenter
 } from './duo-status-row'
@@ -139,40 +138,5 @@ describe('the Duo status row', () => {
     expect(frame.left).toBe(column.x + column.width - DUO_RAIL_CONTROL_SIZE)
     expect(frame.left).toBeGreaterThanOrEqual(column.x)
     expect(frame.left + frame.size).toBeLessThanOrEqual(column.x + column.width)
-  })
-
-  it('puts image close a step off the status-row corner and outside the column', () => {
-    const close = duoImageCloseFrame(INNER)
-    const center = duoStatusRowCenter({ ...INNER, strip: getSideRailStrip(INNER)! })
-    expect(close.top).toBe(center - DUO_RAIL_CONTROL_SIZE / 2 + spacing.sm)
-    expect(close.left).toBe(spacing.lg + spacing.sm)
-    expect(close.size).toBe(DUO_RAIL_CONTROL_SIZE)
-    expect(close.left + (close.size ?? 0)).toBeLessThan(INNER.windowWidth - 84)
-    expect(overlaps(close, INNER.occlusions[0]!)).toBe(false)
-
-    const coverClose = duoImageCloseFrame(COVER)
-    const glyph = COVER.occlusions[0]!
-    const column = COVER.occlusions[1]!
-    expect(coverClose.top).toBe(glyph.y + glyph.height / 2 - DUO_RAIL_CONTROL_SIZE / 2 + spacing.sm)
-    expect(coverClose.left).toBe(spacing.lg + spacing.sm)
-    expect(overlaps(coverClose, glyph)).toBe(false)
-    expect(overlaps(coverClose, column)).toBe(false)
-
-    const turnedClose = duoImageCloseFrame({
-      windowWidth: 951,
-      windowHeight: 669,
-      insets: { top: 0, right: 0, bottom: 34, left: 84 },
-      occlusions: [{ x: 0, y: 545, width: 84, height: 124 }]
-    })
-    expect(turnedClose.top).toBe(669 - ROW_CENTER - DUO_RAIL_CONTROL_SIZE / 2 - spacing.sm)
-    expect(turnedClose.left).toBe(84 + spacing.lg + spacing.sm)
-
-    const phone = duoImageCloseFrame({
-      windowWidth: 390,
-      windowHeight: 844,
-      insets: { top: 12, right: 0, bottom: 21, left: 47 },
-      occlusions: []
-    })
-    expect(phone).toEqual({ top: 12 + spacing.sm, left: 47 + spacing.lg, size: null })
   })
 })
