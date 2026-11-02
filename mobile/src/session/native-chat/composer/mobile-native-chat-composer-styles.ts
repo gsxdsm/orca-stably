@@ -6,7 +6,7 @@ import { composerInputStyles } from '../../../components/composer-input/composer
 export const COMPOSER_INSET_TOP = 6
 
 const composerInset = {
-  paddingHorizontal: 10,
+  paddingHorizontal: spacing.md,
   paddingTop: COMPOSER_INSET_TOP,
   paddingBottom: spacing.sm
 }
@@ -15,7 +15,7 @@ export const mobileNativeChatComposerStyles = themedStyleSheet(() => ({
   composerInset,
 
   // Bottom margin matches the sides, so the box sits evenly in the screen's corners.
-  composerInsetCornerFit: { ...composerInset, paddingBottom: 10 },
+  composerInsetCornerFit: { ...composerInset, paddingHorizontal: 10, paddingBottom: 10 },
   bar: composerInputStyles.box,
   // Wider bottom corners stay concentric with the rounded screen instead of poking into it.
   barCornerFit: {
