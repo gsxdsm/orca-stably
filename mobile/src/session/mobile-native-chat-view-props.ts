@@ -1,5 +1,5 @@
 import type { NativeChatSkillDiscoverySnapshot } from '../../../src/shared/native-chat/input/native-chat-picker-items'
-import type { AskAnswerSelection } from '../../../src/shared/native-chat-ask-answer'
+import type { AskAnswerSelection } from '../../../src/shared/native-chat/input/native-chat-ask-answer'
 import type { AskPrompt } from '../../../src/shared/native-chat/input/native-chat-ask-types'
 import type { NativeChatMessage } from '../../../src/shared/native-chat/native-chat-types'
 import type {

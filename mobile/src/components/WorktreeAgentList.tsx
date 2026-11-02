@@ -31,7 +31,8 @@ function parentSessionPress(
   if (onLongPress) {
     return onWorkspacePress
   }
-  return undefined
+  // #37458: a plain row opens its own pane, not the workspace's active tab.
+  return onAgentPress
 }
 
 type Props = {
@@ -41,6 +42,8 @@ type Props = {
   statusLive?: boolean
   isReadOnly?: boolean
   onAgentPress?: (paneKey: string) => void
+  /** Workspace menu when the row has no session hold. */
+  onAgentLongPress?: () => void
   /** The desktop's "Full list" agent activity layout: every row, no summary. */
   fullList?: boolean
   /** Each session is its own taller target. Off, a long-press on the card still lists every session. */
@@ -71,6 +74,7 @@ export function WorktreeAgentList({
   statusLive = false,
   isReadOnly = false,
   onAgentPress,
+  onAgentLongPress,
   fullList = false,
   selectable = false,
   selectedPaneKey = null,
@@ -79,6 +83,7 @@ export function WorktreeAgentList({
   onPressIn,
   onPressOut
 }: Props) {
+  const hold = onLongPress ?? (onAgentLongPress ? () => onAgentLongPress() : undefined)
   const roots = useMemo(
     () => flattenAgentRowLineage(agents).filter((node) => node.depth === 0),
     [agents]
@@ -104,12 +109,12 @@ export function WorktreeAgentList({
       depth={node.depth + 1}
       now={now}
       unvisited={unvisited}
-      isReadOnly={isReadOnly}
       selectable={selectable}
+      isReadOnly={isReadOnly}
       onPress={onAgentPress}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
-      onLongPress={onLongPress}
+      onLongPress={hold}
     />
   )
 
@@ -154,7 +159,7 @@ export function WorktreeAgentList({
           onPress={parentSessionPress(selectable, onAgentPress, onLongPress, onWorkspacePress)}
           onPressIn={onPressIn}
           onPressOut={onPressOut}
-          onLongPress={onLongPress}
+          onLongPress={hold}
           trailing={
             children.length > 0 ? (
               <WorktreeAgentChildToggle

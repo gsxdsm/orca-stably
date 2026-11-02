@@ -152,6 +152,52 @@ describe('WorktreeAgentList', () => {
     expect(onAgentPress).toHaveBeenCalledWith('agent-1')
   })
 
+  it('opens each top-level agent by its own pane', async () => {
+    // #34235: two Claude tabs in one workspace must not both open the workspace's active tab.
+    const onAgentPress = vi.fn()
+    await act(async () => {
+      renderer = create(
+        createElement(WorktreeAgentList, {
+          agents: [agent('tab-a:leaf'), agent('tab-b:leaf')],
+          now: 2_000,
+          unvisited: false,
+          fullList: true,
+          onAgentPress
+        })
+      )
+    })
+    const rows = renderer!.root.findAll((node) => node.props.agent !== undefined)
+    for (const row of rows) {
+      await act(async () =>
+        findByHostType(row, 'Pressable').props.onPress({ stopPropagation: vi.fn() })
+      )
+    }
+    expect(onAgentPress.mock.calls).toEqual([['tab-a:leaf'], ['tab-b:leaf']])
+  })
+
+  it("keeps the workspace's long-press menu on agent rows", async () => {
+    // A row that claims the touch must hand a hold to the card's menu, not open the tab on release.
+    const onAgentPress = vi.fn()
+    const onAgentLongPress = vi.fn()
+    await act(async () => {
+      renderer = create(
+        createElement(WorktreeAgentList, {
+          agents: [agent('tab-a:leaf')],
+          now: 2_000,
+          unvisited: false,
+          onAgentPress,
+          onAgentLongPress
+        })
+      )
+    })
+    const row = renderer!.root.find((node) => node.props.agent !== undefined)
+    await act(async () =>
+      findByHostType(row, 'Pressable').props.onLongPress({ stopPropagation: vi.fn() })
+    )
+    expect(onAgentLongPress).toHaveBeenCalledOnce()
+    expect(onAgentPress).not.toHaveBeenCalled()
+  })
+
   it('opens the session from a taller row when sessions are selectable', async () => {
     const onAgentPress = vi.fn()
     const onLongPress = vi.fn()
@@ -208,15 +254,18 @@ describe('WorktreeAgentList', () => {
         })
       )
     })
-    await pressByLabel(renderer!, 'Show 1 child agent')
-    const rows = renderer!.root.findAll((node) => node.props.agent !== undefined)
-    const parent = findByHostType(rows[0], 'Pressable')
-    const child = findByHostType(rows[1], 'Pressable')
+    const parentRow = renderer!.root.findAll((node) => node.props.agent !== undefined)[0]
+    const parent = findByHostType(parentRow, 'Pressable')
     await act(async () => parent.props.onPress({ stopPropagation }))
     expect(onWorkspacePress).toHaveBeenCalledTimes(1)
     expect(onAgentPress).not.toHaveBeenCalled()
     await act(async () => parent.props.onLongPress({ stopPropagation }))
     expect(onLongPress).toHaveBeenCalledWith('agent-1')
+    await pressByLabel(renderer!, 'Show 1 child agent')
+    const child = findByHostType(
+      renderer!.root.findAll((node) => node.props.childRow !== undefined)[0],
+      'Pressable'
+    )
     await act(async () => child.props.onPress({ stopPropagation }))
     expect(onAgentPress).toHaveBeenCalledWith('agent-1')
     await act(async () => child.props.onLongPress({ stopPropagation }))

@@ -72,7 +72,7 @@ describe('mobile session route', () => {
     ).toEqual({ hostId: 'host-1', worktreeId: 'repo::/tmp/wt' })
   })
 
-  it('mounts the host before pushing the session route onto it', () => {
+  it('mounts the host, then opens the session over its list', () => {
     const harness = navigationHarness({ index: 0, routes: [{ name: 'index' }] })
     const push = vi.fn()
     const target = mobileSessionRouteTarget({

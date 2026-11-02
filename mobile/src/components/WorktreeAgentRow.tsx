@@ -119,7 +119,7 @@ function WorktreeAgentRowComponent({
       {ts}
     </Text>
   )
-  if (!onPress && !onLongPress) {
+  if (!onPress && !onLongPress && !childRow) {
     return (
       <View style={rowStyle}>
         {leading}

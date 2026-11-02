@@ -7,8 +7,7 @@ import { usePageBridgeClient } from '../transport/client-context.web'
 import type { MobileSessionTab } from './mobile-session-route-types'
 import { notificationPaneTab } from './notification-pane-tab'
 
-// The document at / receives pane requests through shell init. A host-area page also names the pane
-// on its own route, which never reaches that init.
+// The document at / receives pane requests through shell init, except the opening tap of a session reached by an in-page hop.
 // Erase every arrival to repair lost clears, but switch once per value so replay cannot undo a later tab pick.
 // Keep pending requests in a ref until terminal inventory arrives, avoiding a stale selection render.
 export function useNotificationPaneNavigation({
@@ -27,21 +26,21 @@ export function useNotificationPaneNavigation({
   openNativeSession?: (source: StructuredSessionOpenSource) => Promise<void>
 }) {
   const client = usePageBridgeClient()
-  const { setParams } = useRouter()
-  const setParamsRef = useRef(setParams)
-  setParamsRef.current = setParams
-  const localPaneKey = firstParam(useLocalSearchParams<{ paneKey?: string | string[] }>().paneKey)
-  // The opening tap arrives only in the initial init, before route-update listeners.
-  const opened = client.getShellSession()?.route?.params?.paneKey ?? null
-  const pending = useRef(opened !== null && opened !== '' ? opened : localPaneKey || null)
+  const router = useRouter()
+  // An in-page hop (an agent row, a sender jump) carries the tap only in the page URL; the shell route never names it.
+  const urlPaneKey =
+    firstParam(useLocalSearchParams<{ paneKey?: string | string[] }>().paneKey) || null
+  // The shell's pane wins: the URL copied it at bootstrap and can be older than a later notification tap.
+  const pending = useRef(client.getShellSession()?.route?.params?.paneKey || urlPaneKey)
   const applied = useRef<string | null>(null)
-  const sawLocalPane = useRef(false)
-  // Shell init and the document route can both carry the opening pane. Apply the shell one once.
-  // A different document pane is its own request and must not be cleared in favor of the shell pane.
-  const suppressInitialLocal = useRef(
-    (opened ?? '') !== '' && localPaneKey !== '' && opened === localPaneKey
-  )
   const [asked, setAsked] = useState(0)
+
+  useEffect(() => {
+    // Spend the URL's tap so a remount of this screen cannot replay it over a later tab pick.
+    if (urlPaneKey !== null) {
+      router.setParams({ paneKey: undefined })
+    }
+  }, [router, urlPaneKey])
 
   useEffect(() => {
     // Acknowledge the initial init separately; read from the client to keep the effect keyed only on client.
@@ -65,31 +64,6 @@ export function useNotificationPaneNavigation({
       setAsked((count) => count + 1)
     })
   }, [client])
-
-  useEffect(() => {
-    if (suppressInitialLocal.current) {
-      suppressInitialLocal.current = false
-      if (localPaneKey !== '') {
-        setParamsRef.current({ paneKey: '' })
-      }
-      return
-    }
-    if (localPaneKey === '') {
-      // Clearing the document param is what makes the next tap of the same session a new request.
-      if (sawLocalPane.current) {
-        applied.current = null
-        sawLocalPane.current = false
-      }
-      return
-    }
-    sawLocalPane.current = true
-    setParamsRef.current({ paneKey: '' })
-    if (localPaneKey === applied.current) {
-      return
-    }
-    pending.current = localPaneKey
-    setAsked((count) => count + 1)
-  }, [localPaneKey])
 
   useEffect(() => {
     const paneKey = pending.current
