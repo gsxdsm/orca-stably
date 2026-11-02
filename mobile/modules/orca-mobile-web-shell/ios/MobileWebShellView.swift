@@ -468,7 +468,11 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
       case .ready(let remainingDelay):
         delay = remainingDelay
       case .waitingForTextInput:
-        self.keyboardPreparationPending = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+          guard let self else { return }
+          self.keyboardPreparationPending = false
+          self.loadWhenIsolated()
+        }
         return
       case .failed:
         self.keyboardPreparationPending = false

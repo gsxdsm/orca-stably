@@ -17,7 +17,7 @@ internal enum MobileWebShellKeyboardWarmup {
     for scene in UIApplication.shared.connectedScenes {
       guard let scene = scene as? UIWindowScene else { continue }
       for sceneWindow in scene.windows {
-        if let responder = firstResponder(in: sceneWindow), responder is UITextInput {
+        if let responder = firstResponder(in: sceneWindow), hasActiveTextInput(responder) {
           return .waitingForTextInput
         }
       }
@@ -40,6 +40,14 @@ internal enum MobileWebShellKeyboardWarmup {
     guard focused else { return .failed }
     readyAt = ProcessInfo.processInfo.systemUptime + 0.3
     return .ready(after: 0.3)
+  }
+
+  private static func hasActiveTextInput(_ responder: UIView) -> Bool {
+    if let field = responder as? UITextField {
+      return field.isEditing
+    }
+    guard let input = responder as? UITextInput else { return false }
+    return input.selectedTextRange != nil || input.markedTextRange != nil
   }
 
   private static func firstResponder(in view: UIView) -> UIView? {
