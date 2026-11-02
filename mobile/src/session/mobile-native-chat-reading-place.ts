@@ -233,8 +233,11 @@ function drawn(
   if (member?.startsWith('root:')) {
     return roots?.frame(member.slice(5))
   }
+  if ((member === undefined || member === 'run') && keys.placement(key) !== unit.placed) {
+    return undefined
+  }
   if (member === undefined) {
-    return keys.placement(key) === unit.placed ? rows.get(key) : undefined
+    return rows.get(key)
   }
   const row = rows.get(member === 'run' ? key : (keys.current(key) ?? ''))
   const paired = member.startsWith('result:') ? `call:${member.slice('result:'.length)}` : member
