@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { lazy, Suspense, useCallback } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { RpcClient } from '../../../transport/rpc-client'
 import {
@@ -7,7 +7,13 @@ import {
   mobileCrewVisible
 } from '../../orchestration-crew/mobile-orchestration-crew'
 import { useMobileOrchestrationCrew } from '../../orchestration-crew/use-mobile-orchestration-crew'
-import { MobileOrchestrationCrewBar } from './MobileOrchestrationCrewBar'
+
+// Load the sheet only when a pill is shown. It pulls Reanimated, which chat tests do not mock.
+const MobileOrchestrationCrewBar = lazy(() =>
+  import('./MobileOrchestrationCrewBar').then((mod) => ({
+    default: mod.MobileOrchestrationCrewBar
+  }))
+)
 
 /** Crew pill for the current chat or terminal agent. Null when this host has no relations. */
 export function MobileSessionCrewActivity({
@@ -38,5 +44,9 @@ export function MobileSessionCrewActivity({
   if (!mobileCrewVisible(snapshot)) {
     return null
   }
-  return <MobileOrchestrationCrewBar snapshot={snapshot} embedded onMention={mention} />
+  return (
+    <Suspense fallback={null}>
+      <MobileOrchestrationCrewBar snapshot={snapshot} embedded onMention={mention} />
+    </Suspense>
+  )
 }

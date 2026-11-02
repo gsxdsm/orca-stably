@@ -16,9 +16,6 @@ const seenPaste = vi.hoisted(() => ({
     | undefined
 }))
 
-vi.mock('./input/MobileSessionCrewActivity', () => ({
-  MobileSessionCrewActivity: () => null
-}))
 vi.mock('react-native', () => ({
   StyleSheet: { create: (styles: unknown) => styles, absoluteFillObject: {} },
   View: 'View'
