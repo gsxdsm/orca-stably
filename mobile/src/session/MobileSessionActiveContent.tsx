@@ -11,6 +11,8 @@ import { useMobileAgentMessageNavigation } from './use-mobile-agent-message-navi
 import { MobileNativeChatDictationPreviewContext } from './native-chat/composer/mobile-native-chat-dictation-preview-context'
 import { MobileDictationMeterContext } from './mobile-dictation-meter-context'
 import { resolveMobileNativeChatSessionId } from './native-chat/mobile-native-chat-eligibility'
+import { appendCrewMention, mobileCrewParty } from './orchestration-crew/mobile-orchestration-crew'
+import { MobileOrchestrationCrewBar } from './native-chat/input/MobileOrchestrationCrewBar'
 import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
@@ -132,6 +134,18 @@ export function MobileSessionActiveContent({
     JSON.stringify([hostId, executionHost, worktreeId, controller.activeSessionTab?.id]),
     controller.showToast,
     controller
+  )
+  const crewParty = mobileCrewParty({
+    type: controller.activeSessionTab?.type ?? '',
+    sessionId: resolveMobileNativeChatSessionId(controller.activeSessionTab),
+    terminal:
+      controller.activeSessionTab?.type === 'terminal' ? controller.activeSessionTab.terminal : null
+  })
+  const mentionCrew = useCallback(
+    (row: Parameters<typeof appendCrewMention>[1]) => {
+      nativeChatController.setChatComposerText((draft) => appendCrewMention(draft, row))
+    },
+    [nativeChatController]
   )
   const { presentedConnState, showOfflineState, forceReconnectHost } = controller
   const content =
@@ -347,6 +361,13 @@ export function MobileSessionActiveContent({
                 keyboardInset={keyboardLift}
                 // A workspace routed to another server stops with that server, whose name the phone lacks.
                 hostName={executionHost === undefined && hostProfile ? hostTitle : null}
+                activityBar={
+                  <MobileOrchestrationCrewBar
+                    client={client}
+                    party={crewParty}
+                    onMention={mentionCrew}
+                  />
+                }
               />
             </MobileAgentMessageProvider>
           </MobileDictationMeterContext.Provider>

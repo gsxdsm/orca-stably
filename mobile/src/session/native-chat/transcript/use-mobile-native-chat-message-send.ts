@@ -21,6 +21,7 @@ import type { MobileNativeChatSendOrigin } from '../mobile-native-chat-pending-e
 import { UNCONFIRMED_SEND_MESSAGE } from '../use-mobile-native-chat-unconfirmed-sends'
 import type { MobileNativeChatLaunchDraftSeed } from '../composer/use-mobile-native-chat-launch-draft-seed'
 import { buildNativeChatPasteBytes } from '../../../../../src/shared/native-chat/input/native-chat-paste-bytes'
+import { projectMobileCrewMentions } from '../../orchestration-crew/mobile-orchestration-crew'
 
 export type MobileNativeChatMessageSend = {
   send: (text: string, images?: string[]) => Promise<boolean>
@@ -167,7 +168,7 @@ export function useMobileNativeChatMessageSend(args: {
         : await sendMobileNativeChatMessageWithOutcome({
             client,
             terminal: handle,
-            text: buildNativeChatPasteBytes(text),
+            text: buildNativeChatPasteBytes(projectMobileCrewMentions(text)),
             ...(resolvedLaunchDraft ? { resolvedLaunchDraft } : {}),
             deadline,
             ...(mobileClient ? { mobileClient } : {})
