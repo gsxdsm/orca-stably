@@ -14,11 +14,14 @@ const PINCH_IDLE_RESET_MS = 250
 export function useNativeChatFontSize(
   focused: boolean,
   rootRef?: RefObject<HTMLDivElement | null>,
-  active: boolean = true
+  active: boolean = true,
+  visible: boolean = true
 ): void {
-  const enabled = focused && active
+  // Callers near the line cap pass readiness and visibility separately.
+  const live = active && visible
+  const enabled = focused && live
   useEffect(() => {
-    if (!active) {
+    if (!live) {
       return
     }
     const root = rootRef?.current
@@ -64,7 +67,7 @@ export function useNativeChatFontSize(
     }
     root.addEventListener('wheel', onWheel, { capture: true, passive: false })
     return () => root.removeEventListener('wheel', onWheel, { capture: true })
-  }, [active, rootRef])
+  }, [live, rootRef])
 
   useEffect(() => {
     if (!enabled || !isWebClientLocation()) {
