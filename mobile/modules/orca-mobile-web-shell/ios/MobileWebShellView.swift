@@ -224,7 +224,12 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
       webView.leadingAnchor.constraint(equalTo: leadingAnchor),
       webView.trailingAnchor.constraint(equalTo: trailingAnchor)
     ])
-    for name in [UIWindow.didBecomeKeyNotification, UIScene.didActivateNotification, UIApplication.didBecomeActiveNotification] {
+    for name in [
+      UIWindow.didBecomeKeyNotification, UIScene.didActivateNotification,
+      UIApplication.didBecomeActiveNotification,
+      UIResponder.keyboardDidHideNotification, UITextField.textDidEndEditingNotification,
+      UITextView.textDidEndEditingNotification
+    ] {
       windowObservers.append(NotificationCenter.default.addObserver(
         forName: name, object: nil, queue: .main
       ) { [weak self] _ in
@@ -458,7 +463,18 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
         self.loadWhenIsolated()
         return
       }
-      let delay = MobileWebShellKeyboardWarmup.prepare(in: window)
+      let delay: TimeInterval
+      switch MobileWebShellKeyboardWarmup.prepare(in: window) {
+      case .ready(let remainingDelay):
+        delay = remainingDelay
+      case .waitingForTextInput:
+        self.keyboardPreparationPending = false
+        return
+      case .failed:
+        self.keyboardPreparationPending = false
+        self.failPropUpdate(.documentLoadFailed)
+        return
+      }
       DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self, weak window] in
         guard let self else { return }
         self.keyboardPreparationPending = false
