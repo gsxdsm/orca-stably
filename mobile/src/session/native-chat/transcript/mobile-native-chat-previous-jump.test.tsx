@@ -17,6 +17,10 @@ const nativeApi = vi.hoisted(() => ({
   drags: 0
 }))
 
+vi.mock('react-native-gesture-handler', () => ({
+  GestureDetector: 'GestureDetector'
+}))
+
 vi.mock('react-native', async () => {
   const React = await import('react')
   return {
@@ -237,7 +241,9 @@ function Host(props: {
     footer: null,
     emptyStateView: null,
     onScroll: () => {},
-    hasHeader: false
+    hasHeader: false,
+    // SAFETY: this list mock never mounts the pinch detector. The gesture only satisfies the prop.
+    pinchGesture: {} as never
   })
 }
 
