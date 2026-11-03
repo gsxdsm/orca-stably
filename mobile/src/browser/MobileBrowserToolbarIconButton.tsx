@@ -1,9 +1,17 @@
-import { Pressable, type StyleProp, type ViewStyle } from 'react-native'
+import { Pressable, type GestureResponderEvent, type StyleProp, type ViewStyle } from 'react-native'
 import type { ReactNode } from 'react'
 import { colors, radii } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useSessionListLongPressProps } from '../navigation/session-list-long-press-props'
+
+type KeyboardPress = GestureResponderEvent & { key?: string; nativeEvent: { key?: string } }
+
+function keyboardKey(event: GestureResponderEvent): string | undefined {
+  const record = event as KeyboardPress
+  const key = record.nativeEvent?.key ?? record.key
+  return typeof key === 'string' ? key : undefined
+}
 
 type Props = {
   children: ReactNode
@@ -27,6 +35,13 @@ export function MobileBrowserToolbarIconButton({
   // A disabled Pressable drops onLongPress, so empty history still accepts the session-list hold.
   const keepLongPress =
     disabled === true && toSessionList && sessionListLongPress.onLongPress != null
+  // Web never fires onLongPress from the keyboard. A pointer click has no key, so the tap stays a no-op.
+  const onPressHoldOnly = (event: GestureResponderEvent) => {
+    const key = keyboardKey(event)
+    if (key != null) {
+      sessionListLongPress.onLongPress?.()
+    }
+  }
   return (
     <Pressable
       style={({ pressed }) => [
@@ -36,7 +51,8 @@ export function MobileBrowserToolbarIconButton({
         disabled && styles.disabled
       ]}
       disabled={disabled === true && !keepLongPress}
-      onPress={disabled ? undefined : onPress}
+      onPress={keepLongPress ? onPressHoldOnly : disabled ? undefined : onPress}
+      accessibilityRole={keepLongPress ? 'button' : undefined}
       accessibilityLabel={label}
       {...(toSessionList ? sessionListLongPress : {})}
     >

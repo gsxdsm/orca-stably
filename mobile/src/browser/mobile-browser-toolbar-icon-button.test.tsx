@@ -44,12 +44,17 @@ describe('MobileBrowserToolbarIconButton', () => {
     longPress.go = go
     const { button, onPress } = mount(true)
     expect(button.props.disabled).toBe(false)
-    expect(button.props.onPress).toBeUndefined()
+    expect(button.props.accessibilityRole).toBe('button')
     expect(button.props.onLongPress).toBe(go)
     expect(button.props.style({ pressed: false })).toContainEqual({ opacity: 0.35 })
-    act(() => button.props.onLongPress())
-    expect(go).toHaveBeenCalledTimes(1)
+    act(() => button.props.onPress({ nativeEvent: {} }))
+    expect(go).not.toHaveBeenCalled()
     expect(onPress).not.toHaveBeenCalled()
+    act(() => button.props.onPress({ key: 'Enter' }))
+    act(() => button.props.onPress({ nativeEvent: { key: ' ' } }))
+    expect(go).toHaveBeenCalledTimes(2)
+    act(() => button.props.onLongPress())
+    expect(go).toHaveBeenCalledTimes(3)
   })
 
   it('stays disabled when there is no session-list hold', () => {
