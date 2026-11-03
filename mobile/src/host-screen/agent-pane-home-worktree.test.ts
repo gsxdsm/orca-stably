@@ -32,4 +32,28 @@ describe('homeWorktreeForAgentPane', () => {
     ])
     expect(homeWorktreeForAgentPane([cardOnly], 'child', cardOnly).worktreeId).toBe('folder:orca')
   })
+
+  it('opens a helper in its stamped home when the parent is mirrored onto the same cards', () => {
+    const coordinator = 'tab-coord:leaf'
+    const worker = 'tab-worker:leaf'
+    const helper = 'tab-helper:leaf'
+    const orca = {
+      worktreeId: 'folder:orca',
+      agents: [
+        { paneKey: coordinator, parentPaneKey: null, homeWorktreeId: 'folder:orca' },
+        { paneKey: worker, parentPaneKey: coordinator, homeWorktreeId: 'folder:babysitter' },
+        { paneKey: helper, parentPaneKey: worker, homeWorktreeId: 'folder:babysitter' }
+      ]
+    }
+    const babysitter = {
+      worktreeId: 'folder:babysitter',
+      agents: [
+        { paneKey: worker, parentPaneKey: coordinator, homeWorktreeId: 'folder:babysitter' },
+        { paneKey: helper, parentPaneKey: worker, homeWorktreeId: 'folder:babysitter' }
+      ]
+    }
+    expect(homeWorktreeForAgentPane([orca, babysitter], helper, orca).worktreeId).toBe(
+      'folder:babysitter'
+    )
+  })
 })

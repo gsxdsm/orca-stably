@@ -142,6 +142,7 @@ export function attachRuntimeWorktreeAgentRows(args: {
     const row: RuntimeWorktreeAgentRow = {
       paneKey: source.paneKey,
       parentPaneKey,
+      homeWorktreeId: summary.worktreeId,
       state: source.state,
       ...(source.workingMode ? { workingMode: source.workingMode } : {}),
       agentType: source.agentType,
