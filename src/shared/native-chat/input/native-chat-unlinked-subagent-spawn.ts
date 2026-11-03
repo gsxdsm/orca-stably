@@ -46,24 +46,13 @@ function spawnCard(
   ]
 }
 
-function spawnMessage(host: NativeChatMessage, blocks: NativeChatBlock[]): NativeChatMessage {
-  return {
-    id: `spawn:${host.id}`,
-    role: host.role,
-    blocks,
-    timestamp: host.timestamp,
-    source: host.source
-  }
-}
-
 /** A spawn card for each roster child no Agent, Task, or spawn call already names. */
 export function linkUnrecordedSubagentSpawns(
   messages: readonly NativeChatMessage[]
 ): NativeChatMessage[] {
   const linked = linkedSpawnIds(messages)
-  const next: NativeChatMessage[] = []
   let changed = false
-  for (const message of messages) {
+  const next = messages.map((message) => {
     const cards: NativeChatBlock[] = []
     for (const block of message.blocks) {
       if (!isSubagentGroupBlock(block)) {
@@ -75,14 +64,10 @@ export function linkUnrecordedSubagentSpawns(
         }
         linked.add(agent.id)
         cards.push(...spawnCard(agent.id, agent.label || agent.id, agent.state))
+        changed = true
       }
     }
-    // The roster row moves when an earlier sibling folds in, so the card stays its own row.
-    if (cards.length > 0) {
-      next.push(spawnMessage(message, cards))
-      changed = true
-    }
-    next.push(message)
-  }
+    return cards.length === 0 ? message : { ...message, blocks: [...cards, ...message.blocks] }
+  })
   return changed ? next : (messages as NativeChatMessage[])
 }
