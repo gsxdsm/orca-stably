@@ -140,6 +140,7 @@ export function attachRuntimeWorktreeAgentRows(args: {
       paneKey: source.paneKey,
       parentPaneKey,
       homeWorktreeId: summary.worktreeId,
+      ...(summary.hostId ? { homeHostId: summary.hostId } : {}),
       state: source.state,
       ...(source.workingMode ? { workingMode: source.workingMode } : {}),
       agentType: source.agentType,

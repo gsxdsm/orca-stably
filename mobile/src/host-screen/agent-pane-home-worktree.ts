@@ -1,10 +1,12 @@
 type AgentPaneOwner = {
   worktreeId: string
+  hostId?: string | null
   agents?:
     | readonly {
         paneKey: string
         parentPaneKey?: string | null
         homeWorktreeId?: string | null
+        homeHostId?: string | null
       }[]
     | null
 }
@@ -25,9 +27,15 @@ export function homeWorktreeForAgentPane<T extends AgentPaneOwner>(
     .flatMap((worktree) => worktree.agents ?? [])
     .find((agent) => agent.paneKey === paneKey)
   if (row?.homeWorktreeId) {
-    const stamped = owners.find((worktree) => worktree.worktreeId === row.homeWorktreeId)
-    if (stamped) {
-      return stamped
+    const idMatches = owners.filter((worktree) => worktree.worktreeId === row.homeWorktreeId)
+    const hosted = row.homeHostId
+      ? idMatches.find((worktree) => worktree.hostId === row.homeHostId)
+      : undefined
+    if (hosted) {
+      return hosted
+    }
+    if (idMatches.length === 1) {
+      return idMatches[0]!
     }
   }
   const parentPaneKey = row?.parentPaneKey
