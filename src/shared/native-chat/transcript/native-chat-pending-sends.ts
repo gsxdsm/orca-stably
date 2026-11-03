@@ -219,6 +219,16 @@ export function nativeChatPendingSendPlacement(
     : 'active'
 }
 
+export function placeNativeChatPendingSends<T extends NativeChatPendingSend>(
+  pending: T[],
+  workingEpoch?: number | null
+) {
+  return pending.map((entry) => ({
+    ...entry,
+    pendingSend: nativeChatPendingSendPlacement(entry, workingEpoch)
+  }))
+}
+
 /** Scrape-source echoes yield to real transcript rows. */
 export function pendingSendsAsMessages(
   pending: NativeChatPendingSend[],

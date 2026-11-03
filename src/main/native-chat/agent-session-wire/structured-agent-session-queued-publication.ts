@@ -86,7 +86,9 @@ type ListMemo = { key: string; serialized: string; list: AgentSessionQueuedMessa
 const listMemos = new WeakMap<AgentSessionJournal, ListMemo>()
 const publications = new WeakMap<AgentSessionJournal, QueuePublication>()
 
-function readPublishedQueuedMessages(journal: AgentSessionJournal): AgentSessionQueuedMessage[] {
+export function readPublishedQueuedMessages(
+  journal: AgentSessionJournal
+): AgentSessionQueuedMessage[] {
   const key = String(journal.queuedMessages.revision())
   const memo = listMemos.get(journal)
   if (memo && memo.key === key) {

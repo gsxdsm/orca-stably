@@ -1,5 +1,5 @@
 import { selectFreshExplicitAgentStatus } from '../../runtime-hook-agent-row-selection'
-import { OrcaRuntimeWithPluginHookedTerminalInput } from './terminal-plugin-hooked-input'
+import { OrcaRuntimeWithTerminalChatActivity } from './terminal-chat-activity'
 import type { RuntimeTerminalAgentStatus } from '../../../../shared/runtime-types'
 import type { RuntimeTerminalAgentStatusSnapshot } from '../../runtime-terminal-agent-status-query'
 import { getDisplayPromptLifecycle } from '../../runtime-worktree-status-projection'
@@ -14,7 +14,7 @@ import type {
 import { readAgentPromptWaitText } from '../../agent-prompt-submission-verification'
 import type { AgentStatus } from '../../../../shared/agent-detection'
 
-export abstract class OrcaRuntimeWithSerializeAgentPromptSubmission extends OrcaRuntimeWithPluginHookedTerminalInput {
+export abstract class OrcaRuntimeWithSerializeAgentPromptSubmission extends OrcaRuntimeWithTerminalChatActivity {
   protected abstract getPaneKeyForTerminalHandle(handle: string): string | null
 
   protected async serializeAgentPromptSubmission<T>(
