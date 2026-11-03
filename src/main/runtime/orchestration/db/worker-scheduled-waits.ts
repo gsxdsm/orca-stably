@@ -94,12 +94,7 @@ export function clearWorkerScheduledWaitForPaneIfTurnStartedAfter(
   const wait = db.db
     .prepare('SELECT message_id FROM worker_scheduled_waits WHERE dispatch_id = ?')
     .get(id) as { message_id: string } | undefined
-  const createdAt = wait
-    ? (db.db.prepare('SELECT created_at FROM messages WHERE id = ?').get(wait.message_id) as
-        | { created_at: string }
-        | undefined)
-    : undefined
-  const recordedAt = sqliteUtcMs(createdAt?.created_at)
+  const recordedAt = wait ? scheduledWaitRecordedAt(db, id, wait.message_id) : undefined
   // datetime('now') is whole seconds; the same second is not a later turn.
   if (
     recordedAt === undefined ||
@@ -115,6 +110,27 @@ function activeScheduledWaitDispatchId(db: OrchestrationDb, paneKey: string): st
     db.getActiveDispatchForTerminal('', paneKey)?.id ??
     db.findActiveRemoteAttachmentForPane(paneKey)?.dispatch_id
   )
+}
+
+function scheduledWaitRecordedAt(
+  db: OrchestrationDb,
+  dispatchId: string,
+  messageId: string
+): number | undefined {
+  const message = db.db.prepare('SELECT created_at FROM messages WHERE id = ?').get(messageId) as
+    | { created_at: string }
+    | undefined
+  // A remote wait's id is the relay item, not a local messages row.
+  const relay = message
+    ? undefined
+    : (db.db
+        .prepare(
+          `SELECT created_at FROM federation_relay_items
+           WHERE dispatch_id = ? AND message_id = ?
+           ORDER BY sequence LIMIT 1`
+        )
+        .get(dispatchId, messageId) as { created_at: string } | undefined)
+  return sqliteUtcMs(message?.created_at ?? relay?.created_at)
 }
 
 function sqliteUtcMs(createdAt: string | undefined): number | undefined {
