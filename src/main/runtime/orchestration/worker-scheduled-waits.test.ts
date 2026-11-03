@@ -191,6 +191,44 @@ describe('scheduled worker waits', () => {
     ).toBeUndefined()
   })
 
+  it('reads a remote wait recording time from its relay item', () => {
+    const h = setup()
+    recordWorkerScheduledWait(h.db, {
+      dispatchId: h.dispatch.id,
+      until: new Date(NOW + 60_000).toISOString(),
+      reason: 'Next remote check',
+      messageId: 'relay_wait',
+      from: 'term_worker'
+    })
+    h.db.db
+      .prepare(
+        `INSERT INTO federation_relay_items (
+           dispatch_id, direction, sequence, message_id, kind, payload, byte_count, created_at
+         ) VALUES (?, 'to_home', 1, 'relay_wait', 'status', '{}', 2, '2026-11-03 11:00:00')`
+      )
+      .run(h.dispatch.id)
+
+    h.db.clearWorkerScheduledWaitForPaneIfTurnStartedAfter(
+      'tab:leaf',
+      Date.parse('2026-11-03T11:00:00.500Z')
+    )
+    expect(
+      h.db.db
+        .prepare('SELECT 1 FROM worker_scheduled_waits WHERE dispatch_id = ?')
+        .get(h.dispatch.id)
+    ).toBeDefined()
+
+    h.db.clearWorkerScheduledWaitForPaneIfTurnStartedAfter(
+      'tab:leaf',
+      Date.parse('2026-11-03T12:00:00Z')
+    )
+    expect(
+      h.db.db
+        .prepare('SELECT 1 FROM worker_scheduled_waits WHERE dispatch_id = ?')
+        .get(h.dispatch.id)
+    ).toBeUndefined()
+  })
+
   it('does not report an expired wait after progress or settlement', () => {
     vi.useFakeTimers({ now: NOW })
     const h = setup()
