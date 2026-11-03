@@ -16,6 +16,7 @@ import {
   useMobileNativeChatReplyReveals
 } from './transcript/mobile-native-chat-reply-reveals'
 import { MobileNativeChatRowOverlaysHost } from './transcript/MobileNativeChatRowOverlaysHost'
+import { takePendingSubagentFocus } from '../pending-subagent-focus'
 import { nativeChatAskRequiresTerminal } from '../../../../src/shared/native-chat/native-chat-agent-support'
 import { tuiAgentDisplayName } from '../../../../src/shared/tui-agent-display-names'
 import { MobileNativeChatNoticeContext } from '../mobile-native-chat-notice-context'
@@ -91,6 +92,7 @@ export function MobileNativeChatOverlay({
   showToast,
   crewTerminal = null
 }: Props): React.JSX.Element | null {
+  const initialSubagentId = useRef(takePendingSubagentFocus(worktreeId)).current
   const session = controller.nativeChatSession
   const agent = controller.nativeChatAgent ?? ''
   const fullContent = useMobileNativeChatMessageDetail(
@@ -282,6 +284,7 @@ export function MobileNativeChatOverlay({
                         onLoadEarlier={session.loadEarlier}
                         onSend={images.sendNativeChat}
                         sendSurfaceId={sendSurfaceId}
+                        initialSubagentId={initialSubagentId}
                         getSendCompletionGeneration={getSendCompletionGeneration}
                         getComposerEditGeneration={controller.getChatComposerEditGeneration}
                         pending={controller.chatPending}

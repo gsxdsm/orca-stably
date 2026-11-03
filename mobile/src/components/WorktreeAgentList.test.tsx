@@ -124,7 +124,7 @@ describe('WorktreeAgentList', () => {
       displayState: 'working'
     })
     await act(async () => findByHostType(rows[1], 'Pressable').props.onPress({ stopPropagation }))
-    expect(onAgentPress).toHaveBeenCalledWith('agent-1')
+    expect(onAgentPress).toHaveBeenCalledWith('agent-1', 'child')
     expect(findAllByHostType(rows[0], 'Text').at(-1)?.props.children).toBe('1m')
     expect(findAllByHostType(rows[1], 'Text').at(-1)?.props.children).toBe(age)
   })
@@ -157,7 +157,7 @@ describe('WorktreeAgentList', () => {
     expect(rows[1].props.childRow.id).toBe('child')
     const childPress = findByHostType(rows[1], 'Pressable')
     await act(async () => childPress.props.onPress({ stopPropagation: vi.fn() }))
-    expect(onAgentPress).toHaveBeenCalledWith('agent-1')
+    expect(onAgentPress).toHaveBeenCalledWith('agent-1', 'child')
   })
 
   it('opens each top-level agent by its own pane', async () => {
@@ -275,7 +275,7 @@ describe('WorktreeAgentList', () => {
       'Pressable'
     )
     await act(async () => child.props.onPress({ stopPropagation }))
-    expect(onAgentPress).toHaveBeenCalledWith('agent-1')
+    expect(onAgentPress).toHaveBeenCalledWith('agent-1', 'child')
     await act(async () => child.props.onLongPress({ stopPropagation }))
     expect(onLongPress).toHaveBeenLastCalledWith('agent-1')
   })

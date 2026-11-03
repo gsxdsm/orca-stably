@@ -30,7 +30,8 @@ export function useMobileNativeChatSubagentTranscript({
   sendSurfaceId,
   taskList: sessionTaskList = null,
   subagentSeed = null,
-  readSubagentPage = null
+  readSubagentPage = null,
+  initialSubagentId = null
 }: {
   messages: readonly NativeChatMessage[]
   folded: NativeChatMessage[]
@@ -41,6 +42,7 @@ export function useMobileNativeChatSubagentTranscript({
   taskList?: NativeChatTaskSeedList | null
   subagentSeed?: readonly NativeChatSubagentActivity[] | null
   readSubagentPage?: MobileNativeChatSubagentRead | null
+  initialSubagentId?: string | null
 }): {
   shownFolded: NativeChatMessage[]
   shownStreaming: string | null
@@ -66,7 +68,7 @@ export function useMobileNativeChatSubagentTranscript({
   )
   const [focus, setFocus] = useState<{ surfaceId: string; agentId: string | null }>({
     surfaceId: sendSurfaceId,
-    agentId: null
+    agentId: initialSubagentId ?? null
   })
   if (focus.surfaceId !== sendSurfaceId) {
     setFocus({ surfaceId: sendSurfaceId, agentId: null })
