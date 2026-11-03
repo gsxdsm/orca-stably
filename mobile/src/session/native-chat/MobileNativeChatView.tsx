@@ -40,7 +40,7 @@ import {
 import { MobileNativeChatLiveLine } from './transcript/MobileNativeChatLiveLine'
 import { MobileNativeChatAwaitingInputRow } from './transcript/MobileNativeChatAwaitingInputRow'
 import type { NativeChatAwaitingInput } from '../../../../src/shared/native-chat/native-chat-terminal-turn'
-import { MobileNativeChatJumpControls } from '../duo-rail-jump-controls'
+import { DuoRailComposerTop, MobileNativeChatJumpControls } from '../duo-rail-jump-controls'
 import type { PendingNativeChatImage } from './composer/mobile-native-chat-image-attachment'
 import {
   MobileNativeChatDraftComposer,
@@ -375,7 +375,7 @@ export function MobileNativeChatView({
         </View>
       ) : null}
       {trayContent}
-      <View style={promptOwnsInput ? styles.hidden : undefined}>
+      <DuoRailComposerTop keyboardInset={keyboardInset} hidden={promptOwnsInput}>
         <MobileNativeChatDraftComposer
           {...composerFit}
           draftScopeKey={composerScopeKey}
@@ -407,7 +407,7 @@ export function MobileNativeChatView({
           onNeedSkills={onNeedSkills}
           stop={canStop ? { onStop, held: turnIndicator?.stopRequestInFlight === true } : null}
         />
-      </View>
+      </DuoRailComposerTop>
     </View>
   )
 }
