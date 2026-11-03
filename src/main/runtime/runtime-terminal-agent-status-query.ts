@@ -20,6 +20,7 @@ import {
 import { detectTerminalWaitBlockedReason } from './terminal-wait-detection'
 import { getTerminalState } from './terminal-wait-results'
 import { buildTerminalWaitText } from './terminal-wait-tail-state'
+import { hermesNativeTitleStatus } from '../../shared/hermes-terminal-title'
 
 export type RuntimeTerminalAgentStatusSnapshot = {
   waitText: string
@@ -196,7 +197,10 @@ export class RuntimeTerminalAgentStatusQuery {
         waitBlockedAt: pty.pty.waitBlockedAt,
         title: ptyTitle?.title ?? null,
         titleStatus: ptyTitle
-          ? detectAgentStatusFromTitle(ptyTitle.title)
+          ? (hermesNativeTitleStatus(
+              ptyTitle.title,
+              live.pty.foregroundAgent ?? live.pty.launchAgent
+            ) ?? detectAgentStatusFromTitle(ptyTitle.title))
           : pty.pty.lastAgentStatus,
         titleStatusIsLive: ptyTitle !== null
       }

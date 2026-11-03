@@ -21,6 +21,7 @@ import { deriveNativeChatStreamingText } from '../../../src/shared/native-chat/n
 import { useThrottledLatestValue } from './use-throttled-latest-value'
 import type { MobileNativeChatSession } from './native-chat/use-mobile-native-chat-session'
 import type { MobileNativeChatResolution } from './native-chat/mobile-native-chat-eligibility'
+import type { NativeChatTerminalActivity } from '../../../src/shared/native-chat/native-chat-terminal-queue'
 
 import {
   pendingSendsAsMessages,
@@ -42,6 +43,7 @@ export type MobileNativeChatTerminalTurn = NativeChatTerminalTurn & {
 export function useMobileNativeChatTerminalTurn(args: {
   /** The terminal chat's hook row; null for structured chats or when no chat shows. */
   status: AgentStatusEntry | null | undefined
+  terminalActivity?: NativeChatTerminalActivity
   resolution: Pick<MobileNativeChatResolution, 'agent' | 'sessionId'> | null
   /** The terminal chat's transcript; null for structured chats. */
   session: Pick<MobileNativeChatSession, 'messages' | 'transcriptLifecycle'> | null
@@ -63,6 +65,7 @@ export function useMobileNativeChatTerminalTurn(args: {
     sessionId: resolution?.sessionId ?? null,
     agent: resolution?.agent ?? '',
     hookState,
+    terminalActivity: args.terminalActivity,
     stateStartedAt,
     transcriptLifecycle,
     hookHasWorkingSubagents: nativeChatHookHasWorkingSubagents(status)

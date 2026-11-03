@@ -15,8 +15,9 @@ import type { MobileNativeChatController } from './mobile-native-chat-controller
 import { useMobileBridgeChatPromptWrites } from '../use-mobile-bridge-chat-prompt-writes'
 import { useMobileNativeChatActiveResolution } from './use-mobile-native-chat-active-resolution'
 import { useMobileNativeChatPromptController } from '../use-mobile-native-chat-prompt-controller'
-import { nativeChatPendingSendPlacement } from '../../../../src/shared/native-chat/transcript/native-chat-pending-sends'
+import { placeNativeChatPendingSends } from '../../../../src/shared/native-chat/transcript/native-chat-pending-sends'
 import { mobileNativeChatScopeKey } from './mobile-native-chat-scope-key'
+import { useMobileTerminalChatQueue } from './use-mobile-terminal-chat-queue'
 
 export function useMobileNativeChatController(args: {
   client: RpcClient | null
@@ -151,8 +152,15 @@ export function useMobileNativeChatController(args: {
     onSendResolved
   })
 
+  const { enabled: terminalQueueEnabled, ...terminalQueue } = useMobileTerminalChatQueue({
+    ...args,
+    terminal: activeHandleRef.current,
+    enabled: !activeChatStructured && activeChatAgent === 'hermes' && inputSendable,
+    appendText: appendComposerText
+  })
   const terminalTurn = useMobileNativeChatTerminalTurn({
     status: nativeChatStatus,
+    terminalActivity: terminalQueue.activity,
     resolution: activeChatResolution,
     session: activeChatStructured ? null : nativeChatSession,
     latestPendingId: chatPending.at(-1)?.id ?? null,
@@ -165,11 +173,7 @@ export function useMobileNativeChatController(args: {
   const nativeChatAgentWorking = activeTurn.isWorking
   const workingEpoch = terminalTurn.workingEpoch
   const placedChatPending = useMemo(
-    () =>
-      chatPending.map((entry) => ({
-        ...entry,
-        pendingSend: nativeChatPendingSendPlacement(entry, workingEpoch)
-      })),
+    () => placeNativeChatPendingSends(chatPending, workingEpoch),
     [chatPending, workingEpoch]
   )
   const captureTerminalSendOrigin = useCallback(
@@ -206,6 +210,11 @@ export function useMobileNativeChatController(args: {
     onSendError
   })
 
+  const terminalQueueSend = terminalQueue.bindSend(
+    captureTerminalSendOrigin,
+    clearDraftForSend,
+    handleNativeChatSendWithOutcome
+  )
   const structuredNativeChatSend = useMobileStructuredNativeChatSendBridge({
     agent: activeChatResolution?.agent,
     sessionCommands: nativeChatLane.sessionCommands.commands,
@@ -283,19 +292,25 @@ export function useMobileNativeChatController(args: {
     nativeChatActionablePromptIds: structuredNativeChat.actionablePromptIds,
     nativeChatCommandRefusalCauses: structuredNativeChat.commandRefusalCauses,
     nativeChatCanStop: activeChatStructured ? structuredNativeChat.canStop : nativeChatAgentWorking,
-    nativeChatSendFollowUp: activeChatStructured ? structuredNativeChat.sendFollowUp : null,
+    nativeChatSendFollowUp: activeChatStructured
+      ? structuredNativeChat.sendFollowUp
+      : terminalQueue.sendFollowUp,
     nativeChatStreamingText: terminalTurn.streamingText,
     ...prompts,
     handleNativeChatStop: activeChatStructured ? structuredNativeChat.cancel : terminalTurn.stop,
-    nativeChatQueued: structuredNativeChat.queued,
+    nativeChatQueued: terminalQueueEnabled ? terminalQueue.controls : structuredNativeChat.queued,
     nativeChatBackgroundTasks: activeChatStructured ? structuredNativeChat.backgroundTasks : null,
     ...workspaceCatalog,
     handleNativeChatSend: activeChatStructured
       ? structuredNativeChatSend.send
-      : handleNativeChatSend,
+      : terminalQueueEnabled
+        ? terminalQueueSend.send
+        : handleNativeChatSend,
     handleNativeChatSendWithOutcome: activeChatStructured
       ? structuredNativeChatSend.sendWithOutcome
-      : handleNativeChatSendWithOutcome,
+      : terminalQueueEnabled
+        ? terminalQueueSend.sendWithOutcome
+        : handleNativeChatSendWithOutcome,
     readSeededLaunchDraft,
     nativeChatSessionOptions,
     nativeChatSessionCommands: nativeChatLane.sessionCommands,
