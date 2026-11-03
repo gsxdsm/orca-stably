@@ -220,6 +220,7 @@ export const EXECUTION_HOST_METHODS = [
   'terminal.isRunningAgent',
   'terminal.list',
   'terminal.multiplex',
+  'terminal.openInputSession',
   'terminal.read',
   'terminal.rename',
   'terminal.send',

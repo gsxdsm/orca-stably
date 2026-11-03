@@ -7502,7 +7502,7 @@
         },
         "BrowserUseComputerUseNotice": {
           "15b5e680ba": "開啟電腦使用",
-          "79209b37b9": "如果 cookie 匯入不合適，「電腦使用」可以控制本機應用程式，並可視情況使用瀏覽器現有的已登入工作階段。安裝電腦使用技能； macOS 還需要隱私權限。",
+          "79209b37b9": "如果 cookie 匯入不合適，「電腦使用」可以控制本機應用程式，並可視情況使用瀏覽器現有的已登入工作階段。安裝 Orca Computer Use 技能； macOS 還需要隱私權限。",
           "333984cf90": "使用現有的瀏覽器工作階段"
         },
         "BrowserUseEnableSwitch": {
@@ -7622,7 +7622,7 @@
         },
         "ComputerUsePane": {
           "1735461723": "使代理程式能夠檢查和操作本機桌面應用程式。",
-          "93255aaf18": "電腦使用技能",
+          "93255aaf18": "Orca Computer Use 技能",
           "45f8e22c2e": "開啟",
           "d95d1cfab8": "重新整理",
           "0c29da5805": "就緒",
@@ -8507,8 +8507,6 @@
         },
         "RepositorySourceControlAiActionRows": {
           "548a6e1281": "命令範本",
-          "2b2f38652b": "自訂命令",
-          "0ffb081b3a": "使用預設代理程式",
           "f4310cf63f": "代理程式",
           "1cd88d470a": "自訂",
           "403876bb48": "使用全域",
@@ -22783,6 +22781,7 @@
     "argumentsHint": "僅適用於 CLI 啟動。",
     "launchChat": "啟動聊天",
     "launchTerminal": "啟動終端機",
+    "use": "使用",
     "select": "選擇代理程式",
     "promptPlaceholder": "新增提示詞（選填）：/ 選擇技能，@ 選擇檔案",
     "promptPlaceholderFilesOnly": "新增提示詞（選填）：@ 選擇檔案"

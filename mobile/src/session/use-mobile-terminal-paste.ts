@@ -151,7 +151,7 @@ export function useMobileTerminalPaste({
           showToast(translate('session.useTerminalPaste.pasteFailed', 'Paste failed'), 1500)
           return
         }
-        await sendTerminalUserInput(currentClient, {
+        const response = await sendTerminalUserInput(currentClient, {
           terminal: targetHandle,
           text: payload,
           enter: false,
@@ -159,6 +159,9 @@ export function useMobileTerminalPaste({
             ? { client: { id: deviceTokenRef.current, type: 'mobile' as const } }
             : {})
         })
+        if (terminalInputSend.interpret(response) !== true) {
+          throw new Error('Terminal input was not accepted')
+        }
         onSuccess()
         refreshCanPaste()
       } catch (e) {
