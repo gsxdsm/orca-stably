@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { colors, radii } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { useSessionListLongPressProps } from '../navigation/session-list-long-press-props'
 
 type Props = {
   children: ReactNode
@@ -10,6 +11,7 @@ type Props = {
   label: string
   onPress: () => void
   style?: StyleProp<ViewStyle>
+  toSessionList?: boolean
 }
 
 export function MobileBrowserToolbarIconButton({
@@ -17,9 +19,11 @@ export function MobileBrowserToolbarIconButton({
   disabled,
   label,
   onPress,
-  style
+  style,
+  toSessionList = false
 }: Props): React.JSX.Element {
   useMobileColorScheme()
+  const sessionListLongPress = useSessionListLongPressProps()
   return (
     <Pressable
       style={({ pressed }) => [
@@ -31,6 +35,7 @@ export function MobileBrowserToolbarIconButton({
       disabled={disabled}
       onPress={onPress}
       accessibilityLabel={label}
+      {...(toSessionList ? sessionListLongPress : {})}
     >
       {children}
     </Pressable>

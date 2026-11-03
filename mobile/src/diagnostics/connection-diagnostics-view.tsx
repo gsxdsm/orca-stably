@@ -10,6 +10,7 @@ import type { ConnectionLogEntry, ConnectionState } from '../transport/types'
 import type { ConnectionDiagnosis } from './connection-diagnostics-analysis'
 import type { DiagnosticsSubmissionState } from './connection-diagnostics-screen-data'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
+import { useSessionListLongPressProps } from '../navigation/session-list-long-press-props'
 
 export function ConnectionDiagnosticsView({
   hostPicker,
@@ -40,6 +41,7 @@ export function ConnectionDiagnosticsView({
 }) {
   useMobileColorScheme()
   const t = useMobileTranslation()
+  const sessionListLongPress = useSessionListLongPressProps()
   const insets = useSafeAreaInsets()
   const stateLabels: Record<ConnectionState, string> = {
     connecting: t('diagnostics.connectionDiagnosticsView.connecting', 'connecting'),
@@ -57,6 +59,7 @@ export function ConnectionDiagnosticsView({
           accessibilityLabel={t('common.back', 'Back')}
           style={({ pressed }) => [styles.backButton, pressed && pressedStyle]}
           onPress={onBack}
+          {...sessionListLongPress}
         >
           <ChevronLeft size={22} color={colors.textSecondary} />
         </Pressable>
