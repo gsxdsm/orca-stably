@@ -32,8 +32,8 @@ import {
 } from './use-mobile-native-chat-input-lease'
 import { MobileNativeChatLiveLine } from './transcript/MobileNativeChatLiveLine'
 import { MobileNativeChatAwaitingInputRow } from './transcript/MobileNativeChatAwaitingInputRow'
-import { MobileNativeChatFloatingControls } from './MobileNativeChatFloatingControls'
 import { MobileNativeChatDraftComposer } from './composer/MobileNativeChatComposer'
+import { MobileNativeChatJumpControls } from '../duo-rail-jump-controls'
 import { useMobileNativeChatPreviousStops } from './transcript/use-mobile-native-chat-previous-stops'
 import { MobileNativeChatPromptCard } from './input/MobileNativeChatPromptCard'
 import { useMobileNativeChatPromptInputOwner } from './input/use-mobile-native-chat-prompt-input-owner'
@@ -308,7 +308,7 @@ export function MobileNativeChatView({
               </MobileNativeChatScrollRootsBoundary>
             </MobileNativeChatOpenSubagentProvider>
           </MobileNativeChatDisclosureContext.Provider>
-          <MobileNativeChatFloatingControls
+          <MobileNativeChatJumpControls
             showJumpToTail={tail.showJumpToTail}
             onJumpToTail={jumpToTail}
             showPreviousMessage={tail.showPreviousMessage}
