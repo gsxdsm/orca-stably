@@ -13,7 +13,7 @@ import { nativeChatScrollsToLatestOnSend } from '../../../../shared/native-chat/
 import type { NativeChatLiveSession } from './use-native-chat-live-session'
 import { useNativeChatTranscriptProjection } from './use-native-chat-transcript-projection'
 import { desktopStructuredTranscript } from './structured-agent-session-message-projection'
-import { nativeChatTaskListPredecessors } from '../../../../shared/native-chat/input/native-chat-task-list-history'
+import { useNativeChatTranscriptIndexes } from './use-native-chat-transcript-indexes'
 import { NativeChatActivityBar } from './NativeChatActivityBar'
 import { useNativeChatSubagentTranscript } from './use-native-chat-subagent-transcript'
 import { useNativeChatTurnStatus } from './use-native-chat-turn-status'
@@ -172,14 +172,9 @@ export function NativeChatMessageList({
     openSubagentSections
   } = useNativeChatSubagentSections(view.transcriptMessages, view.sectionRows, view.sectionRoster)
   // Folded subagent rows stay loaded, so a reopened reply keeps its reveal.
-  const loadedMessageIds = useMemo(
-    () =>
-      new Set([...view.transcriptMessages.map(({ id }) => id), ...subagentSections.pathOf.keys()]),
-    [view.transcriptMessages, subagentSections]
-  )
-  const taskListPredecessors = useMemo(
-    () => nativeChatTaskListPredecessors(view.transcriptMessages),
-    [view.transcriptMessages]
+  const { loadedMessageIds, taskListPredecessors } = useNativeChatTranscriptIndexes(
+    view.transcriptMessages,
+    subagentSections
   )
   const turnRows = useNativeChatTurnMembership(
     view.transcriptMessages,
