@@ -606,17 +606,14 @@ describe('orchestration new-worktree workers', () => {
     })
 
     mockCreatedWorktree()
-    vi.mocked(runtime.waitForTerminal).mockResolvedValueOnce({
-      handle: 'term_worker',
-      condition: 'tui-idle',
-      satisfied: false,
-      status: 'exited',
-      exitCode: 1
-    })
+    vi.mocked(runtime.waitForTerminal).mockRejectedValueOnce(
+      new Error('terminal_exited\nImportError: failed client dcap_abcdefghijklmnopqrstuvwxyz')
+    )
     const durableEffect = await startWorker({ name: 'durable-effect' })
     expect(durableEffect.result).toMatchObject({
       state: 'failed',
       failedStage: 'agent_readiness',
+      lastError: 'terminal_exited\nImportError: failed client [dispatch capability redacted]',
       effects: expect.arrayContaining([
         expect.objectContaining({ kind: 'worktree', id: 'repo::created' }),
         expect.objectContaining({ kind: 'terminal', id: 'term_worker' })
