@@ -19591,7 +19591,9 @@
         "unchanged": "Tasks unchanged",
         "showAll": "Full task list",
         "progress_one": "{{completed}} of {{count}} task completed",
-        "progress_other": "{{completed}} of {{count}} tasks completed"
+        "progress_other": "{{completed}} of {{count}} tasks completed",
+        "cancelled": "Cancelled",
+        "cancelledTask": "Cancelled {{task}}"
       },
       "turnDiff": {
         "partial": "Partial diff",
@@ -20368,6 +20370,33 @@
         "cancelled": "Orca won't continue this chat automatically.",
         "scheduled": "Orca will continue this chat at {{time}}.",
         "cancel": "Don't continue"
+      },
+      "activity": {
+        "state": {
+          "working": "Working",
+          "completed": "Completed",
+          "idle": "Idle",
+          "failed": "Failed",
+          "stopped": "Stopped",
+          "unavailable": "Status unavailable"
+        },
+        "viewing": "Viewing {{name}}",
+        "mainAgent": "Main agent",
+        "composerStays": "The composer still sends to the main agent.",
+        "noMessages": "No messages from this subagent yet",
+        "tasks_one": "{{completed}}/{{count}} task",
+        "tasks_other": "{{completed}}/{{count}} tasks",
+        "subagentsLabel_one": "{{count}} subagent",
+        "subagentsLabel_other": "{{count}} subagents",
+        "subagent": "{{count}} subagent",
+        "subagents": "{{count}} subagents",
+        "subagentsTitle": "Subagents",
+        "dismissAllFailed": "Dismiss all failed",
+        "backToConversation": "Back to the conversation",
+        "dismissSubagent": "Dismiss {{name}}",
+        "noActivity": "No activity yet",
+        "completedSubagents": "Completed ({{count}})",
+        "openSubagent": "Open {{name}}"
       }
     },
     "tab": {
