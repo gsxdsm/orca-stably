@@ -60,14 +60,11 @@ import type {
 import type { AgentSessionLatestTurn } from '../../../../shared/agent-session/agent-session-wire'
 import { isStructuredAgentSessionThinking } from '../../../../shared/agent-session/view/structured-agent-session-live-turn'
 import type { NativeChatSettledTurns } from '../../../../shared/native-chat/transcript/native-chat-turn-status'
-import type { NativeChatDiffReveal, NativeChatDiffTarget } from './native-chat-turn-diffs'
+import type { NativeChatDiffTarget } from './native-chat-turn-diffs'
+import type { NativeChatMessageListNavigation } from './native-chat-message-list-navigation'
 import { useNativeChatTurnDiffs } from './use-native-chat-turn-diffs'
 import { transcriptTailRow } from './native-chat-transcript-tail-row'
 import type { NativeChatAwaitingInput } from '../../../../shared/native-chat/native-chat-terminal-turn'
-
-type NavigationRequest =
-  | { kind: 'diff'; target: NativeChatDiffReveal }
-  | { kind: 'rail'; messageId: string; requestId: number }
 
 export function NativeChatMessageList({
   ref,
@@ -94,8 +91,8 @@ export function NativeChatMessageList({
 }: {
   ref?: Parameters<typeof useNativeChatMessageListHandle>[0]
   session: NativeChatLiveSession
-  structuredAttachments?: boolean
   journalItems?: readonly AgentJournalRenderItem[]
+  structuredAttachments?: boolean
   /** With the items, what places each row in its turn (structured lane). */
   journalSubmissions?: readonly AgentJournalSubmission[]
   /** The host's newest turn record, which places a live turn whose record is not loaded. */
@@ -123,7 +120,8 @@ export function NativeChatMessageList({
   stopping?: boolean
   runtimeContext?: RuntimeFileOperationArgs | null
 }): React.JSX.Element {
-  const [navigationRequest, setNavigationRequest] = useState<NavigationRequest | null>(null)
+  const [navigationRequest, setNativeChatMessageListNavigation] =
+    useState<NativeChatMessageListNavigation | null>(null)
   const navigationSequence = useRef(0)
   const revealedDiff = navigationRequest?.kind === 'diff' ? navigationRequest.target : null
   const railJump = navigationRequest?.kind === 'rail' ? navigationRequest : null
@@ -287,7 +285,7 @@ export function NativeChatMessageList({
   const requestRailJump = useCallback((item: NativeChatRailItem) => {
     navigationSequence.current += 1
     const requestId = navigationSequence.current
-    setNavigationRequest({ kind: 'rail', messageId: item.id, requestId })
+    setNativeChatMessageListNavigation({ kind: 'rail', messageId: item.id, requestId })
   }, [])
   const railHistoryJump = useNativeChatRailHistoryJump({
     items: rail.items,
@@ -319,7 +317,7 @@ export function NativeChatMessageList({
       }
       navigationSequence.current += 1
       const requestId = navigationSequence.current
-      setNavigationRequest({ kind: 'diff', target: { ...target, requestId } })
+      setNativeChatMessageListNavigation({ kind: 'diff', target: { ...target, requestId } })
     },
     [beginNavigation, readerLeavesEnd, openSubagentSections]
   )
@@ -340,7 +338,7 @@ export function NativeChatMessageList({
     scrollRef,
     scrollMessageToTop,
     onActivate: rail.onActivate,
-    release: setNavigationRequest
+    release: setNativeChatMessageListNavigation
   })
 
   const rowContext = useNativeChatTranscriptRowContext({
