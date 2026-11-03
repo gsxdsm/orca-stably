@@ -15,6 +15,7 @@ export function getMobileTerminalActionSheetActions<
   isTabChatView: (tabId: string) => boolean
   nativeChatTranscriptIsLocalReadable: boolean
   onDismiss: () => void
+  onActivateSessionTab: (tab: Tab) => void
   onToggleChat: (tabId: string) => void
   isPhoneMode: (handle: string) => boolean
   onToggleDisplayMode: (handle: string) => void
@@ -41,7 +42,12 @@ export function getMobileTerminalActionSheetActions<
       isTabChatView: args.isTabChatView,
       nativeChatTranscriptIsLocalReadable: args.nativeChatTranscriptIsLocalReadable,
       onClose: args.onDismiss,
-      onToggle: args.onToggleChat
+      onToggle: (tabId) => {
+        if (sessionTab) {
+          args.onActivateSessionTab(sessionTab)
+        }
+        args.onToggleChat(tabId)
+      }
     }),
     {
       id: 'toggleDisplayMode',
@@ -51,6 +57,9 @@ export function getMobileTerminalActionSheetActions<
       icon: phoneMode ? Monitor : Smartphone,
       onPress: () => {
         args.onDismiss()
+        if (sessionTab) {
+          args.onActivateSessionTab(sessionTab)
+        }
         args.onToggleDisplayMode(target.handle)
       }
     },

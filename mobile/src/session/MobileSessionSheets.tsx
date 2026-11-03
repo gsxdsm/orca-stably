@@ -209,6 +209,7 @@ export function MobileSessionSheets({ controller }: { controller: MobileSessionC
           isTabChatView: nativeChatController.isTabChatView,
           nativeChatTranscriptIsLocalReadable: controller.nativeChatTranscriptIsLocalReadable,
           onDismiss: () => setActionTarget(null),
+          onActivateSessionTab: controller.switchSessionTab,
           onToggleChat: toggleTabChatView,
           isPhoneMode: (handle) => isTerminalPhoneDisplayMode(handle, terminalModes),
           onToggleDisplayMode: (handle) => void toggleDisplayMode(handle),

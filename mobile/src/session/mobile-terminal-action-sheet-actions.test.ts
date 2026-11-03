@@ -18,6 +18,7 @@ function buildActions(overrides: Partial<SheetArgs> = {}) {
     isTabChatView: () => false,
     nativeChatTranscriptIsLocalReadable: true,
     onDismiss: vi.fn(),
+    onActivateSessionTab: vi.fn(),
     onToggleChat: vi.fn(),
     isPhoneMode: () => false,
     onToggleDisplayMode: vi.fn(),
@@ -36,6 +37,60 @@ const terminalTab = (id: string, handle: string | null) => ({
 })
 
 describe('getMobileTerminalActionSheetActions', () => {
+  it('reveals an inactive tab in the chosen view and labels the next switch consistently', () => {
+    const targetTab = { ...terminalTab('target-tab', 'terminal-1'), launchAgent: 'claude' }
+    let activeTabId = 'other-tab'
+    let chatView = false
+    const onActivateSessionTab = vi.fn((tab: SheetArgs['tabs'][number]) => {
+      activeTabId = tab.id
+    })
+    const onToggleChat = vi.fn((tabId: string) => {
+      expect(activeTabId).toBe(tabId)
+      chatView = !chatView
+    })
+    const actions = () =>
+      buildActions({
+        tabs: [targetTab],
+        isTabChatView: () => chatView,
+        onActivateSessionTab,
+        onToggleChat
+      })
+
+    expect(actions().find((action) => action.id === 'toggleChatView')?.label).toBe(
+      'Switch to chat view'
+    )
+    actions()
+      .find((action) => action.id === 'toggleChatView')
+      ?.onPress()
+    expect(activeTabId).toBe('target-tab')
+    expect(chatView).toBe(true)
+    expect(actions().find((action) => action.id === 'toggleChatView')?.label).toBe(
+      'Switch to terminal view'
+    )
+    actions()
+      .find((action) => action.id === 'toggleChatView')
+      ?.onPress()
+    expect(chatView).toBe(false)
+    expect(actions().find((action) => action.id === 'toggleChatView')?.label).toBe(
+      'Switch to chat view'
+    )
+    expect(onActivateSessionTab).toHaveBeenLastCalledWith(targetTab)
+  })
+
+  it('reveals the target before switching its terminal display mode', () => {
+    const tab = terminalTab('target-tab', 'terminal-1')
+    const calls: string[] = []
+    const actions = buildActions({
+      tabs: [tab],
+      onDismiss: () => calls.push('dismiss'),
+      onActivateSessionTab: (target) => calls.push(target.id),
+      onToggleDisplayMode: (handle) => calls.push(handle)
+    })
+
+    actions.find((action) => action.id === 'toggleDisplayMode')?.onPress()
+    expect(calls).toEqual(['dismiss', 'target-tab', 'terminal-1'])
+  })
+
   it('defers Rename until after the action sheet closes', () => {
     const target = { handle: 'terminal-1' }
     const onDismiss = vi.fn()
