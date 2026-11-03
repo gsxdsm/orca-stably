@@ -91,8 +91,9 @@ export function useMobileNativeChatMessageSend(args: {
     ): Promise<MobileNativeChatSendOutcome> => {
       // Trim only outgoing bytes to prevent rapid-send concatenation; restore the exact typed draft on rejection.
       const text = draftText.trimEnd()
+      const wireText = projectMobileCrewMentions(text)
       const handle = handleRef.current
-      const origin = captureSendOrigin(text, sentAt)
+      const origin = captureSendOrigin(wireText, sentAt)
       const agent = agentRef.current
       const recordCommand = commandSendRef.current
       // Connection drops precede lease collapse by one render; gate immediately to avoid waiting the whole send budget.
@@ -168,7 +169,7 @@ export function useMobileNativeChatMessageSend(args: {
         : await sendMobileNativeChatMessageWithOutcome({
             client,
             terminal: handle,
-            text: buildNativeChatPasteBytes(projectMobileCrewMentions(text)),
+            text: buildNativeChatPasteBytes(wireText),
             ...(resolvedLaunchDraft ? { resolvedLaunchDraft } : {}),
             deadline,
             ...(mobileClient ? { mobileClient } : {})
@@ -176,7 +177,7 @@ export function useMobileNativeChatMessageSend(args: {
       if (outcome === 'unknown') {
         if (classification === 'chat') {
           // Lost acknowledgement proves no failure; verify delivery by transcript rather than reporting not sent.
-          holdUnconfirmedSend(origin, text, () => onSendError(UNCONFIRMED_SEND_MESSAGE))
+          holdUnconfirmedSend(origin, wireText, () => onSendError(UNCONFIRMED_SEND_MESSAGE))
         } else {
           if (syncComposer) {
             restoreRejectedDraft(origin, draftText, { preserveConversationCommands: true })
@@ -193,7 +194,7 @@ export function useMobileNativeChatMessageSend(args: {
         return 'rejected'
       }
       if (classification === 'chat') {
-        acceptSend(origin, text, images)
+        acceptSend(origin, wireText, images)
       } else if (recordControlSend) {
         // The session-option catalog can recognize controls omitted from the
         // autocomplete catalog (for example Claude `/model` and `/fast`).

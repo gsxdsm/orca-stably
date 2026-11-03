@@ -72,22 +72,35 @@ function rowBelongsToSummaryWorktree(
 function mirrorCrossWorkspaceChildren(
   rowsByWorktree: Map<string, RuntimeWorktreeAgentRow[]>,
   rowSources: ReadonlyMap<string, RuntimeWorktreeAgentSource>,
-  summaries: Map<string, RuntimeWorktreePsSummary>
+  summaries: Map<string, RuntimeWorktreePsSummary>,
+  getSummary: RuntimeWorktreePsSummaryLookup
 ): void {
   const mirrors: [string, RuntimeWorktreeAgentRow][] = []
+  const rowsByPaneKey = new Map<string, RuntimeWorktreeAgentRow>()
+  for (const rows of rowsByWorktree.values()) {
+    for (const row of rows) {
+      rowsByPaneKey.set(row.paneKey, row)
+    }
+  }
   for (const [worktreeId, rows] of rowsByWorktree) {
     for (const row of rows) {
-      const parentWorktreeId = row.parentPaneKey
-        ? rowSources.get(row.parentPaneKey)?.worktreeId
-        : undefined
-      if (
-        !parentWorktreeId ||
-        parentWorktreeId === worktreeId ||
-        !summaries.has(parentWorktreeId)
-      ) {
-        continue
+      const visited = new Set<string>()
+      let ancestorPaneKey = row.parentPaneKey ?? null
+      while (ancestorPaneKey && !visited.has(ancestorPaneKey)) {
+        visited.add(ancestorPaneKey)
+        const ancestorSource = rowSources.get(ancestorPaneKey)
+        const ancestorWorktreeId = ancestorSource?.worktreeId
+          ? getSummary(ancestorSource.worktreeId)?.worktreeId
+          : undefined
+        if (
+          ancestorWorktreeId &&
+          ancestorWorktreeId !== worktreeId &&
+          summaries.has(ancestorWorktreeId)
+        ) {
+          mirrors.push([ancestorWorktreeId, row])
+        }
+        ancestorPaneKey = rowsByPaneKey.get(ancestorPaneKey)?.parentPaneKey ?? null
       }
-      mirrors.push([parentWorktreeId, row])
     }
   }
   for (const [parentWorktreeId, row] of mirrors) {
@@ -159,7 +172,7 @@ export function attachRuntimeWorktreeAgentRows(args: {
       rowsByWorktree.set(summary.worktreeId, [row])
     }
   }
-  mirrorCrossWorkspaceChildren(rowsByWorktree, rowSources, args.summaries)
+  mirrorCrossWorkspaceChildren(rowsByWorktree, rowSources, args.summaries, args.getSummary)
   for (const [worktreeId, rows] of rowsByWorktree) {
     rows.sort((a, b) => a.stateStartedAt - b.stateStartedAt)
     const summary = args.summaries.get(worktreeId)
@@ -211,7 +224,9 @@ export function attachRuntimeWorktreeAgentRows(args: {
       summary,
       now,
       args.terminalTitleEvidenceByWorktreeId.get(summary.worktreeId) ?? [],
-      (paneKey) => rowSources.get(paneKey)
+      (paneKey) => rowSources.get(paneKey),
+      (paneKey) =>
+        rowBelongsToSummaryWorktree(rowSources.get(paneKey), summary.worktreeId, args.getSummary)
     )
   }
 }

@@ -217,7 +217,9 @@ export function useHostWorktreeActions(args: {
 
   const openWorktreeSession = useCallback(
     (item: Worktree, paneKey?: string, childId?: string) => {
-      const home = paneKey ? homeWorktreeForAgentPane(worktrees, paneKey, item) : item
+      const home = paneKey
+        ? homeWorktreeForAgentPane([...worktrees, ...serverWorkspaces.worktrees], paneKey, item)
+        : item
       const server = serverWorkspaces.hosts.find((host) => host.hostId === home.hostId)
       if (server?.relay === 'update-needed') {
         setServerNotice(serverUpdateNeededNotice(server.label))

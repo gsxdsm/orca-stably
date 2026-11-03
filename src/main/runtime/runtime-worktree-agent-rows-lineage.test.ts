@@ -136,6 +136,89 @@ describe('worktree agent rows nest orchestration workers across folder workspace
     })
     expect(summaries.get(parentId)?.agents.map((row) => row.paneKey)).toEqual([coordinator, worker])
     expect(summaries.get(parentId)?.hasHostSidebarActivity).toBe(false)
+    expect(summaries.get(parentId)?.sidebarStatus).not.toBe('working')
     expect(summaries.get(childId)?.hasHostSidebarActivity).toBe(true)
+  })
+
+  it('does not give the coordinator a permission dot for a mirrored waiting worker', () => {
+    const coordinator = 'tab-coord:leaf-coord'
+    const worker = 'tab-worker:leaf-worker'
+    const summaries = new Map([
+      ['folder:orca', summary('folder:orca')],
+      ['folder:babysitter', summary('folder:babysitter')]
+    ])
+    attachRuntimeWorktreeAgentRows({
+      summaries,
+      rowSources: new Map([
+        [coordinator, source(coordinator, 'folder:orca', 'term_coord')],
+        [worker, { ...workingSource(worker, 'folder:babysitter'), state: 'waiting' }]
+      ]),
+      terminalTitleEvidenceByWorktreeId: new Map(),
+      orchestrationByPaneKey: { [worker]: { parentPaneKey: coordinator } },
+      getSummary: (id) => summaries.get(id) ?? null
+    })
+    expect(summaries.get('folder:orca')?.sidebarStatus).toBe('inactive')
+    expect(summaries.get('folder:orca')?.hasHostSidebarActivity).toBe(false)
+    expect(summaries.get('folder:babysitter')?.sidebarStatus).toBe('permission')
+  })
+
+  it('mirrors a nested helper onto the coordinator, not only its parent worker', () => {
+    const coordinator = 'tab-coord:leaf-coord'
+    const worker = 'tab-worker:leaf-worker'
+    const helper = 'tab-helper:leaf-helper'
+    const summaries = new Map([
+      ['folder:orca', summary('folder:orca')],
+      ['folder:worker', summary('folder:worker')],
+      ['folder:helper', summary('folder:helper')]
+    ])
+    attachRuntimeWorktreeAgentRows({
+      summaries,
+      rowSources: new Map([
+        [coordinator, source(coordinator, 'folder:orca', 'term_coord')],
+        [worker, source(worker, 'folder:worker', 'term_worker')],
+        [helper, source(helper, 'folder:helper', 'term_helper')]
+      ]),
+      terminalTitleEvidenceByWorktreeId: new Map(),
+      orchestrationByPaneKey: {
+        [worker]: { parentPaneKey: coordinator },
+        [helper]: { parentPaneKey: worker }
+      },
+      getSummary: (id) => summaries.get(id) ?? null
+    })
+    expect(summaries.get('folder:orca')?.agents.map((row) => row.paneKey)).toEqual([
+      coordinator,
+      worker,
+      helper
+    ])
+    expect(summaries.get('folder:worker')?.agents.map((row) => row.paneKey)).toEqual([
+      worker,
+      helper
+    ])
+    expect(summaries.get('folder:orca')?.hasHostSidebarActivity).toBe(false)
+  })
+
+  it('mirrors onto a parent whose source id is a path alias', () => {
+    const coordinator = 'tab-coord:leaf-coord'
+    const worker = 'tab-worker:leaf-worker'
+    const parentId = 'folder:orca'
+    const parentAlias = 'folder:orca/'
+    const summaries = new Map([
+      [parentId, summary(parentId)],
+      ['folder:babysitter', summary('folder:babysitter')]
+    ])
+    attachRuntimeWorktreeAgentRows({
+      summaries,
+      rowSources: new Map([
+        [coordinator, source(coordinator, parentAlias, 'term_coord')],
+        [worker, source(worker, 'folder:babysitter', 'term_worker')]
+      ]),
+      terminalTitleEvidenceByWorktreeId: new Map(),
+      orchestrationByPaneKey: { [worker]: { parentPaneKey: coordinator } },
+      getSummary: (id) =>
+        id === parentId || id === parentAlias
+          ? (summaries.get(parentId) ?? null)
+          : (summaries.get(id) ?? null)
+    })
+    expect(summaries.get(parentId)?.agents.map((row) => row.paneKey)).toEqual([coordinator, worker])
   })
 })
