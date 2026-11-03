@@ -47,6 +47,8 @@ export function mobileCrewParty(tab: MobileCrewTab | null): string | null {
   return null
 }
 
+const OPEN_TASK = new Set(['pending', 'ready', 'dispatched', 'blocked', 'running', 'open'])
+
 export function mobileCrewStatus(row: OrchestrationCrewRow): MobileCrewStatus {
   if (row.pendingQuestion || row.status === 'waiting' || row.status === 'blocked') {
     return 'waiting'
@@ -54,14 +56,27 @@ export function mobileCrewStatus(row: OrchestrationCrewRow): MobileCrewStatus {
   if (row.status === 'failed' || row.task?.state === 'failed' || row.task?.state === 'cancelled') {
     return 'failed'
   }
-  // A dispatched or kept-open task is not activity. Running is the agent's own busy state.
+  // Running is live work only. An open dispatch whose agent is idle, including a host that stamped the last turn "done", is waiting.
   if (row.status === 'working' || row.status === 'monitoring') {
     return 'running'
   }
-  if (row.status === 'idle' || row.status === 'unknown') {
+  if (
+    (row.task && OPEN_TASK.has(row.task.state)) ||
+    row.status === 'idle' ||
+    row.status === 'unknown'
+  ) {
     return 'waiting'
   }
   return 'done'
+}
+
+/** Desktop's second line is the latest status, not a repeat of the title. Drop it when that is all the host has. */
+export function crewRowSubtitle(row: OrchestrationCrewRow, title: string): string | null {
+  const line = (row.pendingQuestion?.preview || row.latest?.preview || '').trim()
+  if (!line || line === title.trim()) {
+    return null
+  }
+  return line
 }
 
 export function mobileCrewVisible(snapshot: OrchestrationCrewSnapshot): boolean {

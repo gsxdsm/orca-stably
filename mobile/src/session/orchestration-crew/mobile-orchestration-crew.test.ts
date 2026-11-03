@@ -3,6 +3,7 @@ import { emptyCrew, type OrchestrationCrewRow } from '../../../../src/shared/orc
 import { agentReferenceNote } from '../../../../src/shared/orchestration-agent-reference'
 import {
   appendCrewMention,
+  crewRowSubtitle,
   mobileCrewParty,
   mobileCrewRunningWorkers,
   mobileCrewStatus,
@@ -94,7 +95,7 @@ describe('mobile orchestration crew', () => {
     const parked = row({
       partyKey: 'parked',
       status: 'done',
-      task: { title: 'Parked', state: 'running' }
+      task: { title: 'Parked', state: 'completed' }
     })
     expect(mobileCrewStatus(idle)).toBe('waiting')
     expect(mobileCrewStatus(parked)).toBe('done')
@@ -104,6 +105,39 @@ describe('mobile orchestration crew', () => {
         sections: { managedBy: [], managing: [idle, parked], talkingWith: [] }
       })
     ).toBe(0)
+  })
+
+  it('maps an open idle dispatch to waiting, including a host that stamped the last turn done', () => {
+    const openAndIdle = row({
+      status: 'done',
+      task: { title: 'PR babysitter', state: 'dispatched' }
+    })
+    expect(mobileCrewStatus(openAndIdle)).toBe('waiting')
+    expect(mobileCrewStatus({ ...openAndIdle, status: 'idle' })).toBe('waiting')
+    expect(
+      mobileCrewStatus(
+        row({ status: 'working', task: { title: 'PR babysitter', state: 'dispatched' } })
+      )
+    ).toBe('running')
+    expect(crewRowSubtitle(openAndIdle, 'PR babysitter (Hermes)')).toBeNull()
+    expect(
+      crewRowSubtitle(
+        {
+          ...openAndIdle,
+          latest: { direction: 'from', preview: 'PR babysitter (Hermes)', at: 't', sequence: 1 }
+        },
+        'PR babysitter (Hermes)'
+      )
+    ).toBeNull()
+    expect(
+      crewRowSubtitle(
+        {
+          ...openAndIdle,
+          latest: { direction: 'from', preview: 'Waiting for the next wake', at: 't', sequence: 2 }
+        },
+        'PR babysitter (Hermes)'
+      )
+    ).toBe('Waiting for the next wake')
   })
 
   it('uses the terminal handle for a terminal tab and the session address for a chat', () => {
