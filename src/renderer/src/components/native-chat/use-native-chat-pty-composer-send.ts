@@ -94,10 +94,12 @@ export function useNativeChatPtyComposerSend(args: {
           args.setNotice(translate('components.native-chat.messageNotSent', 'Message not sent'))
         })
         .catch(() => {
-          if (readNativeChatComposerDraft(args.draftScopeKey).text === '') {
-            args.setDraft(submitted.text)
-          }
-          args.setNotice(translate('components.native-chat.messageNotSent', 'Message not sent'))
+          args.setNotice(
+            translate(
+              'components.native-chat.deliveryUnconfirmed',
+              'Delivery unconfirmed — check chat before retrying'
+            )
+          )
         })
       return
     }
