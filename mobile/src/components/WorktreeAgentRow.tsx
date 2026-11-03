@@ -28,6 +28,7 @@ type Props = {
   childRow?: AgentChildRowModel
   isReadOnly?: boolean
   onPress?: (paneKey: string) => void
+  onPressIn?: () => void
   onLongPress?: () => void
   trailing?: ReactNode
 }
@@ -41,6 +42,7 @@ function WorktreeAgentRowComponent({
   childRow,
   isReadOnly,
   onPress,
+  onPressIn,
   onLongPress,
   trailing
 }: Props) {
@@ -64,8 +66,8 @@ function WorktreeAgentRowComponent({
         ? agentNoUpdateLabel(agent, now)
         : formatTimeAgo(timeAt, now)
 
-  const content = (
-    <View style={[styles.row, { paddingLeft: depth * AGENT_ROW_INDENT_PER_DEPTH }]}>
+  const leading = (
+    <>
       <AgentStateDot state={dotState} />
       {/* Use desktop-style agent identity logo instead of two-letter code. */}
       {!childRow && agent.agentType ? (
@@ -81,26 +83,32 @@ function WorktreeAgentRowComponent({
           label
         )}
       </Text>
+    </>
+  )
+  // The disclosure is a sibling, not a child of this press: a nested 14pt control loses the tap to the row.
+  return (
+    <View style={[styles.row, { paddingLeft: depth * AGENT_ROW_INDENT_PER_DEPTH }]}>
+      {onPress ? (
+        <Pressable
+          style={({ pressed }) => [styles.sessionHit, pressed && pressedStyle]}
+          disabled={isReadOnly}
+          accessibilityRole="button"
+          onPressIn={onPressIn}
+          onPress={(event) => {
+            event.stopPropagation()
+            onPress(agent.paneKey)
+          }}
+          onLongPress={onLongPress}
+          delayLongPress={400}
+        >
+          {leading}
+        </Pressable>
+      ) : (
+        leading
+      )}
       {trailing}
       <Text style={styles.time}>{ts}</Text>
     </View>
-  )
-  return onPress ? (
-    <Pressable
-      style={({ pressed }) => pressed && pressedStyle}
-      disabled={isReadOnly}
-      accessibilityRole="button"
-      onPress={(event) => {
-        event.stopPropagation()
-        onPress(agent.paneKey)
-      }}
-      onLongPress={onLongPress}
-      delayLongPress={400}
-    >
-      {content}
-    </Pressable>
-  ) : (
-    content
   )
 }
 
@@ -112,6 +120,10 @@ const styles = themedStyleSheet(() => ({
     alignItems: 'center',
     gap: spacing.xs,
     marginTop: 3
+  },
+  sessionHit: {
+    flex: 1,
+    minWidth: 0
   },
   label: {
     flex: 1,
