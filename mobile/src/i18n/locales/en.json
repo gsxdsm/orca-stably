@@ -1415,7 +1415,8 @@
     },
     "prViewPanel": {
       "githubRemoteRequired": "This tab needs a GitHub remote to show pull request details. For other supported hosts, create a review from Changes and open it in your browser.",
-      "branchUnavailable": "Current branch unavailable."
+      "branchUnavailable": "Current branch unavailable.",
+      "providerUnavailable": "Hosted review panel unavailable for this provider."
     },
     "prActionsSection": {
       "unlinkFailed": "Failed to unlink pull request.",
