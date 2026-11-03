@@ -123,7 +123,8 @@ export function NativeChatResolvedView({
     liveWorking,
     workingEpoch
   )
-  const sendWorkingEpoch = liveWorking || session.hookAwaitingInput ? turnEpoch : undefined
+  const sendWorking = terminalQueue.working ?? session.hookWorking ?? liveWorking
+  const sendWorkingEpoch = sendWorking || session.hookAwaitingInput ? turnEpoch : undefined
   // Keep Paste targeted while the question card replaces the composer.
   const questionAnswerInputRef = useRef<HTMLInputElement>(null)
   const fileLinkContext = useNativeChatFileLinkContext(terminalTabId)
