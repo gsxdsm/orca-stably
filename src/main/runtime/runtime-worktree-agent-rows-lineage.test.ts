@@ -25,6 +25,10 @@ function source(
   }
 }
 
+function workingSource(paneKey: string, worktreeId: string): RuntimeWorktreeAgentSource {
+  return { ...source(paneKey, worktreeId, 'term'), state: 'working', updatedAt: Date.now() }
+}
+
 function summary(worktreeId: string): RuntimeWorktreePsSummary {
   return {
     worktreeId,
@@ -80,5 +84,58 @@ describe('worktree agent rows nest orchestration workers across folder workspace
       getSummary: (id) => summaries.get(id) ?? null
     })
     expect(summaries.get('folder:babysitter')?.agents[0]?.parentPaneKey).toBeNull()
+  })
+
+  it('marks sidebar activity when the source worktree id is a path alias of the summary', () => {
+    const canonical = 'repo::/remote/feature'
+    const alias = 'repo::/remote/feature/'
+    const pane = 'tab:leaf'
+    const summaries = new Map([[canonical, summary(canonical)]])
+    attachRuntimeWorktreeAgentRows({
+      summaries,
+      rowSources: new Map([[pane, workingSource(pane, alias)]]),
+      terminalTitleEvidenceByWorktreeId: new Map(),
+      orchestrationByPaneKey: {},
+      getSummary: (id) =>
+        id === alias || id === canonical ? (summaries.get(canonical) ?? null) : null
+    })
+    expect(summaries.get(canonical)).toMatchObject({
+      hasHostSidebarActivity: true,
+      status: 'working'
+    })
+    expect(summaries.get(canonical)?.agents).toHaveLength(1)
+  })
+
+  it('does not mark the coordinator busy when a mirrored child uses a path alias', () => {
+    const coordinator = 'tab-coord:leaf-coord'
+    const worker = 'tab-worker:leaf-worker'
+    const parentId = 'folder:orca'
+    const childId = 'folder:babysitter'
+    const childAlias = 'folder:babysitter/'
+    const summaries = new Map([
+      [parentId, summary(parentId)],
+      [childId, summary(childId)]
+    ])
+    attachRuntimeWorktreeAgentRows({
+      summaries,
+      rowSources: new Map([
+        [coordinator, source(coordinator, parentId, 'term_coord')],
+        [worker, workingSource(worker, childAlias)]
+      ]),
+      terminalTitleEvidenceByWorktreeId: new Map(),
+      orchestrationByPaneKey: { [worker]: { parentPaneKey: coordinator } },
+      getSummary: (id) => {
+        if (id === parentId) {
+          return summaries.get(parentId) ?? null
+        }
+        if (id === childId || id === childAlias) {
+          return summaries.get(childId) ?? null
+        }
+        return null
+      }
+    })
+    expect(summaries.get(parentId)?.agents.map((row) => row.paneKey)).toEqual([coordinator, worker])
+    expect(summaries.get(parentId)?.hasHostSidebarActivity).toBe(false)
+    expect(summaries.get(childId)?.hasHostSidebarActivity).toBe(true)
   })
 })
