@@ -45,6 +45,51 @@ describe('accepted spawn followed by failed startup readiness', () => {
     expect(runtime.readRecentTerminalOutput(TRANSCRIPT_PANE_PTY_ID)).toBe('')
   })
 
+  it('drops a null-incarnation exit tail when registerPty names the replacement', async () => {
+    const { runtime, terminal } = await createTranscriptPane({
+      paneTitle: 'shell',
+      foregroundProcess: 'bash',
+      launchAgent: 'hermes',
+      data: ''
+    })
+    const ptyId = 'pty-null-register'
+    runtime.registerPty(ptyId, terminal.worktreeId)
+    runtime.onPtyData(ptyId, 'ImportError: predecessor client\r\n', Date.now())
+    runtime.onPtyExit(ptyId, 1, undefined, { providerExitObserved: true })
+    expect(runtime.readRecentTerminalOutput(ptyId)).toContain('predecessor client')
+    runtime.registerPty(ptyId, terminal.worktreeId, null, {
+      tabId: 'unscoped',
+      leafId: 'not-a-leaf',
+      incarnationId: 'inc-2',
+      launchedAgent: 'hermes'
+    })
+    runtime.onPtyExit(ptyId, 1, 'inc-2', { providerExitObserved: true })
+    expect(runtime.readRecentTerminalOutput(ptyId)).toBe('')
+  })
+
+  it('drops a null-incarnation exit tail when spawn stamps the replacement before registerPty', async () => {
+    const { runtime, terminal } = await createTranscriptPane({
+      paneTitle: 'shell',
+      foregroundProcess: 'bash',
+      launchAgent: 'hermes',
+      data: ''
+    })
+    const ptyId = 'pty-null-spawn'
+    runtime.registerPty(ptyId, terminal.worktreeId)
+    runtime.onPtyData(ptyId, 'ImportError: predecessor client\r\n', Date.now())
+    runtime.onPtyExit(ptyId, 1, undefined, { providerExitObserved: true })
+    expect(runtime.readRecentTerminalOutput(ptyId)).toContain('predecessor client')
+    runtime.onPtySpawned(ptyId, 'inc-2', { awaitsRegistration: false })
+    runtime.registerPty(ptyId, terminal.worktreeId, null, {
+      tabId: 'unscoped',
+      leafId: 'not-a-leaf',
+      incarnationId: 'inc-2',
+      launchedAgent: 'hermes'
+    })
+    runtime.onPtyExit(ptyId, 1, 'inc-2', { providerExitObserved: true })
+    expect(runtime.readRecentTerminalOutput(ptyId)).toBe('')
+  })
+
   it.each(['fresh', 'reattach', 'adopted', 'wrong-incarnation'] as const)(
     'retains the failed Hermes launch output only for its own fresh process (%s)',
     async (context) => {
