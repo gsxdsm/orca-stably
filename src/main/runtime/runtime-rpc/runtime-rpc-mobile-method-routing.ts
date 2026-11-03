@@ -162,6 +162,7 @@ export const EXECUTION_HOST_METHODS = [
   'orchestration.partyLocation',
   // Same read model as the desktop crew panel. An older host refuses it; the phone hides the pill.
   'orchestration.crewSubscribe',
+  'orchestration.partyOpen',
   // The worker's own host keeps it open and owns its countdown; older phones still report typing and viewing.
   'orchestration.workerTerminalUserInput',
   'orchestration.workerChatTouch',

@@ -24,6 +24,10 @@ describe('mobile RPC method routing census', () => {
     expect(MOBILE_RPC_METHOD_ROUTES.get('orchestration.crewSubscribe')).toBe('execution-host')
   })
 
+  it('reopens a closed worker on the host that owns the orchestration records', () => {
+    expect(MOBILE_RPC_METHOD_ROUTES.get('orchestration.partyOpen')).toBe('execution-host')
+  })
+
   it('keeps discovery and explicit PATH refresh on the selected answering host', () => {
     expect(MOBILE_RPC_METHOD_ROUTES.get('preflight.detectAgents')).toBe('execution-host')
     expect(MOBILE_RPC_METHOD_ROUTES.get('preflight.refreshAgents')).toBe('execution-host')

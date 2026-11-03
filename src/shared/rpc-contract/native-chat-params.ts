@@ -35,8 +35,19 @@ export const NativeChatSession = z.object({
     .optional(),
   beforeOffset: z.number().int().nonnegative().optional(),
   // One child. Absent keeps the parent snapshot on the roster and its own tail.
-  subagentId: z.string().min(1).max(512).optional()
+  subagentId: z.string().min(1).max(512).optional(),
+  // The newest row the client holds; a value this host can't read means no resume, not a failed subscribe.
+  resumeAfter: z
+    .object({
+      id: z.string().min(1),
+      transcriptOrder: z.number(),
+      timestamp: z.number().nullable()
+    })
+    .optional()
+    .catch(undefined)
 })
+
+export type NativeChatResumePoint = NonNullable<z.infer<typeof NativeChatSession>['resumeAfter']>
 
 export const NativeChatUnsubscribe = z.object({
   subscriptionId: z.string().min(1).optional()

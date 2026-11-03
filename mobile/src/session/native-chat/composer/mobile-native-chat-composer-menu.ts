@@ -30,6 +30,7 @@ export type MobileComposerStructuredCatalog = {
   /** What the session reported for its `/` menu; undefined until read or on an older host. */
   reported: readonly AgentSessionSlashCommand[] | undefined
   conversationCommands: readonly AgentSessionConversationCommand[]
+  compactInstructions?: boolean
 }
 
 export type MobileComposerCatalog = {
@@ -57,7 +58,12 @@ export function mobileComposerCatalog({
   }
   const reported = structured?.reported
   const commands = structured
-    ? structuredSessionSlashCommands(agent, structured.conversationCommands, reported)
+    ? structuredSessionSlashCommands(
+        agent,
+        structured.conversationCommands,
+        reported,
+        structured.compactInstructions
+      )
     : getMobileNativeChatCommands(agent)
   return {
     profile: getNativeChatAgentProfile(agent),
@@ -115,6 +121,7 @@ export function draftAfterSkillEdit(previous: string, next: string, skillToken: 
 export type MobileNativeChatStructuredComposer = {
   catalog: MobileComposerStructuredCatalog
   onSlashMenuOpen: () => void
+  onOpenFile?: (path: string) => void
   onSlashMenuDemand?: (open: boolean) => void
   onAttachFiles?: () => void
   // An uploading attachment must hold Send.

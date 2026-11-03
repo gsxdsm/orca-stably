@@ -301,6 +301,7 @@ export function MobileNativeChatComposer({
             files={files}
             onRemoveImage={editSession?.locked ? undefined : onRemoveAttachment}
             onRemoveFile={editSession?.locked ? undefined : structured?.onRemoveFile}
+            onOpenFile={structured?.onOpenFile}
           />
           <MobileNativeChatComposerField
             ref={fieldRef}

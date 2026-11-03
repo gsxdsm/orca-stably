@@ -89,10 +89,12 @@ export function NativeChatMessageList({
   awaitingInput = null,
   turnActivity,
   stopping = false,
-  runtimeContext
+  runtimeContext,
+  structuredAttachments = false
 }: {
   ref?: Parameters<typeof useNativeChatMessageListHandle>[0]
   session: NativeChatLiveSession
+  structuredAttachments?: boolean
   journalItems?: readonly AgentJournalRenderItem[]
   /** With the items, what places each row in its turn (structured lane). */
   journalSubmissions?: readonly AgentJournalSubmission[]
@@ -344,6 +346,7 @@ export function NativeChatMessageList({
   const rowContext = useNativeChatTranscriptRowContext({
     agent: session.agent,
     hostWork,
+    structuredAttachments,
     expandSignal,
     revealedDiff,
     taskListPredecessors,
