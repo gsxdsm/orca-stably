@@ -152,6 +152,9 @@ export function useMobileTerminalChatQueue(args: {
     controls,
     enqueue,
     bindSend,
-    sendFollowUp: enabled ? { action: 'queue' as const, offersChoice: false } : null
+    sendFollowUp:
+      enabled && snapshot?.activity.state === 'working'
+        ? { action: 'queue' as const, offersChoice: false }
+        : null
   }
 }
