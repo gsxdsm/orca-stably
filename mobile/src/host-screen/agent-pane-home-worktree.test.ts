@@ -56,4 +56,35 @@ describe('homeWorktreeForAgentPane', () => {
       'folder:babysitter'
     )
   })
+
+  it('opens the stamped host when two cards share the workspace id', () => {
+    const helper = 'tab-helper:leaf'
+    const coordinator = {
+      worktreeId: 'repo::/feature',
+      hostId: 'local',
+      agents: [
+        {
+          paneKey: helper,
+          parentPaneKey: 'tab-worker:leaf',
+          homeWorktreeId: 'repo::/feature',
+          homeHostId: 'runtime:worker'
+        }
+      ]
+    }
+    const worker = {
+      worktreeId: 'repo::/feature',
+      hostId: 'runtime:worker',
+      agents: [
+        {
+          paneKey: helper,
+          parentPaneKey: 'tab-worker:leaf',
+          homeWorktreeId: 'repo::/feature',
+          homeHostId: 'runtime:worker'
+        }
+      ]
+    }
+    expect(homeWorktreeForAgentPane([coordinator, worker], helper, coordinator).hostId).toBe(
+      'runtime:worker'
+    )
+  })
 })
