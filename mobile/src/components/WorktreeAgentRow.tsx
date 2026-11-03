@@ -230,7 +230,10 @@ const styles = themedStyleSheet(() => ({
   },
   sessionHit: {
     flex: 1,
-    minWidth: 0
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs
   },
   sessionControl: {
     flex: 1,

@@ -98,8 +98,9 @@ export function useMobileNativeChatMessageSend(args: {
     ): Promise<MobileNativeChatSendOutcome> => {
       // Trim only outgoing bytes to prevent rapid-send concatenation; restore the exact typed draft on rejection.
       const text = draftText.trimEnd()
+      const wireText = projectMobileCrewMentions(text)
       const handle = handleRef.current
-      const origin = captureSendOrigin(text, sentAt)
+      const origin = captureSendOrigin(wireText, sentAt)
       const agent = agentRef.current
       const recordCommand = commandSendRef.current
       // Connection drops precede lease collapse by one render; gate immediately to avoid waiting the whole send budget.
@@ -111,7 +112,7 @@ export function useMobileNativeChatMessageSend(args: {
       const classification = classifyMobileNativeChatSend(agent, text, skillOrigin)
       const optimisticId =
         agent === 'hermes' && classification === 'chat'
-          ? acceptSend(origin, text, images, true)
+          ? acceptSend(origin, wireText, images, true)
           : undefined
       const discardOptimistic = () => {
         if (optimisticId) {
@@ -182,7 +183,7 @@ export function useMobileNativeChatMessageSend(args: {
         : await sendMobileNativeChatMessageWithOutcome({
             client,
             terminal: handle,
-            text: buildNativeChatPasteBytes(projectMobileCrewMentions(text)),
+            text: buildNativeChatPasteBytes(wireText),
             ...(resolvedLaunchDraft ? { resolvedLaunchDraft } : {}),
             deadline,
             ...(mobileClient ? { mobileClient } : {})
@@ -191,7 +192,7 @@ export function useMobileNativeChatMessageSend(args: {
       if (outcome === 'unknown') {
         if (classification === 'chat') {
           // Lost acknowledgement proves no failure; verify delivery by transcript rather than reporting not sent.
-          holdUnconfirmedSend(origin, text, () => onSendError(UNCONFIRMED_SEND_MESSAGE))
+          holdUnconfirmedSend(origin, wireText, () => onSendError(UNCONFIRMED_SEND_MESSAGE))
         }
         return 'unknown'
       }
@@ -207,7 +208,7 @@ export function useMobileNativeChatMessageSend(args: {
         await retryHeldHermesSubmit({
           client,
           terminal: handle,
-          text,
+          text: wireText,
           deadline,
           deviceToken: deviceTokenRef.current,
           isCurrent: () => handleRef.current === handle && agentRef.current === 'hermes'
@@ -215,7 +216,7 @@ export function useMobileNativeChatMessageSend(args: {
       }
       if (classification === 'chat') {
         if (!optimisticId) {
-          acceptSend(origin, text, images)
+          acceptSend(origin, wireText, images)
         }
       } else if (recordControlSend) {
         // The session-option catalog can recognize controls omitted from the

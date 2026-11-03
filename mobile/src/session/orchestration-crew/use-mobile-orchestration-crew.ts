@@ -25,6 +25,7 @@ export function useMobileOrchestrationCrew(
       setSnapshot(HIDDEN)
       return
     }
+    setSnapshot(HIDDEN)
     let alive = true
     let pending: OrchestrationCrewSnapshot | null = null
     let attempts = 0
@@ -55,6 +56,7 @@ export function useMobileOrchestrationCrew(
           pending = null
           stop()
           if (attempts >= RETRY_LIMIT) {
+            setSnapshot(HIDDEN)
             return
           }
           attempts += 1
