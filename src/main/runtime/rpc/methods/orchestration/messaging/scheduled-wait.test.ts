@@ -1,3 +1,8 @@
+import { OrchestrationDb } from '../../../../orchestration/db'
+import {
+  clearWorkerScheduledWait,
+  recordWorkerScheduledWait
+} from '../../../../orchestration/db/worker-scheduled-waits'
 import '../../../unused-default-rpc-methods.test-fixture'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRootDispatch } from '../../../../orchestration/db/root-dispatch-test-fixture'
@@ -158,6 +163,86 @@ describe('scheduled wait status messages', () => {
     await vi.advanceTimersByTimeAsync(14_400_001)
     expect(h.db.getUnreadRunMailbox(h.activeRunId!, 100, ['escalation'])).toEqual([])
     expect(h.db.db.prepare('SELECT * FROM worker_scheduled_waits').all()).toEqual([])
+  })
+
+  it('retains its expiry timer when clearing the wait is rolled back', async () => {
+    const h = setup()
+    await h.call({ payload: JSON.stringify({ dispatchId: h.dispatch.id, waitUntil: '30s' }) })
+    h.stop()
+    h.db.db.exec('BEGIN IMMEDIATE')
+    clearWorkerScheduledWait(h.db, h.dispatch.id)
+    h.db.db.exec('ROLLBACK')
+    await Promise.resolve()
+    await vi.advanceTimersByTimeAsync(30_001)
+    expect(h.db.getUnreadRunMailbox(h.activeRunId!, 100, ['escalation'])).toMatchObject([
+      { subject: 'Worker scheduled wait expired' }
+    ])
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(h.db.getUnreadRunMailbox(h.activeRunId!, 100, ['escalation'])).toHaveLength(1)
+  })
+
+  it.each(['queued', 'armed'] as const)(
+    'drops %s deadline work when its database closes',
+    async (phase) => {
+      const h = setup()
+      if (phase === 'queued') {
+        recordWorkerScheduledWait(h.db, {
+          dispatchId: h.dispatch.id,
+          until: '2026-11-03T12:00:30.000Z',
+          reason: 'Next check',
+          messageId: 'msg_wait',
+          from: 'term_worker'
+        })
+      } else {
+        await h.call({ payload: JSON.stringify({ dispatchId: h.dispatch.id, waitUntil: '30s' }) })
+      }
+      const readDeadline = vi.spyOn(h.db, 'nextWorkerScheduledWaitAtMs')
+      const notify = vi.spyOn(h.runtime, 'notifyMessageArrived')
+      harness.cleanup()
+      await Promise.resolve()
+      await vi.advanceTimersByTimeAsync(30_001)
+      expect(readDeadline).not.toHaveBeenCalled()
+      expect(notify).not.toHaveBeenCalled()
+    }
+  )
+
+  it('ignores the old database queued rearm and close while the replacement wait expires', async () => {
+    const h = setup()
+    recordWorkerScheduledWait(h.db, {
+      dispatchId: h.dispatch.id,
+      until: '2026-11-03T12:00:30.000Z',
+      reason: 'Old check',
+      messageId: 'msg_old',
+      from: 'term_worker'
+    })
+    const oldReadDeadline = vi.spyOn(h.db, 'nextWorkerScheduledWaitAtMs')
+    const replacement = new OrchestrationDb(':memory:')
+    try {
+      h.runtime.setOrchestrationDb(replacement)
+      const run = replacement.createRun({
+        objective: 'New profile',
+        coordinatorHandle: 'term_coord',
+        coordinatorPaneKey: null
+      })
+      const task = replacement.createTask({ spec: 'New scheduled work', runId: run.id })
+      const dispatch = createRootDispatch(replacement, task.id, 'term_new_worker')
+      recordWorkerScheduledWait(replacement, {
+        dispatchId: dispatch.id,
+        until: '2026-11-03T12:00:30.000Z',
+        reason: 'New check',
+        messageId: 'msg_new',
+        from: 'term_new_worker'
+      })
+      harness.cleanup()
+      await Promise.resolve()
+      await vi.advanceTimersByTimeAsync(30_001)
+      expect(oldReadDeadline).not.toHaveBeenCalled()
+      expect(replacement.getUnreadRunMailbox(run.id, 100, ['escalation'])).toMatchObject([
+        { subject: 'Worker scheduled wait expired' }
+      ])
+    } finally {
+      replacement.close()
+    }
   })
 
   it('raises an expired wait from the runtime timer without another status or turn edge', async () => {

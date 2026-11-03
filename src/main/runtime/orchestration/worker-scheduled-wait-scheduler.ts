@@ -68,11 +68,15 @@ export class WorkerScheduledWaitScheduler {
 
   constructor(private readonly runtime: ScheduledWaitRuntime) {}
 
-  rearm(): void {
+  clear(): void {
     if (this.timer) {
       clearTimeout(this.timer)
     }
     this.timer = undefined
+  }
+
+  rearm(): void {
+    this.clear()
     const db = this.runtime.getOrchestrationDb()
     const deadline = db.nextWorkerScheduledWaitAtMs()
     if (deadline === null) {

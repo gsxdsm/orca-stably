@@ -14,11 +14,30 @@ export abstract class OrcaRuntimeWithOrchestrationDatabaseBinding extends OrcaRu
   }
 
   protected bindWorkerTerminalAutoRelease(db: OrchestrationDb): void {
-    db.workerScheduledWaitListener = () => {
-      if (this._orchestrationDb === db) {
-        getWorkerScheduledWaitScheduler(this).rearm()
+    let waitRearmQueued = false
+    const onScheduledWaitChanged = (event?: 'closed'): void => {
+      if (event === 'closed') {
+        if (this._orchestrationDb === db) {
+          getWorkerScheduledWaitScheduler(this).clear()
+        }
+        return
       }
+      if (waitRearmQueued) {
+        return
+      }
+      waitRearmQueued = true
+      // Read committed rows after synchronous transactions commit or roll back.
+      queueMicrotask(() => {
+        waitRearmQueued = false
+        if (
+          this._orchestrationDb === db &&
+          db.workerScheduledWaitListener === onScheduledWaitChanged
+        ) {
+          getWorkerScheduledWaitScheduler(this).rearm()
+        }
+      })
     }
+    db.workerScheduledWaitListener = onScheduledWaitChanged
     getWorkerScheduledWaitScheduler(this).rearm()
     db.workerTerminalAutoReleaseListener = () => {
       if (this._orchestrationDb === db) {
