@@ -170,6 +170,7 @@ export function WorktreeAgentList({
                     ? undefined
                     : collapsedChildrenSignalState(descendantItemsOf(node))
                 }
+                onPressIn={onPressIn}
                 onToggle={() => toggle(parentDisclosureKey(parentKey))}
               />
             ) : undefined

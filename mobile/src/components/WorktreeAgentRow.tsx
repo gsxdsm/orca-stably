@@ -140,75 +140,77 @@ function WorktreeAgentRowComponent({
       onLongPress(agent.paneKey)
     }
   }
-  return (
-    <Pressable
-      // Touch stays on the row. The control below is what VoiceOver focuses, so the disclosure stays reachable.
-      accessible={false}
-      disabled={isReadOnly || !interactive}
-      delayLongPress={400}
-      style={({ pressed }) => [
-        pressed && pressedStyle,
-        selectable && (selected || pressed) && styles.rowHighlight,
-        selectable && selected && styles.rowSelected,
-        selectable && pressed && styles.rowPressed
+  const sessionControl = interactive ? (
+    <View
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={ts ? `${spokenName}, ${ts}` : spokenName}
+      accessibilityState={
+        selected || isReadOnly
+          ? {
+              ...(selected ? { selected: true } : {}),
+              ...(isReadOnly ? { disabled: true } : {})
+            }
+          : undefined
+      }
+      accessibilityActions={[
+        ...(onPress ? [{ name: 'activate' }] : []),
+        ...(onLongPress ? [{ name: 'longpress', label: sessionActionsLabel }] : [])
       ]}
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-      onPress={
-        onPress
-          ? (event) => {
-              event.stopPropagation()
-              openSession()
-            }
-          : undefined
-      }
-      onLongPress={
-        onLongPress
-          ? (event) => {
-              event.stopPropagation()
-              openSessionActions()
-            }
-          : undefined
-      }
+      onAccessibilityTap={onPress ? openSession : undefined}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'activate') {
+          openSession()
+        }
+        if (event.nativeEvent.actionName === 'longpress') {
+          openSessionActions()
+        }
+      }}
+      style={styles.sessionControl}
     >
-      <View style={rowStyle}>
-        {interactive ? (
-          <View
-            accessible
-            accessibilityRole="button"
-            accessibilityLabel={ts ? `${spokenName}, ${ts}` : spokenName}
-            accessibilityState={
-              selected || isReadOnly
-                ? {
-                    ...(selected ? { selected: true } : {}),
-                    ...(isReadOnly ? { disabled: true } : {})
-                  }
-                : undefined
-            }
-            accessibilityActions={[
-              ...(onPress ? [{ name: 'activate' }] : []),
-              ...(onLongPress ? [{ name: 'longpress', label: sessionActionsLabel }] : [])
-            ]}
-            onAccessibilityTap={onPress ? openSession : undefined}
-            onAccessibilityAction={(event) => {
-              if (event.nativeEvent.actionName === 'activate') {
+      {leading}
+    </View>
+  ) : (
+    <View style={styles.sessionControl}>{leading}</View>
+  )
+  // The disclosure is a sibling, not a child of this press: a nested 14pt control loses the tap to the row.
+  return (
+    <View style={rowStyle}>
+      <Pressable
+        accessible={false}
+        disabled={isReadOnly || !interactive}
+        delayLongPress={400}
+        style={({ pressed }) => [
+          styles.sessionHit,
+          pressed && pressedStyle,
+          selectable && (selected || pressed) && styles.rowHighlight,
+          selectable && selected && styles.rowSelected,
+          selectable && pressed && styles.rowPressed
+        ]}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        onPress={
+          onPress
+            ? (event) => {
+                event.stopPropagation()
                 openSession()
               }
-              if (event.nativeEvent.actionName === 'longpress') {
+            : undefined
+        }
+        onLongPress={
+          onLongPress
+            ? (event) => {
+                event.stopPropagation()
                 openSessionActions()
               }
-            }}
-            style={styles.sessionControl}
-          >
-            {leading}
-          </View>
-        ) : (
-          <View style={styles.sessionControl}>{leading}</View>
-        )}
-        {trailing}
-        {time}
-      </View>
-    </Pressable>
+            : undefined
+        }
+      >
+        {sessionControl}
+      </Pressable>
+      {trailing}
+      {time}
+    </View>
   )
 }
 
@@ -220,6 +222,10 @@ const styles = themedStyleSheet(() => ({
     alignItems: 'center',
     gap: spacing.xs,
     marginTop: 3
+  },
+  sessionHit: {
+    flex: 1,
+    minWidth: 0
   },
   sessionControl: {
     flex: 1,

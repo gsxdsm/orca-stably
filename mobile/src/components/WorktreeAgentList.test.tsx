@@ -30,6 +30,14 @@ async function pressByLabel(renderer: ReactTestRenderer, label: string) {
   await act(async () => toggle!.props.onPress({ stopPropagation: vi.fn() }))
 }
 
+function sessionPress(row: Parameters<typeof findByHostType>[0]) {
+  const press = findAllByHostType(row, 'Pressable').find((node) => !node.props.accessibilityLabel)
+  if (!press) {
+    throw new Error('session pressable missing')
+  }
+  return press
+}
+
 function agent(paneKey: string, parentPaneKey: string | null = null): RuntimeWorktreeAgentRow {
   return {
     paneKey,
@@ -255,7 +263,7 @@ describe('WorktreeAgentList', () => {
       )
     })
     const parentRow = renderer!.root.findAll((node) => node.props.agent !== undefined)[0]
-    const parent = findByHostType(parentRow, 'Pressable')
+    const parent = sessionPress(parentRow)
     await act(async () => parent.props.onPress({ stopPropagation }))
     expect(onWorkspacePress).toHaveBeenCalledTimes(1)
     expect(onAgentPress).not.toHaveBeenCalled()
@@ -297,7 +305,7 @@ describe('WorktreeAgentList', () => {
     await pressByLabel(renderer!, 'Show 1 child agent')
     const rows = renderer!.root.findAll((node) => node.props.agent !== undefined)
     const fill = (row: (typeof rows)[number], pressed: boolean) => {
-      const style = findByHostType(row, 'Pressable').props.style({ pressed })
+      const style = sessionPress(row).props.style({ pressed })
       return Object.assign({}, ...style.filter(Boolean))
     }
     expect(rows[0].props.selected).toBe(true)
