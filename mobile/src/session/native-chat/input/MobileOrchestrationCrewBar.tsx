@@ -11,6 +11,7 @@ import { useMobileColorScheme } from '../../../theme/use-mobile-color-scheme'
 import { MobileAgentMessageOpenContext } from '../transcript/mobile-agent-message-context'
 import {
   crewOpenSender,
+  crewRowSubtitle,
   mobileCrewRunningWorkers,
   mobileCrewStatus,
   mobileCrewVisible,
@@ -157,6 +158,7 @@ function CrewRow({
   const openSender = useContext(MobileAgentMessageOpenContext)
   const status = mobileCrewStatus(row)
   const title = row.task?.title || row.label
+  const subtitle = crewRowSubtitle(row, title)
   const mentionable = Boolean(row.sendAddress)
   const open = () => {
     const target = crewOpenSender(row)
@@ -181,9 +183,11 @@ function CrewRow({
           <Text style={styles.rowTitle} numberOfLines={1}>
             {title}
           </Text>
-          <Text style={styles.rowMeta} numberOfLines={1}>
-            {row.label}
-          </Text>
+          {subtitle ? (
+            <Text style={styles.rowMeta} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          ) : null}
         </View>
         <Text
           style={[
