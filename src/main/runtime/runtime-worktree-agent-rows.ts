@@ -56,6 +56,19 @@ function visibleParentPaneKey(
   return null
 }
 
+/** A mirrored child keeps another worktree id. A path alias of this summary still owns it. */
+function rowBelongsToSummaryWorktree(
+  source: RuntimeWorktreeAgentSource | undefined,
+  worktreeId: string,
+  getSummary: RuntimeWorktreePsSummaryLookup
+): boolean {
+  const ownerId = source?.worktreeId
+  if (!ownerId) {
+    return false
+  }
+  return ownerId === worktreeId || getSummary(ownerId)?.worktreeId === worktreeId
+}
+
 function mirrorCrossWorkspaceChildren(
   rowsByWorktree: Map<string, RuntimeWorktreeAgentRow[]>,
   rowSources: ReadonlyMap<string, RuntimeWorktreeAgentSource>,
@@ -158,7 +171,7 @@ export function attachRuntimeWorktreeAgentRows(args: {
     const monitoringSources: RuntimeWorktreeAgentSource[] = []
     for (const row of rows) {
       // A child mirrored onto its coordinator's workspace must not mark that workspace busy.
-      if (rowSources.get(row.paneKey)?.worktreeId !== worktreeId) {
+      if (!rowBelongsToSummaryWorktree(rowSources.get(row.paneKey), worktreeId, args.getSummary)) {
         continue
       }
       if (!isFreshNonDoneAgentStatus(row, now)) {
