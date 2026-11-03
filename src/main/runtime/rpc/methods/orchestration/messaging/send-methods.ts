@@ -1,3 +1,5 @@
+import { assertSendLifecycleAdmission } from './send-lifecycle-admission'
+import { scheduledWaitFromMessage } from '../../../../orchestration/scheduled-wait-message'
 import { defineMethod } from '../../../core'
 import { OrchestrationError } from '../../../../orchestration/orchestration-error'
 import { isGroupAddress } from '../../../../orchestration/groups'
@@ -6,12 +8,7 @@ import {
   isDispatchReportType
 } from '../../../../orchestration/dispatch-report-mailbox'
 import { orchestrationSkillRecoveryData } from '../../../../../../shared/orchestration-rpc-contract'
-import {
-  SendParams,
-  isDispatchMutationMessageType,
-  isWorkerReportOutcome,
-  parseRemoteWorkerPayload
-} from '../schemas'
+import { SendParams, isDispatchMutationMessageType } from '../schemas'
 import { resolveMessageRun } from '../routing'
 import {
   assertDispatchMailboxDeliverable,
@@ -56,7 +53,7 @@ export const ORCHESTRATION_SEND_METHODS = [
         markWorkerDoneMutationEffectFree,
         replayedMutationReceipt,
         orchestrationCaller,
-        orchestrationCompatibilityEvidence,
+        orchestrationCompatibilityEvidence: evidence,
         orchestrationMutation,
         signal
       }
@@ -83,7 +80,9 @@ export const ORCHESTRATION_SEND_METHODS = [
         followThroughWorkerReport(runtime, db, settled)
         return stripMutationReplayNudge(replayedMutationReceipt)
       }
+      const scheduledWait = scheduledWaitFromMessage(params)
       const from = params.from ?? 'unknown'
+      const progressCaller = { evidence, authenticatedSession: !!orchestrationCaller }
       const attestedCaller =
         orchestrationCompatibilityCallerAuthority?.terminalHandle === from
           ? orchestrationCompatibilityCallerAuthority
@@ -96,11 +95,11 @@ export const ORCHESTRATION_SEND_METHODS = [
       })
       const senderPaneKey = sender.paneKey ?? undefined
       // Why: a session caller was already bound to its own identity at the dispatch entry.
-      if (isDispatchMutationMessageType(params.type) && !orchestrationCaller) {
+      if ((isDispatchMutationMessageType(params.type) || scheduledWait) && !orchestrationCaller) {
         assertLifecycleCallerIsNotAnotherParty(runtime, {
           from,
           fromPaneKey: senderPaneKey,
-          evidence: orchestrationCompatibilityEvidence
+          evidence
         })
       }
       const remoteAttachment = senderPaneKey
@@ -114,6 +113,7 @@ export const ORCHESTRATION_SEND_METHODS = [
           from,
           senderPaneKey,
           remoteAttachment,
+          progressCaller,
           processIncarnation:
             attestedCaller?.processIncarnation ??
             runtime.getTerminalProcessIncarnation(from) ??
@@ -132,15 +132,18 @@ export const ORCHESTRATION_SEND_METHODS = [
         payload: runGroup ? undefined : params.payload,
         type: params.type
       })
-      if (
-        params.type === 'worker_done' &&
-        !isWorkerReportOutcome(parseRemoteWorkerPayload(params.payload).outcome)
-      ) {
-        throw new OrchestrationError(
-          'invalid_argument',
-          'worker_done requires outcome=succeeded|failed for a current Dispatch.'
-        )
-      }
+      assertSendLifecycleAdmission({
+        db,
+        params,
+        dispatchId: routing.dispatchId,
+        from,
+        senderPaneKey,
+        scheduledWait,
+        resolveProcessIncarnation: () =>
+          attestedCaller?.processIncarnation ??
+          runtime.getTerminalProcessIncarnation(from) ??
+          undefined
+      })
       if (params.to?.startsWith('task:')) {
         throw new OrchestrationError(
           'invalid_argument',
@@ -204,7 +207,6 @@ export const ORCHESTRATION_SEND_METHODS = [
           addressedDispatchId && to === `dispatch:${addressedDispatchId}`
             ? db.getFederatedDispatch(addressedDispatchId)
             : undefined
-        // Federated targets perform their own liveness check before relaying.
         if (addressedDispatchId && !federatedTarget) {
           const plan = planWorkerFollowUp(db, addressedDispatchId, params.type ?? 'status')
           // Only a settled worker awaits; mail to a working one stays synchronous until it is inserted.
@@ -213,7 +215,7 @@ export const ORCHESTRATION_SEND_METHODS = [
               ? await startWorkerFollowUp({
                   ctx: {
                     runtime,
-                    orchestrationCompatibilityEvidence,
+                    orchestrationCompatibilityEvidence: evidence,
                     orchestrationCaller,
                     orchestrationMutation
                   },
@@ -271,6 +273,7 @@ export const ORCHESTRATION_SEND_METHODS = [
           messageRunId,
           senderPaneKey,
           legacyCoordinatorRunId,
+          progressCaller,
           resolveProcessIncarnation: () =>
             attestedCaller?.processIncarnation ??
             runtime.getTerminalProcessIncarnation(from) ??

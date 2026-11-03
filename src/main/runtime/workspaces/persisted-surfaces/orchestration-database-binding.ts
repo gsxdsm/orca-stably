@@ -3,6 +3,7 @@ import { getAppEnvironment } from '../../../../shared/app-environment'
 import { OrcaRuntimeWithPtyForegroundProcessReads } from '../../client/runtime-client-state'
 import { getWorkerTerminalAutoReleaseScheduler } from '../../orchestration/worker-terminal-auto-release-scheduler'
 import type { OrchestrationDb } from '../../orchestration/db'
+import { getWorkerScheduledWaitScheduler } from '../../orchestration/worker-scheduled-wait-scheduler'
 
 // Keyed by runtime, not a field: the database can open while the runtime is still constructing.
 const runtimesWatchingAutoReleaseSetting = new WeakSet<object>()
@@ -13,6 +14,12 @@ export abstract class OrcaRuntimeWithOrchestrationDatabaseBinding extends OrcaRu
   }
 
   protected bindWorkerTerminalAutoRelease(db: OrchestrationDb): void {
+    db.workerScheduledWaitListener = () => {
+      if (this._orchestrationDb === db) {
+        getWorkerScheduledWaitScheduler(this).rearm()
+      }
+    }
+    getWorkerScheduledWaitScheduler(this).rearm()
     db.workerTerminalAutoReleaseListener = () => {
       if (this._orchestrationDb === db) {
         getWorkerTerminalAutoReleaseScheduler(this).rearm()
