@@ -46,14 +46,14 @@ export function useWorktreeRowSession<T extends SessionRowTarget>(
   item: T,
   selectable: boolean,
   onPress: (item: T) => void,
-  onAgentPress?: (item: T, paneKey: string) => void
+  onAgentPress?: (item: T, paneKey: string, childId?: string) => void
 ): {
   claim: () => void
   release: () => void
   press: () => void
   isClaimed: () => boolean
   highlightedPane: string | null
-  openAgent?: (paneKey: string) => void
+  openAgent?: (paneKey: string, childId?: string) => void
   openWorkspace: () => void
   cardLongPress: (
     onLongPress: ((item: T) => void) | undefined,
@@ -74,9 +74,13 @@ export function useWorktreeRowSession<T extends SessionRowTarget>(
     highlightedPane = selected.paneKey
   }
   const openAgent = onAgentPress
-    ? (paneKey: string) => {
+    ? (paneKey: string, childId?: string) => {
         setSelectedSidebarSession({ worktreeId: item.worktreeId, paneKey })
-        onAgentPress(item, paneKey)
+        if (childId) {
+          onAgentPress(item, paneKey, childId)
+        } else {
+          onAgentPress(item, paneKey)
+        }
       }
     : undefined
   // The session row claims the touch, so the card's press handler would drop this tap.

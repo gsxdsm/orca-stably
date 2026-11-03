@@ -119,5 +119,13 @@ describe('cross-workspace session nesting', () => {
     await act(async () => rowPress.props.onPress({ stopPropagation: vi.fn() }))
     expect(onAgentPress).toHaveBeenCalledTimes(1)
     expect(onAgentPress).toHaveBeenCalledWith(coordinator)
+
+    await act(async () => {
+      const child = renderer!.root.find((node) => node.props.agent?.paneKey === worker)
+      await Promise.resolve()
+      sessionPress(child).props.onPress({ stopPropagation: vi.fn() })
+    })
+    expect(onAgentPress).toHaveBeenLastCalledWith(worker)
+    expect(onAgentPress).not.toHaveBeenCalledWith(coordinator, expect.anything())
   })
 })

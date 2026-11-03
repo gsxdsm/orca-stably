@@ -31,7 +31,7 @@ type Props = {
   selectable?: boolean
   /** This session is the one open from the sidebar. Child lines share the parent pane and stay unfilled. */
   selected?: boolean
-  onPress?: (paneKey: string) => void
+  onPress?: (paneKey: string, childId?: string) => void
   onPressIn?: () => void
   onPressOut?: () => void
   onLongPress?: (paneKey: string) => void
@@ -132,7 +132,12 @@ function WorktreeAgentRowComponent({
   const interactive = Boolean(onPress || onLongPress)
   const openSession = () => {
     if (!isReadOnly && onPress) {
-      onPress(agent.paneKey)
+      const childId = childRow?.providerId ?? childRow?.id
+      if (childId) {
+        onPress(agent.paneKey, childId)
+      } else {
+        onPress(agent.paneKey)
+      }
     }
   }
   const openSessionActions = () => {

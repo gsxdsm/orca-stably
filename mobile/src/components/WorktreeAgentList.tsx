@@ -41,7 +41,7 @@ type Props = {
   unvisited: boolean
   statusLive?: boolean
   isReadOnly?: boolean
-  onAgentPress?: (paneKey: string) => void
+  onAgentPress?: (paneKey: string, childId?: string) => void
   /** Workspace menu when the row has no session hold. */
   onAgentLongPress?: () => void
   /** The desktop's "Full list" agent activity layout: every row, no summary. */
@@ -156,7 +156,11 @@ export function WorktreeAgentList({
           selectable={selectable}
           selected={selectedPaneKey === node.row.paneKey}
           isReadOnly={isReadOnly}
-          onPress={parentSessionPress(selectable, onAgentPress, onLongPress, onWorkspacePress)}
+          onPress={
+            node.depth > 0 && onAgentPress
+              ? onAgentPress
+              : parentSessionPress(selectable, onAgentPress, onLongPress, onWorkspacePress)
+          }
           onPressIn={onPressIn}
           onPressOut={onPressOut}
           onLongPress={hold}
