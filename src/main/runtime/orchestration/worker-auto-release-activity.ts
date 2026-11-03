@@ -21,10 +21,7 @@ export class WorkerAutoReleaseActivity {
 
   observePane(change: AgentPaneChange): void {
     if (change.kind === 'moved' && change.to === 'working') {
-      const db = this.getDb()
-      if (db) {
-        db.clearWorkerScheduledWaitForPane(change.paneKey)
-      }
+      this.clearScheduledWait(change.paneKey)
     }
     // Every hook event is 'observed'; only phase moves (and seeds) change whether the agent works.
     if (change.kind !== 'observed') {
@@ -38,17 +35,25 @@ export class WorkerAutoReleaseActivity {
   observeChat(summary: Pick<AgentSessionStatusSummary, 'sessionId' | 'status'>): void {
     const working = chatStatusInTurn(summary.status)
     const previous = this.chatWorking.get(summary.sessionId)
-    if (this.chatWorking.get(summary.sessionId) === working) {
+    if (previous === working) {
       return
     }
     this.chatWorking.set(summary.sessionId, working)
     const db = this.getDb()
     const paneKey = db && resolveStructuredWorkerIdentityForSession(summary.sessionId, db)?.paneKey
     if (paneKey) {
-      if (working && previous === false && db) {
-        db.clearWorkerScheduledWaitForPane(paneKey)
+      if (working && previous === false) {
+        this.clearScheduledWait(paneKey)
       }
       this.apply(paneKey, working)
+    }
+  }
+
+  private clearScheduledWait(paneKey: string): void {
+    try {
+      this.getDb()?.clearWorkerScheduledWaitForPane(paneKey)
+    } catch (error) {
+      console.warn('[orchestration] worker scheduled wait clear failed', error)
     }
   }
 

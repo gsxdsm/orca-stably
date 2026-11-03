@@ -18,11 +18,15 @@ describe('scheduled wait arguments', () => {
     expect(parseScheduledWaitUntil('2026-11-03T08:00:00-08:00', NOW)).toBe(
       '2026-11-03T16:00:00.000Z'
     )
+    expect(parseScheduledWaitUntil('2028-02-29T10:00:00Z', NOW)).toBe('2028-02-29T10:00:00.000Z')
     for (const value of [
       '0h',
       '-1h',
       '2026-11-03T11:00:00Z',
       '2026-11-04T12:00:00',
+      '2026-02-29T10:00:00Z',
+      '2026-02-30T10:00:00Z',
+      '2026-11-04T24:00:00Z',
       'tomorrow',
       '1e99h'
     ]) {
