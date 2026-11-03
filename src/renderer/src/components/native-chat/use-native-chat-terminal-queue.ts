@@ -5,6 +5,7 @@ import { getRemoteRuntimePtyOwner } from '@/runtime/runtime-terminal-stream'
 import { toHostSessionPaneKey } from '../../../../shared/terminal-surface-id'
 import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
 import {
+  NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY,
   NativeChatTerminalQueueSnapshotSchema,
   sameNativeChatTerminalQueueSnapshot,
   type NativeChatTerminalQueueSnapshot
@@ -12,7 +13,6 @@ import {
 import { projectQueuedMessageCards } from '../../../../shared/agent-session/view/structured-agent-session-queued-cards'
 import type { StructuredAgentSessionQueuedMessagesController } from './use-structured-agent-session-queued-messages'
 import { useStructuredAgentSessionHostCapabilityState } from '@/runtime/structured-agent-session-host-capability'
-import { NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY } from '../../../../shared/native-chat/native-chat-terminal-queue'
 import type { NativeChatComposerHandle } from './native-chat-composer-types'
 
 export function useNativeChatTerminalQueue(args: {
@@ -106,23 +106,22 @@ export function useNativeChatTerminalQueue(args: {
     if (!enabled) {
       return
     }
-    let stopped = false
-    let timer: ReturnType<typeof setTimeout> | undefined
+    let reading = false
     const poll = async () => {
+      if (reading) {
+        return
+      }
+      reading = true
       try {
         await request({ type: 'read' })
       } catch {
         /* Retry after reconnect. */
       }
-      if (!stopped) {
-        timer = setTimeout(poll, 1_000)
-      }
+      reading = false
     }
     void poll()
-    return () => {
-      stopped = true
-      clearTimeout(timer)
-    }
+    const timer = setInterval(() => void poll(), 1_000)
+    return () => clearInterval(timer)
   }, [enabled, request])
   const snapshot = held?.scope === scope ? held.snapshot : null
   const controller = useMemo<StructuredAgentSessionQueuedMessagesController>(

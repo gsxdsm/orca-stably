@@ -10,8 +10,35 @@ describe('Hermes terminal status', () => {
   ] as const)(
     'retains native title evidence for an identified Hermes owner: %s',
     async (title, status) => {
-      const pty = {
+      const pty: RuntimePtyWorktreeRecord = {
         ptyId: 'pty',
+        incarnationId: null,
+        worktreeId: 'wt',
+        connectionId: null,
+        runtimeSessionOwned: true,
+        isWsl: false,
+        wslDistro: null,
+        launchConfig: null,
+        launchToken: null,
+        launchIncarnationId: null,
+        launchCommandAgent: null,
+        agentSessionOwners: [],
+        disconnectedAt: null,
+        lastExitCode: null,
+        lastExitCause: null,
+        lastAgentStatusStartedAtEpochMs: 100,
+        lastAgentStatusRichInvalidatedAtEpochMs: 100,
+        managementTitle: null,
+        managementTitleAt: null,
+        controllerTitle: null,
+        titleObservedAtEpochMs: 100,
+        lastOutputAt: 100,
+        tailTranscriptBuffer: [],
+        tailTranscriptChars: 0,
+        tailPendingAnsi: '',
+        tailRedrawCursor: null,
+        tailTruncated: false,
+        tailLinesTotal: 0,
         connected: true,
         launchAgent: 'hermes',
         foregroundAgent: 'hermes',
@@ -26,7 +53,7 @@ describe('Hermes terminal status', () => {
         tailPartialLine: '',
         preview: '',
         waitBlockedAt: null
-      } as unknown as RuntimePtyWorktreeRecord
+      }
       const query = new RuntimeTerminalAgentStatusQuery({
         getController: () => null,
         getLivePty: () => ({ pty }),

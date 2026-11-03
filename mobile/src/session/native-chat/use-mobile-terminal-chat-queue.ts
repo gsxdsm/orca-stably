@@ -4,11 +4,11 @@ import { randomV4Uuid } from '../../platform/random-v4-uuid'
 import {
   NativeChatTerminalQueueSnapshotSchema,
   sameNativeChatTerminalQueueSnapshot,
-  type NativeChatTerminalQueueSnapshot
+  type NativeChatTerminalQueueSnapshot,
+  type NativeChatTerminalQueueRequest
 } from '../../../../src/shared/native-chat/native-chat-terminal-queue'
 import type { MobileStructuredQueuedMessageControls } from '../use-mobile-structured-queued-message-controls'
 import { mobileQueuedMessageCards } from '../mobile-structured-queued-message-cards'
-import type { NativeChatTerminalQueueRequest } from '../../../../src/shared/native-chat/native-chat-terminal-queue'
 import type { z } from 'zod'
 import { NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY } from '../../../../src/shared/native-chat/native-chat-terminal-queue-capability'
 import { mobileTerminalChatQueueSend } from './mobile-terminal-chat-queue-send'
@@ -74,23 +74,22 @@ export function useMobileTerminalChatQueue(args: {
     if (!enabled) {
       return
     }
-    let stopped = false
-    let timer: ReturnType<typeof setTimeout> | undefined
+    let reading = false
     const poll = async () => {
+      if (reading) {
+        return
+      }
+      reading = true
       try {
         await request({ type: 'read' })
       } catch {
         /* Reconnect retries the read. */
       }
-      if (!stopped) {
-        timer = setTimeout(poll, 1_000)
-      }
+      reading = false
     }
     void poll()
-    return () => {
-      stopped = true
-      clearTimeout(timer)
-    }
+    const timer = setInterval(() => void poll(), 1_000)
+    return () => clearInterval(timer)
   }, [enabled, request])
   const snapshot = enabled && held?.terminal === terminal ? held.snapshot : null
   const enqueue = useCallback(

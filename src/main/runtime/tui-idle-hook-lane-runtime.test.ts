@@ -44,11 +44,21 @@ describe('Hermes captured hook readiness', () => {
 
   describe('Hermes TUI readiness from a captured PTY', () => {
     it('publishes terminal chat completion without a final transcript row or end hook', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(1_900_000_000_000)
       const { runtime, handle } = await readyPane()
-      runtime.onPtyData(TRANSCRIPT_PANE_PTY_ID, '\x1b]2;⏳ tool turn · grok-4.7\x07', Date.now())
+      runtime.onPtyData(
+        TRANSCRIPT_PANE_PTY_ID,
+        '\x1b]2;⏳ tool turn · grok-4.7\x07',
+        1_900_000_000_000
+      )
       expect(runtime.getHermesChatActivity(handle).state).toBe('working')
       const sequence = runtime.getHermesChatActivity(handle).workingSequence
-      runtime.onPtyData(TRANSCRIPT_PANE_PTY_ID, '\x1b]2;✓ tool turn · grok-4.7\x07', Date.now())
+      runtime.onPtyData(
+        TRANSCRIPT_PANE_PTY_ID,
+        '\x1b]2;✓ tool turn · grok-4.7\x07',
+        1_900_000_000_000
+      )
       await runtime.readTerminal(handle, { screen: true })
       expect(runtime.getHermesChatActivity(handle)).toEqual({
         state: 'idle',
@@ -58,14 +68,16 @@ describe('Hermes captured hook readiness', () => {
     })
 
     it('does not authorize a queued message from the ready frame preceding new input', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(1_900_000_000_000)
       const { runtime, handle } = await readyPane()
-      runtime.onPtyData(TRANSCRIPT_PANE_PTY_ID, '\x1b]2;✓ turn · grok-4.7\x07', Date.now())
+      runtime.onPtyData(TRANSCRIPT_PANE_PTY_ID, '\x1b]2;✓ turn · grok-4.7\x07', 1_900_000_000_000)
       await runtime.readTerminal(handle, { screen: true })
       runtime.terminalRunFacts.recordInput(
         TRANSCRIPT_PANE_PTY_ID,
         'driving',
         'next\r',
-        Date.now() + 1
+        1_900_000_000_001
       )
       expect(runtime.getHermesChatActivity(handle).inputReady).toBe(false)
     })
