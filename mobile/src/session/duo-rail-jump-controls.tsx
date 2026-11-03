@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode
 } from 'react'
@@ -27,6 +28,7 @@ type JumpContextValue = {
   frames: DuoRailJumpFrames | null
   actions: JumpActions | null
   register: (actions: JumpActions | null) => void
+  reportComposerTop: (top: number) => void
 }
 
 const DuoRailJumpContext = createContext<JumpContextValue | null>(null)
@@ -46,7 +48,11 @@ function sameActions(left: JumpActions | null, right: JumpActions | null): boole
   )
 }
 
-function useRailFrames(chatVisible: boolean, keyboardInset: number): DuoRailJumpFrames | null {
+function useRailFrames(
+  chatVisible: boolean,
+  keyboardInset: number,
+  composerTop: number | null
+): DuoRailJumpFrames | null {
   const expanded = useDuoChatExpanded()
   const { width, height } = useWindowDimensions()
   const insets = useWindowSafeAreaInsets()
@@ -62,6 +68,7 @@ function useRailFrames(chatVisible: boolean, keyboardInset: number): DuoRailJump
     expanded,
     strip,
     keyboardInset,
+    composerTop,
     windowWidth: width,
     windowHeight: height,
     occlusions
@@ -77,14 +84,57 @@ export function DuoRailJumpHost({
   keyboardInset: number
   children: ReactNode
 }) {
-  const frames = useRailFrames(chatVisible, keyboardInset)
+  const [composerTop, setComposerTop] = useState<number | null>(null)
   const [actions, setActions] = useState<JumpActions | null>(null)
+  const reportComposerTop = useCallback((top: number) => {
+    setComposerTop((prev) => (prev !== null && Math.abs(prev - top) < 0.5 ? prev : top))
+  }, [])
+  const frames = useRailFrames(chatVisible, keyboardInset, composerTop)
   const register = useCallback((next: JumpActions | null) => {
     setActions((prev) => (sameActions(prev, next) ? prev : next))
   }, [])
-  const value = useMemo(() => ({ frames, actions, register }), [frames, actions, register])
+  const value = useMemo(
+    () => ({ frames, actions, register, reportComposerTop }),
+    [frames, actions, register, reportComposerTop]
+  )
   return <DuoRailJumpContext.Provider value={value}>{children}</DuoRailJumpContext.Provider>
 }
+
+/** Publishes the composer box top so rail arrows stay above it, including while the keyboard is up. */
+export function DuoRailComposerTop({
+  keyboardInset,
+  hidden,
+  children
+}: {
+  keyboardInset: number
+  hidden?: boolean
+  children: ReactNode
+}) {
+  const report = useContext(DuoRailJumpContext)?.reportComposerTop
+  const ref = useRef<View>(null)
+  const measure = useCallback(() => {
+    ref.current?.measureInWindow((_x, y, _width, height) => {
+      if (height > 0) {
+        report?.(y)
+      }
+    })
+  }, [report])
+  useEffect(() => {
+    measure()
+  }, [measure, keyboardInset, hidden])
+  return (
+    <View
+      ref={ref}
+      collapsable={false}
+      onLayout={measure}
+      style={hidden ? stylesHidden : undefined}
+    >
+      {children}
+    </View>
+  )
+}
+
+const stylesHidden = { display: 'none' } as const
 
 export function DuoRailJumpOverlay() {
   const ctx = useContext(DuoRailJumpContext)

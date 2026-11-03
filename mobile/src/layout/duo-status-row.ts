@@ -108,20 +108,23 @@ export type DuoRailJumpFrames = {
 }
 
 /**
- * ↑ above ↓, on the back button's midX, inset above the free strip's bottom.
- * Null when that stack would meet the back button or leave the strip.
+ * ↑ above ↓, on the back button's midX, with a gap above the composer.
+ * Null when that stack would meet the back button or the status occlusion.
+ * While the keyboard is up the back button is hidden, so the stack may use that slot.
  */
-export function duoRailJumpFrames(args: RowArgs): DuoRailJumpFrames | null {
+export function duoRailJumpFrames(
+  args: RowArgs & { composerTop: number; keyboardUp: boolean }
+): DuoRailJumpFrames | null {
+  if (!(args.composerTop > 0)) {
+    return null
+  }
   const back = duoRailBackFrame(args)
   const size = back.size
   const gap = spacing.sm
-  const latestTop = args.windowHeight - args.strip.bottom - spacing.md - size
+  const latestTop = args.composerTop - gap - size
   const previousTop = latestTop - gap - size
-  const backBottom = back.top + back.size
-  if (previousTop < backBottom + gap || previousTop < args.strip.top) {
-    return null
-  }
-  if (latestTop + size > args.windowHeight - args.strip.bottom) {
+  const floor = args.keyboardUp ? args.strip.top : back.top + back.size + gap
+  if (previousTop < floor || latestTop + size > args.composerTop - gap) {
     return null
   }
   return {

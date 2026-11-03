@@ -33,7 +33,7 @@ import {
 import { MobileNativeChatLiveLine } from './transcript/MobileNativeChatLiveLine'
 import { MobileNativeChatAwaitingInputRow } from './transcript/MobileNativeChatAwaitingInputRow'
 import { MobileNativeChatDraftComposer } from './composer/MobileNativeChatComposer'
-import { MobileNativeChatJumpControls } from '../duo-rail-jump-controls'
+import { DuoRailComposerTop, MobileNativeChatJumpControls } from '../duo-rail-jump-controls'
 import { useMobileNativeChatPreviousStops } from './transcript/use-mobile-native-chat-previous-stops'
 import { MobileNativeChatPromptCard } from './input/MobileNativeChatPromptCard'
 import { useMobileNativeChatPromptInputOwner } from './input/use-mobile-native-chat-prompt-input-owner'
@@ -352,7 +352,7 @@ export function MobileNativeChatView({
         dismissalScope={dismissalScope}
         accessory={activityBar}
       />
-      <View style={promptOwnsInput ? styles.hidden : undefined}>
+      <DuoRailComposerTop keyboardInset={keyboardInset} hidden={promptOwnsInput}>
         <MobileNativeChatDraftComposer
           {...composerFit}
           draftScopeKey={composerScopeKey}
@@ -384,7 +384,7 @@ export function MobileNativeChatView({
           onNeedSkills={onNeedSkills}
           stop={canStop ? { onStop, held: turnIndicator?.stopRequestInFlight === true } : null}
         />
-      </View>
+      </DuoRailComposerTop>
     </View>
   )
 }
