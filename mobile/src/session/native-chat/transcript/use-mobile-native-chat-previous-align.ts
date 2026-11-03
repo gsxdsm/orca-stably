@@ -238,6 +238,10 @@ export function useMobileNativeChatPreviousAlign<S extends MobileNativeChatScrol
       pending.left -= 1
       if (pending.left <= 0) {
         pendingAlign.current = null
+        aligning.current = false
+        if (inflightKey.current === pending.key) {
+          inflightKey.current = null
+        }
       }
     },
     [alignRow]
