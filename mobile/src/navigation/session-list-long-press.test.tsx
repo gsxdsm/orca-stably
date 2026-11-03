@@ -2,6 +2,7 @@ import { createElement } from 'react'
 import { act, create } from 'react-test-renderer'
 import { describe, expect, it, vi } from 'vitest'
 import { NavBarButton } from '../components/nav-bar/NavBarButton'
+import { SessionListLongPressOverride } from './session-list-long-press-context'
 import { SessionListLongPressProvider } from './session-list-long-press'
 import { SESSION_LIST_LONG_PRESS_MS } from './session-list-back'
 
@@ -64,5 +65,29 @@ describe('a back button long-press', () => {
       renderer.update(createElement(BackButton, { onPress: vi.fn() }))
     })
     expect(renderer.root.findByType('Pressable' as never).props.onLongPress).toBeUndefined()
+  })
+
+  it('uses a session leave guard instead of dismissing past an unsaved draft', () => {
+    route.pathname = '/h/mac/1/session/wt-9'
+    route.hostId = 'mac/1'
+    router.dismissTo.mockClear()
+    const guarded = vi.fn()
+    let renderer = create(createElement('View'))
+    act(() => {
+      renderer.update(
+        <SessionListLongPressProvider>
+          <SessionListLongPressOverride action={guarded}>
+            <NavBarButton
+              accessibilityLabel="Back"
+              icon={'ChevronLeft' as never}
+              onPress={vi.fn()}
+            />
+          </SessionListLongPressOverride>
+        </SessionListLongPressProvider>
+      )
+    })
+    act(() => renderer.root.findByType('Pressable' as never).props.onLongPress())
+    expect(guarded).toHaveBeenCalledTimes(1)
+    expect(router.dismissTo).not.toHaveBeenCalled()
   })
 })

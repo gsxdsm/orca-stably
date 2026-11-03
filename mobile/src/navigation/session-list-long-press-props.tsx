@@ -1,8 +1,7 @@
-import { createContext, useContext } from 'react'
+import { useContext } from 'react'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { SESSION_LIST_LONG_PRESS_MS } from './session-list-back'
-
-export const SessionListLongPressContext = createContext<(() => void) | null>(null)
+import { SessionListLongPressContext } from './session-list-long-press-context'
 
 export function useSessionListLongPressAction(): (() => void) | null {
   return useContext(SessionListLongPressContext)
