@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { statSync } from 'node:fs'
-import { openOpenCodeDatabaseReadonly } from '../ai-vault/session-scanner-opencode-sqlite-open'
+import { openOpenCodeDatabaseReadonly } from '../ai-vault/scanners/opencode/sqlite/session-scanner-opencode-sqlite-open'
 import { asRecord, extractString, timestampMs } from '../ai-vault/session-scanner-values'
 import { columnExists, tableExists } from '../opencode-usage/schema-helpers'
 import type { NativeChatBlock, NativeChatMessage } from '../../shared/native-chat/native-chat-types'

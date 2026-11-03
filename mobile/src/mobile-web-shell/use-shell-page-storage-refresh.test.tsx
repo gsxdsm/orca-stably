@@ -13,8 +13,7 @@ import {
 import { saveTerminalLinkOpenMode } from '../storage/preferences'
 import {
   NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY,
-  NATIVE_PAGE_STORAGE_REFRESH_KEYS,
-  TERMINAL_SHORTCUT_STORAGE_KEYS
+  NATIVE_PAGE_STORAGE_REFRESH_KEYS
 } from './page-storage-keys'
 import { createFakeBridgePortPair } from './bridge/bridge-port-pair-test-harness'
 

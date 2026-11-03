@@ -137,6 +137,11 @@ const Question = z.object({
   freeTextInput: FreeTextInput.optional()
 })
 
+const ResolvedByDevice = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('current') }),
+  z.object({ kind: z.literal('named'), name: z.string() })
+])
+
 const Resolution = z.object({
   state: z.string().min(1),
   selectedOptionId: z.string().nullable(),
@@ -150,12 +155,7 @@ const Resolution = z.object({
     )
     .optional(),
   resolvedBy: z.string().nullable(),
-  resolvedByDevice: z
-    .discriminatedUnion('kind', [
-      z.object({ kind: z.literal('current') }),
-      z.object({ kind: z.literal('named'), name: z.string() })
-    ])
-    .optional(),
+  resolvedByDevice: ResolvedByDevice.optional(),
   resolvedAt: z.number().nullable()
 })
 

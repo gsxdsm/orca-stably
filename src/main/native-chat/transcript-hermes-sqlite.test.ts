@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import Database from '../sqlite/sync-database'
 import { readHermesTranscriptPage, readHermesTranscriptSignal } from './transcript-hermes-sqlite'
-import { handleOpenCodeSqliteRequest } from '../ai-vault/session-scanner-opencode-sqlite-dispatch'
+import { handleOpenCodeSqliteRequest } from '../ai-vault/scanners/opencode/reader-transport/session-scanner-opencode-sqlite-dispatch'
 import { subscribeOpenCodeNativeChatTranscript } from './transcript-opencode-subscribe'
 
 const directories: string[] = []

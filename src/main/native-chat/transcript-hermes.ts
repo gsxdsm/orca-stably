@@ -5,7 +5,7 @@ import { hermesResumeSessionId } from '../../shared/hermes-session-id'
 import {
   readOpenCodeTranscriptPageViaWorker,
   readOpenCodeTranscriptSignalViaWorker
-} from '../ai-vault/session-scanner-opencode-sqlite-worker-spawn'
+} from '../ai-vault/scanners/opencode/reader-transport/session-scanner-opencode-sqlite-worker-spawn'
 import { needsWslHostResolution } from './host-readable-transcript-path'
 import { parseSshTranscriptPath } from './ssh-transcript-path'
 import type { OpenCodeTranscriptDeps } from './transcript-opencode'

@@ -5,13 +5,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const state = vi.hoisted(() => ({ home: '', matching: new Set<string>() }))
 vi.mock('../hermes/hermes-default-home', () => ({ getHermesHome: () => state.home }))
-vi.mock('../ai-vault/session-scanner-opencode-sqlite-worker-spawn', () => ({
-  readOpenCodeTranscriptSignalViaWorker: async ({ dbPath }: { dbPath: string }) =>
-    state.matching.has(dbPath)
-      ? { messageCount: 1, partCount: 0, maxMessageRowId: 1, maxPartTimeUpdated: 1 }
-      : null,
-  readOpenCodeTranscriptPageViaWorker: vi.fn()
-}))
+vi.mock(
+  '../ai-vault/scanners/opencode/reader-transport/session-scanner-opencode-sqlite-worker-spawn',
+  () => ({
+    readOpenCodeTranscriptSignalViaWorker: async ({ dbPath }: { dbPath: string }) =>
+      state.matching.has(dbPath)
+        ? { messageCount: 1, partCount: 0, maxMessageRowId: 1, maxPartTimeUpdated: 1 }
+        : null,
+    readOpenCodeTranscriptPageViaWorker: vi.fn()
+  })
+)
 
 import { canReadHermesTranscriptHere, hermesTranscriptDeps } from './transcript-hermes'
 
