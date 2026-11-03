@@ -719,6 +719,10 @@
       "pullRequest": "Pull Request",
       "workspace": "Workspace",
       "automations": "Automations"
+    },
+    "sessionListBack": {
+      "action": "Back to sessions",
+      "hint": "Long press to go back to sessions"
     }
   },
   "notifications": {

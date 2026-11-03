@@ -1,8 +1,10 @@
 import type { ComponentType, Ref } from 'react'
 import { Pressable, type View } from 'react-native'
+import { ChevronLeft } from 'lucide-react-native'
 import { colors, feedback, radii } from '../../theme/mobile-theme'
 import { themedStyleSheet } from '../../theme/themed-styles'
 import { useMobileColorScheme } from '../../theme/use-mobile-color-scheme'
+import { useSessionListLongPressProps } from '../../navigation/session-list-long-press-props'
 
 export const NAV_BAR_BUTTON_SIZE = 36
 
@@ -13,20 +15,37 @@ type NavBarButtonProps = {
   icon: ComponentType<IconProps>
   accessibilityLabel: string
   onPress: () => void
+  /** Replaces the session-list long press. Tap still uses onPress. */
+  onLongPress?: () => void
   /** The screen or panel this button opens is showing. */
   active?: boolean
   disabled?: boolean
 }
 
+type LongPressProps = ReturnType<typeof useSessionListLongPressProps>
+
 // A round top-bar button; the bar floats over content like the composer, so its buttons are round too.
-export function NavBarButton({
+export function NavBarButton(props: NavBarButtonProps) {
+  if (props.icon === ChevronLeft || props.onLongPress) {
+    return <SessionListNavBarButton {...props} />
+  }
+  return <NavBarButtonView {...props} />
+}
+
+function SessionListNavBarButton(props: NavBarButtonProps) {
+  const longPress = useSessionListLongPressProps(props.onLongPress)
+  return <NavBarButtonView {...props} longPress={longPress} />
+}
+
+function NavBarButtonView({
   ref,
   icon: Icon,
   accessibilityLabel,
   onPress,
   active = false,
-  disabled = false
-}: NavBarButtonProps) {
+  disabled = false,
+  longPress
+}: NavBarButtonProps & { longPress?: LongPressProps }) {
   useMobileColorScheme()
   return (
     <Pressable
@@ -43,6 +62,7 @@ export function NavBarButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled, selected: active }}
+      {...longPress}
     >
       <Icon size={18} color={active ? colors.bgBase : colors.textPrimary} strokeWidth={2.1} />
     </Pressable>

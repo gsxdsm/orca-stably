@@ -16,6 +16,7 @@ import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { troubleshootCommonIssues } from './troubleshoot-common-issues'
 import { troubleshootScreenStyles as styles } from './troubleshoot-screen-styles'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
+import { useSessionListLongPressProps } from '../navigation/session-list-long-press-props'
 import { LIST_LEADING_INSET, ListGroup, SectionHeader, ListRow } from '../components/list/ListGroup'
 export type DiagnosticStatus = 'idle' | 'running' | 'done'
 
@@ -59,6 +60,7 @@ export function TroubleshootView({
 }) {
   useMobileColorScheme()
   const t = useMobileTranslation()
+  const sessionListLongPress = useSessionListLongPressProps()
   const insets = useSafeAreaInsets()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const toggleSection = useCallback(
@@ -73,6 +75,7 @@ export function TroubleshootView({
           accessibilityLabel={t('common.back', 'Back')}
           style={({ pressed }) => [styles.backButton, pressed && pressedStyle]}
           onPress={onBack}
+          {...sessionListLongPress}
         >
           <ChevronLeft size={22} color={colors.textSecondary} />
         </Pressable>

@@ -18,6 +18,7 @@ import {
   type QuickCommandDraft
 } from './quick-command-draft'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
+import { useSessionListLongPressProps } from '../navigation/session-list-long-press-props'
 
 type Props = {
   visible: boolean
@@ -42,6 +43,7 @@ export function QuickCommandsSheet({
 }: Props) {
   useMobileColorScheme()
   const t = useMobileTranslation()
+  const sessionListLongPress = useSessionListLongPressProps()
   const { commands, loading, ready, error, persist } = useQuickCommands({
     client,
     enabled: visible
@@ -189,6 +191,7 @@ export function QuickCommandsSheet({
             }}
             accessibilityRole="button"
             accessibilityLabel={t('common.back', 'Back')}
+            {...sessionListLongPress}
           >
             <ChevronLeft size={18} color={colors.textSecondary} />
           </Pressable>

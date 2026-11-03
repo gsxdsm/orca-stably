@@ -37,6 +37,7 @@ export function MobileSessionHeader({
     activePanel,
     setShowHeaderMoreActions,
     requestLeaveSession,
+    requestLeaveToSessionList,
     visibleTabs,
     showConnectionRetry,
     connectionEscalated,
@@ -82,6 +83,7 @@ export function MobileSessionHeader({
             requestLeaveSession()
           }
         }}
+        onLongPress={requestLeaveToSessionList}
       />
     </>
   )
