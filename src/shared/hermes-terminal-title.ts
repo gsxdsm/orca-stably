@@ -8,14 +8,15 @@ export function hermesNativeTitleStatus(
   if (agent !== 'hermes') {
     return null
   }
-  switch (title.match(/^(✓|⏳|⚠)\uFE0F?(?:\s|$)/u)?.[1]) {
-    case '✓':
-      return 'idle'
-    case '⏳':
-      return 'working'
-    case '⚠':
-      return 'permission'
-    default:
-      return null
+  const marker = title.match(/^(✓|⏳|⚠)\uFE0F?(?:\s|$)/u)?.[1]
+  if (marker === '✓') {
+    return 'idle'
   }
+  if (marker === '⏳') {
+    return 'working'
+  }
+  if (marker === '⚠') {
+    return 'permission'
+  }
+  return null
 }
