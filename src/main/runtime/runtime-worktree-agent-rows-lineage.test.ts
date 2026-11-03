@@ -221,4 +221,35 @@ describe('worktree agent rows nest orchestration workers across folder workspace
     })
     expect(summaries.get(parentId)?.agents.map((row) => row.paneKey)).toEqual([coordinator, worker])
   })
+
+  it('keeps a nested helper home id when the helper is mirrored onto the coordinator', () => {
+    const coordinator = 'tab-coord:leaf-coord'
+    const worker = 'tab-worker:leaf-worker'
+    const helper = 'tab-helper:leaf-helper'
+    const summaries = new Map([
+      ['folder:orca', summary('folder:orca')],
+      ['folder:babysitter', summary('folder:babysitter')]
+    ])
+    attachRuntimeWorktreeAgentRows({
+      summaries,
+      rowSources: new Map([
+        [coordinator, source(coordinator, 'folder:orca', 'term_coord')],
+        [worker, source(worker, 'folder:babysitter', 'term_worker')],
+        [helper, source(helper, 'folder:babysitter', 'term_helper')]
+      ]),
+      terminalTitleEvidenceByWorktreeId: new Map(),
+      orchestrationByPaneKey: {
+        [worker]: { parentPaneKey: coordinator },
+        [helper]: { parentPaneKey: worker }
+      },
+      getSummary: (id) => summaries.get(id) ?? null
+    })
+    const mirrored = summaries.get('folder:orca')?.agents.find((row) => row.paneKey === helper)
+    expect(mirrored?.homeWorktreeId).toBe('folder:babysitter')
+    expect(summaries.get('folder:orca')?.agents.map((row) => row.paneKey)).toEqual([
+      coordinator,
+      worker,
+      helper
+    ])
+  })
 })

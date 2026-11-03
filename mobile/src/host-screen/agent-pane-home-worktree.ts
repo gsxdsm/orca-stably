@@ -1,6 +1,12 @@
 type AgentPaneOwner = {
   worktreeId: string
-  agents?: readonly { paneKey: string; parentPaneKey?: string | null }[] | null
+  agents?:
+    | readonly {
+        paneKey: string
+        parentPaneKey?: string | null
+        homeWorktreeId?: string | null
+      }[]
+    | null
 }
 
 /** The workspace that actually runs the pane. A mirrored copy sits on the coordinator card too. */
@@ -15,9 +21,16 @@ export function homeWorktreeForAgentPane<T extends AgentPaneOwner>(
   if (owners.length <= 1) {
     return owners[0] ?? fallback
   }
-  const parentPaneKey = owners
+  const row = owners
     .flatMap((worktree) => worktree.agents ?? [])
-    .find((agent) => agent.paneKey === paneKey)?.parentPaneKey
+    .find((agent) => agent.paneKey === paneKey)
+  if (row?.homeWorktreeId) {
+    const stamped = owners.find((worktree) => worktree.worktreeId === row.homeWorktreeId)
+    if (stamped) {
+      return stamped
+    }
+  }
+  const parentPaneKey = row?.parentPaneKey
   if (!parentPaneKey) {
     return fallback
   }
