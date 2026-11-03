@@ -1,3 +1,5 @@
+import { RuntimeRpcCallError } from '@/runtime/runtime-rpc-result'
+import { isRecoverableRemoteRuntimeConnectionError } from '../../../../shared/remote-runtime/remote-runtime-client-error-classification'
 import { createBrowserUuid } from '@/lib/browser-uuid'
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { callRuntimeRpc } from '@/runtime/runtime-rpc-client'
@@ -167,8 +169,19 @@ export function useNativeChatTerminalQueue(args: {
     [snapshot, request, appendText]
   )
   const enqueue = useCallback(
-    async (text: string) =>
-      (await request({ type: 'enqueue', messageId: createBrowserUuid(), text })) !== null,
+    async (text: string) => {
+      try {
+        return (await request({ type: 'enqueue', messageId: createBrowserUuid(), text })) !== null
+      } catch (error) {
+        if (
+          error instanceof RuntimeRpcCallError &&
+          !isRecoverableRemoteRuntimeConnectionError(error)
+        ) {
+          return false
+        }
+        throw error
+      }
+    },
     [request]
   )
   const state = enabled ? snapshot?.activity.state : null
