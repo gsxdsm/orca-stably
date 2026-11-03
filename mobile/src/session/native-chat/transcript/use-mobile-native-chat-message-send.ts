@@ -17,7 +17,10 @@ import {
   acquireMobileNativeChatTerminalWrite,
   releaseMobileNativeChatTerminalWrite
 } from '../mobile-native-chat-terminal-write-lock'
-import type { MobileNativeChatSendOrigin } from '../mobile-native-chat-pending-echo'
+import {
+  discardOptimisticMobileNativeChatSend,
+  type MobileNativeChatSendOrigin
+} from '../mobile-native-chat-pending-echo'
 import { UNCONFIRMED_SEND_MESSAGE } from '../use-mobile-native-chat-unconfirmed-sends'
 import type { MobileNativeChatLaunchDraftSeed } from '../composer/use-mobile-native-chat-launch-draft-seed'
 import { buildNativeChatPasteBytes } from '../../../../../src/shared/native-chat/input/native-chat-paste-bytes'
@@ -115,11 +118,6 @@ export function useMobileNativeChatMessageSend(args: {
         agent === 'hermes' && classification === 'chat'
           ? acceptSend(origin, wireText, images, true)
           : undefined
-      const discardOptimistic = () => {
-        if (optimisticId) {
-          discardPendingSend?.(optimisticId)
-        }
-      }
       // Heal orphaned input before clearing draft; failed heals preserve typing, and heal/text spend the same action deadline.
       const deadline = sharedDeadline ?? openMobileNativeChatSendBudget(agent)
       const healArgs = {
@@ -129,7 +127,7 @@ export function useMobileNativeChatMessageSend(args: {
         deadline
       }
       if (!(await healMobileNativeChatStaleInput(healArgs))) {
-        discardOptimistic()
+        discardOptimisticMobileNativeChatSend(optimisticId, discardPendingSend)
         onSendError('Message not sent')
         return 'rejected'
       }
@@ -161,7 +159,7 @@ export function useMobileNativeChatMessageSend(args: {
             : {})
         })
         if (!cleared) {
-          discardOptimistic()
+          discardOptimisticMobileNativeChatSend(optimisticId, discardPendingSend)
           if (syncComposer) {
             restoreRejectedDraft(origin, draftText)
           }
@@ -206,7 +204,7 @@ export function useMobileNativeChatMessageSend(args: {
         return 'unknown'
       }
       if (outcome === 'rejected') {
-        discardOptimistic()
+        discardOptimisticMobileNativeChatSend(optimisticId, discardPendingSend)
         if (syncComposer) {
           restoreRejectedDraft(origin, draftText)
         }

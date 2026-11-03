@@ -11,7 +11,7 @@ import type { RpcClient } from '../../../transport/rpc-client'
 import type { ConnectionState } from '../../../transport/types'
 import type { MobileImageSource } from '../../../platform/media-picker-contract'
 import type { MobileComposerPastedImage } from './mobile-native-chat-composer-image-paste'
-import { mobileComposerSkippedPasteNotice } from './mobile-composer-skipped-paste-notice'
+import { showMobileComposerSkippedPaste } from './mobile-composer-skipped-paste-notice'
 import type { PendingNativeChatImage } from './mobile-native-chat-image-attachment'
 import {
   MOBILE_NATIVE_CHAT_IMAGE_SETTLE_MS,
@@ -26,7 +26,8 @@ import {
   clearMobileNativeChatInputStale,
   healMobileNativeChatStaleInput,
   isMobileNativeChatInputStale,
-  markMobileNativeChatInputStale
+  markMobileNativeChatInputStale,
+  markMobileNativeChatInputStaleIfStarted
 } from '../mobile-native-chat-stale-input'
 import {
   acquireMobileNativeChatTerminalWrite,
@@ -262,9 +263,7 @@ export function useMobileNativeChatImageAttachments({
             ...(seededLaunchDraft ? { seededText: seededLaunchDraft } : {})
           })
           if (!pasted) {
-            if (inputWriteStarted) {
-              markMobileNativeChatInputStale(handle)
-            }
+            markMobileNativeChatInputStaleIfStarted(inputWriteStarted, handle)
             onError?.()
             onSendError('Message not sent')
             return false
@@ -303,9 +302,7 @@ export function useMobileNativeChatImageAttachments({
           return outcome !== 'rejected'
         } catch {
           // Only attempted writes can leave partial input for the next action to heal.
-          if (inputWriteStarted) {
-            markMobileNativeChatInputStale(handle)
-          }
+          markMobileNativeChatInputStaleIfStarted(inputWriteStarted, handle)
           onError?.()
           onSendError('Message not sent')
           return false
@@ -342,10 +339,6 @@ export function useMobileNativeChatImageAttachments({
     attachPickedImages,
     removeAttachment,
     sendNativeChat,
-    notifySkippedPaste(count: number): void {
-      if (count > 0) {
-        showToast(mobileComposerSkippedPasteNotice(count), 1500)
-      }
-    }
+    notifySkippedPaste: (count: number) => showMobileComposerSkippedPaste(showToast, count)
   }
 }

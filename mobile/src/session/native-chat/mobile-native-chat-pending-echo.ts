@@ -125,3 +125,12 @@ export function visibleMobileNativeChatPending(
   const next = current.filter((item) => visible.has(item) || Boolean(item.images?.length))
   return next.length === current.length ? current : next
 }
+
+export function discardOptimisticMobileNativeChatSend(
+  id: string | void,
+  discard?: (id: string) => void
+): void {
+  if (id) {
+    discard?.(id)
+  }
+}
