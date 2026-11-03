@@ -24,6 +24,9 @@ export function MobileBrowserToolbarIconButton({
 }: Props): React.JSX.Element {
   useMobileColorScheme()
   const sessionListLongPress = useSessionListLongPressProps()
+  // A disabled Pressable drops onLongPress, so empty history still accepts the session-list hold.
+  const keepLongPress =
+    disabled === true && toSessionList && sessionListLongPress.onLongPress != null
   return (
     <Pressable
       style={({ pressed }) => [
@@ -32,8 +35,8 @@ export function MobileBrowserToolbarIconButton({
         pressed && !disabled && styles.buttonPressed,
         disabled && styles.disabled
       ]}
-      disabled={disabled}
-      onPress={onPress}
+      disabled={disabled === true && !keepLongPress}
+      onPress={disabled ? undefined : onPress}
       accessibilityLabel={label}
       {...(toSessionList ? sessionListLongPress : {})}
     >

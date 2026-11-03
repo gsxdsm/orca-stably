@@ -4,7 +4,7 @@ import { triggerEdgeBump } from '../platform/haptics'
 import { firstParam } from './route-param-reader'
 import { useRouteHandoff } from './route-handoff'
 import { returnToHostSessionList, sessionListBackTarget } from './session-list-back'
-import { SessionListLongPressContext } from './session-list-long-press-props'
+import { SessionListLongPressContext } from './session-list-long-press-context'
 
 // Mount under the router. Absent in tests, so a back control stays one-step.
 export function SessionListLongPressProvider({ children }: { children: ReactNode }) {
