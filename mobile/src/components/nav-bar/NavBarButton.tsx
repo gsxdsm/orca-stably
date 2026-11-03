@@ -22,31 +22,19 @@ type NavBarButtonProps = {
   disabled?: boolean
 }
 
-type LongPressProps = ReturnType<typeof useSessionListLongPressProps>
-
 // A round top-bar button; the bar floats over content like the composer, so its buttons are round too.
-export function NavBarButton(props: NavBarButtonProps) {
-  if (props.icon === ChevronLeft || props.onLongPress) {
-    return <SessionListNavBarButton {...props} />
-  }
-  return <NavBarButtonView {...props} />
-}
-
-function SessionListNavBarButton(props: NavBarButtonProps) {
-  const longPress = useSessionListLongPressProps(props.onLongPress)
-  return <NavBarButtonView {...props} longPress={longPress} />
-}
-
-function NavBarButtonView({
+export function NavBarButton({
   ref,
   icon: Icon,
   accessibilityLabel,
   onPress,
+  onLongPress,
   active = false,
-  disabled = false,
-  longPress
-}: NavBarButtonProps & { longPress?: LongPressProps }) {
+  disabled = false
+}: NavBarButtonProps) {
   useMobileColorScheme()
+  const sessionListLongPress = useSessionListLongPressProps(onLongPress)
+  const longPress = Icon === ChevronLeft || onLongPress ? sessionListLongPress : undefined
   return (
     <Pressable
       ref={ref}
