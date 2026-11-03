@@ -221,6 +221,7 @@ export function MobileSessionSheets({ controller }: { controller: MobileSessionC
             (terminal) => terminal.handle === actionTarget?.handle
           )?.agentIdentity,
           onDismiss: () => setActionTarget(null),
+          onActivateSessionTab: controller.switchSessionTab,
           onToggleChat: toggleTabChatView,
           isPhoneMode: (handle) => isTerminalPhoneDisplayMode(handle, terminalModes),
           onToggleDisplayMode: (handle) => void toggleDisplayMode(handle),

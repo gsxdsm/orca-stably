@@ -18,6 +18,7 @@ export function getMobileTerminalActionSheetActions<
   structuredAgents?: readonly string[]
   hostAgentIdentity?: string | null
   onDismiss: () => void
+  onActivateSessionTab: (tab: Tab) => void
   onToggleChat: (tabId: string) => void
   isPhoneMode: (handle: string) => boolean
   onToggleDisplayMode: (handle: string) => void
@@ -47,7 +48,12 @@ export function getMobileTerminalActionSheetActions<
       structuredAgents: args.structuredAgents,
       hostAgentIdentity: args.hostAgentIdentity,
       onClose: args.onDismiss,
-      onToggle: args.onToggleChat
+      onToggle: (tabId) => {
+        if (sessionTab) {
+          args.onActivateSessionTab(sessionTab)
+        }
+        args.onToggleChat(tabId)
+      }
     }),
     {
       id: 'toggleDisplayMode',
@@ -57,6 +63,9 @@ export function getMobileTerminalActionSheetActions<
       icon: phoneMode ? Monitor : Smartphone,
       onPress: () => {
         args.onDismiss()
+        if (sessionTab) {
+          args.onActivateSessionTab(sessionTab)
+        }
         args.onToggleDisplayMode(target.handle)
       }
     },
