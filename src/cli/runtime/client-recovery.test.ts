@@ -394,3 +394,45 @@ describe('RuntimeClient orchestration recovery identity', () => {
     expect((error as Error).message).toContain('do not resend automatically')
   })
 })
+
+describe('oversized terminal prompt preflight', () => {
+  it.each([
+    ['legacy', { legacyTerminalPrompt: true as const }],
+    ['durable', { terminalPromptPreflight: { runtimeId: 'runtime-1' } }],
+    ['mismatched runtime', { terminalPromptPreflight: { runtimeId: 'other-runtime' } }]
+  ] as const)('keeps an oversized %s prompt refusal unsent', async (_label, options) => {
+    const userDataPath = mkdtempSync(join(tmpdir(), 'orca-runtime-oversized-prompt-'))
+    const endpoint = join(userDataPath, 'runtime.sock')
+    const server = createServer(() => {})
+    servers.add(server)
+    await new Promise<void>((resolve) => server.listen(endpoint, resolve))
+    writeRuntimeConnection(userDataPath, endpoint, 'runtime-1')
+
+    const client = new RuntimeClient(userDataPath, 1000, null, null, 'orca')
+    const error = await client
+      .call(
+        'terminal.send',
+        {
+          terminal: 'term-1',
+          text: 'x'.repeat(1024 * 1024),
+          enter: true,
+          interrupt: false,
+          agentPrompt: true,
+          client: { id: 'orca-cli', type: 'desktop' }
+        },
+        options
+      )
+      .then(() => undefined)
+      .catch((caught: unknown) => caught)
+
+    expect(error).toBeInstanceOf(RuntimeClientError)
+    expect(error).toMatchObject({
+      code: 'invalid_argument',
+      data: { effectsApplied: false, requestSent: false }
+    })
+    expect((error as RuntimeClientError).data).not.toHaveProperty('deliveryOutcome')
+    expect((error as Error).message).toContain('Shorten the request before retrying')
+    expect((error as Error).message).not.toContain('--retry-request')
+    expect((error as Error).message).not.toContain('cannot prove')
+  })
+})

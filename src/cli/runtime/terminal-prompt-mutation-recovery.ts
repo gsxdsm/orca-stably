@@ -1,4 +1,4 @@
-import { attachMutationRecovery } from './client-error-recovery'
+import { attachMutationRecovery, isRequestUnsent } from './client-error-recovery'
 import { RuntimeClientError, RuntimeRpcFailureError } from './types'
 import { PLUGIN_HOOK_DENIED_CODE } from '../../shared/plugins/contributions/plugin-hook-contribution'
 
@@ -12,6 +12,10 @@ export function attachDurableMutationRecovery(
 ): unknown {
   // A plugin's refusal is final: retrying sends the same refused input.
   if (error instanceof RuntimeClientError && error.code === PLUGIN_HOOK_DENIED_CODE) {
+    return error
+  }
+  // A pre-send refusal never left the client; retry advice would resend the same bytes.
+  if (method === 'terminal.send' && isRequestUnsent(error)) {
     return error
   }
   if (method !== 'terminal.send' || !requestId || !(error instanceof RuntimeClientError)) {
@@ -38,6 +42,10 @@ export function attachDurableMutationRecovery(
 }
 
 export function attachLegacyTerminalPromptRecovery(error: unknown): unknown {
+  // Nothing was written, so the outcome is not unknown.
+  if (isRequestUnsent(error)) {
+    return error
+  }
   if (!(error instanceof RuntimeClientError)) {
     return error
   }
@@ -52,6 +60,10 @@ export function attachLegacyTerminalPromptRecovery(error: unknown): unknown {
 }
 
 export function attachUnverifiedTerminalPromptRecovery(error: unknown): RuntimeClientError {
+  // Nothing was written, so a different runtime cannot have delivered it.
+  if (error instanceof RuntimeClientError && isRequestUnsent(error)) {
+    return error
+  }
   const normalized =
     error instanceof RuntimeClientError
       ? error
