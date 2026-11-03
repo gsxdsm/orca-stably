@@ -85,6 +85,7 @@ describe('mobile Hermes terminal queue', () => {
     })
     expect(api?.controls.cards.map((card) => card.text)).toEqual(['First', 'Second'])
     expect(api?.controls.cards.every((card) => card.waitsForAgent)).toBe(true)
+    expect(api?.sendFollowUp?.action).toBe('queue')
     const firstId = api?.controls.cards[0]?.messageId
     expect(firstId).toBeDefined()
     await act(async () => {
@@ -102,6 +103,7 @@ describe('mobile Hermes terminal queue', () => {
       renderer?.update(createElement(Harness))
     })
     expect(api?.activity?.state).toBe('idle')
+    expect(api?.sendFollowUp).toBeNull()
     expect(api?.controls.cards).toEqual([])
   })
 })
