@@ -19,6 +19,8 @@ import { getWorktreeRowIdentity, isSameWorktreeRow } from '../worktree/worktree-
 import { noteLastVisitedWorktree } from '../worktree/last-visited-worktree-by-host'
 import { isWorktreePinned, type Worktree } from '../worktree/workspace-list-sections'
 import { worktreeActivate, worktreePinWrite, worktreeSleep } from './host-screen-operations'
+import { homeWorktreeForAgentPane } from './agent-pane-home-worktree'
+import { setPendingSubagentFocus } from '../session/pending-subagent-focus'
 import type { HostScreenState } from './use-host-screen-state'
 import { useHostWorktreeDelete } from './use-host-worktree-delete'
 
@@ -214,32 +216,36 @@ export function useHostWorktreeActions(args: {
   )
 
   const openWorktreeSession = useCallback(
-    (item: Worktree, paneKey?: string) => {
-      const server = serverWorkspaces.hosts.find((host) => host.hostId === item.hostId)
+    (item: Worktree, paneKey?: string, childId?: string) => {
+      const home = paneKey ? homeWorktreeForAgentPane(worktrees, paneKey, item) : item
+      const server = serverWorkspaces.hosts.find((host) => host.hostId === home.hostId)
       if (server?.relay === 'update-needed') {
         setServerNotice(serverUpdateNeededNotice(server.label))
         return
       }
-      const routeHost = workspaceRouteExecutionHost(client, hostCapabilities, item.hostId)
+      const routeHost = workspaceRouteExecutionHost(client, hostCapabilities, home.hostId)
       if (routeHost === null) {
         return
+      }
+      if (childId) {
+        setPendingSubagentFocus(home.worktreeId, childId)
       }
       // Use an empty missing hostId: the shell refuses /h//session, whereas the string undefined would name an accepted host.
       const executionHost = routeHost ? `&executionHost=${encodeURIComponent(routeHost)}` : ''
       const pane = paneKey ? `&paneKey=${encodeURIComponent(paneKey)}` : ''
-      const target = `/h/${encodeURIComponent(hostId ?? '')}/session/${encodeURIComponent(item.worktreeId)}?name=${encodeURIComponent(item.displayName || item.repo)}${executionHost}${pane}`
+      const target = `/h/${encodeURIComponent(hostId ?? '')}/session/${encodeURIComponent(home.worktreeId)}?name=${encodeURIComponent(home.displayName || home.repo)}${executionHost}${pane}`
       navigateFromHostList(target, Boolean(paneKey), () => {
         // Record this phone’s visit before navigation; a session opened in another page cannot publish its stored write back here.
         if (!ORCA_SIDEBAR_INPUTS_IS_MAIN) {
-          setOptimisticActiveWorktreeIdentity(getWorktreeRowIdentity(item))
+          setOptimisticActiveWorktreeIdentity(getWorktreeRowIdentity(home))
         } else if (hostId) {
-          noteLastVisitedWorktree({ hostId, worktreeId: item.worktreeId, executionHost: routeHost })
+          noteLastVisitedWorktree({ hostId, worktreeId: home.worktreeId, executionHost: routeHost })
         }
-        const rowClient = clientForRow(item)
+        const rowClient = clientForRow(home)
         if (rowClient && connState === 'connected') {
           void worktreeActivate
             .request(rowClient, {
-              worktree: `id:${item.worktreeId}`,
+              worktree: `id:${home.worktreeId}`,
               notifyClients: false,
               navigation: 'caller'
             })
@@ -254,7 +260,8 @@ export function useHostWorktreeActions(args: {
       hostCapabilities,
       hostId,
       navigateFromHostList,
-      serverWorkspaces
+      serverWorkspaces,
+      worktrees
     ]
   )
 

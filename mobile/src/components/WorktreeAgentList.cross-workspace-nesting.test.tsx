@@ -119,5 +119,38 @@ describe('cross-workspace session nesting', () => {
     await act(async () => rowPress.props.onPress({ stopPropagation: vi.fn() }))
     expect(onAgentPress).toHaveBeenCalledTimes(1)
     expect(onAgentPress).toHaveBeenCalledWith(coordinator)
+
+    const workerRow = renderer!.root.find((node) => node.props.agent?.paneKey === worker)
+    await act(async () => sessionPress(workerRow).props.onPress({ stopPropagation: vi.fn() }))
+    expect(onAgentPress).toHaveBeenCalledWith(worker)
+  })
+
+  it('opens a nested subagent in that child, not only its parent pane', async () => {
+    const onAgentPress = vi.fn()
+    await act(async () => {
+      renderer = create(
+        createElement(WorktreeAgentList, {
+          agents: [
+            {
+              ...agent('agent-1', null, 'Parent'),
+              subagentObservation: 'live',
+              subagents: [{ id: 'child', state: 'working', startedAt: 1_000 }]
+            }
+          ],
+          now: 2_000,
+          unvisited: false,
+          fullList: true,
+          statusLive: true,
+          onAgentPress
+        })
+      )
+    })
+    const toggle = renderer!.root.find(
+      (node) => node.props.accessibilityLabel === 'Show 1 child agent'
+    )
+    await act(async () => toggle.props.onPress({ stopPropagation: vi.fn() }))
+    const childRow = renderer!.root.find((node) => node.props.childRow?.id === 'child')
+    await act(async () => sessionPress(childRow).props.onPress({ stopPropagation: vi.fn() }))
+    expect(onAgentPress).toHaveBeenCalledWith('agent-1', 'child')
   })
 })

@@ -25,7 +25,7 @@ type Props = {
   unvisited: boolean
   statusLive?: boolean
   isReadOnly?: boolean
-  onAgentPress?: (paneKey: string) => void
+  onAgentPress?: (paneKey: string, childId?: string) => void
   onAgentLongPress?: () => void
   onPressIn?: () => void
   /** The desktop's "Full list" agent activity layout: every row, no summary. */

@@ -27,7 +27,7 @@ type Props = {
   unvisited: boolean
   childRow?: AgentChildRowModel
   isReadOnly?: boolean
-  onPress?: (paneKey: string) => void
+  onPress?: (paneKey: string, childId?: string) => void
   onPressIn?: () => void
   onLongPress?: () => void
   trailing?: ReactNode
@@ -96,7 +96,12 @@ function WorktreeAgentRowComponent({
           onPressIn={onPressIn}
           onPress={(event) => {
             event.stopPropagation()
-            onPress(agent.paneKey)
+            const childId = childRow?.providerId ?? childRow?.id
+            if (childId) {
+              onPress(agent.paneKey, childId)
+            } else {
+              onPress(agent.paneKey)
+            }
           }}
           onLongPress={onLongPress}
           delayLongPress={400}
