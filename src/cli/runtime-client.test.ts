@@ -620,7 +620,9 @@ describe.skipIf(process.platform === 'win32')('RuntimeClient', () => {
       const userDataPath = makeRuntimeClientFixture()
       const endpoint = join(userDataPath, 'runtime.sock')
       const received = vi.fn()
+      let accepted: Socket | undefined
       const server = createServer((socket) => {
+        accepted = socket
         sockets.add(socket)
         socket.once('close', () => sockets.delete(socket))
         socket.on('data', received)
@@ -632,7 +634,27 @@ describe.skipIf(process.platform === 'win32')('RuntimeClient', () => {
       const client = new RuntimeClient(userDataPath, 1000)
       await expect(client.call('status.get', { body })).rejects.toMatchObject({
         code: 'invalid_argument',
-        data: { effectsApplied: false }
+        data: { effectsApplied: false, requestSent: false }
+      })
+      // A write-then-reject can settle before the server emits data.
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('server socket did not close')), 1000)
+        const done = (): void => {
+          clearTimeout(timer)
+          resolve()
+        }
+        const waitForClose = (socket: Socket): void => {
+          if (socket.destroyed) {
+            done()
+            return
+          }
+          socket.once('close', done)
+        }
+        if (accepted) {
+          waitForClose(accepted)
+          return
+        }
+        server.once('connection', waitForClose)
       })
       expect(received).not.toHaveBeenCalled()
     }

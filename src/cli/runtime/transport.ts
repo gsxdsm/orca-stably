@@ -225,7 +225,7 @@ export async function sendRequest<TResult>(
           throw new RuntimeClientError(
             'invalid_argument',
             `The serialized runtime request exceeds the ${MAX_LOCAL_RUNTIME_RPC_MESSAGE_BYTES}-byte local transport limit. Shorten the request before retrying.`,
-            { effectsApplied: false }
+            { effectsApplied: false, requestSent: false }
           )
         }
         if (id === requestId) {
