@@ -18,7 +18,7 @@ import {
 import { storageReadResultSchema } from '../src/mobile-web-shell/bridge/bridge-native-verbs'
 import {
   publishPageStorage,
-  refreshPageTerminalShortcuts
+  refreshPageTerminalSettings
 } from '../src/mobile-web-shell/bridge/page-async-storage'
 import { applyStoredDuoChatExpanded, DUO_CHAT_EXPANDED_KEY } from '../src/session/duo-chat-width'
 import {
@@ -168,7 +168,7 @@ bootstrapShellPage({
     client.onStorageUpdate(() => {
       const current = client.getShellSession()
       if (current !== null) {
-        refreshPageTerminalShortcuts(current.storage, current.storageOversize)
+        refreshPageTerminalSettings(current.storage, current.storageOversize)
         applyStoredDuoChatExpanded(current.storage[DUO_CHAT_EXPANDED_KEY] ?? null)
       }
     })

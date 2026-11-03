@@ -4,7 +4,7 @@ import { useFocusEffect } from 'expo-router'
 import { subscribeMirroredKey } from '../storage/mirrored-storage-keys'
 import {
   NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY,
-  NATIVE_PAGE_STORAGE_REFRESH_KEYS
+  TERMINAL_SETTINGS_STORAGE_KEYS
 } from './page-storage-keys'
 
 export function useShellPageStorageRefresh(refresh: () => Promise<unknown>, publish: () => void) {
@@ -22,13 +22,18 @@ export function useShellPageStorageRefresh(refresh: () => Promise<unknown>, publ
         )
       }
       const stopWatching = [
-        ...NATIVE_PAGE_STORAGE_REFRESH_KEYS.map((key) =>
+        ...TERMINAL_SETTINGS_STORAGE_KEYS.map((key) =>
           subscribeMirroredKey(key, (_value, source) => {
-            if (focused && source === 'persisted') {
+            if (focused && (source === 'persisted' || key === 'orca:terminalTextScale')) {
               publish()
             }
           })
         ),
+        subscribeMirroredKey('orca:defaultSessionView', (_value, source) => {
+          if (focused && source === 'persisted') {
+            publish()
+          }
+        }),
         // A pinch writes from the page. Other open chats have to see it without a reload.
         subscribeMirroredKey(NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY, () => {
           if (focused) {

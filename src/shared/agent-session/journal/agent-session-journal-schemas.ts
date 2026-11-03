@@ -150,6 +150,12 @@ const Resolution = z.object({
     )
     .optional(),
   resolvedBy: z.string().nullable(),
+  resolvedByDevice: z
+    .discriminatedUnion('kind', [
+      z.object({ kind: z.literal('current') }),
+      z.object({ kind: z.literal('named'), name: z.string() })
+    ])
+    .optional(),
   resolvedAt: z.number().nullable()
 })
 

@@ -110,11 +110,11 @@ export function createBridgeClientShellSession(args: {
       if (held !== null && update === null) {
         args.onReplaced()
       }
-      const refreshShortcuts = update !== null && message.refreshTerminalShortcuts === true
+      const refreshSettings = update !== null && message.refreshTerminalShortcuts === true
       const sentStorage = message.storage ?? {}
       const sentOversize = message.storageOversize ?? []
-      const storage = refreshShortcuts ? { ...update.storage } : undefined
-      const storageOversize = refreshShortcuts
+      const storage = refreshSettings ? { ...update.storage } : undefined
+      const storageOversize = refreshSettings
         ? [
             ...update.storageOversize.filter(
               (key) => !LIVE_PAGE_STORAGE_KEYS.some((item) => item === key)
@@ -122,7 +122,7 @@ export function createBridgeClientShellSession(args: {
             ...LIVE_PAGE_STORAGE_KEYS.filter((key) => sentOversize.includes(key))
           ]
         : update?.storageOversize
-      if (refreshShortcuts && storage) {
+      if (refreshSettings && storage) {
         for (const key of LIVE_PAGE_STORAGE_KEYS) {
           if (sentStorage[key] === undefined) {
             if (!pageRefreshKeepsStoredValue(key)) {
@@ -184,7 +184,7 @@ export function createBridgeClientShellSession(args: {
         listener()
       }
       readyListeners.clear()
-      if (refreshShortcuts) {
+      if (refreshSettings) {
         for (const listener of storageListeners) {
           listener()
         }

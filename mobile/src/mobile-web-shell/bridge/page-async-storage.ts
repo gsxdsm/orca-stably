@@ -68,8 +68,8 @@ export function publishPageStorage(
   readNativePreference = forNativePreferenceReader
 }
 
-/** Apply native settings and the shared chat text size without replacing drafts the page still owns. */
-export function refreshPageTerminalShortcuts(
+/** Apply terminal settings and the shared chat text size without replacing drafts the page still owns. */
+export function refreshPageTerminalSettings(
   entries: Readonly<Record<string, string>>,
   oversize: readonly string[]
 ): void {
@@ -91,6 +91,8 @@ export function refreshPageTerminalShortcuts(
   }
   oversizeKeys = nextOversize
 }
+
+export const refreshPageTerminalShortcuts = refreshPageTerminalSettings
 
 function put(key: string, value: string | null): void {
   const had = values.has(key)
