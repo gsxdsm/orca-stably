@@ -86,6 +86,34 @@ export function duoRailBackFrame(args: RowArgs): DuoRailControlFrame {
   return { top, left, size }
 }
 
+export type DuoRailJumpFrames = {
+  previous: DuoRailControlFrame
+  latest: DuoRailControlFrame
+}
+
+/**
+ * ↑ above ↓, on the back button's midX, inset above the free strip's bottom.
+ * Null when that stack would meet the back button or leave the strip.
+ */
+export function duoRailJumpFrames(args: RowArgs): DuoRailJumpFrames | null {
+  const back = duoRailBackFrame(args)
+  const size = back.size
+  const gap = spacing.sm
+  const latestTop = args.windowHeight - args.strip.bottom - spacing.md - size
+  const previousTop = latestTop - gap - size
+  const backBottom = back.top + back.size
+  if (previousTop < backBottom + gap || previousTop < args.strip.top) {
+    return null
+  }
+  if (latestTop + size > args.windowHeight - args.strip.bottom) {
+    return null
+  }
+  return {
+    previous: { top: previousTop, left: back.left, size },
+    latest: { top: latestTop, left: back.left, size }
+  }
+}
+
 function clusterMidX(args: RowArgs, column: ReservedRect | null): number {
   const mark = column === null ? null : statusGlyph(column, args.occlusions)
   if (mark !== null) {
@@ -98,20 +126,13 @@ function clusterMidX(args: RowArgs, column: ReservedRect | null): number {
   return onRight ? args.windowWidth - STATUS_ROW_CENTER_FROM_EDGE : STATUS_ROW_CENTER_FROM_EDGE
 }
 
-function controlLeft(
-  midX: number,
-  span: { start: number; width: number },
-  size: number
-): number {
+function controlLeft(midX: number, span: { start: number; width: number }, size: number): number {
   const min = span.start
   const max = span.start + span.width - size
   return Math.min(Math.max(midX - size / 2, min), max)
 }
 
-function columnSpan(
-  args: RowArgs,
-  column: ReservedRect | null
-): { start: number; width: number } {
+function columnSpan(args: RowArgs, column: ReservedRect | null): { start: number; width: number } {
   if (column !== null) {
     return { start: column.x, width: column.width }
   }

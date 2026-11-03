@@ -40,7 +40,7 @@ import {
 import { MobileNativeChatLiveLine } from './transcript/MobileNativeChatLiveLine'
 import { MobileNativeChatAwaitingInputRow } from './transcript/MobileNativeChatAwaitingInputRow'
 import type { NativeChatAwaitingInput } from '../../../../src/shared/native-chat/native-chat-terminal-turn'
-import { MobileNativeChatFloatingControls } from './MobileNativeChatFloatingControls'
+import { MobileNativeChatJumpControls } from '../duo-rail-jump-controls'
 import type { PendingNativeChatImage } from './composer/mobile-native-chat-image-attachment'
 import {
   MobileNativeChatDraftComposer,
@@ -342,7 +342,7 @@ export function MobileNativeChatView({
               </GestureDetector>
             </MobileNativeChatScrollRootsBoundary>
           </MobileNativeChatDisclosureContext.Provider>
-          <MobileNativeChatFloatingControls
+          <MobileNativeChatJumpControls
             showJumpToTail={tail.showJumpToTail}
             onJumpToTail={jumpToTail}
           />
