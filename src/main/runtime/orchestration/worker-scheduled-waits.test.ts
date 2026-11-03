@@ -155,6 +155,42 @@ describe('scheduled worker waits', () => {
     expect(h.mail()).toHaveLength(1)
   })
 
+  it('clears a restored wait only when the working turn started after it was recorded', () => {
+    const h = setup()
+    h.db.insertMessage({
+      id: 'msg_wait',
+      from: 'term_worker',
+      to: `run:${h.run.id}`,
+      subject: 'status',
+      type: 'status',
+      runId: h.run.id
+    })
+    h.db.db
+      .prepare('UPDATE messages SET created_at = ? WHERE id = ?')
+      .run('2026-11-03 11:00:00', 'msg_wait')
+    h.wait()
+
+    h.db.clearWorkerScheduledWaitForPaneIfTurnStartedAfter(
+      'tab:leaf',
+      Date.parse('2026-11-03T11:00:00.500Z')
+    )
+    expect(
+      h.db.db
+        .prepare('SELECT 1 FROM worker_scheduled_waits WHERE dispatch_id = ?')
+        .get(h.dispatch.id)
+    ).toBeDefined()
+
+    h.db.clearWorkerScheduledWaitForPaneIfTurnStartedAfter(
+      'tab:leaf',
+      Date.parse('2026-11-03T12:00:00Z')
+    )
+    expect(
+      h.db.db
+        .prepare('SELECT 1 FROM worker_scheduled_waits WHERE dispatch_id = ?')
+        .get(h.dispatch.id)
+    ).toBeUndefined()
+  })
+
   it('does not report an expired wait after progress or settlement', () => {
     vi.useFakeTimers({ now: NOW })
     const h = setup()

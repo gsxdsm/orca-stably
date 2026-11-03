@@ -1,4 +1,5 @@
 import type { OrchestrationDb } from './orchestration-db'
+import { SQLITE_UTC_TIMESTAMP_RE } from './utc-timestamp'
 
 export const WORKER_SCHEDULED_WAITS_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS worker_scheduled_waits (
@@ -71,11 +72,57 @@ export function clearWorkerScheduledWait(db: OrchestrationDb, dispatchId: string
 }
 
 export function clearWorkerScheduledWaitForPane(db: OrchestrationDb, paneKey: string): void {
-  const dispatch = db.getActiveDispatchForTerminal('', paneKey)
-  const id = dispatch?.id ?? db.findActiveRemoteAttachmentForPane(paneKey)?.dispatch_id
+  const id = activeScheduledWaitDispatchId(db, paneKey)
   if (id) {
     clearWorkerScheduledWait(db, id)
   }
+}
+
+/** A restored working projection is progress only when that turn started after the wait was recorded. */
+export function clearWorkerScheduledWaitForPaneIfTurnStartedAfter(
+  db: OrchestrationDb,
+  paneKey: string,
+  turnStartedAtMs: number
+): void {
+  if (!Number.isFinite(turnStartedAtMs)) {
+    return
+  }
+  const id = activeScheduledWaitDispatchId(db, paneKey)
+  if (!id) {
+    return
+  }
+  const wait = db.db
+    .prepare('SELECT message_id FROM worker_scheduled_waits WHERE dispatch_id = ?')
+    .get(id) as { message_id: string } | undefined
+  const createdAt = wait
+    ? (db.db.prepare('SELECT created_at FROM messages WHERE id = ?').get(wait.message_id) as
+        | { created_at: string }
+        | undefined)
+    : undefined
+  const recordedAt = sqliteUtcMs(createdAt?.created_at)
+  // datetime('now') is whole seconds; the same second is not a later turn.
+  if (
+    recordedAt === undefined ||
+    Math.floor(turnStartedAtMs / 1000) <= Math.floor(recordedAt / 1000)
+  ) {
+    return
+  }
+  clearWorkerScheduledWait(db, id)
+}
+
+function activeScheduledWaitDispatchId(db: OrchestrationDb, paneKey: string): string | undefined {
+  return (
+    db.getActiveDispatchForTerminal('', paneKey)?.id ??
+    db.findActiveRemoteAttachmentForPane(paneKey)?.dispatch_id
+  )
+}
+
+function sqliteUtcMs(createdAt: string | undefined): number | undefined {
+  if (!createdAt || !SQLITE_UTC_TIMESTAMP_RE.test(createdAt)) {
+    return undefined
+  }
+  const ms = Date.parse(`${createdAt.replace(' ', 'T')}Z`)
+  return Number.isFinite(ms) ? ms : undefined
 }
 
 export function clearWorkerScheduledWaitForMessages(db: OrchestrationDb, ids: string[]): void {
@@ -133,12 +180,23 @@ const workerScheduledWaitMethods = {
   },
   clearWorkerScheduledWaitForPane(this: OrchestrationDb, paneKey: string): void {
     clearWorkerScheduledWaitForPane(this, paneKey)
+  },
+  clearWorkerScheduledWaitForPaneIfTurnStartedAfter(
+    this: OrchestrationDb,
+    paneKey: string,
+    turnStartedAtMs: number
+  ): void {
+    clearWorkerScheduledWaitForPaneIfTurnStartedAfter(this, paneKey, turnStartedAtMs)
   }
 }
 
 export type WorkerScheduledWaitMethods = {
   nextWorkerScheduledWaitAtMs: () => number | null
   clearWorkerScheduledWaitForPane: (paneKey: string) => void
+  clearWorkerScheduledWaitForPaneIfTurnStartedAfter: (
+    paneKey: string,
+    turnStartedAtMs: number
+  ) => void
 }
 
 export function attachWorkerScheduledWaits(ctor: { prototype: object }): void {

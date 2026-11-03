@@ -32,7 +32,9 @@ export class WorkerAutoReleaseActivity {
     }
   }
 
-  observeChat(summary: Pick<AgentSessionStatusSummary, 'sessionId' | 'status'>): void {
+  observeChat(
+    summary: Pick<AgentSessionStatusSummary, 'sessionId' | 'status' | 'statusStartedAt'>
+  ): void {
     const working = chatStatusInTurn(summary.status)
     const previous = this.chatWorking.get(summary.sessionId)
     if (previous === working) {
@@ -44,14 +46,26 @@ export class WorkerAutoReleaseActivity {
     if (paneKey) {
       if (working && previous === false) {
         this.clearScheduledWait(paneKey)
+      } else if (working && previous === undefined && summary.statusStartedAt !== undefined) {
+        this.clearScheduledWaitBeforeTurn(paneKey, summary.statusStartedAt)
       }
       this.apply(paneKey, working)
     }
   }
 
   private clearScheduledWait(paneKey: string): void {
+    this.guardedClear(() => this.getDb()?.clearWorkerScheduledWaitForPane(paneKey))
+  }
+
+  private clearScheduledWaitBeforeTurn(paneKey: string, turnStartedAtMs: number): void {
+    this.guardedClear(() =>
+      this.getDb()?.clearWorkerScheduledWaitForPaneIfTurnStartedAfter(paneKey, turnStartedAtMs)
+    )
+  }
+
+  private guardedClear(clear: () => void): void {
     try {
-      this.getDb()?.clearWorkerScheduledWaitForPane(paneKey)
+      clear()
     } catch (error) {
       console.warn('[orchestration] worker scheduled wait clear failed', error)
     }
