@@ -1,4 +1,7 @@
-import { MOBILE_AGENT_SESSION_RPC_METHODS } from './runtime-rpc-mobile-agent-session-methods'
+import {
+  MOBILE_AGENT_PROMPT_RPC_METHODS,
+  MOBILE_AGENT_SESSION_RPC_METHODS
+} from './runtime-rpc-mobile-agent-session-methods'
 import { PAIRED_DESKTOP_METHODS } from './runtime-rpc-mobile-paired-desktop-methods'
 
 // Execution-host routes follow the configured target; paired-desktop routes stay with the relaying Mac. This table also defines mobile allowlisting.
@@ -207,6 +210,7 @@ export const EXECUTION_HOST_METHODS = [
   'session.tabs.unsubscribe',
   'session.tabs.unsubscribeAll',
   ...MOBILE_AGENT_SESSION_RPC_METHODS,
+  ...MOBILE_AGENT_PROMPT_RPC_METHODS,
   'terminal.adoptOrphans',
   'terminal.agentStatus',
   'terminal.clearBuffer',

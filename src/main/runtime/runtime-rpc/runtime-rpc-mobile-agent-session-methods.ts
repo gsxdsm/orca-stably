@@ -45,3 +45,9 @@ export const MOBILE_AGENT_SESSION_RPC_METHODS = [
   'agentSession.hold',
   'agentSession.release'
 ] as const
+
+/** Watch approvals. Separate from the structured-session list so that manifest's length stays put. */
+export const MOBILE_AGENT_PROMPT_RPC_METHODS = [
+  'agentPrompt.listPending',
+  'agentPrompt.respond'
+] as const

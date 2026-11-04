@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { MobilePushPrompt } from '../../../shared/mobile-push-contract'
 import type { PushGatewayClient } from './push-gateway-client'
 import { PushDispatcher } from './push-dispatcher'
 import { mapPushAgentState } from '../../../shared/mobile-push-alert'
@@ -184,6 +185,123 @@ describe('PushDispatcher', () => {
 
     expect(() => dispatcher.enqueue(notification())).not.toThrow()
     warn.mockRestore()
+  })
+})
+
+describe('needs-input prompt fields', () => {
+  const small = {
+    promptId: 'term:pty:ssh:1:26bea7ae07aef52f093a',
+    options: [
+      { optionId: 'allow_once', label: 'Allow once', role: 'approve' as const },
+      { optionId: 'reject_once', label: 'Reject', role: 'deny' as const }
+    ]
+  }
+
+  function promptHarness(input: {
+    allows: boolean
+    prompt?: MobilePushPrompt | null
+    promptFor?: () => MobilePushPrompt | null
+  }) {
+    const sends: SendCall[] = []
+    const devices = [{ deviceId: 'a', pushRegistration: registration() }]
+    const client = {
+      send: vi.fn(async (call: SendCall) => {
+        sends.push(call)
+        return {
+          ok: true as const,
+          results: call.registrationIds.map((registrationId) => ({
+            registrationId,
+            status: 'queued' as const
+          }))
+        }
+      })
+    } as unknown as PushGatewayClient
+    const dispatcher = new PushDispatcher({
+      client,
+      registry: {
+        listDevices: () => devices,
+        setPushRegistration: () => true
+      },
+      scheduleRetry: () => undefined,
+      promptCategory: { allows: () => input.allows, refresh: () => undefined },
+      promptFor: input.promptFor ?? (() => input.prompt ?? null)
+    })
+    return { dispatcher, sends }
+  }
+
+  it("keeps today's payload when the gateway has not advertised support", async () => {
+    const harness = promptHarness({ allows: false, prompt: small })
+    harness.dispatcher.enqueue(notification({ agentState: 'blocked', paneKey: 'pane-1' }))
+    await flush()
+    expect(harness.sends[0]?.notification).not.toHaveProperty('category')
+    expect(harness.sends[0]?.notification).not.toHaveProperty('prompt')
+    expect(harness.sends[0]?.notification.agentState).toBe('needs-input')
+  })
+
+  it('attaches a category and prompt that fit', async () => {
+    const harness = promptHarness({ allows: true, prompt: small })
+    harness.dispatcher.enqueue(
+      notification({
+        agentState: 'blocked',
+        paneKey: 'pane-1',
+        title: 'Needs you',
+        body: 'Bash'
+      })
+    )
+    await flush()
+    expect(harness.sends[0]?.notification.category).toBe('orca.prompt')
+    expect(harness.sends[0]?.notification.prompt).toEqual(small)
+    expect(
+      new TextEncoder().encode(JSON.stringify(harness.sends[0]?.notification)).byteLength
+    ).toBeLessThanOrEqual(3000)
+  })
+
+  it('keeps the category when the prompt would pass 3000 bytes', async () => {
+    const fat = {
+      promptId: 'p'.repeat(512),
+      options: Array.from({ length: 12 }, (_, index) => ({
+        optionId: `${index}`.padStart(256, 'o'),
+        label: 'l'.repeat(80),
+        role: 'approve' as const
+      }))
+    }
+    const harness = promptHarness({ allows: true, prompt: fat })
+    harness.dispatcher.enqueue(notification({ agentState: 'blocked' }))
+    await flush()
+    expect(harness.sends[0]?.notification.category).toBe('orca.prompt')
+    expect(harness.sends[0]?.notification).not.toHaveProperty('prompt')
+    expect(
+      new TextEncoder().encode(JSON.stringify(harness.sends[0]?.notification)).byteLength
+    ).toBeLessThanOrEqual(3000)
+  })
+
+  it('still sends the original alert when prompt lookup throws', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const harness = promptHarness({
+      allows: true,
+      promptFor: () => {
+        throw new Error('lookup')
+      }
+    })
+    harness.dispatcher.enqueue(notification({ agentState: 'blocked' }))
+    await flush()
+    expect(harness.sends).toHaveLength(1)
+    expect(harness.sends[0]?.notification).not.toHaveProperty('category')
+    warn.mockRestore()
+  })
+
+  it('does not put a category on a finished alert or a dismissal', async () => {
+    const harness = promptHarness({ allows: true, prompt: small })
+    harness.dispatcher.enqueue(notification({ agentState: 'done' }))
+    harness.dispatcher.enqueue({
+      type: 'dismiss',
+      notificationId: 'agent:one',
+      notificationSeq: 8,
+      notificationEpoch: 'epoch-1'
+    })
+    await flush()
+    expect(harness.sends).toHaveLength(2)
+    expect(harness.sends.every((send) => !('category' in send.notification))).toBe(true)
   })
 })
 
