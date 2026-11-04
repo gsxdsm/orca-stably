@@ -119,7 +119,7 @@ final class WatchSessionModel: ObservableObject {
     return WatchAge.updatedLabel(generatedAt: generatedAt, now: now)
   }
 
-  var reachabilityLabel: String {
+  var reachabilityLabel: String? {
     WatchReachabilityCopy.label(reachable: reachable)
   }
 

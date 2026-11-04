@@ -40,7 +40,7 @@ final class WatchViewModelTests: XCTestCase {
   }
 
   func testReachabilityAndReplyCopy() {
-    XCTAssertEqual(WatchReachabilityCopy.label(reachable: true), "iPhone")
+    XCTAssertNil(WatchReachabilityCopy.label(reachable: true))
     XCTAssertEqual(WatchReachabilityCopy.label(reachable: false), "iPhone not reachable")
     XCTAssertEqual(WatchOutcomeCopy.text(for: WatchReply(v: 1, id: "cmd-1", ok: true)), "Sent ✓")
     XCTAssertEqual(WatchOutcomeCopy.text(for: WatchReply(v: 1, id: "cmd-1", ok: false, reason: "stale")), "That prompt changed")
