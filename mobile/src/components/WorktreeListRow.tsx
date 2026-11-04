@@ -88,6 +88,12 @@ function WorktreeListRowComponent({
     .join(', ')
   // Why: the desktop's compact card keeps an icon-only glyph for remote projects after the host badge goes.
   const showHostGlyph = !cardDetails.metaRow && isRemoteExecutionHostId(hostId)
+  const showHostBadge =
+    cardDetails.host && Boolean(view.hostContextLabel || view.hostContextHealthLabel)
+  // Why: like the desktop, skip a blank meta lane when every part of it is off.
+  const showMetaRow =
+    cardDetails.metaRow &&
+    (lineageDepth > 0 || showHostBadge || showRepoInMetaRow || cardDetails.identity)
   const sessionPress = useWorktreeRowSession(item, selectableSessions, onPress, onAgentPress)
   const handleLongPress = sessionPress.cardLongPress(onLongPress, triggerMediumImpact)
   const handleSessionLongPress = sessionPress.sessionLongPress(
@@ -179,7 +185,7 @@ function WorktreeListRowComponent({
               <Text style={styles.terminalCount}>{item.liveTerminalCount}</Text>
             ) : null}
           </View>
-          {cardDetails.metaRow && (
+          {showMetaRow && (
             <View style={styles.worktreeMetaRow}>
               {lineageDepth > 0 && (
                 <View style={styles.childBadge}>
@@ -189,7 +195,7 @@ function WorktreeListRowComponent({
                   </Text>
                 </View>
               )}
-              {cardDetails.host && (view.hostContextLabel || view.hostContextHealthLabel) ? (
+              {showHostBadge ? (
                 <View
                   style={[styles.childBadge, styles.hostBadge]}
                   accessibilityLabel={hostAccessibilityLabel}
@@ -219,9 +225,11 @@ function WorktreeListRowComponent({
                   </Text>
                 </>
               )}
-              <Text style={styles.branchName} numberOfLines={1}>
-                {metaText}
-              </Text>
+              {cardDetails.identity && (
+                <Text style={styles.branchName} numberOfLines={1}>
+                  {metaText}
+                </Text>
+              )}
             </View>
           )}
         </View>

@@ -58,6 +58,7 @@ import {
 } from '../runtime-visible-catalog'
 import { isWorkspaceNotificationMuted } from '../workspace-notification-mute'
 import { WorkerAutoReleaseActivity as Release } from '../orchestration/worker-auto-release-activity'
+import { nativeChatIdleStopMs } from '../../../shared/native-chat/native-chat-idle-stop'
 
 export abstract class OrcaRuntimeWithGetWorktreePs extends OrcaRuntimeWithWorktreePsDependencies {
   protected readonly workerAutoReleaseActivity = new Release(() => this._orchestrationDb)
@@ -243,6 +244,7 @@ export abstract class OrcaRuntimeWithGetWorktreePs extends OrcaRuntimeWithWorktr
       ...catalogDeps,
       claudeCliFlags: claudeCliFlagSupport,
       usageLimitAutoContinue: this.usageLimitAutoContinueHostDeps(),
+      idleSweep: { idleMs: () => nativeChatIdleStopMs(this.requireStore().getSettings()) },
       nativeChatVisuals: {
         isEnabled: () => this.requireStore().getSettings().nativeChatInlineVisuals !== false
       },

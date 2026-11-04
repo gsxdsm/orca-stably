@@ -8,10 +8,11 @@ import { useNativeChatRowTypography } from './use-native-chat-row-typography'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { CommentMarkdownLinkClickHandler } from '@/components/sidebar/CommentMarkdown'
 import { translate } from '@/i18n/i18n'
+import { useAppStore } from '@/store'
+import { nativeChatScrollsToLatestOnSend } from '../../../../shared/native-chat/native-chat-appearance-settings'
 import type { NativeChatLiveSession } from './use-native-chat-live-session'
 import { useNativeChatTranscriptProjection } from './use-native-chat-transcript-projection'
 import { desktopStructuredTranscript } from './structured-agent-session-message-projection'
-import { nativeChatTaskListPredecessors } from '../../../../shared/native-chat/input/native-chat-task-list-history'
 import { NativeChatActivityBar } from './NativeChatActivityBar'
 import { useNativeChatSubagentTranscript } from './use-native-chat-subagent-transcript'
 import { useNativeChatTurnStatus } from './use-native-chat-turn-status'
@@ -34,7 +35,7 @@ import {
 } from './native-chat-transcript-slots'
 import { useNativeChatTranscriptSlots } from './use-native-chat-transcript-slots'
 import { useNativeChatTranscriptWindow } from './use-native-chat-transcript-window'
-import { useNativeChatSubagentSections } from './use-native-chat-subagent-sections'
+import type { useNativeChatSubagentSections } from './use-native-chat-subagent-sections'
 import { toggleNativeChatExpandedKey } from './native-chat-expanded-keys'
 import { useNativeChatTurnMembership } from './use-native-chat-turn-membership'
 import { useNativeChatTranscriptScroll } from './use-native-chat-transcript-scroll'
@@ -163,17 +164,7 @@ export function NativeChatMessageList({
     subagentChoices,
     subagentDisclosure,
     openSubagentSections
-  } = useNativeChatSubagentSections(view.transcriptMessages, view.sectionRows, view.sectionRoster)
-  // Folded subagent rows stay loaded, so a reopened reply keeps its reveal.
-  const loadedMessageIds = useMemo(
-    () =>
-      new Set([...view.transcriptMessages.map(({ id }) => id), ...subagentSections.pathOf.keys()]),
-    [view.transcriptMessages, subagentSections]
-  )
-  const taskListPredecessors = useMemo(
-    () => nativeChatTaskListPredecessors(view.transcriptMessages),
-    [view.transcriptMessages]
-  )
+  } = view
   const turnRows = useNativeChatTurnMembership(
     view.transcriptMessages,
     journalItems,
@@ -257,7 +248,7 @@ export function NativeChatMessageList({
     consumeProgrammaticScroll: transcriptWindow.consumeProgrammaticScroll,
     reconcileReaderScroll: transcriptWindow.reconcileReaderScroll
   })
-  const { showJump, onScroll, scrollToBottom, scrollMessageToTop, readerLeavesEnd } =
+  const { showJump, onScroll, scrollToBottom, readerAtEnd, scrollMessageToTop, readerLeavesEnd } =
     transcriptScroll
   const olderHistory = useNativeChatOlderHistoryAutoload({
     scrollRef,
@@ -323,7 +314,23 @@ export function NativeChatMessageList({
     onLeaveEnd: readerLeavesEnd,
     onScrollGesture: transcriptScroll.forwardedGesture
   })
-  useNativeChatMessageListHandle(ref, jumpToLatest, readerInput.revealFindMatch, allSlots)
+  // Off keeps a reader who scrolled up in place; one at the end still follows the reply.
+  const revealSent = useCallback(
+    (readerWasAtEnd = readerAtEnd()) => {
+      if (!nativeChatScrollsToLatestOnSend(useAppStore.getState().settings) && !readerWasAtEnd) {
+        return
+      }
+      jumpToLatest()
+    },
+    [jumpToLatest, readerAtEnd]
+  )
+  useNativeChatMessageListHandle(
+    ref,
+    revealSent,
+    readerInput.revealFindMatch,
+    allSlots,
+    readerAtEnd
+  )
   useNativeChatRailJumpLanding({
     railJump,
     slots,
@@ -339,7 +346,7 @@ export function NativeChatMessageList({
     structuredAttachments,
     expandSignal,
     revealedDiff,
-    taskListPredecessors,
+    taskListPredecessors: view.taskListPredecessors,
     expandedTurnIds,
     deliveryNotices,
     allowFileUriLinks,
@@ -381,7 +388,7 @@ export function NativeChatMessageList({
               >
                 <NativeChatTranscriptItems
                   slots={slots}
-                  loadedMessageIds={loadedMessageIds}
+                  loadedMessageIds={view.loadedMessageIds}
                   context={rowContext}
                   window={transcriptWindow}
                   forwardGesture={readerInput.forwardedGesture}

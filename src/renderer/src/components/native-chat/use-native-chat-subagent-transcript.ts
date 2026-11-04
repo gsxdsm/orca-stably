@@ -8,6 +8,7 @@ import type { NativeChatAwaitingInput } from '../../../../shared/native-chat/nat
 import type { StructuredAgentSubagentRoster } from '../../../../shared/agent-session/view/structured-agent-session-subagent-roster'
 import type { NativeChatSubagentRow } from '../../../../shared/native-chat/transcript/native-chat-transcript-projection'
 import { frameNativeChatSubagentTranscript } from '../../../../shared/native-chat/input/native-chat-subagent-brief'
+import { nativeChatTaskListPredecessors } from '../../../../shared/native-chat/input/native-chat-task-list-history'
 import { linkUnrecordedSubagentSpawns } from '../../../../shared/native-chat/input/native-chat-unlinked-subagent-spawn'
 import type { NativeChatMessage } from '../../../../shared/native-chat/native-chat-types'
 import type { NativeChatOlderPageResult } from './native-chat-pagination'
@@ -15,6 +16,7 @@ import {
   useNativeChatSubagentPage,
   type NativeChatSubagentPageRead
 } from './use-native-chat-subagent-page'
+import { useNativeChatSubagentSections } from './use-native-chat-subagent-sections'
 
 const NO_SUBAGENT_ROWS: ReadonlyMap<string, readonly NativeChatSubagentRow[]> = new Map()
 
@@ -68,6 +70,13 @@ export function useNativeChatSubagentTranscript({
     loadingEarlier: boolean
     loadEarlier: () => Promise<NativeChatOlderPageResult>
   } | null
+  sections: ReturnType<typeof useNativeChatSubagentSections>['sections']
+  subagentRowsInOrder: ReturnType<typeof useNativeChatSubagentSections>['subagentRowsInOrder']
+  subagentChoices: ReturnType<typeof useNativeChatSubagentSections>['subagentChoices']
+  subagentDisclosure: ReturnType<typeof useNativeChatSubagentSections>['subagentDisclosure']
+  openSubagentSections: ReturnType<typeof useNativeChatSubagentSections>['openSubagentSections']
+  loadedMessageIds: ReadonlySet<string>
+  taskListPredecessors: ReturnType<typeof nativeChatTaskListPredecessors>
 } {
   const { sessionId, taskList = null, subagentSeed = null, readSubagentPage = null } = session
   const [focus, setFocus] = useState<{ sessionId: string | null; agentId: string | null }>({
@@ -132,10 +141,28 @@ export function useNativeChatSubagentTranscript({
     (agentId: string | null) => setFocus({ sessionId, agentId }),
     [sessionId]
   )
+  const sectionRows = viewingSubagent ? NO_SUBAGENT_ROWS : subagentRows
+  const sectionRoster = viewingSubagent ? undefined : subagentRoster
+  const {
+    sections,
+    subagentRowsInOrder,
+    subagentChoices,
+    subagentDisclosure,
+    openSubagentSections
+  } = useNativeChatSubagentSections(transcriptMessages, sectionRows, sectionRoster)
+  // Folded subagent rows stay loaded, so a reopened reply keeps its reveal.
+  const loadedMessageIds = useMemo(
+    () => new Set([...transcriptMessages.map(({ id }) => id), ...sections.pathOf.keys()]),
+    [transcriptMessages, sections]
+  )
+  const taskListPredecessors = useMemo(
+    () => nativeChatTaskListPredecessors(transcriptMessages),
+    [transcriptMessages]
+  )
   return {
     transcriptMessages,
-    sectionRows: viewingSubagent ? NO_SUBAGENT_ROWS : subagentRows,
-    sectionRoster: viewingSubagent ? undefined : subagentRoster,
+    sectionRows,
+    sectionRoster,
     shownWorking: viewingSubagent ? false : isWorking,
     shownAwaitingInput: viewingSubagent ? null : awaitingInput,
     shownStopping: viewingSubagent ? false : stopping,
@@ -158,6 +185,13 @@ export function useNativeChatSubagentTranscript({
       taskList,
       subagentSeed,
       sessionId
-    }
+    },
+    sections,
+    subagentRowsInOrder,
+    subagentChoices,
+    subagentDisclosure,
+    openSubagentSections,
+    loadedMessageIds,
+    taskListPredecessors
   }
 }

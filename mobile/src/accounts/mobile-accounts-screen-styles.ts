@@ -14,6 +14,10 @@ export const styles = themedStyleSheet(() => ({
   section: {
     marginBottom: spacing.xl
   },
+  // On a screen, not a sheet: one step above the page, as the other screen groups are.
+  group: {
+    backgroundColor: colors.bgPanel
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',

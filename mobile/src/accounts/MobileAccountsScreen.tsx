@@ -30,6 +30,12 @@ import {
   type ManagedDataProvider
 } from './managed-data-account-section'
 import { ProviderUsageSection } from './provider-usage-section'
+import { getOtherUsageProviders } from '../components/account-usage-state'
+import { MobileAgentIcon } from '../components/MobileAgentIcon'
+import { getProviderDisplayName } from '../../../src/shared/usage-provider-windows'
+import { ProviderUsageWindows } from './ProviderUsageWindows'
+import { ListGroup, SectionHeader, ListRow } from '../components/list/ListGroup'
+import { subscribeAccountsSnapshots } from './accounts-snapshot-stream'
 
 type AccountsNotice = { title: string; message: string }
 
@@ -170,24 +176,11 @@ export function MobileAccountsScreen() {
     if (!client || connState !== 'connected') {
       return
     }
-    const unsubscribe = client.subscribe('accounts.subscribe', null, (payload) => {
-      if (!payload || typeof payload !== 'object') {
-        return
-      }
-      const evt = payload as { type?: string; snapshot?: unknown }
-      if (evt.type === 'error') {
-        void refresh()
-        return
-      }
-      if (evt.type === 'ready' || evt.type === 'snapshot') {
-        try {
-          acceptSnapshot(decodeAccountsSnapshot(evt.snapshot))
-        } catch {
-          rejectInvalidSnapshot()
-        }
-      }
+    return subscribeAccountsSnapshots(client, {
+      onSnapshot: acceptSnapshot,
+      onInvalidSnapshot: rejectInvalidSnapshot,
+      onStreamError: () => void refresh()
     })
-    return unsubscribe
   }, [acceptSnapshot, client, connState, refresh, rejectInvalidSnapshot])
 
   const selectAccount = useCallback(
@@ -339,6 +332,7 @@ export function MobileAccountsScreen() {
             <ProviderUsageSection provider="grok" snapshot={snapshot} now={now} />
             <ProviderUsageSection provider="cursor" snapshot={snapshot} now={now} />
             <ProviderUsageSection provider="zcode" snapshot={snapshot} now={now} />
+            <OtherUsageProviders snapshot={snapshot} now={now} />
             <View style={styles.footerHint}>
               <User size={14} color={colors.textMuted} />
               <Text style={styles.footerHintText}>
@@ -368,6 +362,51 @@ export function MobileAccountsScreen() {
         onCancel={() => setNotice(null)}
       />
     </SafeAreaView>
+  )
+}
+
+const DEDICATED_USAGE_PROVIDERS = new Set([
+  'gemini',
+  'opencode-go',
+  'opencodeGo',
+  'antigravity',
+  'minimax',
+  'grok',
+  'cursor',
+  'zcode'
+])
+
+function OtherUsageProviders({ snapshot, now }: { snapshot: AccountsSnapshot; now: number }) {
+  const t = useMobileTranslation()
+  const providers = getOtherUsageProviders(snapshot).filter(
+    (limits) => !DEDICATED_USAGE_PROVIDERS.has(limits.provider)
+  )
+  if (providers.length === 0) {
+    return null
+  }
+  return (
+    <View>
+      <SectionHeader title={t('accounts.screen.otherAgents', 'Other agents')} />
+      <ListGroup style={styles.group}>
+        {providers.map((limits) => (
+          <ListRow
+            key={limits.provider}
+            title={getProviderDisplayName(limits.provider)}
+            leading={<MobileAgentIcon agentId={limits.provider} size={16} />}
+            detail={
+              <>
+                <ProviderUsageWindows limits={limits} now={now} />
+                {limits.error ? (
+                  <Text style={styles.errorText} numberOfLines={1}>
+                    {limits.error}
+                  </Text>
+                ) : null}
+              </>
+            }
+          />
+        ))}
+      </ListGroup>
+    </View>
   )
 }
 

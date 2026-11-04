@@ -2,6 +2,7 @@
 // Pure RN-free selectors stay directly testable; AccountUsage re-exports them with UsageBar.
 import { isCursorUsageBucket } from '../../../src/shared/cursor-usage-buckets'
 import { formatResetCountdown } from '../../../src/shared/rate-limit-reset-format'
+import { hasUsageData } from '../../../src/shared/usage-provider-windows'
 import type {
   AccountsSnapshot,
   InactiveAccountUsage,
@@ -14,6 +15,7 @@ export {
   decodeAccountsSnapshot,
   ProviderRateLimitsSchema,
   RateLimitRuntimeTargetSchema,
+  type AccountProviderRateLimits,
   type AccountsSnapshot,
   type ClaudeAccountSummary,
   type CodexAccountSummary,
@@ -54,27 +56,16 @@ export function getInactiveProviderUsage(
 
 // System-default logins still fetch quota without managed accounts. Show successful provider or any window data; empty unavailable/error means no credentials.
 export function hasActiveProviderUsage(limits: ProviderRateLimits | null): boolean {
-  if (!limits) {
-    return false
-  }
-  if (
-    limits.session != null ||
-    limits.weekly != null ||
-    limits.monthly != null ||
-    (limits.buckets && limits.buckets.length > 0)
-  ) {
-    return true
-  }
-  return limits.status === 'ok'
+  return limits !== null && (hasUsageData(limits) || limits.status === 'ok')
 }
 
-// Determine availability per window because transient provider errors retain successful window data.
+// Key form is the fork's named windows. Object form is a single desktop window section.
 export function getUsageBarState(
   limits: ProviderRateLimits | null,
-  windowKey: UsageWindowKey,
+  windowOrKey: RateLimitWindow | UsageWindowKey | null,
   isFetchingOverride?: boolean
 ): UsageBarState {
-  const window = limits?.[windowKey] ?? null
+  const window = typeof windowOrKey === 'string' ? (limits?.[windowOrKey] ?? null) : windowOrKey
   const fetching =
     isFetchingOverride ?? (limits?.status === 'fetching' || limits?.status === 'idle')
   return {
@@ -84,18 +75,24 @@ export function getUsageBarState(
   }
 }
 
-// Use desktop formatResetCountdown copy with injectable now; return null without reset timestamp to retain bars-only UI.
+// Second argument is a window key for fork callers and an absolute timestamp for one window.
 export function getWindowResetLabel(
-  limits: ProviderRateLimits | null,
-  windowKey: UsageWindowKey,
-  now: number
+  limitsOrWindow: ProviderRateLimits | RateLimitWindow | null,
+  windowKeyOrNow: UsageWindowKey | number,
+  now?: number
 ): string | null {
-  const resetsAt = limits?.[windowKey]?.resetsAt
-  if (resetsAt == null) {
+  const resetsAt =
+    typeof windowKeyOrNow === 'number'
+      ? (limitsOrWindow as RateLimitWindow | null)?.resetsAt
+      : (limitsOrWindow as ProviderRateLimits | null)?.[windowKeyOrNow]?.resetsAt
+  const at = typeof windowKeyOrNow === 'number' ? windowKeyOrNow : now
+  if (resetsAt == null || at == null) {
     return null
   }
-  return formatResetCountdown(resetsAt - now)
+  return formatResetCountdown(resetsAt - at)
 }
+
+export { getOtherUsageProviders } from './other-usage-providers'
 
 // Show provider with managed accounts or active system-default quota; management is not required for usage UI.
 export function hasRenderableUsage(snapshot: AccountsSnapshot, provider: ProviderKey): boolean {

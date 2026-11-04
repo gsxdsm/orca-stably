@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
   collectProviderUsageMeters,
+  decodeAccountsSnapshot,
   getGrokUsageWindowKey,
   getInactiveProviderUsage,
+  getOtherUsageProviders,
   getUsageBarState,
   getWindowResetLabel,
   hasActiveProviderUsage,
@@ -11,11 +13,16 @@ import {
   hasRenderableProviderUsage,
   hasRenderableUsage,
   readUsageAuthProvenance,
+  type AccountProviderRateLimits,
   type AccountsSnapshot,
   type InactiveAccountUsage,
   type MobileUsageProviderId,
   type ProviderRateLimits
 } from './account-usage-state'
+
+function asAccountLimits(limits: ProviderRateLimits): AccountProviderRateLimits {
+  return limits as AccountProviderRateLimits
+}
 
 function makeLimits(overrides: Partial<ProviderRateLimits> = {}): ProviderRateLimits {
   return {
@@ -55,8 +62,8 @@ function makeSnapshot(
       activeAccountIdsByRuntime: { host: null, wsl: {} }
     },
     rateLimits: {
-      claude: overrides.claudeLimits ?? null,
-      codex: overrides.codexLimits ?? null,
+      claude: overrides.claudeLimits ? asAccountLimits(overrides.claudeLimits) : null,
+      codex: overrides.codexLimits ? asAccountLimits(overrides.codexLimits) : null,
       ...(overrides.grokLimits !== undefined ? { grok: overrides.grokLimits } : {}),
       ...(overrides.grokAuthConfigured !== undefined
         ? { grokAuthConfigured: overrides.grokAuthConfigured }
@@ -137,7 +144,12 @@ describe('getInactiveProviderUsage', () => {
     })
     const snapshot = makeSnapshot({
       inactiveClaudeAccounts: [
-        { accountId: 'account-1', rateLimits: limits, updatedAt: 123, isFetching: false }
+        {
+          accountId: 'account-1',
+          rateLimits: asAccountLimits(limits),
+          updatedAt: 123,
+          isFetching: false
+        }
       ]
     })
 
@@ -411,5 +423,60 @@ describe('desktop provider usage on mobile', () => {
         'gemini' satisfies MobileUsageProviderId
       )
     ).toBe(false)
+  })
+})
+
+function providerLimits(
+  provider: string,
+  overrides: Partial<ProviderRateLimits>
+): ProviderRateLimits {
+  return { ...makeLimits(), ...overrides, provider }
+}
+
+describe('getOtherUsageProviders', () => {
+  it('lists every set-up provider the host sends, in host order, beside Claude and Codex', () => {
+    const week = { usedPercent: 12, windowMinutes: 10_080, resetsAt: null, resetDescription: null }
+    const host = makeSnapshot({ claudeLimits: makeLimits({ status: 'ok', weekly: week }) })
+    const snapshot = decodeAccountsSnapshot({
+      ...host,
+      rateLimits: {
+        ...host.rateLimits,
+        gemini: providerLimits('gemini', {
+          status: 'unavailable',
+          error: 'OAuth disabled'
+        }),
+        antigravity: providerLimits('antigravity', {
+          status: 'ok',
+          buckets: [
+            { name: 'Gemini Models', group: 'Gemini Models', ...week },
+            { name: 'Claude and GPT models', ...week, windowMinutes: 0 }
+          ]
+        }),
+        kimi: providerLimits('kimi', {
+          status: 'idle'
+        }),
+        grok: providerLimits('grok', {
+          status: 'ok',
+          weekly: week
+        }),
+        cursor: providerLimits('cursor', {
+          status: 'error',
+          error: 'Cursor is down'
+        }),
+        'future-agent': providerLimits('future-agent', {
+          status: 'ok',
+          monthly: week
+        }),
+        broken: { provider: 'broken', status: 'ok', weekly: { usedPercent: 'lots' } },
+        grokAuthConfigured: true
+      }
+    })
+
+    expect(getOtherUsageProviders(snapshot).map((limits) => limits.provider)).toEqual([
+      'antigravity',
+      'grok',
+      'cursor',
+      'future-agent'
+    ])
   })
 })
