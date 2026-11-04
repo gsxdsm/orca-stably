@@ -55,13 +55,17 @@ final class WatchSessionModel: ObservableObject {
 
   static func make() -> WatchSessionModel {
     let launch = WatchLaunch.parse()
-    let loaded = WatchFixtureLoader.snapshot()
     let cache = WatchSnapshotCache(defaults: WatchAppGroup.defaults())
-    if launch.usePhone {
+    #if DEBUG
+    let releaseBuild = false
+    #else
+    let releaseBuild = true
+    #endif
+    if watchUsesPhoneTransport(launch, release: releaseBuild) {
       let phone = PhoneWatchTransport()
       let model = WatchSessionModel(
         launch: launch,
-        snapshot: loaded,
+        snapshot: cache.read(),
         cache: cache,
         send: { command in await phone.send(command) },
         nextId: { UUID().uuidString }
@@ -72,7 +76,7 @@ final class WatchSessionModel: ObservableObject {
     let transport = MockWatchTransport()
     return WatchSessionModel(
       launch: launch,
-      snapshot: loaded,
+      snapshot: WatchFixtureLoader.snapshot(),
       cache: cache,
       send: { command in await transport.send(command) },
       nextId: { UUID().uuidString }

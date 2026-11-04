@@ -15,7 +15,7 @@ struct WatchLaunch: Equatable {
   var reachable = true
   var outcome: String?
   var phase: String?
-  var usePhone = false
+  var useMock = false
   var screenshot = false
 
   static func parse(_ arguments: [String] = CommandLine.arguments) -> WatchLaunch {
@@ -51,8 +51,11 @@ struct WatchLaunch: Equatable {
         }
         launch.screenshot = true
         index += 2
+      case "-OrcaWatchMock":
+        launch.useMock = true
+        index += 1
       case "-OrcaWatchPhone":
-        launch.usePhone = true
+        launch.useMock = false
         index += 1
       default:
         index += 1
@@ -60,4 +63,8 @@ struct WatchLaunch: Equatable {
     }
     return launch
   }
+}
+
+func watchUsesPhoneTransport(_ launch: WatchLaunch, release: Bool) -> Bool {
+  release || !launch.useMock
 }

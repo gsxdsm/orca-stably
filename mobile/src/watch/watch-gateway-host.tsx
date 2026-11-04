@@ -7,6 +7,7 @@ import type { ConnectionState } from '../transport/types'
 import { useAllHostClients } from '../transport/use-all-host-clients'
 import { useOpenNotificationRoute } from '../notifications/use-open-notification-route'
 import type { WatchHost } from './watch-contract'
+import { watchGatewayEnabled } from './watch-gateway-availability'
 import { startWatchGateway, type WatchLiveHost } from './watch-gateway-live'
 import { setWatchPromptResponseHandler } from './watch-prompt-actions'
 
@@ -31,7 +32,7 @@ export function WatchGatewayHost() {
   const openNotificationRoute = useOpenNotificationRoute()
   const openRouteRef = useRef(openNotificationRoute)
   openRouteRef.current = openNotificationRoute
-  const enabled = Platform.OS !== 'web'
+  const enabled = watchGatewayEnabled(Platform.OS, OrcaWatchConnectivity)
   const [catalog, setCatalog] = useState<Array<{ id: string; name: string }>>([])
   const clients = useAllHostClients(enabled ? catalog.map((host) => host.id) : [])
   const gatewayRef = useRef<ReturnType<typeof startWatchGateway> | null>(null)

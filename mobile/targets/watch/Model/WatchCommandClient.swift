@@ -2,13 +2,13 @@ import Foundation
 
 struct WatchCommandClient {
   var send: (WatchCommand) async -> WatchReply
-  var pause: (Int) async -> Void
+  var pause: (Double) async -> Void
   var onPhase: @MainActor (String?) -> Void
 
   init(
     send: @escaping (WatchCommand) async -> WatchReply,
-    pause: @escaping (Int) async -> Void = { seconds in
-      try? await Task.sleep(nanoseconds: UInt64(seconds) * 1_000_000_000)
+    pause: @escaping (Double) async -> Void = { seconds in
+      try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
     },
     onPhase: @escaping @MainActor (String?) -> Void
   ) {
@@ -17,14 +17,14 @@ struct WatchCommandClient {
     self.onPhase = onPhase
   }
 
-  // The phone dedupes by command id, so a wake retry has to repeat this same command.
+  // Same command id. Five attempts, pausing 2.5, 3, 3.5, then 4 seconds.
   @MainActor
   func perform(_ command: WatchCommand) async -> WatchReply {
     var last = WatchReply(v: 1, id: command.id, ok: false, reason: "phone_unavailable")
-    for attempt in 1...3 {
-      if attempt > 1 {
+    for delay in [0, 2.5, 3, 3.5, 4] {
+      if delay > 0 {
         onPhase("Waking iPhone…")
-        await pause(3)
+        await pause(delay)
       }
       last = await send(command)
       if last.ok || last.reason != "phone_unavailable" {
