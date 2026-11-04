@@ -146,4 +146,98 @@ describe('mobile Hermes terminal queue', () => {
     expect(onSendError).toHaveBeenCalledTimes(1)
     expect(onSendError).toHaveBeenCalledWith('Message not sent')
   })
+
+  it('drops a held busy snapshot when the queue is disabled', async () => {
+    const reads: Array<
+      (value: {
+        id: string
+        ok: true
+        result: NativeChatTerminalQueueSnapshot
+        _meta: { runtimeId: string }
+      }) => void
+    > = []
+    const working: NativeChatTerminalQueueSnapshot = {
+      revision: '1',
+      activity: { state: 'working', workingSequence: 1 },
+      queuedMessages: [
+        {
+          messageId: '11111111-1111-4111-8111-111111111111',
+          position: 1,
+          state: 'waiting',
+          body: { kind: 'message', role: 'user', blocks: [{ type: 'text', text: 'Held' }] }
+        }
+      ]
+    }
+    const client: RpcClient = {
+      sendRequest: async (_method, params) => {
+        const { action } = NativeChatTerminalQueueRequest.parse(params)
+        if (action.type !== 'read') {
+          return {
+            id: 'q',
+            ok: false,
+            error: { code: 'internal', message: 'unexpected' },
+            _meta: { runtimeId: 'r' }
+          }
+        }
+        return new Promise((resolve) => {
+          reads.push(resolve)
+        })
+      },
+      subscribe: () => () => {},
+      updateTerminalSubscriptionViewport: () => {},
+      getState: () => 'connected',
+      getReconnectAttempt: () => 0,
+      getLastConnectedAt: () => 1,
+      onStateChange: () => () => {},
+      notifyForeground: () => {},
+      close: () => {}
+    }
+    let api: ReturnType<typeof useMobileTerminalChatQueue> | undefined
+    function Harness({ enabled = true }: { enabled?: boolean }) {
+      api = useMobileTerminalChatQueue({
+        client,
+        terminal: 'term',
+        enabled,
+        hostCapabilities: [NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY],
+        appendText: () => true
+      })
+      return null
+    }
+    await act(async () => {
+      renderer = create(createElement(Harness))
+    })
+    await act(async () => {
+      reads.shift()?.({
+        id: 'q',
+        ok: true,
+        result: working,
+        _meta: { runtimeId: 'r' }
+      })
+    })
+    expect(api?.activity?.state).toBe('working')
+    expect(api?.controls.cards).toHaveLength(1)
+    await act(async () => {
+      renderer?.update(createElement(Harness, { enabled: false }))
+    })
+    expect(api?.activity).toBeUndefined()
+    expect(api?.controls.cards).toEqual([])
+    await act(async () => {
+      renderer?.update(createElement(Harness))
+    })
+    expect(api?.activity).toBeUndefined()
+    expect(api?.controls.cards).toEqual([])
+    await act(async () => {
+      reads.shift()?.({
+        id: 'q',
+        ok: true,
+        result: {
+          revision: '2',
+          activity: { state: 'idle', workingSequence: 2 },
+          queuedMessages: []
+        },
+        _meta: { runtimeId: 'r' }
+      })
+    })
+    expect(api?.activity?.state).toBe('idle')
+  })
 })

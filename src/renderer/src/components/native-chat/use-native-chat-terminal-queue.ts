@@ -125,7 +125,12 @@ export function useNativeChatTerminalQueue(args: {
     const timer = setInterval(() => void poll(), 1_000)
     return () => clearInterval(timer)
   }, [enabled, request])
-  const snapshot = held?.scope === scope ? held.snapshot : null
+  useEffect(() => {
+    if (!enabled) {
+      setHeld(null)
+    }
+  }, [enabled])
+  const snapshot = enabled && held?.scope === scope ? held.snapshot : null
   const controller = useMemo<StructuredAgentSessionQueuedMessagesController>(
     () => ({
       cards: projectQueuedMessageCards(snapshot?.queuedMessages, [], {}).map((card) => ({

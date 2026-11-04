@@ -91,6 +91,11 @@ export function useMobileTerminalChatQueue(args: {
     const timer = setInterval(() => void poll(), 1_000)
     return () => clearInterval(timer)
   }, [enabled, request])
+  useEffect(() => {
+    if (!enabled) {
+      setHeld(null)
+    }
+  }, [enabled])
   const snapshot = enabled && held?.terminal === terminal ? held.snapshot : null
   const enqueue = useCallback(
     async (text: string): Promise<MobileNativeChatSendOutcome> => {

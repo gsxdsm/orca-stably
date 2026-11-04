@@ -4,6 +4,8 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import Database from '../sqlite/sync-database'
 import { readHermesTranscriptPage, readHermesTranscriptSignal } from './transcript-hermes-sqlite'
+import { OPENCODE_TRANSCRIPT_MAX_ROW_BYTES } from './transcript-opencode-part-blocks'
+import { AGENT_SESSION_HOST_STATUS_COPY } from '../../shared/agent-session/view/agent-session-host-status-rows'
 import { handleOpenCodeSqliteRequest } from '../ai-vault/scanners/opencode/reader-transport/session-scanner-opencode-sqlite-dispatch'
 import { subscribeOpenCodeNativeChatTranscript } from './transcript-opencode-subscribe'
 
@@ -165,5 +167,36 @@ describe('Hermes transcript database', () => {
     } finally {
       subscription.unsubscribe()
     }
+  })
+
+  it('replaces an oversized field and still returns the rest of the page', () => {
+    const dbPath = fixture()
+    const db = new Database(dbPath)
+    const huge = 'x'.repeat(OPENCODE_TRANSCRIPT_MAX_ROW_BYTES + 1)
+    const insert = db.prepare('INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    insert.run(7, 'session-a', 'tool', huge, null, 'call-1', 1700000006, 1, 0)
+    insert.run(8, 'session-a', 'assistant', 'kept', huge, null, 1700000007, 1, 0)
+    insert.run(9, 'session-a', 'tool', null, null, 'call-2', 1700000008, 1, 0)
+    db.close()
+    const page = readHermesTranscriptPage({ dbPath, sessionId: 'session-a', limit: 5 })
+    const byOffset = new Map(
+      page?.items.map((item) => [item.message.transcriptOffset, item.message])
+    )
+    expect(byOffset.get(7)?.blocks).toEqual([
+      {
+        type: 'tool-result',
+        output: AGENT_SESSION_HOST_STATUS_COPY['history-item-too-large'],
+        callId: 'call-1'
+      }
+    ])
+    expect(byOffset.get(8)?.blocks).toEqual([
+      { type: 'text', text: 'kept' },
+      {
+        type: 'text',
+        text: AGENT_SESSION_HOST_STATUS_COPY['history-item-too-large'],
+        presentation: 'history-item-too-large'
+      }
+    ])
+    expect(byOffset.get(9)?.blocks).toEqual([{ type: 'tool-result', output: '', callId: 'call-2' }])
   })
 })

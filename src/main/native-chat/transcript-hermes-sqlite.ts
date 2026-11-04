@@ -5,7 +5,9 @@ import { asRecord, extractString, timestampMs } from '../ai-vault/session-scanne
 import { columnExists, tableExists } from '../opencode-usage/schema-helpers'
 import type { NativeChatBlock, NativeChatMessage } from '../../shared/native-chat/native-chat-types'
 import { openCodeTranscriptPageLimit } from '../../shared/opencode-transcript-page-limit'
+import { agentSessionHostStatusBody } from '../../shared/agent-session/view/agent-session-host-status-rows'
 import { claudeContentBlocks, toolResultOutput } from './transcript-record-blocks'
+import { OPENCODE_TRANSCRIPT_MAX_ROW_BYTES } from './transcript-opencode-part-blocks'
 import { rowsOf } from './transcript-opencode-row-budget'
 import type {
   OpenCodeTranscriptItem,
@@ -19,8 +21,15 @@ type HermesMessageRow = {
   role: string
   content: string | null
   tool_calls: string | null
+  content_omitted: number
+  tool_calls_omitted: number
   tool_call_id: string | null
   timestamp: number
+}
+
+function boundedHermesText(column: 'content' | 'tool_calls'): string {
+  const limit = OPENCODE_TRANSCRIPT_MAX_ROW_BYTES
+  return `CASE WHEN length(CAST(${column} AS BLOB)) <= ${limit} THEN ${column} ELSE NULL END AS ${column}, CASE WHEN length(CAST(${column} AS BLOB)) > ${limit} THEN 1 ELSE 0 END AS ${column}_omitted`
 }
 
 function visibleRows(db: SyncDatabase): string {
@@ -113,20 +122,33 @@ function hermesContent(value: string | null): unknown {
   }
 }
 
+function omittedHermesText(): NativeChatBlock {
+  const { text, presentation } = agentSessionHostStatusBody('history-item-too-large')
+  return { type: 'text', text, presentation }
+}
+
 function decodeRow(row: HermesMessageRow): NativeChatMessage | null {
   let blocks: NativeChatBlock[]
   if (row.role === 'tool') {
     blocks = [
       {
         type: 'tool-result',
-        output: toolResultOutput(hermesContent(row.content)),
+        output: row.content_omitted
+          ? agentSessionHostStatusBody('history-item-too-large').text
+          : toolResultOutput(hermesContent(row.content)),
         ...(row.tool_call_id ? { callId: row.tool_call_id } : {})
       }
     ]
   } else if (row.role === 'assistant' || row.role === 'user') {
     blocks = [
-      ...claudeContentBlocks(hermesContent(row.content)),
-      ...(row.role === 'assistant' ? toolCalls(row.tool_calls) : [])
+      ...(row.content_omitted
+        ? [omittedHermesText()]
+        : claudeContentBlocks(hermesContent(row.content))),
+      ...(row.role === 'assistant'
+        ? row.tool_calls_omitted
+          ? [omittedHermesText()]
+          : toolCalls(row.tool_calls)
+        : [])
     ]
   } else {
     return null
@@ -160,7 +182,7 @@ export function readHermesTranscriptPage(args: {
     const limit = openCodeTranscriptPageLimit(args.limit)
     const rows = rowsOf<HermesMessageRow>(
       db.prepare(
-        `SELECT id, role, content, tool_calls, tool_call_id, timestamp FROM messages WHERE session_id = ?${visibleRows(db)} AND role IN ('user','assistant','tool') AND id < ? ORDER BY id DESC LIMIT ?`
+        `SELECT id, role, ${boundedHermesText('content')}, ${boundedHermesText('tool_calls')}, tool_call_id, timestamp FROM messages WHERE session_id = ?${visibleRows(db)} AND role IN ('user','assistant','tool') AND id < ? ORDER BY id DESC LIMIT ?`
       ),
       args.sessionId,
       args.beforeMessageRowId ?? Number.MAX_SAFE_INTEGER,
