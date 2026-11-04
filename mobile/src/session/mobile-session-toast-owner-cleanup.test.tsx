@@ -75,11 +75,8 @@ vi.mock('./use-session-title-card', () => ({
   useSessionTitleCard: () => ({
     active: false,
     visual: null,
-    tabId: null,
-    missingTab: false,
-    missingTitle: false,
     closeFirst: () => false,
-    scopeOpenerRef: { current: null },
+    openerRef: { current: null },
     layerRef: { current: null },
     onLayout: () => {}
   })
