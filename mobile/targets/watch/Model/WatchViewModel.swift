@@ -25,8 +25,9 @@ enum WatchAge {
 }
 
 enum WatchReachabilityCopy {
-  static func label(reachable: Bool) -> String {
-    reachable ? "iPhone" : "iPhone not reachable"
+  /// Connected is the normal case, so the status line stays quiet until the phone is unreachable.
+  static func label(reachable: Bool) -> String? {
+    reachable ? nil : "iPhone not reachable"
   }
 }
 
