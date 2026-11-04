@@ -1,4 +1,4 @@
-import { terminalSafe } from '../../shared/terminal-safe-text'
+import { terminalSafe } from '../../shared/terminal/output/terminal-safe-text'
 import { applyTerminalLineControls } from './terminal-tail-line-controls'
 
 const COMMAND_STARTED_MARK = '\x1b]133;C'

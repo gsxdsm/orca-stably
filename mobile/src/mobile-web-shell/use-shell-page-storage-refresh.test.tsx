@@ -213,7 +213,6 @@ it('publishes the last queued browser-link save after native return hydrated the
   act(() => renderer.unmount())
   releaseKeys()
 })
-
 it('republishes an accepted page zoom after an older native snapshot crosses the pinch', async () => {
   const key = 'orca:terminalTextScale'
   store.values.set(key, '1')

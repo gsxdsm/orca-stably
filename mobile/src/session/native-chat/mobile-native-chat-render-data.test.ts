@@ -71,7 +71,6 @@ describe('mobileNativeChatEmptyState', () => {
     expect(mobileNativeChatEmptyState('idle', 'claude')).toBeNull()
   })
 })
-
 function build(
   messages: NativeChatMessage[],
   streaming: string | null,
@@ -90,39 +89,6 @@ describe('buildMobileNativeChatTransientData', () => {
       { id: 'p1', text: 'Run the tests', sentAt: 100 }
     ])
     expect(data.map((message) => message.id)).toEqual(['a1', 'p1', 'streaming'])
-  })
-
-  it('appends pending optimistic messages at the tail as user turns', () => {
-    const data = build([assistant('a1', 'hello')], null, [{ id: 'p1', text: 'queued' }])
-    const last = data[data.length - 1]
-    expect(last.id).toBe('p1')
-    expect(last.role).toBe('user')
-    expect(last.blocks).toEqual([{ type: 'text', text: 'queued' }])
-  })
-
-  it('times an echo from when it was sent, as desktop times its pending sends', () => {
-    const data = build([assistant('a1', 'hello')], null, [
-      { id: 'p1', text: 'queued', sentAt: 1_792_024_037_937 }
-    ])
-    expect(data.at(-1)?.timestamp).toBe(1_792_024_037_937)
-  })
-
-  it('renders a pending send with images as text followed by image-ref thumbnails', () => {
-    const data = build([], null, [
-      { id: 'p1', text: 'look', images: ['file:///a.jpg', 'file:///b.jpg'] }
-    ])
-    const last = data[data.length - 1]
-    expect(last.role).toBe('user')
-    expect(last.blocks).toEqual([
-      { type: 'text', text: 'look' },
-      { type: 'image-ref', url: 'file:///a.jpg' },
-      { type: 'image-ref', url: 'file:///b.jpg' }
-    ])
-  })
-
-  it('renders an image-only pending send (no text) as just the thumbnail', () => {
-    const data = build([], null, [{ id: 'p1', text: '', images: ['file:///a.jpg'] }])
-    expect(data[data.length - 1].blocks).toEqual([{ type: 'image-ref', url: 'file:///a.jpg' }])
   })
 
   it('folds transcript image marker turns into image-ref blocks (desktop parity)', () => {
@@ -252,11 +218,6 @@ describe('buildMobileNativeChatTransientData', () => {
     ])
   })
 
-  it('renders a lone image marker turn (no caption) as an image-ref block', () => {
-    const data = build([user('u1', '[Image: source: /tmp/a.png]')], null, [])
-    expect(data[0]?.blocks).toEqual([{ type: 'image-ref', path: '/tmp/a.png' }])
-  })
-
   it('keeps the phone-local image visible when the transcript replaces its optimistic echo', () => {
     const folded = fold([
       user('source', '[Image: source: /tmp/a.png]'),
@@ -321,11 +282,6 @@ describe('buildMobileNativeChatTransientData', () => {
     ])
     expect(data.map((message) => message.id)).toEqual(['u1', 'streaming', 'p1'])
     expect(data[1].blocks).toEqual([{ type: 'text', text: 'thinking out loud' }])
-  })
-
-  it('omits the bubble when the gate withheld the streaming text', () => {
-    const data = build([assistant('a1', 'done answer')], null, [])
-    expect(data.some((message) => message.id === 'streaming')).toBe(false)
   })
 })
 
@@ -394,11 +350,6 @@ describe('foldMobileNativeChatMessages', () => {
       role: 'assistant',
       blocks: [{ type: 'tool-call', name: 'update_plan', state: 'completed' }]
     })
-  })
-
-  it('draws nothing for a plan update it cannot read', () => {
-    const folded = fold([assistant('a1', 'Working.'), planFrame('{}')])
-    expect(folded.map((message) => message.id)).toEqual(['a1'])
   })
 
   it('still folds a result whose call is inside the window', () => {

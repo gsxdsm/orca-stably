@@ -26,7 +26,6 @@ import { resetMobileNativeChatTerminalWritesForTests } from '../mobile-native-ch
 import { buildAgentTuiClearInputForText } from '../../../../../src/shared/agent-launch/startup/agent-tui-input-clear'
 import { buildNativeChatPasteBytes } from '../../../../../src/shared/native-chat/input/native-chat-paste-bytes'
 import { projectMobileCrewMentions } from '../../orchestration-crew/mobile-orchestration-crew'
-
 type Send = ReturnType<typeof useMobileNativeChatMessageSend>
 
 const DRAFT = 'Linked Linear issue: ABC-123\nhttps://linear.app/x/issue/ABC-123'
@@ -338,7 +337,6 @@ describe('useMobileNativeChatMessageSend', () => {
     )
     expect(sendWithOutcome).not.toHaveBeenCalled()
   })
-
   it('binds classification to the agent that started the send', async () => {
     let resolveSend!: (outcome: MobileNativeChatSendOutcome) => void
     sendWithOutcome.mockReturnValue(

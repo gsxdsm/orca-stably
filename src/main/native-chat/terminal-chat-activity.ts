@@ -1,5 +1,5 @@
 import type { NativeChatTerminalActivity } from '../../shared/native-chat/native-chat-terminal-queue'
-import type { TerminalAgent } from '../../shared/terminal-agent'
+import type { TerminalAgent } from '../../shared/agent-status/identity/terminal-agent'
 import { hermesNativeTitleStatus } from '../../shared/hermes-terminal-title'
 import { evaluateAgentStateRules } from '../runtime/agent-state-rules/agent-state-rules-engine'
 import type { RuledScreen } from '../runtime/screen-input-veto'

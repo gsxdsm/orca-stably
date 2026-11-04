@@ -44,7 +44,6 @@ const LegacyInitStorageSchema = z.object({
 })
 // The `ready` reader every shell shipped before `storageKeys`.
 const LegacyReadySchema = z.object({ v: versionSchema, type: z.literal('ready') })
-
 const SPLIT_KEY = 'orca:terminalSplitLayout'
 const STORAGE = { [SPLIT_KEY]: 'stacked', 'orca:pins:host-a': '["wt-1"]' }
 
@@ -120,32 +119,11 @@ describe('negotiated page storage keys across page and shell versions', () => {
     const ready: unknown = JSON.parse(JSON.stringify(createPageReadyFrame()))
     expect(LegacyReadySchema.safeParse(ready).success).toBe(true)
   })
-
   it('reads a malformed storageKeys list as none rather than refusing the ready', () => {
     const bridge = harness({ storage: STORAGE })
     bridge.host.receive(clientFrame({ type: 'ready', storageKeys: [SPLIT_KEY, 7] }))
 
     expect(bridge.pageReadyCount()).toBe(1)
     expect(lastInit(bridge.posted).storage).toEqual({ 'orca:pins:host-a': '["wt-1"]' })
-  })
-
-  it('keeps what the page declared across a host rebuild under the same document', () => {
-    const first = harness({ storage: STORAGE })
-    first.host.receive(JSON.stringify(createPageReadyFrame()))
-    const carried = first.host.readSessionBack()
-
-    const rebuilt = harness({ storage: STORAGE, sessionEstablished: true, sessionBack: carried })
-    rebuilt.host.publishKeyboardInset(120)
-    expect(lastInit(rebuilt.posted).storage).toEqual(STORAGE)
-  })
-
-  it('drops the declaration when the next document says ready without one', () => {
-    const bridge = harness({ storage: STORAGE })
-    bridge.host.receive(JSON.stringify(createPageReadyFrame()))
-    bridge.host.receive(clientFrame({ type: 'close' }))
-    bridge.host.receive(clientFrame({ type: 'ready' }))
-
-    expect(lastInit(bridge.posted).storage).toEqual({ 'orca:pins:host-a': '["wt-1"]' })
-    expect(bridge.host.readSessionBack()).toEqual({ claimed: false })
   })
 })

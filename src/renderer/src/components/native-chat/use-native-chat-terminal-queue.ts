@@ -4,7 +4,7 @@ import { createBrowserUuid } from '@/lib/browser-uuid'
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { callRuntimeRpc } from '@/runtime/runtime-rpc-client'
 import { getRemoteRuntimePtyOwner } from '@/runtime/runtime-terminal-stream'
-import { toHostSessionPaneKey } from '../../../../shared/terminal-surface-id'
+import { toHostSessionPaneKey } from '../../../../shared/workspace-layout/terminal-surface-id'
 import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
 import {
   NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY,

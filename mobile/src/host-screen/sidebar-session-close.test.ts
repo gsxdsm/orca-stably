@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { makePaneKey } from '../../../src/shared/stable-pane-id'
+import { makePaneKey } from '../../../src/shared/workspace-layout/stable-pane-id'
 import type { RpcResponse } from '../transport/types'
 import type { UnvalidatedRpcRequestPort } from '../transport/unvalidated-rpc-request-port'
 import { closeHostSidebarSession, closeSidebarSession } from './sidebar-session-close'

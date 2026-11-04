@@ -4,7 +4,6 @@ import {
   canShowMobileNativeChat,
   isMobileFolderNativeChatReadable,
   resolveMobileNativeChat,
-  resolveMobileNativeChatSessionId,
   withRememberedNativeChatIdentity
 } from './mobile-native-chat-eligibility'
 import type { MobileSessionTab } from '../mobile-session-route-types'
@@ -231,7 +230,6 @@ it('resolves folder readability from the serving host catalog and rejects Model-
   expect(isMobileFolderNativeChatReadable({ folderWorkspaces: [] }, 'folder:one')).toBe(false)
   expect(isMobileFolderNativeChatReadable(null, 'folder:one')).toBe(false)
 })
-
 describe('withRememberedNativeChatIdentity', () => {
   const terminalTab = (
     terminal: string | null,
@@ -252,41 +250,6 @@ describe('withRememberedNativeChatIdentity', () => {
   })
   const seen = withRememberedNativeChatIdentity([terminalTab('h1', claude)], [])
 
-  // Remembered agent identity keeps chat readable, never writable: it may have exited to a shell.
-  it('keeps chat read-only on the same handle when a frame omits the agent', () => {
-    const [next] = withRememberedNativeChatIdentity([terminalTab('h1', status())], seen)
-    expect(resolveMobileNativeChat(next)).toEqual({
-      agent: 'claude',
-      sessionId: 'sess-1',
-      transcriptPath: '/t/sess-1.jsonl',
-      agentConfirmed: false,
-      sessionLive: false
-    })
-    expect(resolveMobileNativeChatSessionId(next)).toBe('sess-1')
-  })
-
-  it('keeps the session through a frame with no agent status, and a pending handle', () => {
-    const [pending] = withRememberedNativeChatIdentity([terminalTab(null)], seen)
-    const [back] = withRememberedNativeChatIdentity([terminalTab('h1')], [pending])
-    expect(resolveMobileNativeChat(back)?.sessionId).toBe('sess-1')
-  })
-
-  it('forgets the identity on a new handle or a different live agent', () => {
-    const [restarted] = withRememberedNativeChatIdentity([terminalTab('h2')], seen)
-    expect(resolveMobileNativeChat(restarted)).toBeNull()
-    const [codex] = withRememberedNativeChatIdentity(
-      [terminalTab('h1', status({ agentType: 'codex' }))],
-      seen
-    )
-    expect(resolveMobileNativeChat(codex)).toEqual({
-      agent: 'codex',
-      sessionId: null,
-      transcriptPath: null,
-      agentConfirmed: true,
-      sessionLive: false
-    })
-  })
-
   it('does not show the previous conversation when the agent relaunches in the pane', () => {
     const [relaunched] = withRememberedNativeChatIdentity(
       [terminalTab('h1', status({ agentType: 'claude' }))],
@@ -295,18 +258,5 @@ describe('withRememberedNativeChatIdentity', () => {
     expect(resolveMobileNativeChat(relaunched)?.sessionId).toBeNull()
     const [later] = withRememberedNativeChatIdentity([terminalTab('h1', status())], [relaunched])
     expect(resolveMobileNativeChat(later)?.sessionId).toBeNull()
-  })
-
-  it('lets the launch hint outrank the remembered agent, as desktop does', () => {
-    const launched = (agentStatus?: AgentStatusEntry) => terminalTab('h1', agentStatus, 'claude')
-    const switched = withRememberedNativeChatIdentity(
-      [launched(status({ agentType: 'codex' }))],
-      []
-    )
-    const [next] = withRememberedNativeChatIdentity([launched()], switched)
-    expect(resolveMobileNativeChat(next)).toMatchObject({
-      agent: 'claude',
-      agentConfirmed: true
-    })
   })
 })

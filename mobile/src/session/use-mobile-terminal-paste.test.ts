@@ -182,7 +182,6 @@ describe('claimed image paste', () => {
     clipboard.text = ''
   })
 })
-
 describe('mobile clipboard text paste', () => {
   it('frames a multi-line paste in an alt-screen app the way desktop does', async () => {
     clipboard.text = 'line 1\nline 2 \x1b[201~'

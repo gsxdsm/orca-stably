@@ -82,7 +82,6 @@ export function MessageBox({
         style
       ]}
     >
-      {/* Always wrapped, so showing the overlay never remounts the field under the keyboard. */}
       <View style={inline ? styles.inlineText : undefined}>
         <TextInput
           ref={ref}

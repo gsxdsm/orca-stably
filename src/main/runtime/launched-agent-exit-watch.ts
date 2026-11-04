@@ -1,5 +1,5 @@
 import { FOREGROUND_COMMAND_READS } from '../../shared/foreground-command-settle'
-import { createOsc133CommandFinishedScanner } from '../../shared/terminal-osc133-command-finished'
+import { createOsc133CommandFinishedScanner } from '../../shared/terminal/output/terminal-osc133-command-finished'
 import type { TuiAgent } from '../../shared/agent-launch/catalog/tui-agent'
 import type { OrcaRuntimeService } from './orca-runtime'
 import { readLaunchedAgentExitOutput } from './launched-agent-exit-output'
