@@ -204,6 +204,7 @@ describe('needs-input prompt fields', () => {
   }) {
     const sends: SendCall[] = []
     const devices = [{ deviceId: 'a', pushRegistration: registration() }]
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: this harness implements only send, which is the method the dispatcher calls.
     const client = {
       send: vi.fn(async (call: SendCall) => {
         sends.push(call)

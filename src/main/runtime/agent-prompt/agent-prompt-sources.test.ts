@@ -123,6 +123,7 @@ function terminalRuntime(): {
     )
   }
   return {
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the fake runtime implements the pane, handle, and send methods this test calls.
     runtime: runtime as unknown as AgentPromptRuntime,
     keys,
     get sends() {
@@ -270,6 +271,7 @@ describe('agent prompt sources', () => {
 
   it('answers a loaded folder chat and reports a stale revision separately from a missing session', async () => {
     const seen: unknown[] = []
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the fake host implements loadedSessionIds, currentWork, deps, and respondToPrompt.
     setStructuredAgentSessionHost({
       loadedSessionIds: () => ['session01', 'session02'],
       currentWork: (sessionId: string) =>
@@ -318,6 +320,7 @@ describe('agent prompt sources', () => {
         return { ok: true, replayed: false, fence: 1, cursor: 1, value: null }
       }
     } as never)
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the fake runtime implements the pane, handle, and send methods this test calls.
     const directory = createAgentPromptDirectory({
       agentTransitions: { trackedPanes: () => [], latestRow: () => null },
       getTerminalHandleForPaneKey: () => null,
@@ -353,6 +356,7 @@ describe('agent prompt sources', () => {
   })
 
   it('maps a thrown session refusal to stale', async () => {
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the fake host implements loadedSessionIds, currentWork, deps, and respondToPrompt.
     setStructuredAgentSessionHost({
       loadedSessionIds: () => ['session01'],
       currentWork: () => ({
@@ -383,11 +387,13 @@ describe('agent prompt sources', () => {
         }
       },
       respondToPrompt: async () => {
+        // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the mapper reads only the refusal code.
         throw new AgentSessionRefusalError({
           code: 'agent_session_item_revision_stale'
         } as AgentSessionWireRefusal)
       }
     } as never)
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the fake runtime implements the pane, handle, and send methods this test calls.
     const directory = createAgentPromptDirectory({
       agentTransitions: { trackedPanes: () => [], latestRow: () => null },
       getTerminalHandleForPaneKey: () => null,
