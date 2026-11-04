@@ -123,8 +123,13 @@ export class PushGatewayClient {
       if (!response.ok) {
         return false
       }
-      const body = JSON.parse(text) as { promptCategory?: unknown }
-      return body.promptCategory === true
+      const body: unknown = JSON.parse(text)
+      return (
+        typeof body === 'object' &&
+        body !== null &&
+        'promptCategory' in body &&
+        body.promptCategory === true
+      )
     } catch {
       return false
     }

@@ -8,6 +8,7 @@ import {
   type ChatPromptSourceItem
 } from './pending-agent-prompt'
 
+// oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the fixture is one approval item; the mapper reads only these fields.
 const approval = {
   itemId: 'item:1',
   revision: 4,
@@ -60,6 +61,7 @@ describe('pending agent prompts', () => {
   })
 
   it('collapses whitespace in a short approval detail', () => {
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the fixture is one approval item; the mapper reads only these fields.
     const item = {
       ...approval,
       body: { ...approval.body, detail: 'ls\n-la' }
@@ -75,6 +77,7 @@ describe('pending agent prompts', () => {
   })
 
   it('keeps a one-choice question and leaves numbered options as other', () => {
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the fixture is one question item; the mapper reads only these fields.
     const item = {
       itemId: 'q1',
       revision: 2,
@@ -120,6 +123,7 @@ describe('pending agent prompts', () => {
   })
 
   it('skips questions that one option id cannot answer', () => {
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the fixture is one question item; the mapper reads only these fields.
     const many = {
       ...approval,
       body: {
@@ -133,6 +137,7 @@ describe('pending agent prompts', () => {
         resolution: { state: 'pending', selectedOptionId: null, resolvedBy: null, resolvedAt: null }
       }
     } as ChatPromptSourceItem
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the fixture is one question item; the mapper reads only these fields.
     const multi = {
       ...many,
       body: {
