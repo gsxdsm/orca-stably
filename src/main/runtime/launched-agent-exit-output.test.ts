@@ -21,6 +21,16 @@ describe('launched agent exit output', () => {
     expect(pty.lastExitOutput).toBe(`ls${NL}_DeadlockError: openai.types.chat`)
   })
 
+  it('keeps a startup error printed before a nested start when the PTY dies', () => {
+    const pty: { lastExitOutput?: string } = {}
+    retainLaunchedAgentExitOutput(pty, {
+      read: () =>
+        `${START}git status${NESTED_FINISH}${START}_DeadlockError: openai.types.chat${NL}${START}ls`
+    })
+
+    expect(pty.lastExitOutput).toBe(`_DeadlockError: openai.types.chat${NL}ls`)
+  })
+
   it('still stops the readiness reader at the outer finish marker', () => {
     expect(readLaunchedAgentExitOutput(`${START}fatal: bad model${NL}${OUTER_FINISH}plain%`)).toBe(
       'fatal: bad model'
