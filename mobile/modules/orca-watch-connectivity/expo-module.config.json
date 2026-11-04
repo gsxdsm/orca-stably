@@ -1,0 +1,10 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["OrcaWatchConnectivityModule"],
+    "appDelegateSubscribers": ["OrcaWatchConnectivitySubscriber"]
+  },
+  "android": {
+    "modules": ["expo.modules.orcawatchconnectivity.OrcaWatchConnectivityModule"]
+  }
+}

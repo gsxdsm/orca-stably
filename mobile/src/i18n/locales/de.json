@@ -1474,6 +1474,13 @@
       "name": "Desktop-Benachrichtigungen",
       "silentName": "Lautlose Orca-Benachrichtigungen"
     },
+    "watchPrompt": {
+      "approve": "Genehmigen",
+      "deny": "Ablehnen",
+      "placeholder": "Nachricht",
+      "reply": "Antworten",
+      "send": "Senden"
+    },
     "notificationDeliverySection": {
       "footer": "Die Benachrichtigungsarten richten sich nach den Benachrichtigungseinstellungen des jeweiligen gekoppelten Computers. Nach 7 Tagen ohne Nutzung dieser App werden Benachrichtigungen pausiert; zum Fortsetzen die App öffnen und erneut verbinden.",
       "onlyWhenAway": "Nur bei Abwesenheit vom Computer",

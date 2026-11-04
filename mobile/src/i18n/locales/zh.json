@@ -1470,6 +1470,13 @@
       "name": "桌面通知",
       "silentName": "Orca 静默通知"
     },
+    "watchPrompt": {
+      "approve": "批准",
+      "deny": "拒绝",
+      "placeholder": "消息",
+      "reply": "回复",
+      "send": "发送"
+    },
     "notificationDeliverySection": {
       "footer": "提醒类型遵循各个已配对桌面的通知设置。连续 7 天未使用此应用后，通知将暂停；打开应用并重新连接即可恢复。",
       "onlyWhenAway": "仅在离开桌面时",

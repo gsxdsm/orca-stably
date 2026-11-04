@@ -23,6 +23,11 @@ import {
 } from '../src/notifications/push-receive'
 import { startPushTokenSync } from '../src/notifications/push-registration'
 import { ensureDesktopNotificationChannel } from '../src/notifications/desktop-notification-channel'
+import { WatchGatewayHost } from '../src/watch/watch-gateway-host'
+import {
+  dispatchWatchPromptResponse,
+  ensureWatchPromptCategory
+} from '../src/watch/watch-prompt-actions'
 import { loadHostCatalog } from '../src/transport/host-store'
 import { usePairingLinks } from '../src/navigation/use-pairing-links'
 import { consumeInitialLaunchIntent } from '../src/navigation/initial-launch-intent'
@@ -46,9 +51,11 @@ const languageReady = startMobileUiLanguage()
 
 // Create orca-desktop channel at boot: background FCM can arrive before socket subscription, and Android drops unknown-channel pushes.
 void ensureDesktopNotificationChannel().catch(() => {})
-// Channel names show in Android settings; rename them in the active language.
+void ensureWatchPromptCategory().catch(() => {})
+// Channel names and watch action titles show in system UI; rename them in the active language.
 subscribeMobileUiLanguage(() => {
   void ensureDesktopNotificationChannel().catch(() => {})
+  void ensureWatchPromptCategory().catch(() => {})
 })
 void registerPushDismissalTask().catch(() => {})
 
@@ -130,6 +137,7 @@ export default function RootLayout() {
 
     async function handleNotificationResponse(response: Notifications.NotificationResponse) {
       if (response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) {
+        dispatchWatchPromptResponse(response)
         clearLastNotificationResponse()
         return
       }
@@ -183,6 +191,7 @@ export default function RootLayout() {
 
   return (
     <RpcClientProvider>
+      <WatchGatewayHost />
       <View style={styles.root} onLayout={onNavigatorLayout}>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         <SideRailProvider>
