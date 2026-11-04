@@ -35,11 +35,24 @@ export function useMobileTerminalChatQueue(args: {
   const scope = `${terminal ?? ''}:${enabled}`
   const scopeRef = useRef(scope)
   scopeRef.current = scope
+  const generation = useRef(0)
+  const seenEnabled = useRef(enabled)
+  if (seenEnabled.current !== enabled) {
+    seenEnabled.current = enabled
+    generation.current += 1
+  }
   const tail = useRef<Promise<unknown>>(Promise.resolve())
   const request = useCallback(
     (action: z.infer<typeof NativeChatTerminalQueueRequest>['action']) => {
+      const started = generation.current
       const run = async () => {
-        if (!client || !terminal || !enabled || scopeRef.current !== scope) {
+        if (
+          !client ||
+          !terminal ||
+          !enabled ||
+          scopeRef.current !== scope ||
+          generation.current !== started
+        ) {
           return null
         }
         const response = await client.sendRequest(
@@ -47,11 +60,11 @@ export function useMobileTerminalChatQueue(args: {
           { terminal, action },
           { timeoutMs: 5_000 }
         )
-        if (!response.ok) {
+        if (!response.ok || scopeRef.current !== scope || generation.current !== started) {
           return null
         }
         const parsed = NativeChatTerminalQueueSnapshotSchema.safeParse(response.result)
-        if (!parsed.success) {
+        if (!parsed.success || generation.current !== started) {
           return null
         }
         if (scopeRef.current === scope) {

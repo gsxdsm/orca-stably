@@ -199,4 +199,46 @@ describe('Hermes transcript database', () => {
     ])
     expect(byOffset.get(9)?.blocks).toEqual([{ type: 'tool-result', output: '', callId: 'call-2' }])
   })
+
+  it('pages a set of permitted fields before the aggregate budget throws', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'orca-hermes-transcript-'))
+    directories.push(dir)
+    const dbPath = join(dir, 'state.db')
+    const db = new Database(dbPath)
+    db.exec(`
+      CREATE TABLE sessions (id TEXT PRIMARY KEY);
+      CREATE TABLE messages (
+        id INTEGER PRIMARY KEY, session_id TEXT NOT NULL, role TEXT NOT NULL,
+        content TEXT, tool_calls TEXT, tool_call_id TEXT, timestamp REAL NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1, compacted INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT INTO sessions VALUES ('session-a');
+    `)
+    const field = 'x'.repeat(OPENCODE_TRANSCRIPT_MAX_ROW_BYTES)
+    const insert = db.prepare('INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    for (let id = 1; id <= 9; id += 1) {
+      insert.run(id, 'session-a', 'user', field, null, null, 1700000000 + id, 1, 0)
+    }
+    db.close()
+    const seen: number[] = []
+    let before: number | undefined
+    let pages = 0
+    while (pages < 4) {
+      const page = readHermesTranscriptPage({
+        dbPath,
+        sessionId: 'session-a',
+        limit: 50,
+        ...(before === undefined ? {} : { beforeMessageRowId: before })
+      })
+      expect(page?.items.length).toBeGreaterThan(0)
+      seen.push(...(page?.items.map((item) => item.message.transcriptOffset ?? -1) ?? []))
+      pages += 1
+      if (!page?.hasMore) {
+        break
+      }
+      before = page.beforeMessageRowId ?? undefined
+    }
+    expect(pages).toBeGreaterThan(1)
+    expect(seen.toSorted((left, right) => left - right)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
+  })
 })

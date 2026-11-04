@@ -32,6 +32,29 @@ function boundedHermesText(column: 'content' | 'tool_calls'): string {
   return `CASE WHEN length(CAST(${column} AS BLOB)) <= ${limit} THEN ${column} ELSE NULL END AS ${column}, CASE WHEN length(CAST(${column} AS BLOB)) > ${limit} THEN 1 ELSE 0 END AS ${column}_omitted`
 }
 
+const HERMES_TRANSCRIPT_PAGE_BYTES = 16 * 1024 * 1024
+
+function readHermesPageRows(
+  statement: SyncDatabase.Statement,
+  ...params: SyncDatabase.BindValue[]
+): { rows: HermesMessageRow[]; truncated: boolean } {
+  const rows: HermesMessageRow[] = []
+  let bytes = 0
+  for (const row of statement.iterate(...params)) {
+    const size = Object.values(row).reduce<number>(
+      (total, value) => total + (typeof value === 'string' ? Buffer.byteLength(value) : 0),
+      0
+    )
+    if (rows.length > 0 && bytes + size > HERMES_TRANSCRIPT_PAGE_BYTES) {
+      return { rows, truncated: true }
+    }
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: The page query projects HermesMessageRow columns.
+    rows.push(row as HermesMessageRow)
+    bytes += size
+  }
+  return { rows, truncated: false }
+}
+
 function visibleRows(db: SyncDatabase): string {
   const active = columnExists(db, 'messages', 'active')
   const compacted = columnExists(db, 'messages', 'compacted')
@@ -180,7 +203,7 @@ export function readHermesTranscriptPage(args: {
       return null
     }
     const limit = openCodeTranscriptPageLimit(args.limit)
-    const rows = rowsOf<HermesMessageRow>(
+    const loaded = readHermesPageRows(
       db.prepare(
         `SELECT id, role, ${boundedHermesText('content')}, ${boundedHermesText('tool_calls')}, tool_call_id, timestamp FROM messages WHERE session_id = ?${visibleRows(db)} AND role IN ('user','assistant','tool') AND id < ? ORDER BY id DESC LIMIT ?`
       ),
@@ -188,8 +211,8 @@ export function readHermesTranscriptPage(args: {
       args.beforeMessageRowId ?? Number.MAX_SAFE_INTEGER,
       limit + 1
     )
-    const hasMore = rows.length > limit
-    const selected = rows.slice(0, limit).toReversed()
+    const hasMore = loaded.truncated || loaded.rows.length > limit
+    const selected = loaded.rows.slice(0, limit).toReversed()
     const items: OpenCodeTranscriptItem[] = selected.flatMap((row) => {
       const message = decodeRow(row)
       return message

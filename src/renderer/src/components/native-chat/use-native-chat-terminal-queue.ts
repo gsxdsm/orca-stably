@@ -50,6 +50,12 @@ export function useNativeChatTerminalQueue(args: {
   const scope = `${environmentId ?? ''}:${paneKey}:${ptyId ?? ''}`
   const current = useRef(scope)
   current.current = scope
+  const generation = useRef(0)
+  const seenEnabled = useRef(enabled)
+  if (seenEnabled.current !== enabled) {
+    seenEnabled.current = enabled
+    generation.current += 1
+  }
   const [held, setHeld] = useState<{
     scope: string
     snapshot: NativeChatTerminalQueueSnapshot
@@ -63,8 +69,9 @@ export function useNativeChatTerminalQueue(args: {
         | { type: 'delete'; messageIds: string[] }
         | { type: 'edit'; messageId: string }
     ) => {
+      const started = generation.current
       const run = async () => {
-        if (!enabled || !ptyId || current.current !== scope) {
+        if (!enabled || !ptyId || current.current !== scope || generation.current !== started) {
           return null
         }
         const owner = getRemoteRuntimePtyOwner(ptyId)
@@ -85,7 +92,7 @@ export function useNativeChatTerminalQueue(args: {
           { timeoutMs: 5_000 }
         )
         const parsed = NativeChatTerminalQueueSnapshotSchema.safeParse(result)
-        if (!parsed.success) {
+        if (!parsed.success || current.current !== scope || generation.current !== started) {
           return null
         }
         if (current.current === scope) {

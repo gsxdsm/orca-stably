@@ -124,4 +124,62 @@ describe('desktop terminal queue acknowledgment', () => {
       hook.unmount()
     }
   })
+
+  it('discards a read that resolves after the queue was disabled', async () => {
+    const reads: ((value: unknown) => void)[] = []
+    rpc.mockImplementation(async (_target, method, params) => {
+      if (method !== 'nativeChat.terminalQueue') {
+        return { terminal: { handle: 'term' } }
+      }
+      const { action } = NativeChatTerminalQueueRequest.parse(params)
+      if (action.type !== 'read') {
+        return null
+      }
+      return new Promise((resolve) => {
+        reads.push(resolve)
+      })
+    })
+    const hook = renderHook(
+      ({ enabled }) =>
+        useNativeChatTerminalQueue({
+          paneKey: 'tab:leaf',
+          ptyId: 'pty',
+          enabled,
+          environmentId: null,
+          composerRef: createRef<NativeChatComposerHandle>()
+        }),
+      { initialProps: { enabled: true } }
+    )
+    try {
+      await act(async () => {
+        await vi.waitFor(() => {
+          expect(reads.length).toBeGreaterThan(0)
+        })
+      })
+      await act(async () => {
+        hook.rerender({ enabled: false })
+      })
+      await act(async () => {
+        hook.rerender({ enabled: true })
+      })
+      await act(async () => {
+        reads.shift()?.({
+          revision: '1',
+          activity: { state: 'working', workingSequence: 1 },
+          queuedMessages: [
+            {
+              messageId: '11111111-1111-4111-8111-111111111111',
+              position: 1,
+              state: 'waiting',
+              body: { kind: 'message', role: 'user', blocks: [{ type: 'text', text: 'Stale' }] }
+            }
+          ]
+        })
+      })
+      expect(hook.result.current.activity).toBeUndefined()
+      expect(hook.result.current.controller.cards).toEqual([])
+    } finally {
+      hook.unmount()
+    }
+  })
 })
