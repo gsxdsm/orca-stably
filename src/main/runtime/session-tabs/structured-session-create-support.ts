@@ -28,6 +28,7 @@ import { isFloatingWorkspaceSelector } from '../../../shared/floating-workspace-
 import type { AgentSessionAccountHome } from '../../../shared/agent-session/lifecycle/agent-session-account-home'
 import type { StructuredAgentId } from '../../../shared/agent-session/lifecycle/agent-session-provider-handle'
 import { hermesAcpLoadSessionId } from '../../../shared/hermes-session-id'
+import type { StructuredAgentCreateSupportReply } from '../../../shared/agent-session/structured-agent-create-support-reply'
 
 export abstract class OrcaRuntimeWithGetStructuredAgentSessionCreateSupport extends StructuredSessionWorkspaceScope {
   protected abstract restoreStructuredAgentSessionTabsOnce(
@@ -43,7 +44,7 @@ export abstract class OrcaRuntimeWithGetStructuredAgentSessionCreateSupport exte
     worktreeSelector: string,
     agent: StructuredAgentId,
     options?: { requireInstalledChatProgram?: boolean }
-  ): Promise<{ supported: boolean; reason?: 'agent' | 'remote' | 'wsl' | 'chat-program' }> {
+  ): Promise<StructuredAgentCreateSupportReply> {
     const support = await resolveHostStructuredAgentCreateSupport({
       agent,
       worktreeSelector,

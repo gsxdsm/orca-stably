@@ -1,7 +1,7 @@
 import { ACCOUNT_RUNTIME_CAPABILITIES } from './account-runtime-capabilities'
 import { HERMES_TRANSCRIPT_RUNTIME_CAPABILITY } from './native-chat/native-chat-hermes-capability'
 import { NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY } from './native-chat/native-chat-terminal-queue-capability'
-import * as agentLaunchCapabilities from './agent-launch-runtime-capability'
+import * as agentLaunchCapabilities from './agent-launch/contracts/agent-launch-runtime-capability'
 import {
   AGENT_SESSION_BOUNDARY_RUNTIME_CAPABILITY,
   AGENT_SESSION_RUNTIME_CAPABILITIES

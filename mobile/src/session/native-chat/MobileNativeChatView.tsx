@@ -105,6 +105,8 @@ export function MobileNativeChatView({
   askKey,
   onDismissAsk,
   onAnswerAsk,
+  askPending,
+  askSendSource,
   askRequiresTerminal = false,
   onAnswerInTerminal,
   onCancelAsk,
@@ -143,7 +145,6 @@ export function MobileNativeChatView({
   const historyOlderPages = subagent.childHistory?.olderPages ?? olderPages
   const onHistoryLoadEarlier = subagent.childHistory?.loadEarlier ?? onLoadEarlier
 
-  // Memoize list derivation to keep downstream autoscroll/renderItem dependencies stable.
   const { data } = useMemo(
     () =>
       buildMobileNativeChatTransientData({
@@ -319,6 +320,7 @@ export function MobileNativeChatView({
       <MobileNativeChatPromptCard
         key={promptKey ?? undefined}
         answering={promptOwnsInput && keyboardInset > 0}
+        {...{ askPending, askSendSource }}
         {...{ ask, askKey, onDismissAsk, onAnswerAsk, onCancelAsk, onCancelPrompt, onCollapseAsk }}
         requiresTerminal={askRequiresTerminal}
         onAnswerInTerminal={onAnswerInTerminal}

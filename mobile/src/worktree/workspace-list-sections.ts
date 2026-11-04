@@ -21,13 +21,15 @@ import {
   PR_GROUP_ORDER
 } from '../../../src/shared/workspace-view/workspace-pr-groups'
 import type { FilterState, Section, SectionRepo, Worktree } from './workspace-list-types'
+import { makeSection, type PlannedSection } from './workspace-list-planned-section'
 import type {
   WorkspaceGroupBy,
   WorkspaceSortBy
 } from '../../../src/shared/workspace-view/workspace-view-options'
 import { hostSortsByStamps, sortWorktrees } from './workspace-list-ordering'
 import { getWorktreeRowIdentity } from './worktree-host-row-identity'
-import { resolveWorktreeHostId } from './worktree-host-context-labels'
+import { NO_WORKTREE_HOST_CONTEXT, resolveWorktreeHostId } from './worktree-host-context-labels'
+import type { WorktreeHostContextOf } from './worktree-host-context-labels'
 import type { ExecutionHostId } from '../../../src/shared/execution-host'
 import {
   buildProjectGroupingIndex,
@@ -81,21 +83,6 @@ export function buildSectionRepoMap(
   return repoMap
 }
 export { getWorktreeStatus, sortWorktrees } from './workspace-list-ordering'
-
-function makeSection(
-  key: string,
-  title: string,
-  data: readonly Worktree[],
-  decoration: { icon?: 'pin'; repo?: SectionRepo } = {}
-): Section {
-  return {
-    key,
-    title,
-    ...(decoration.icon ? { icon: decoration.icon } : {}),
-    ...(decoration.repo ? { repo: decoration.repo } : {}),
-    data: [...data]
-  }
-}
 
 // Idle prompts have no recent output; live terminals or unread output still count as active.
 export function isWorktreeActive(
@@ -199,7 +186,7 @@ export function buildMobileWorkspacePlan(
       getProjectGroupingForRepo(worktree.repoId, repoMap, projectIndex),
     projectIdOf: (worktree) => worktree.repoId,
     sectionsOf: ({ pinned, natural: canonicalGroupWorktrees, displayRootByIdentity }) => {
-      const sections: Section[] = []
+      const sections: PlannedSection[] = []
       if (pinned.length > 0) {
         sections.push(makeSection('pinned', groupLabels.pinned, pinned, { icon: 'pin' }))
       }
@@ -295,7 +282,7 @@ export function buildMobileWorkspacePlan(
           }
         }
       }
-      return sections.map((section): Section & WorktreeOccurrenceSection<Worktree> => ({
+      return sections.map((section): PlannedSection & WorktreeOccurrenceSection<Worktree> => ({
         ...section,
         items: section.data,
         placement: section.key === 'pinned' ? 'pinned' : 'natural'
@@ -304,13 +291,16 @@ export function buildMobileWorkspacePlan(
   })
   return {
     occurrencePlan,
-    render: (collapsed: ReadonlySet<string>): Section[] =>
+    render: (
+      collapsed: ReadonlySet<string>,
+      hostContextOf: WorktreeHostContextOf = NO_WORKTREE_HOST_CONTEXT
+    ): Section[] =>
       occurrencePlan.sections.map((section) => ({
         key: section.key,
         title: section.title,
         ...(section.icon ? { icon: section.icon } : {}),
         ...(section.repo ? { repo: section.repo } : {}),
-        data: getMobileOccurrenceRows(occurrencePlan, section.key, collapsed)
+        data: getMobileOccurrenceRows(occurrencePlan, section.key, collapsed, hostContextOf)
       }))
   }
 }

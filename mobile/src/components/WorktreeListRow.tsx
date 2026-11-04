@@ -1,13 +1,12 @@
 import { memo } from 'react'
-import { Bell, GitBranch, GitPullRequest } from 'lucide-react-native'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Bell, ChevronDown, ChevronRight, GitBranch, GitPullRequest } from 'lucide-react-native'
+import { Pressable, Text, View } from 'react-native'
 import type { MobileRenderableRepoIcon } from '../host-screen/host-screen-reply-schema'
 import { triggerMediumImpact } from '../platform/haptics'
-import { colors, radii, spacing, typography } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
+import { colors, spacing } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import type { Worktree } from '../worktree/workspace-list-types'
+import type { WorkspaceListItem, Worktree, WorktreeRowView } from '../worktree/workspace-list-types'
 import type { WorktreeCardDetails } from '../../../src/shared/worktree/card-properties'
 import { isRemoteExecutionHostId } from '../../../src/shared/execution-host'
 import type { AgentActivityDisplayMode } from '../../../src/shared/ui-chrome-types'
@@ -19,9 +18,8 @@ import { AgentSpinner } from './AgentSpinner'
 import { HostKindIcon } from './HostKindIcon'
 import { MobileRepoIcon } from './MobileRepoIcon'
 import { WorktreeAgentList } from './WorktreeAgentList'
-import { WorktreeLineageToggle } from './worktree-lineage-toggle'
 import { WorktreeMetaGlyphs, prStateColor } from './WorktreeMetaGlyphs'
-import { WORKTREE_ROW_LAYOUT } from './worktree-list-row-layout'
+import { LINEAGE_TOGGLE_HIT_SLOP, styles } from './worktree-list-row-styles'
 import { useWorktreeRowSession, workspaceCardActivation } from './worktree-session-press'
 
 // Match desktop formatBranchName by hiding refs/heads/ prefix.
@@ -31,6 +29,7 @@ function displayBranch(branch: string): string {
 
 type Props = {
   item: Worktree
+  view: WorktreeRowView
   isReadOnly: boolean
   now: number
   repoColor: string
@@ -49,11 +48,12 @@ type Props = {
   onLongPress?: (item: Worktree) => void
   /** Actions for one session. The card long-press stays the workspace menu. */
   onSessionLongPress?: (item: Worktree, paneKey: string) => void
-  onToggleLineage?: (item: Worktree) => void
+  onToggleLineage?: (item: WorkspaceListItem) => void
 }
 
 function WorktreeListRowComponent({
   item,
+  view,
   isReadOnly,
   now,
   repoColor,
@@ -76,14 +76,14 @@ function WorktreeListRowComponent({
   const folderMeta =
     item.comment?.trim() || item.path || t('components.worktreeListRow.folder', 'Folder')
   const metaText = isFolderWorkspace ? folderMeta : displayBranch(item.branch)
-  const lineageDepth = Math.max(0, item.lineageDepth ?? 0)
-  const indent = projectGroupRowIndent(item) + lineageDepth * 18
-  const count = item.lineageChildCount ?? 0
-  const shouldHideRepo = hideRepo && !item.showProjectName
+  const lineageDepth = Math.max(0, view.lineageDepth ?? 0)
+  const indent = projectGroupRowIndent(item, view) + lineageDepth * 18
+  const count = view.lineageChildCount ?? 0
+  const shouldHideRepo = hideRepo && !view.showProjectName
   const showRepoChip = cardDetails.repoInTitle && !shouldHideRepo && !isFolderWorkspace
   const showRepoInMetaRow = !cardDetails.repoInTitle && !shouldHideRepo
-  const hostId = item.hostContextHostId ?? item.hostId
-  const hostAccessibilityLabel = [item.hostContextLabel, item.hostContextHealthLabel]
+  const hostId = view.hostContextHostId ?? item.hostId
+  const hostAccessibilityLabel = [view.hostContextLabel, view.hostContextHealthLabel]
     .filter(Boolean)
     .join(', ')
   // Why: the desktop's compact card keeps an icon-only glyph for remote projects after the host badge goes.
@@ -189,23 +189,23 @@ function WorktreeListRowComponent({
                   </Text>
                 </View>
               )}
-              {cardDetails.host && (item.hostContextLabel || item.hostContextHealthLabel) ? (
+              {cardDetails.host && (view.hostContextLabel || view.hostContextHealthLabel) ? (
                 <View
                   style={[styles.childBadge, styles.hostBadge]}
                   accessibilityLabel={hostAccessibilityLabel}
                 >
                   <HostKindIcon hostId={hostId} size={10} />
-                  {item.hostContextLabel ? (
+                  {view.hostContextLabel ? (
                     <Text style={[styles.childBadgeText, styles.hostBadgeText]} numberOfLines={1}>
-                      {item.hostContextLabel}
+                      {view.hostContextLabel}
                     </Text>
                   ) : null}
                   {/* Why separate Text: the name truncates first so the health word stays readable. */}
-                  {item.hostContextHealthLabel ? (
+                  {view.hostContextHealthLabel ? (
                     <Text style={[styles.childBadgeText, styles.hostHealthText]}>
-                      {item.hostContextLabel
-                        ? `· ${item.hostContextHealthLabel}`
-                        : item.hostContextHealthLabel}
+                      {view.hostContextLabel
+                        ? `· ${view.hostContextHealthLabel}`
+                        : view.hostContextHealthLabel}
                     </Text>
                   ) : null}
                 </View>
@@ -244,7 +244,28 @@ function WorktreeListRowComponent({
           />
         ) : null}
         {count > 0 && onToggleLineage ? (
-          <WorktreeLineageToggle item={item} count={count} onToggle={onToggleLineage} />
+          <Pressable
+            style={({ pressed }) => [styles.lineageToggle, pressed && styles.lineageTogglePressed]}
+            hitSlop={LINEAGE_TOGGLE_HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: !view.lineageCollapsed }}
+            onPress={(event) => {
+              event.stopPropagation()
+              onToggleLineage({ row: item, view })
+            }}
+          >
+            {view.lineageCollapsed ? (
+              <ChevronRight size={12} color={colors.textSecondary} />
+            ) : (
+              <ChevronDown size={12} color={colors.textSecondary} />
+            )}
+            <GitBranch size={12} color={colors.textSecondary} />
+            <Text style={styles.lineageToggleText}>
+              {count === 1
+                ? t('components.worktreeListRow.children_one', '{{count}} child', { count })
+                : t('components.worktreeListRow.children_other', '{{count}} children', { count })}
+            </Text>
+          </Pressable>
         ) : null}
       </View>
     </Pressable>
@@ -252,140 +273,3 @@ function WorktreeListRowComponent({
 }
 
 export const WorktreeListRow = memo(WorktreeListRowComponent, areStructurallyEqual)
-
-const styles = themedStyleSheet(() => ({
-  worktreeRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: spacing.md,
-    paddingLeft: spacing.lg,
-    paddingRight: spacing.lg,
-    // Reserve the active accent bar width so active/inactive rows align.
-    borderLeftWidth: WORKTREE_ROW_LAYOUT.accentWidth,
-    borderLeftColor: 'transparent'
-  },
-  worktreeRowPressed: {
-    backgroundColor: colors.bgRaised
-  },
-  // The active row already wears bgPanel, so its press needs a wash that reads over it.
-  worktreeRowActivePressed: {
-    backgroundColor: colors.translucentFill
-  },
-  // Match desktop focused-worktree card with raised fill and left accent.
-  worktreeRowActive: {
-    backgroundColor: colors.bgPanel,
-    // Use desktop active-tab neutral accent, not blue.
-    borderLeftColor: colors.textSecondary
-  },
-  indicatorCol: {
-    width: WORKTREE_ROW_LAYOUT.indicatorWidth,
-    alignItems: 'center',
-    paddingTop: 6,
-    marginRight: spacing.sm,
-    gap: 4
-  },
-  unreadBell: {
-    marginTop: 2
-  },
-  worktreeMain: {
-    flex: 1
-  },
-  worktreeNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm
-  },
-  worktreeName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    flexShrink: 1
-  },
-  worktreeNameUnread: {
-    fontWeight: '700'
-  },
-  textReadOnly: {
-    opacity: 0.5
-  },
-  prBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: colors.bgRaised,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: radii.pill
-  },
-  prNumber: {
-    fontSize: 10,
-    color: colors.textSecondary
-  },
-  // Why: matches the desktop's compact repo chip, a small framed icon ahead of the title.
-  repoChip: {
-    width: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.mark,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderSubtle,
-    backgroundColor: colors.bgRaised
-  },
-  folderBadge: {
-    backgroundColor: colors.bgRaised,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: radii.pill
-  },
-  folderBadgeText: {
-    fontSize: 10,
-    color: colors.textSecondary
-  },
-  worktreeMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-    gap: spacing.xs
-  },
-  repoName: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    maxWidth: 100
-  },
-  branchName: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontFamily: typography.monoFamily,
-    // Why: path takes only leftover space so badges truncate last.
-    flex: 1
-  },
-  childBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: colors.bgRaised,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: radii.pill
-  },
-  childBadgeText: {
-    fontSize: 10,
-    color: colors.textMuted
-  },
-  // Why the cap is on the name, not the badge: a health word after a long name must stay readable.
-  hostBadge: {
-    flexShrink: 1
-  },
-  hostBadgeText: {
-    flexShrink: 1,
-    maxWidth: 100
-  },
-  hostHealthText: {
-    flexShrink: 0
-  },
-  terminalCount: {
-    marginLeft: 'auto',
-    fontSize: typography.metaSize,
-    color: colors.textMuted
-  }
-}))

@@ -3,7 +3,7 @@ import type { TerminalAgent } from '../../shared/terminal-agent'
 import { hermesNativeTitleStatus } from '../../shared/hermes-terminal-title'
 import { evaluateAgentStateRules } from '../runtime/agent-state-rules/agent-state-rules-engine'
 import type { RuledScreen } from '../runtime/screen-input-veto'
-import type { AgentStatus } from '../../shared/agent-detection'
+import type { AgentStatus } from '../../shared/agent-status/title/agent-title-core'
 
 export function readHermesChatActivity(input: {
   agent: TerminalAgent | null

@@ -1,11 +1,11 @@
 import { isNativeChatSupportedAgent } from '../../../src/shared/native-chat/native-chat-agent-support'
 import type { MobileQuickCommandLaunch } from '../terminal/quick-commands'
 import type { MobileSessionTab } from './mobile-session-route-types'
-import type { TuiAgent } from '../../../src/shared/tui-agent'
+import type { TuiAgent } from '../../../src/shared/agent-launch/catalog/tui-agent'
 import {
   AGENT_LAUNCH_PLACEMENT_RUNTIME_CAPABILITY,
   AGENT_LAUNCH_SURFACE_RUNTIME_CAPABILITY
-} from '../../../src/shared/agent-launch-runtime-capability'
+} from '../../../src/shared/agent-launch/contracts/agent-launch-runtime-capability'
 import type { RpcClient } from '../transport/rpc-client'
 import { triggerError, triggerSuccess } from '../platform/haptics'
 import {

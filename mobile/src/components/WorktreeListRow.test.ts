@@ -13,7 +13,7 @@ import type { RuntimeWorktreeAgentRow } from '../../../src/shared/runtime-types'
 import { WorktreeAgentRow } from './WorktreeAgentRow'
 import { setSelectedSidebarSession } from '../host-screen/selected-sidebar-session'
 import { colors } from '../theme/mobile-theme'
-import type { Worktree } from '../worktree/workspace-list-types'
+import type { Worktree, WorktreeRowView } from '../worktree/workspace-list-types'
 import { WorktreeListRow } from './WorktreeListRow'
 import {
   DEFAULT_WORKTREE_CARD_PROPERTIES,
@@ -77,7 +77,8 @@ vi.mock('./WorktreeMetaGlyphs', () => ({
   }
 }))
 
-type TestItem = Worktree & { status: NonNullable<Worktree['status']> }
+// Row plus its view facts; the harness passes the same object as `item` and `view`.
+type TestItem = Worktree & WorktreeRowView & { status: NonNullable<Worktree['status']> }
 
 const stableRepoIcon = { type: 'emoji', emoji: 'o' } as const
 let updateSibling: Dispatch<SetStateAction<number>> = () => undefined
@@ -112,6 +113,7 @@ function ListRowHarness({
     createElement(Text, null, sibling),
     createElement(WorktreeListRow, {
       item,
+      view: item,
       isReadOnly: false,
       now,
       repoColor: '#000000',
@@ -184,7 +186,8 @@ describe('memoized worktree rows', () => {
     await act(async () => {
       renderer = create(
         createElement(WorktreeListRow, {
-          item: { ...baseItem, showProjectName: true, lineageDepth: 1 },
+          item: baseItem,
+          view: { showProjectName: true, lineageDepth: 1 },
           isReadOnly: false,
           now: 2_000,
           repoColor: '#000000',
@@ -241,6 +244,7 @@ describe('memoized worktree rows', () => {
     const row = (item: TestItem, overrides: { now?: number; onPress?: () => void } = {}) =>
       createElement(WorktreeListRow, {
         item,
+        view: item,
         isReadOnly: false,
         now: overrides.now ?? 2_000,
         repoColor: '#000000',
@@ -609,6 +613,7 @@ describe('memoized worktree rows', () => {
       renderer = create(
         createElement(WorktreeListRow, {
           item: baseItem,
+          view: baseItem,
           isReadOnly: false,
           now: 2_000,
           repoColor: '#000000',
@@ -630,9 +635,11 @@ describe('memoized worktree rows', () => {
 
   it('announces the lineage toggle as expanded or collapsed', async () => {
     const onToggleLineage = vi.fn()
-    const row = (lineageCollapsed: boolean) =>
-      createElement(WorktreeListRow, {
-        item: { ...baseItem, lineageChildCount: 2, lineageCollapsed },
+    const row = (lineageCollapsed: boolean) => {
+      const item = { ...baseItem, lineageChildCount: 2, lineageCollapsed }
+      return createElement(WorktreeListRow, {
+        item,
+        view: item,
         isReadOnly: false,
         now: 2_000,
         repoColor: '#000000',
@@ -642,6 +649,7 @@ describe('memoized worktree rows', () => {
         onPress: () => undefined,
         onToggleLineage
       })
+    }
     const toggle = () =>
       findAllByHostType(renderer!.root, 'Pressable').find(
         (node) => node.props.accessibilityState?.expanded !== undefined
@@ -661,6 +669,7 @@ describe('memoized worktree rows', () => {
     const row = (item: TestItem) =>
       createElement(WorktreeListRow, {
         item,
+        view: item,
         isReadOnly: false,
         now: 2_000,
         repoColor: '#000000',

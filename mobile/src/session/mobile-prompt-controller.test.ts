@@ -364,7 +364,7 @@ describe('async occurrences through the phone controller and rendered card actio
           undefined,
           undefined,
           undefined,
-          undefined
+          {}
         )
         expect(titles()).toEqual(['Q1?'])
       } else {
@@ -479,7 +479,7 @@ describe('async occurrences through the phone controller and rendered card actio
         undefined,
         undefined,
         undefined,
-        undefined
+        {}
       )
     }
   )

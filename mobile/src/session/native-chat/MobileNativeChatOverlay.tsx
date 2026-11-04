@@ -18,7 +18,7 @@ import {
 import { MobileNativeChatRowOverlaysHost } from './transcript/MobileNativeChatRowOverlaysHost'
 import { takePendingSubagentFocus } from '../pending-subagent-focus'
 import { nativeChatAskRequiresTerminal } from '../../../../src/shared/native-chat/native-chat-agent-support'
-import { tuiAgentDisplayName } from '../../../../src/shared/tui-agent-display-names'
+import { tuiAgentDisplayName } from '../../../../src/shared/agent-launch/catalog/tui-agent-display-names'
 import { MobileNativeChatNoticeContext } from '../mobile-native-chat-notice-context'
 import type { MobileNativeChatImageSource } from './visual/mobile-native-chat-image-preview'
 import { prepareMobileComposerPastedImages } from './composer/prepare-mobile-composer-pasted-image'
@@ -256,6 +256,8 @@ export function MobileNativeChatOverlay({
                         streaming={streaming}
                         onStop={controller.handleNativeChatStop}
                         ask={controller.nativeChatAsk}
+                        askPending={controller.nativeChatAskPending}
+                        askSendSource={controller.nativeChatAskSendSource}
                         askKey={controller.nativeChatAskKey}
                         promptKey={controller.nativeChatPromptKey}
                         onDismissAsk={controller.dismissNativeChatAsk}

@@ -23,7 +23,7 @@ vi.mock('../mobile-native-chat-stale-input', () => ({
 
 import { useMobileNativeChatMessageSend } from './use-mobile-native-chat-message-send'
 import { resetMobileNativeChatTerminalWritesForTests } from '../mobile-native-chat-terminal-write-lock'
-import { buildAgentTuiClearInputForText } from '../../../../../src/shared/agent-tui-input-clear'
+import { buildAgentTuiClearInputForText } from '../../../../../src/shared/agent-launch/startup/agent-tui-input-clear'
 import { buildNativeChatPasteBytes } from '../../../../../src/shared/native-chat/input/native-chat-paste-bytes'
 import { projectMobileCrewMentions } from '../../orchestration-crew/mobile-orchestration-crew'
 

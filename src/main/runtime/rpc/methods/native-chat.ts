@@ -1,5 +1,9 @@
 import type { NativeChatMessage } from '../../../../shared/native-chat/native-chat-types'
 import { NATIVE_CHAT_TERMINAL_QUEUE_METHODS } from './native-chat-terminal-queue'
+import type {
+  NativeChatTranscriptFrame,
+  NativeChatTranscriptPage
+} from '../../../../shared/native-chat/native-chat-transcript-frames'
 import { resolveNativeChatTranscriptAgent } from '../../../../shared/native-chat/native-chat-agent-support'
 import {
   readNativeChatTranscriptTail,
@@ -14,7 +18,10 @@ import {
 } from '../../../native-chat/native-chat-transcript-task-scan'
 import { defineMethod, defineStreamingMethod, type RpcContext } from '../core'
 import { windowNativeChatWithChildren } from '../../../native-chat/transcript-subagent-children'
-import { sanitizeNativeChatRpcBlock } from './native-chat-rpc-block-sanitize'
+import {
+  sanitizeNativeChatRpcMessage,
+  sanitizeNativeChatRpcMessages
+} from './native-chat-rpc-block-sanitize'
 import {
   boundNativeChatRpcPageByBytes,
   nativeChatRpcAppendBatches
@@ -28,23 +35,6 @@ import {
 
 // Default to a small transcript tail for fast paired-client paint; clients page older history, while local IPC stays virtualized.
 const MOBILE_NATIVE_CHAT_DEFAULT_WINDOW = 40
-
-function sanitizeMessage(
-  message: NativeChatMessage,
-  clientKind: RpcContext['clientKind']
-): NativeChatMessage {
-  return {
-    ...message,
-    blocks: message.blocks.map((block) => sanitizeNativeChatRpcBlock(block, clientKind))
-  }
-}
-
-function sanitizeAppendForClient(
-  messages: readonly NativeChatMessage[],
-  clientKind: RpcContext['clientKind']
-): NativeChatMessage[] {
-  return messages.map((message) => sanitizeMessage(message, clientKind))
-}
 
 /** Window every RPC client by message count; apply mobile-only character clipping separately. */
 function windowTranscript(
@@ -67,10 +57,10 @@ function pageForClient(
   clientKind: RpcContext['clientKind'],
   limit = MOBILE_NATIVE_CHAT_DEFAULT_WINDOW,
   agent?: string
-): { messages: NativeChatMessage[]; hasMore: boolean; beforeOffset: number } {
+): NativeChatTranscriptPage {
   const isDatabase = isDatabaseTranscript(agent)
   const sanitized = (isDatabase ? messages : windowTranscript(messages, limit)).map((message) =>
-    sanitizeMessage(message, clientKind)
+    sanitizeNativeChatRpcMessage(message, clientKind)
   )
   return isDatabase
     ? boundNativeChatRpcPageByBytes(sanitized, hasMore, beforeOffset)
@@ -148,7 +138,8 @@ export const NATIVE_CHAT_METHODS = [
     name: 'nativeChat.subscribe',
     permission: 'workspace',
     params: NativeChatSession,
-    handler: async (params, { runtime, connectionId, clientKind, signal }, emit) => {
+    handler: async (params, { runtime, connectionId, clientKind, signal }, emitAny) => {
+      const emit = (frame: NativeChatTranscriptFrame): void => emitAny(frame)
       if (signal?.aborted) {
         return
       }
@@ -258,7 +249,7 @@ export const NATIVE_CHAT_METHODS = [
           if (closed) {
             return
           }
-          const sanitized = sanitizeAppendForClient(messages, clientKind)
+          const sanitized = sanitizeNativeChatRpcMessages(messages, clientKind)
           const batches =
             sanitized.length > 0 && isDatabaseTranscript(params.agent)
               ? nativeChatRpcAppendBatches(sanitized)

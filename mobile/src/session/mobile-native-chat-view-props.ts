@@ -1,5 +1,8 @@
 import type { NativeChatSkillDiscoverySnapshot } from '../../../src/shared/native-chat/input/native-chat-picker-items'
-import type { AskAnswerSelection } from '../../../src/shared/native-chat/input/native-chat-ask-answer'
+import type {
+  AskAnswerSelection,
+  NativeChatAnswerSource
+} from '../../../src/shared/native-chat/input/native-chat-ask-answer'
 import type { AskPrompt } from '../../../src/shared/native-chat/input/native-chat-ask-types'
 import type { NativeChatMessage } from '../../../src/shared/native-chat/native-chat-types'
 import type {
@@ -92,6 +95,8 @@ type ChatViewProps = MobileNativeChatSendProps & {
   askKey?: string | null
   onDismissAsk?: () => void
   onAnswerAsk?: (prompt: AskPrompt, selections: AskAnswerSelection[]) => Promise<boolean>
+  askPending?: boolean
+  askSendSource?: NativeChatAnswerSource
   askRequiresTerminal?: boolean
   onAnswerInTerminal?: () => void
   onCancelAsk?: () => Promise<boolean>

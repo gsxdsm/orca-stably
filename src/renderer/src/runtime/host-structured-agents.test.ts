@@ -56,7 +56,7 @@ import {
 } from './host-structured-agents'
 import { installHostStructuredAgentsSync } from './host-structured-agents-sync'
 import { chatProviderAgents } from '@/lib/chat-provider-agents'
-import { buildNewTabAgentMenuRows } from '../../../shared/agent-launch-picker-rows'
+import { buildNewTabAgentMenuRows } from '../../../shared/agent-launch/picker/agent-launch-picker-rows'
 
 const REGISTERED: RuntimeCapability[] = [
   STRUCTURED_AGENT_SESSION_RUNTIME_CAPABILITY,

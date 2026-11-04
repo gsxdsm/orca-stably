@@ -1,4 +1,4 @@
-import { AGENT_LAUNCH_SURFACE_RUNTIME_CAPABILITY } from '../../../src/shared/agent-launch-runtime-capability'
+import { AGENT_LAUNCH_SURFACE_RUNTIME_CAPABILITY } from '../../../src/shared/agent-launch/contracts/agent-launch-runtime-capability'
 import {
   AGENT_SESSION_AGENTS_METHOD,
   decodeAgentSessionAgentsResult

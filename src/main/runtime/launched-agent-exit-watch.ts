@@ -1,6 +1,6 @@
 import { FOREGROUND_COMMAND_READS } from '../../shared/foreground-command-settle'
 import { createOsc133CommandFinishedScanner } from '../../shared/terminal-osc133-command-finished'
-import type { TuiAgent } from '../../shared/tui-agent'
+import type { TuiAgent } from '../../shared/agent-launch/catalog/tui-agent'
 import type { OrcaRuntimeService } from './orca-runtime'
 import { readLaunchedAgentExitOutput } from './launched-agent-exit-output'
 // The finish fires before the prompt draws, whose commands (a git status, starship) lead the group until it has.
