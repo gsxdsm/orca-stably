@@ -2,13 +2,8 @@ import type { RpcClient } from '../transport/rpc-client'
 import { mobileStructuredSessionStatusFeed } from '../session/mobile-structured-session-status-feed'
 import { sendMobileStructuredAgentSessionMessage } from '../session/mobile-structured-agent-session-send'
 import { nativeChatTerminalWrite } from '../session/mobile-session-write-operations'
-import {
-  agentPromptRespondResultSchema,
-  type WatchFeedItem,
-  type WatchHost,
-  type WatchReply,
-  type WatchSnapshot
-} from './watch-contract'
+import type { WatchFeedItem, WatchHost, WatchReply, WatchSnapshot } from './watch-contract'
+import { agentPromptRespond } from './watch-agent-prompt-operations'
 import { createWatchGatewayController, type WatchGatewayController } from './watch-gateway'
 import {
   assembleWatchSources,
@@ -73,12 +68,8 @@ export function startWatchGateway(options: {
         return { ok: false, reason: 'unavailable' }
       }
       try {
-        const response = await client.sendRequest('agentPrompt.respond', input)
-        if (!response.ok) {
-          return { ok: false, reason: 'unavailable' }
-        }
-        const parsed = agentPromptRespondResultSchema.safeParse(response.result)
-        return parsed.success ? parsed.data : { ok: false, reason: 'unavailable' }
+        const response = await agentPromptRespond.request(client, input)
+        return agentPromptRespond.interpret(response) ?? { ok: false, reason: 'unavailable' }
       } catch {
         return { ok: false, reason: 'unavailable' }
       }

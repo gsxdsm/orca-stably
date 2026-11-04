@@ -3,11 +3,8 @@ import type { RpcClient } from '../transport/rpc-client'
 import { worktreeCatalogRead } from '../worktree/worktree-catalog-operations'
 import { WORKTREE_PS_FULL_LIMIT } from '../worktree/worktree-catalog-snapshot-client'
 import { mobileStructuredSessionStatusFeed } from '../session/mobile-structured-session-status-feed'
-import {
-  pendingAgentPromptListSchema,
-  type WatchFeedItem,
-  type WatchPrompt
-} from './watch-contract'
+import { agentPromptListPending } from './watch-agent-prompt-operations'
+import type { WatchFeedItem, WatchPrompt } from './watch-contract'
 import {
   watchSessionFenceFromEvent,
   type WatchSnapshotChat,
@@ -121,15 +118,12 @@ export async function readWatchPrompts(
   hostId: string
 ): Promise<WatchStoredPrompt[]> {
   try {
-    const response = await client.sendRequest('agentPrompt.listPending', {})
-    if (!response.ok) {
+    const response = await agentPromptListPending.request(client, {})
+    const parsed = agentPromptListPending.interpret(response)
+    if (!parsed) {
       return []
     }
-    const parsed = pendingAgentPromptListSchema.safeParse(response.result)
-    if (!parsed.success) {
-      return []
-    }
-    return parsed.data.prompts.map((prompt) => {
+    return parsed.prompts.map((prompt) => {
       const targetKind = prompt.target.type === 'chat' ? 'chat' : 'term'
       const targetId =
         prompt.target.type === 'chat' ? prompt.target.sessionId : prompt.target.terminal

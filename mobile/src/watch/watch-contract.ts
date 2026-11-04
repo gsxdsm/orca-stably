@@ -110,33 +110,6 @@ export const watchReplySchema = z.discriminatedUnion('ok', [
   })
 ])
 
-export const pendingAgentPromptSchema = z.looseObject({
-  promptId: watchId,
-  kind: watchPromptKind,
-  target: z.discriminatedUnion('type', [
-    z.strictObject({ type: z.literal('chat'), sessionId: watchId }),
-    z.strictObject({ type: z.literal('terminal'), terminal: watchId })
-  ]),
-  worktreeId: watchId,
-  agent: z.string().min(1),
-  title: z.string().min(1),
-  detail: z.string().optional(),
-  options: z.array(watchPromptOptionSchema),
-  createdAt: z.number()
-})
-
-export const pendingAgentPromptListSchema = z.looseObject({
-  prompts: z.array(pendingAgentPromptSchema)
-})
-
-export const agentPromptRespondResultSchema = z.discriminatedUnion('ok', [
-  z.strictObject({ ok: z.literal(true) }),
-  z.strictObject({
-    ok: z.literal(false),
-    reason: z.enum(['stale', 'not_found', 'rejected', 'unavailable'])
-  })
-])
-
 export type WatchHost = z.infer<typeof watchHostSchema>
 export type WatchSession = z.infer<typeof watchSessionSchema>
 export type WatchPrompt = z.infer<typeof watchPromptSchema>
@@ -145,5 +118,3 @@ export type WatchSnapshot = z.infer<typeof watchSnapshotSchema>
 export type WatchCommand = z.infer<typeof watchCommandSchema>
 export type WatchReply = z.infer<typeof watchReplySchema>
 export type WatchFailureReason = z.infer<typeof watchFailureReason>
-export type PendingAgentPrompt = z.infer<typeof pendingAgentPromptSchema>
-export type AgentPromptRespondResult = z.infer<typeof agentPromptRespondResultSchema>

@@ -38,6 +38,12 @@ export type PendingAgentPrompt = z.infer<typeof PendingAgentPrompt>
 
 export const AgentPromptListPendingParams = z.object({}).strict()
 
+export const AgentPromptListPendingResult = z
+  .object({
+    prompts: z.array(PendingAgentPrompt)
+  })
+  .strict()
+
 export const AgentPromptRespondParams = z
   .object({
     promptId: Identifier('Invalid prompt id', 2048),
@@ -46,6 +52,14 @@ export const AgentPromptRespondParams = z
   })
   .strict()
 
-export type AgentPromptRespondResult =
-  | { ok: true }
-  | { ok: false; reason: 'stale' | 'not_found' | 'rejected' | 'unavailable' }
+export const AgentPromptRespondResultSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true) }).strict(),
+  z
+    .object({
+      ok: z.literal(false),
+      reason: z.enum(['stale', 'not_found', 'rejected', 'unavailable'])
+    })
+    .strict()
+])
+
+export type AgentPromptRespondResult = z.infer<typeof AgentPromptRespondResultSchema>
