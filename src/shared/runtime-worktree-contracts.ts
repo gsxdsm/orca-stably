@@ -30,6 +30,8 @@ export type RuntimeWorktreeSetResult = {
 
 export type RuntimeWorktreeAgentRow = {
   paneKey: string
+  /** Issued `terminal.send` handle. Older hosts omit it. */
+  terminalHandle?: string
   parentPaneKey: string | null
   /** Canonical workspace that runs this pane. A mirrored copy keeps it. Old hosts omit it. */
   homeWorktreeId?: string

@@ -47,6 +47,19 @@ export type WatchGatewayHandlers = {
   schedule: (delayMs: number, run: () => void) => () => void
 }
 
+export function watchSendOutcomeFromHost(outcome: string): WatchSendOutcome {
+  if (
+    outcome === 'accepted' ||
+    outcome === 'queued' ||
+    outcome === 'rejected' ||
+    outcome === 'unavailable' ||
+    outcome === 'no-fence'
+  ) {
+    return outcome
+  }
+  return 'unavailable'
+}
+
 export function watchSessionFenceFromEvent(event: unknown): number | null {
   if (!event || typeof event !== 'object' || !('type' in event) || !('fence' in event)) {
     return null
@@ -149,6 +162,7 @@ export function createWatchGatewayController(handlers: WatchGatewayHandlers) {
     kind: 'chat' | 'term'
     id: string
     workspaceId?: string
+    terminalHandle?: string
   } | null {
     const sources = handlers.sources()
     const chat = sources.chats.find(
@@ -172,7 +186,8 @@ export function createWatchGatewayController(handlers: WatchGatewayHandlers) {
         hostId: terminal.hostId,
         kind: 'term',
         id: terminal.paneKey,
-        workspaceId: terminal.workspaceId
+        workspaceId: terminal.workspaceId,
+        ...(terminal.terminalHandle ? { terminalHandle: terminal.terminalHandle } : {})
       }
     }
     return null
@@ -226,7 +241,11 @@ export function createWatchGatewayController(handlers: WatchGatewayHandlers) {
       }
       return failure(command.id, outcome === 'rejected' ? 'rejected' : 'unavailable')
     }
-    const accepted = await handlers.sendTerminal(live.hostId, live.id, command.text)
+    // terminal.send takes the issued handle. A pane key is not one.
+    if (!live.terminalHandle) {
+      return failure(command.id, 'unavailable')
+    }
+    const accepted = await handlers.sendTerminal(live.hostId, live.terminalHandle, command.text)
     return accepted ? success(command.id, current()) : failure(command.id, 'unavailable')
   }
 

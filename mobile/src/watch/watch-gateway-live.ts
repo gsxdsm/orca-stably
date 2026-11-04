@@ -4,7 +4,11 @@ import { sendMobileStructuredAgentSessionMessage } from '../session/mobile-struc
 import { nativeChatTerminalWrite } from '../session/mobile-session-write-operations'
 import type { WatchFeedItem, WatchHost, WatchReply, WatchSnapshot } from './watch-contract'
 import { agentPromptRespond } from './watch-agent-prompt-operations'
-import { createWatchGatewayController, type WatchGatewayController } from './watch-gateway'
+import {
+  createWatchGatewayController,
+  watchSendOutcomeFromHost,
+  type WatchGatewayController
+} from './watch-gateway'
 import {
   assembleWatchSources,
   readSessionFence,
@@ -94,9 +98,7 @@ export function startWatchGateway(options: {
           clientMessageId: clientOperationId,
           onError: () => {}
         })
-        return outcome === 'accepted' || outcome === 'queued' || outcome === 'rejected'
-          ? outcome
-          : 'unavailable'
+        return watchSendOutcomeFromHost(outcome)
       } catch {
         return 'unavailable'
       }

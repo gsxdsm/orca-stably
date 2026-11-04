@@ -35,6 +35,8 @@ export type WatchSnapshotChat = {
 export type WatchSnapshotTerminal = {
   hostId: string
   paneKey: string
+  /** Issued handle for `terminal.send`. A pane key is not one. */
+  terminalHandle?: string
   workspaceId: string
   workspaceName: string
   agent: string

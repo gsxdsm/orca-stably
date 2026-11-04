@@ -41,10 +41,17 @@ struct ReplyView: View {
       }
       .background(palette.background)
     } else {
-      Text("Session ended")
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(palette.background)
+      ended(model.outcome)
     }
+  }
+
+  private func ended(_ outcome: String?) -> some View {
+    let text = WatchDetailCopy.missingSession(outcome)
+    return Text(text)
+      .font(.headline)
+      .foregroundStyle(text == "Sent ✓" ? palette.success : (outcome == nil ? palette.foreground : palette.warning))
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .background(palette.background)
   }
 
   private func quick(_ text: String, session: WatchSession) -> some View {

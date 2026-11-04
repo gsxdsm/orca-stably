@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { WatchHost } from './watch-contract'
 import {
   createWatchGatewayController,
+  watchSendOutcomeFromHost,
   watchSessionFenceFromEvent,
   type WatchGatewayHandlers,
   type WatchSendOutcome
@@ -24,6 +25,7 @@ function terminal(): WatchSnapshotTerminal {
   return {
     hostId: 'host-1',
     paneKey: 'pane-1',
+    terminalHandle: 'term_1',
     workspaceId: 'wt-1',
     workspaceName: 'orca',
     agent: 'codex',
@@ -70,8 +72,8 @@ function harness(initialConnection: WatchHost['connection'] = 'connected') {
       chatSends.push(clientOperationId)
       return chatOutcome
     },
-    async sendTerminal() {
-      terminalSends.push('sent')
+    async sendTerminal(_hostId, terminal) {
+      terminalSends.push(terminal)
       return terminalAccepted
     },
     openSession(target) {
@@ -86,6 +88,7 @@ function harness(initialConnection: WatchHost['connection'] = 'connected') {
     respondIds,
     chatSends,
     terminalSends,
+    terminals,
     opened,
     setNow(value: number) {
       now = value
@@ -155,7 +158,7 @@ describe('watch command routing', () => {
       text: 'ls'
     })
     expect(written.ok).toBe(true)
-    expect(gate.terminalSends).toEqual(['sent'])
+    expect(gate.terminalSends).toEqual(['term_1'])
 
     await gate.controller.handleCommand({
       v: 1,
@@ -319,6 +322,44 @@ describe('watch command routing', () => {
     })
     expect(gate.chatSends).toEqual([])
     expect(gate.terminalSends).toEqual([])
+
+    gate.terminals[0] = { ...gate.terminals[0], terminalHandle: undefined }
+    expect(
+      await gate.controller.handleCommand({
+        v: 1,
+        id: 'pane-only',
+        type: 'send',
+        sessionKey: 'host-1|term|pane-1',
+        text: 'Continue'
+      })
+    ).toEqual({ v: 1, id: 'pane-only', ok: false, reason: 'unavailable' })
+    expect(gate.terminalSends).toEqual([])
+
+    gate.setChatOutcome('no-fence')
+    expect(
+      await gate.controller.handleCommand({
+        v: 1,
+        id: 'nofence',
+        type: 'send',
+        sessionKey: 'host-1|chat|session-1',
+        text: 'Continue'
+      })
+    ).toEqual({ v: 1, id: 'nofence', ok: false, reason: 'unavailable' })
+    gate.setChatOutcome('queued')
+    expect(
+      (
+        await gate.controller.handleCommand({
+          v: 1,
+          id: 'queued',
+          type: 'send',
+          sessionKey: 'host-1|chat|session-1',
+          text: 'Continue'
+        })
+      ).ok
+    ).toBe(true)
+    expect(watchSendOutcomeFromHost('unknown')).toBe('unavailable')
+    expect(watchSendOutcomeFromHost('accepted')).toBe('accepted')
+    expect(watchSendOutcomeFromHost('queued')).toBe('queued')
   })
 
   it('pushes immediately when needs-input changes and otherwise waits two seconds', () => {

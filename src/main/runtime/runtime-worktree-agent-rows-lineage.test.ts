@@ -67,6 +67,7 @@ describe('worktree agent rows nest orchestration workers across folder workspace
       [coordinator, null],
       [worker, coordinator]
     ])
+    expect(nested.map((row) => row.terminalHandle)).toEqual(['term_coord', 'term_worker'])
     expect(summaries.get('folder:orca')?.hasHostSidebarActivity).toBe(false)
     expect(summaries.get('folder:babysitter')?.agents.map((row) => row.parentPaneKey)).toEqual([
       coordinator

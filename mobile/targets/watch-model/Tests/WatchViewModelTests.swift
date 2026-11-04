@@ -48,6 +48,10 @@ final class WatchViewModelTests: XCTestCase {
     XCTAssertEqual(WatchOutcomeCopy.text(for: WatchReply(v: 1, id: "cmd-1", ok: false, reason: "rejected")), "Rejected")
     XCTAssertEqual(WatchOutcomeCopy.text(for: WatchReply(v: 1, id: "cmd-1", ok: false, reason: "unavailable")), "Unavailable")
     XCTAssertEqual(WatchOutcomeCopy.text(for: WatchReply(v: 1, id: "cmd-1", ok: false, reason: "invalid")), "Invalid")
+    XCTAssertEqual(WatchDetailCopy.missingSession("That prompt changed"), "That prompt changed")
+    XCTAssertEqual(WatchDetailCopy.missingSession("Sent ✓"), "Sent ✓")
+    XCTAssertEqual(WatchDetailCopy.missingSession("Already gone"), "Already gone")
+    XCTAssertEqual(WatchDetailCopy.missingSession(nil), "Session ended")
   }
 
   func testDenyUsesInjectedId() throws {

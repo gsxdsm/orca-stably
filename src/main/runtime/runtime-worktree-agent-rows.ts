@@ -141,6 +141,7 @@ export function attachRuntimeWorktreeAgentRows(args: {
       parent && parent.tabId === source.tabId ? null : args.conversationName?.(source)
     const row: RuntimeWorktreeAgentRow = {
       paneKey: source.paneKey,
+      ...(source.terminalHandle ? { terminalHandle: source.terminalHandle } : {}),
       parentPaneKey,
       homeWorktreeId: summary.worktreeId,
       ...(summary.hostId ? { homeHostId: summary.hostId } : {}),

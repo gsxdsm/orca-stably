@@ -14,6 +14,7 @@ import { watchSessionKey } from './watch-snapshot'
 
 const agentRowSchema = z.looseObject({
   paneKey: z.string().min(1),
+  terminalHandle: z.string().min(1).optional(),
   state: z.enum(['working', 'blocked', 'waiting', 'done']),
   agentType: z.string().nullable().optional(),
   prompt: z.string().optional(),
@@ -184,6 +185,7 @@ function mapTerminals(hostId: string, rows: readonly WatchWorktreeRow[]): WatchS
       terminals.push({
         hostId,
         paneKey: agent.paneKey,
+        ...(agent.terminalHandle ? { terminalHandle: agent.terminalHandle } : {}),
         workspaceId: row.worktreeId,
         workspaceName: row.displayName,
         agent: agent.agentType ?? 'unknown',
@@ -271,6 +273,7 @@ export function assembleWatchSources(input: {
         terminals.push({
           hostId: item.hostId,
           paneKey: item.targetId,
+          terminalHandle: item.targetId,
           workspaceId: item.worktreeId,
           workspaceName,
           agent: item.agent,

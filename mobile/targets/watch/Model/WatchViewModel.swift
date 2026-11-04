@@ -55,6 +55,13 @@ enum WatchOutcomeCopy {
   }
 }
 
+enum WatchDetailCopy {
+  /// The row can leave the snapshot before the reply is readable. Keep the outcome.
+  static func missingSession(_ outcome: String?) -> String {
+    outcome ?? "Session ended"
+  }
+}
+
 enum WatchSections {
   static func title(_ status: WatchSessionStatus) -> String {
     switch status {
