@@ -43,7 +43,10 @@ export function useMobileTerminalChatQueue(args: {
   }
   const tail = useRef<Promise<unknown>>(Promise.resolve())
   const request = useCallback(
-    (action: z.infer<typeof NativeChatTerminalQueueRequest>['action']) => {
+    (
+      action: z.infer<typeof NativeChatTerminalQueueRequest>['action'],
+      onAcceptedUnhandled?: () => void
+    ) => {
       const started = generation.current
       const run = async () => {
         if (
@@ -60,11 +63,12 @@ export function useMobileTerminalChatQueue(args: {
           { terminal, action },
           { timeoutMs: 5_000 }
         )
-        if (!response.ok || scopeRef.current !== scope || generation.current !== started) {
+        if (!response.ok) {
           return null
         }
         const parsed = NativeChatTerminalQueueSnapshotSchema.safeParse(response.result)
-        if (!parsed.success || generation.current !== started) {
+        if (!parsed.success || scopeRef.current !== scope || generation.current !== started) {
+          onAcceptedUnhandled?.()
           return null
         }
         if (scopeRef.current === scope) {
@@ -113,8 +117,16 @@ export function useMobileTerminalChatQueue(args: {
   const enqueue = useCallback(
     async (text: string): Promise<MobileNativeChatSendOutcome> => {
       try {
-        if ((await request({ type: 'enqueue', messageId: randomV4Uuid(), text })) !== null) {
+        const accepted = { current: false }
+        const result = await request({ type: 'enqueue', messageId: randomV4Uuid(), text }, () => {
+          accepted.current = true
+        })
+        if (result !== null) {
           return 'queued'
+        }
+        if (accepted.current) {
+          args.onSendError?.(UNCONFIRMED_SEND_MESSAGE)
+          return 'unknown'
         }
         args.onSendError?.('Message not sent')
         return 'rejected'

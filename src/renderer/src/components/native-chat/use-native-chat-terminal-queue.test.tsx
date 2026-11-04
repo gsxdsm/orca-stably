@@ -182,4 +182,59 @@ describe('desktop terminal queue acknowledgment', () => {
       hook.unmount()
     }
   })
+
+  it('keeps an enqueue acknowledgment that arrives after disable', async () => {
+    const reads: ((value: unknown) => void)[] = []
+    rpc.mockImplementation(async (_target, method, params) => {
+      if (method !== 'nativeChat.terminalQueue') {
+        return { terminal: { handle: 'term' } }
+      }
+      NativeChatTerminalQueueRequest.parse(params)
+      return new Promise((resolve) => {
+        reads.push(resolve)
+      })
+    })
+    const snapshot = {
+      revision: '1',
+      activity: { state: 'idle', workingSequence: 1 },
+      queuedMessages: []
+    }
+    const hook = renderHook(
+      ({ enabled }) =>
+        useNativeChatTerminalQueue({
+          paneKey: 'tab:leaf',
+          ptyId: 'pty',
+          enabled,
+          environmentId: null,
+          composerRef: createRef<NativeChatComposerHandle>()
+        }),
+      { initialProps: { enabled: true } }
+    )
+    try {
+      await act(async () => {
+        await vi.waitFor(() => {
+          expect(reads.length).toBeGreaterThan(0)
+        })
+        reads.shift()?.(snapshot)
+      })
+      let pending: Promise<boolean> | undefined
+      await act(async () => {
+        pending = hook.result.current.enqueue('Later')
+        await vi.waitFor(() => {
+          expect(reads.length).toBeGreaterThan(0)
+        })
+      })
+      await act(async () => {
+        hook.rerender({ enabled: false })
+      })
+      await act(async () => {
+        reads.shift()?.(snapshot)
+        await expect(pending).resolves.toBe(true)
+      })
+      expect(hook.result.current.controller.cards).toEqual([])
+      expect(hook.result.current.activity).toBeUndefined()
+    } finally {
+      hook.unmount()
+    }
+  })
 })
