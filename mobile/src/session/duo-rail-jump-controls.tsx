@@ -28,7 +28,7 @@ type JumpContextValue = {
   frames: DuoRailJumpFrames | null
   actions: JumpActions | null
   register: (actions: JumpActions | null) => void
-  reportComposerTop: (top: number) => void
+  reportComposerTop: (top: number | null) => void
 }
 
 const DuoRailJumpContext = createContext<JumpContextValue | null>(null)
@@ -86,8 +86,13 @@ export function DuoRailJumpHost({
 }) {
   const [composerTop, setComposerTop] = useState<number | null>(null)
   const [actions, setActions] = useState<JumpActions | null>(null)
-  const reportComposerTop = useCallback((top: number) => {
-    setComposerTop((prev) => (prev !== null && Math.abs(prev - top) < 0.5 ? prev : top))
+  const reportComposerTop = useCallback((top: number | null) => {
+    setComposerTop((prev) => {
+      if (top === null) {
+        return prev === null ? prev : null
+      }
+      return prev !== null && Math.abs(prev - top) < 0.5 ? prev : top
+    })
   }, [])
   const frames = useRailFrames(chatVisible, keyboardInset, composerTop)
   const register = useCallback((next: JumpActions | null) => {
@@ -120,8 +125,13 @@ export function DuoRailComposerTop({
     })
   }, [report])
   useEffect(() => {
+    // display:none reports height 0, which measure ignores, so a hidden composer must drop the old top.
+    if (hidden) {
+      report?.(null)
+      return
+    }
     measure()
-  }, [measure, keyboardInset, hidden])
+  }, [measure, report, keyboardInset, hidden])
   return (
     <View
       ref={ref}
