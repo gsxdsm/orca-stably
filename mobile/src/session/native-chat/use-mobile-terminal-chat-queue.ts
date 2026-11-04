@@ -95,9 +95,11 @@ export function useMobileTerminalChatQueue(args: {
   const enqueue = useCallback(
     async (text: string): Promise<MobileNativeChatSendOutcome> => {
       try {
-        return (await request({ type: 'enqueue', messageId: randomV4Uuid(), text })) !== null
-          ? 'queued'
-          : 'rejected'
+        if ((await request({ type: 'enqueue', messageId: randomV4Uuid(), text })) !== null) {
+          return 'queued'
+        }
+        args.onSendError?.('Message not sent')
+        return 'rejected'
       } catch (error) {
         const unknown = isRpcDeliveryUnknown(error) || isLogicalClientCutoverError(error)
         args.onSendError?.(unknown ? UNCONFIRMED_SEND_MESSAGE : 'Message not sent')

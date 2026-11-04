@@ -106,4 +106,44 @@ describe('mobile Hermes terminal queue', () => {
     expect(api?.sendFollowUp).toBeNull()
     expect(api?.controls.cards).toEqual([])
   })
+
+  it('reports a host refusal instead of leaving a silent rejected enqueue', async () => {
+    const onSendError = vi.fn()
+    let api: ReturnType<typeof useMobileTerminalChatQueue> | undefined
+    const client: RpcClient = {
+      sendRequest: async () => ({
+        id: 'q',
+        ok: false,
+        error: { code: 'internal', message: 'terminal_chat_queue_full' },
+        _meta: { runtimeId: 'r' }
+      }),
+      subscribe: () => () => {},
+      updateTerminalSubscriptionViewport: () => {},
+      getState: () => 'connected',
+      getReconnectAttempt: () => 0,
+      getLastConnectedAt: () => 1,
+      onStateChange: () => () => {},
+      notifyForeground: () => {},
+      close: () => {}
+    }
+    function Harness() {
+      api = useMobileTerminalChatQueue({
+        client,
+        terminal: 'term',
+        enabled: true,
+        hostCapabilities: [NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY],
+        appendText: () => true,
+        onSendError
+      })
+      return null
+    }
+    await act(async () => {
+      renderer = create(createElement(Harness))
+    })
+    await act(async () => {
+      expect(await api?.enqueue('Later')).toBe('rejected')
+    })
+    expect(onSendError).toHaveBeenCalledTimes(1)
+    expect(onSendError).toHaveBeenCalledWith('Message not sent')
+  })
 })

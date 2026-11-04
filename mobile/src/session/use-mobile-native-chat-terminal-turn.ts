@@ -94,12 +94,19 @@ export function useMobileNativeChatTerminalTurn(args: {
     scopeKey: string
     epoch: number | null
     latestPendingId: string | null
+    workingSequence: number | null
   } | null>(null)
   const suppressed = suppression?.scopeKey === scopeKey ? suppression : null
   const sentSince = hasPending && latestPendingId !== suppressed?.latestPendingId
+  const workingSequence = args.terminalActivity?.workingSequence
+  const sequenceAdvanced =
+    suppressed?.workingSequence != null &&
+    workingSequence != null &&
+    workingSequence > suppressed.workingSequence
   if (
     suppressed &&
     (sentSince ||
+      sequenceAdvanced ||
       shouldClearNativeChatWorkingSuppression({
         working: liveWorking,
         interrupted: true,
@@ -113,14 +120,19 @@ export function useMobileNativeChatTerminalTurn(args: {
   }
   const interrupted = suppressed !== null
   const stopTurn = useCallback(() => {
-    const pressed = { scopeKey, epoch: stateStartedAt, latestPendingId }
+    const pressed = {
+      scopeKey,
+      epoch: stateStartedAt,
+      latestPendingId,
+      workingSequence: args.terminalActivity?.workingSequence ?? null
+    }
     setSuppression(pressed)
     void stop().then((sent) => {
       if (!sent) {
         setSuppression((current) => (current === pressed ? null : current))
       }
     })
-  }, [latestPendingId, scopeKey, stateStartedAt, stop])
+  }, [args.terminalActivity?.workingSequence, latestPendingId, scopeKey, stateStartedAt, stop])
 
   const turn = resolveNativeChatTerminalTurn({
     isConversation: messages.length > 0 || hasPending || streamingText !== undefined,
