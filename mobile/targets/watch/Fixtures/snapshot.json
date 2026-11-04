@@ -1,0 +1,112 @@
+{
+  "v": 1,
+  "generatedAt": 1762272000000,
+  "hosts": [
+    {"hostId": "host-a", "name": "Studio", "connection": "connected"},
+    {"hostId": "host-b", "name": "Travel", "connection": "offline"}
+  ],
+  "sessions": [
+    {
+      "key": "host-b|chat|ses-2",
+      "hostId": "host-b",
+      "title": "Notes",
+      "agent": "Claude",
+      "workspace": "notes",
+      "status": "idle",
+      "latest": "Nothing new",
+      "updatedAt": 1762271950000,
+      "canSend": true
+    },
+    {
+      "key": "host-b|term|pty-1",
+      "hostId": "host-b",
+      "title": "Ship the widget",
+      "agent": "Codex",
+      "workspace": "orca",
+      "status": "working",
+      "latest": "Running the watch build",
+      "updatedAt": 1762271999000,
+      "canSend": true
+    },
+    {
+      "key": "host-a|chat|ses-3",
+      "hostId": "host-a",
+      "title": "Rename the button",
+      "agent": "Codex",
+      "workspace": "orca",
+      "status": "done",
+      "latest": "Renamed the primary button.",
+      "updatedAt": 1762271992000,
+      "canSend": false
+    },
+    {
+      "key": "host-a|chat|ses-1",
+      "hostId": "host-a",
+      "title": "Login button",
+      "agent": "Claude",
+      "workspace": "orca",
+      "status": "needs-input",
+      "latest": "Edit src/Login.swift?",
+      "toolName": "Edit",
+      "updatedAt": 1762272000000,
+      "canSend": true,
+      "pendingPromptId": "chat:ses-1:item-1:1"
+    },
+    {
+      "key": "host-a|chat|ses-9",
+      "hostId": "host-a",
+      "title": "Older prompt",
+      "agent": "Claude",
+      "workspace": "orca",
+      "status": "needs-input",
+      "latest": "Waiting on a name",
+      "updatedAt": 1762271990000,
+      "canSend": true
+    }
+  ],
+  "prompts": [
+    {
+      "hostId": "host-a",
+      "promptId": "chat:ses-1:item-1:1",
+      "sessionKey": "host-a|chat|ses-1",
+      "kind": "permission",
+      "title": "Edit the login title",
+      "detail": "Edit adds a title label",
+      "options": [
+        {"optionId": "allow", "label": "Approve", "role": "approve"},
+        {"optionId": "always", "label": "Always", "role": "approve-always"},
+        {"optionId": "deny", "label": "Deny", "role": "deny"},
+        {"optionId": "other", "label": "Not now", "role": "other"}
+      ],
+      "createdAt": 1762272000000
+    }
+  ],
+  "feed": [
+    {
+      "id": "feed-1",
+      "hostId": "host-a",
+      "sessionKey": "host-a|chat|ses-1",
+      "title": "Needs a look",
+      "body": "Login button is waiting.",
+      "at": 1762272000000,
+      "kind": "needs-input"
+    },
+    {
+      "id": "feed-2",
+      "hostId": "host-a",
+      "sessionKey": "host-a|chat|ses-3",
+      "title": "Finished",
+      "body": "Renamed the primary button.",
+      "at": 1762271992000,
+      "kind": "finished"
+    },
+    {
+      "id": "feed-3",
+      "hostId": "host-b",
+      "title": "Bell",
+      "body": "Travel host is offline.",
+      "at": 1762271900000,
+      "kind": "bell"
+    }
+  ]
+}

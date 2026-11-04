@@ -147,6 +147,7 @@
           }
         }
       ],
+      "./plugins/ios-optional-development-team.js",
       [
         "@bacons/apple-targets",
         {
