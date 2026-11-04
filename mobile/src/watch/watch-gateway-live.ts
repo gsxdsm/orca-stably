@@ -1,23 +1,18 @@
 import type { RpcClient } from '../transport/rpc-client'
 import { mobileStructuredSessionStatusFeed } from '../session/mobile-structured-session-status-feed'
-import { sendMobileStructuredAgentSessionMessage } from '../session/mobile-structured-agent-session-send'
-import { nativeChatTerminalWrite } from '../session/mobile-session-write-operations'
 import type { WatchFeedItem, WatchHost, WatchReply, WatchSnapshot } from './watch-contract'
 import { agentPromptRespond } from './watch-agent-prompt-operations'
-import {
-  createWatchGatewayController,
-  watchSendOutcomeFromHost,
-  type WatchGatewayController
-} from './watch-gateway'
+import { createWatchGatewayController, type WatchGatewayController } from './watch-gateway'
 import {
   assembleWatchSources,
-  readSessionFence,
   readWatchPrompts,
   readWatchWorktrees,
   watchFeedItemFromNotification,
   type WatchStoredPrompt,
   type WatchWorktreeRow
 } from './watch-host-snapshot-read'
+import { sendWatchStructuredChat } from './watch-structured-chat-send'
+import { sendWatchTerminalText } from './watch-terminal-send'
 import { readWatchPromptAction, type WatchPromptResponseInput } from './watch-prompt-actions'
 
 export type WatchLiveHost = WatchHost & { client: RpcClient }
@@ -78,47 +73,24 @@ export function startWatchGateway(options: {
         return { ok: false, reason: 'unavailable' }
       }
     },
-    async sendChat(hostId, sessionId, text, clientOperationId) {
+    async sendChat(hostId, sessionId, text) {
       const client = hosts.get(hostId)?.client
       if (!client) {
-        return 'unavailable'
+        return { outcome: 'unavailable' }
       }
-      const fence = await readSessionFence(client, sessionId)
-      if (fence === null) {
-        return 'no-fence'
-      }
-      try {
-        const outcome = await sendMobileStructuredAgentSessionMessage({
-          client,
-          sessionId,
-          expectedRuntimeFence: fence,
-          text,
-          attachments: [],
-          delivery: 'queue-if-active',
-          clientMessageId: clientOperationId,
-          onError: () => {}
-        })
-        return watchSendOutcomeFromHost(outcome)
-      } catch {
-        return 'unavailable'
-      }
+      return sendWatchStructuredChat({ client, sessionId, text })
     },
-    async sendTerminal(hostId, terminal, text) {
+    async sendTerminal(hostId, target, text) {
       const client = hosts.get(hostId)?.client
-      if (!client) {
+      if (!client || !target.workspaceId) {
         return false
       }
-      try {
-        const response = await nativeChatTerminalWrite.request(client, {
-          terminal,
-          text,
-          enter: true,
-          agentPrompt: true
-        })
-        return nativeChatTerminalWrite.interpret(response) === true
-      } catch {
-        return false
-      }
+      return sendWatchTerminalText({
+        client,
+        worktreeId: target.workspaceId,
+        paneKey: target.paneKey,
+        text
+      })
     }
   })
 

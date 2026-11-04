@@ -6,11 +6,10 @@ import { mobileStructuredSessionStatusFeed } from '../session/mobile-structured-
 import { agentPromptListPending } from './watch-agent-prompt-operations'
 import type { WatchFeedItem, WatchPrompt } from './watch-contract'
 import {
-  watchSessionFenceFromEvent,
+  watchSessionKey,
   type WatchSnapshotChat,
   type WatchSnapshotTerminal
-} from './watch-gateway'
-import { watchSessionKey } from './watch-snapshot'
+} from './watch-snapshot'
 
 const agentRowSchema = z.looseObject({
   paneKey: z.string().min(1),
@@ -55,31 +54,6 @@ export type WatchWorktreeRow = {
   worktreeId: string
   displayName: string
   agents: Array<z.infer<typeof agentRowSchema>>
-}
-
-const FENCE_WAIT_MS = 3_000
-
-export function readSessionFence(client: RpcClient, sessionId: string): Promise<number | null> {
-  return new Promise((resolve) => {
-    let settled = false
-    let unsubscribe = () => {}
-    const finish = (fence: number | null) => {
-      if (settled) {
-        return
-      }
-      settled = true
-      clearTimeout(timer)
-      queueMicrotask(unsubscribe)
-      resolve(fence)
-    }
-    const timer = setTimeout(() => finish(null), FENCE_WAIT_MS)
-    unsubscribe = client.subscribe('agentSession.subscribe', { sessionId }, (event) => {
-      const fence = watchSessionFenceFromEvent(event)
-      if (fence !== null) {
-        finish(fence)
-      }
-    })
-  })
 }
 
 export async function readWatchWorktrees(client: RpcClient): Promise<WatchWorktreeRow[]> {

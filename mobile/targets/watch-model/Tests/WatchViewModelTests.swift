@@ -106,6 +106,24 @@ final class WatchViewModelTests: XCTestCase {
     XCTAssertEqual(quickCommand.id, "cmd-8")
   }
 
+  func testDictatedAndTypedTextBothSubmitSend() throws {
+    let snapshot = try FixtureFiles.snapshot()
+    let open = try XCTUnwrap(snapshot.sessions.first { $0.key == "host-a|chat|ses-1" })
+    let dictated = WatchActions.sendText(session: open, text: "Yeti", nextId: "dictate")
+    let typed = WatchActions.sendText(session: open, text: "Yeti", nextId: "typed")
+    guard case .send(let dictatedCommand) = dictated, case .send(let typedCommand) = typed else {
+      return XCTFail("dictation and typed text should both submit a send")
+    }
+    XCTAssertEqual(dictatedCommand.type, "send")
+    XCTAssertEqual(typedCommand.type, "send")
+    XCTAssertEqual(dictatedCommand.text, "Yeti")
+    XCTAssertEqual(typedCommand.text, "Yeti")
+    XCTAssertEqual(dictatedCommand.sessionKey, open.key)
+    XCTAssertEqual(typedCommand.sessionKey, open.key)
+    let refused = WatchReply(v: 1, id: "cmd-9", ok: false, reason: "rejected", detail: "host refused the envelope")
+    XCTAssertEqual(WatchOutcomeCopy.text(for: refused), "host refused the envelope")
+  }
+
   func testOkRespondClearsPromptLocally() throws {
     let snapshot = try FixtureFiles.snapshot()
     let command = WatchCommand.respond(id: "cmd-1", hostId: "host-a", promptId: "chat:ses-1:item-1:1", optionId: "deny")

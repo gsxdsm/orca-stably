@@ -3,7 +3,6 @@ import type { WatchHost } from './watch-contract'
 import {
   createWatchGatewayController,
   watchSendOutcomeFromHost,
-  watchSessionFenceFromEvent,
   type WatchGatewayHandlers,
   type WatchSendOutcome
 } from './watch-gateway'
@@ -43,6 +42,7 @@ function harness(initialConnection: WatchHost['connection'] = 'connected') {
   const respondIds: string[] = []
   const chatSends: string[] = []
   const terminalSends: string[] = []
+  let terminalDetail = ''
   const opened: string[] = []
   let respondResult:
     | { ok: true }
@@ -70,10 +70,13 @@ function harness(initialConnection: WatchHost['connection'] = 'connected') {
     respond: (hostId, input) => respondImpl(hostId, input),
     async sendChat(_hostId, _sessionId, _text, clientOperationId) {
       chatSends.push(clientOperationId)
-      return chatOutcome
+      return chatOutcome === 'rejected'
+        ? { outcome: chatOutcome, detail: 'host refused the envelope' }
+        : { outcome: chatOutcome }
     },
-    async sendTerminal(_hostId, terminal) {
-      terminalSends.push(terminal)
+    async sendTerminal(_hostId, target) {
+      terminalSends.push(target.paneKey)
+      terminalDetail = target.workspaceId ?? ''
       return terminalAccepted
     },
     openSession(target) {
@@ -88,6 +91,9 @@ function harness(initialConnection: WatchHost['connection'] = 'connected') {
     respondIds,
     chatSends,
     terminalSends,
+    terminalTarget() {
+      return terminalDetail
+    },
     terminals,
     opened,
     setNow(value: number) {
@@ -158,7 +164,8 @@ describe('watch command routing', () => {
       text: 'ls'
     })
     expect(written.ok).toBe(true)
-    expect(gate.terminalSends).toEqual(['term_1'])
+    expect(gate.terminalSends).toEqual(['pane-1'])
+    expect(gate.terminalTarget()).toBe('wt-1')
 
     await gate.controller.handleCommand({
       v: 1,
@@ -332,8 +339,18 @@ describe('watch command routing', () => {
         sessionKey: 'host-1|term|pane-1',
         text: 'Continue'
       })
-    ).toEqual({ v: 1, id: 'pane-only', ok: false, reason: 'unavailable' })
-    expect(gate.terminalSends).toEqual([])
+    ).toMatchObject({ ok: true })
+    expect(gate.terminalSends).toEqual(['pane-1'])
+    gate.setTerminalAccepted(false)
+    expect(
+      await gate.controller.handleCommand({
+        v: 1,
+        id: 'pane-miss',
+        type: 'send',
+        sessionKey: 'host-1|term|pane-1',
+        text: 'Continue'
+      })
+    ).toEqual({ v: 1, id: 'pane-miss', ok: false, reason: 'unavailable' })
 
     gate.setChatOutcome('no-fence')
     expect(
@@ -345,6 +362,22 @@ describe('watch command routing', () => {
         text: 'Continue'
       })
     ).toEqual({ v: 1, id: 'nofence', ok: false, reason: 'unavailable' })
+    gate.setChatOutcome('rejected')
+    expect(
+      await gate.controller.handleCommand({
+        v: 1,
+        id: 'refused',
+        type: 'send',
+        sessionKey: 'host-1|chat|session-1',
+        text: 'Continue'
+      })
+    ).toEqual({
+      v: 1,
+      id: 'refused',
+      ok: false,
+      reason: 'rejected',
+      detail: 'host refused the envelope'
+    })
     gate.setChatOutcome('queued')
     expect(
       (
@@ -376,17 +409,5 @@ describe('watch command routing', () => {
     gate.chats[0] = { ...gate.chats[0], projectedStatus: 'attention' }
     gate.controller.publish()
     expect(gate.pushes).toHaveLength(3)
-  })
-
-  it('reads the journal snapshot fence and ignores a status summary fence', () => {
-    expect(watchSessionFenceFromEvent({ type: 'snapshot', sessionId: 's', fence: 7 })).toBe(7)
-    expect(watchSessionFenceFromEvent({ type: 'reset', fence: 3 })).toBe(3)
-    expect(
-      watchSessionFenceFromEvent({
-        sessionId: 's',
-        status: 'working',
-        runtimePermission: { fence: 9, mode: 'ask' }
-      })
-    ).toBe(null)
   })
 })

@@ -36,6 +36,9 @@ enum WatchOutcomeCopy {
     if reply.ok {
       return "Sent ✓"
     }
+    if let detail = reply.detail, !detail.isEmpty {
+      return detail
+    }
     switch reply.reason {
     case "stale":
       return "That prompt changed"

@@ -189,8 +189,9 @@ final class WatchSessionModel: ObservableObject {
     Task { await perform(.openOnPhone(id: nextId(), sessionKey: session.key)) }
   }
 
-  func dictate(_ text: String) {
+  func dictate(_ text: String, session: WatchSession) {
     draft = text
+    submit(session: session, text: text)
   }
 
   private func submit(session: WatchSession, text: String) {

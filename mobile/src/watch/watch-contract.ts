@@ -106,7 +106,8 @@ export const watchReplySchema = z.discriminatedUnion('ok', [
     v: z.literal(1),
     id: watchId,
     ok: z.literal(false),
-    reason: watchFailureReason
+    reason: watchFailureReason,
+    detail: z.string().min(1).max(160).optional()
   })
 ])
 

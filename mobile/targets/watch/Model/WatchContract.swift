@@ -143,6 +143,7 @@ struct WatchReply: Codable, Equatable, Sendable {
   var ok: Bool
   var snapshot: WatchSnapshot?
   var reason: String?
+  var detail: String? = nil
 
   static func decode(_ data: Data) -> WatchReply? {
     guard let reply = try? JSONDecoder().decode(WatchReply.self, from: data), reply.v == 1 else {

@@ -1,5 +1,6 @@
 import { selectAgentSessionCurrentRequests } from '../../../src/shared/agent-session/requests/agent-session-current-requests'
 import { useCallback } from 'react'
+import { mobileStructuredSendQueues } from './mobile-structured-send-queues'
 import { runningStructuredAgentSessionTurnId } from '../../../src/shared/agent-session/view/structured-agent-session-live-turn'
 import { mobileStructuredAgentSessionWorking } from './mobile-structured-agent-session-working'
 import { structuredSessionBackgroundTasksView } from '../../../src/shared/structured-session-background-tasks-view'
@@ -17,10 +18,6 @@ import { MAX_SKILL_REFS } from '../../../src/shared/rpc-contract/structured-agen
 import type { StructuredAgentSessionComposerOptions } from '../../../src/shared/agent-session/view/structured-agent-session-composer'
 import type { AgentSessionSlashCommand } from '../../../src/shared/agent-session/agent-session-wire'
 import type { StructuredAgentSessionState } from '../../../src/shared/agent-session/structured-agent-session-reducer'
-import {
-  structuredAgentSessionFollowUpsQueue,
-  structuredAgentSessionQueueEnabled
-} from '../../../src/shared/agent-session/view/structured-agent-session-queued-cards'
 import type { RpcClient } from '../transport/rpc-client'
 import type {
   MobileNativeChatSendIntent,
@@ -40,25 +37,7 @@ import {
   actionableStructuredQuestion
 } from './mobile-structured-actionable-prompt'
 
-/** The desktop's rule: the alternate flips the setting first, then the queue's own rules decide. */
-export function mobileStructuredSendQueues(
-  queueCapable: boolean,
-  queueFollowUps: boolean,
-  state: Pick<StructuredAgentSessionState, 'items' | 'currentRequests' | 'queuedMessages'>,
-  send: { alternate?: boolean; isWorking: boolean; stopping: boolean } = {
-    isWorking: false,
-    stopping: false
-  }
-): boolean {
-  return (
-    queueCapable &&
-    structuredAgentSessionQueueEnabled(
-      structuredAgentSessionFollowUpsQueue(queueFollowUps, send),
-      state,
-      selectAgentSessionCurrentRequests(state)
-    )
-  )
-}
+export { mobileStructuredSendQueues }
 
 export type StructuredMobileSendAttachment =
   | (StructuredAgentSessionAttachment & { kind?: 'image'; id?: string })

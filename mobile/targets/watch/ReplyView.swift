@@ -30,7 +30,8 @@ struct ReplyView: View {
               quick("Stop", session: session)
             }
             TextField("Message", text: $model.draft)
-            Button("Dictate") { dictate() }
+              .onSubmit { model.sendDraft(session: session) }
+            Button("Dictate") { dictate(session) }
               .buttonStyle(OrcaWideButtonStyle(fill: palette.muted, ink: palette.foreground, minHeight: 32))
             Button("Send") { model.sendDraft(session: session) }
               .buttonStyle(OrcaWideButtonStyle(fill: palette.primary, ink: palette.primaryForeground, minHeight: 32))
@@ -68,7 +69,7 @@ struct ReplyView: View {
     .disabled(model.busy || !session.canSend)
   }
 
-  private func dictate() {
+  private func dictate(_ session: WatchSession) {
     WKApplication.shared().visibleInterfaceController?.presentTextInputController(
       withSuggestions: ["Continue", "Yes", "Stop"],
       allowedInputMode: .plain
@@ -77,7 +78,7 @@ struct ReplyView: View {
         return
       }
       Task { @MainActor in
-        model.dictate(text)
+        model.dictate(text, session: session)
       }
     }
   }
