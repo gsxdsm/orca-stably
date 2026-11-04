@@ -8,6 +8,7 @@ import {
   type NativeChatTerminalQueueSnapshot
 } from '../../../../src/shared/native-chat/native-chat-terminal-queue'
 import { NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY } from '../../../../src/shared/native-chat/native-chat-terminal-queue-capability'
+import { UNCONFIRMED_SEND_MESSAGE } from './use-mobile-native-chat-unconfirmed-sends'
 
 describe('mobile Hermes terminal queue', () => {
   let renderer: ReactTestRenderer | null = null
@@ -332,5 +333,71 @@ describe('mobile Hermes terminal queue', () => {
       })
     })
     expect(api?.activity?.state).toBe('idle')
+  })
+
+  it('reports an accepted enqueue as unknown when the queue period ends first', async () => {
+    const reads: Array<
+      (value: {
+        id: string
+        ok: true
+        result: NativeChatTerminalQueueSnapshot
+        _meta: { runtimeId: string }
+      }) => void
+    > = []
+    const idle: NativeChatTerminalQueueSnapshot = {
+      revision: '1',
+      activity: { state: 'idle', workingSequence: 1 },
+      queuedMessages: []
+    }
+    const client: RpcClient = {
+      sendRequest: async (_method, params) => {
+        NativeChatTerminalQueueRequest.parse(params)
+        return new Promise((resolve) => {
+          reads.push(resolve)
+        })
+      },
+      subscribe: () => () => {},
+      updateTerminalSubscriptionViewport: () => {},
+      getState: () => 'connected',
+      getReconnectAttempt: () => 0,
+      getLastConnectedAt: () => 1,
+      onStateChange: () => () => {},
+      notifyForeground: () => {},
+      close: () => {}
+    }
+    const onSendError = vi.fn()
+    let api: ReturnType<typeof useMobileTerminalChatQueue> | undefined
+    function Harness({ enabled = true }: { enabled?: boolean }) {
+      api = useMobileTerminalChatQueue({
+        client,
+        terminal: 'term',
+        enabled,
+        hostCapabilities: [NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY],
+        appendText: () => true,
+        onSendError
+      })
+      return null
+    }
+    await act(async () => {
+      renderer = create(createElement(Harness))
+    })
+    await act(async () => {
+      reads.shift()?.({ id: 'q', ok: true, result: idle, _meta: { runtimeId: 'r' } })
+    })
+    let pending: Promise<string> | undefined
+    await act(async () => {
+      pending = api?.enqueue('Later')
+      await vi.waitFor(() => {
+        expect(reads.length).toBeGreaterThan(0)
+      })
+    })
+    await act(async () => {
+      renderer?.update(createElement(Harness, { enabled: false }))
+    })
+    await act(async () => {
+      reads.shift()?.({ id: 'q', ok: true, result: idle, _meta: { runtimeId: 'r' } })
+      await expect(pending).resolves.toBe('unknown')
+    })
+    expect(onSendError).toHaveBeenCalledWith(UNCONFIRMED_SEND_MESSAGE)
   })
 })

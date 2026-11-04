@@ -92,8 +92,12 @@ export function useNativeChatTerminalQueue(args: {
           { timeoutMs: 5_000 }
         )
         const parsed = NativeChatTerminalQueueSnapshotSchema.safeParse(result)
-        if (!parsed.success || current.current !== scope || generation.current !== started) {
+        if (!parsed.success) {
           return null
+        }
+        const stale = current.current !== scope || generation.current !== started
+        if (stale) {
+          return action.type === 'enqueue' ? parsed.data : null
         }
         if (current.current === scope) {
           setHeld((previous) =>
