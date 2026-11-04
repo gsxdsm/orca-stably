@@ -20,6 +20,12 @@ describe('push gateway send route', () => {
     await harness.close()
   })
 
+  it('advertises prompt categories without authentication', async () => {
+    const response = await harness.authorized('/v1/capabilities')
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ promptCategory: true })
+  })
+
   it('rejects a batch over the registration cap', async () => {
     const sessionToken = await harness.signIn(createPushHostKeypair(16))
     const oversized = await harness.post(
@@ -165,9 +171,52 @@ describe('push gateway send route', () => {
     expect(bodies.map((body) => body.orca.notificationSeq).sort((a, b) => a - b)).toEqual([1, 2, 3])
     expect(bodies.every((body) => !('coalescedCount' in body.orca))).toBe(true)
     expect(bodies.every((body) => !('summaryMembers' in body.orca))).toBe(true)
+    expect(bodies.every((body) => !('category' in body.aps) && !('category' in body.orca))).toBe(
+      true
+    )
+    expect(bodies.every((body) => !('prompt' in body.orca))).toBe(true)
     expect(
       new Set(harness.apnsRequests.map((request) => request.headers['apns-collapse-id'])).size
     ).toBe(3)
+  })
+
+  it('forwards a prompt category onto the APNs alert', async () => {
+    const sessionToken = await harness.signIn(createPushHostKeypair(28))
+    const registration = await harness.post(
+      '/v1/devices',
+      {
+        v: 1,
+        deviceId: 'iphone-prompt',
+        platform: 'ios',
+        token: APNS_TOKEN,
+        apnsEnvironment: 'sandbox'
+      },
+      sessionToken
+    )
+    const { registrationId } = (await registration.json()) as { registrationId: string }
+    const prompt = {
+      promptId: 'term:pty:ssh:1:26bea7ae07aef52f093a',
+      options: [
+        { optionId: 'allow_once', label: 'Allow once', role: 'approve' },
+        { optionId: 'reject_once', label: 'Reject', role: 'deny' }
+      ]
+    }
+    const queued = await harness.post(
+      '/v1/send',
+      {
+        v: 1,
+        registrationIds: [registrationId],
+        notification: { ...notification(), category: 'orca.prompt', prompt }
+      },
+      sessionToken
+    )
+    expect(queued.status).toBe(200)
+    await harness.flushDeliveries()
+    expect(harness.apnsRequests).toHaveLength(1)
+    expect(JSON.parse(harness.apnsRequests[0]!.body)).toMatchObject({
+      aps: { category: 'orca.prompt' },
+      orca: { category: 'orca.prompt', prompt }
+    })
   })
 
   it('reports an error for a registration the host does not own', async () => {

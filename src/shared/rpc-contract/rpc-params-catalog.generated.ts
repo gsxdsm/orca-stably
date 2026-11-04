@@ -68,6 +68,7 @@ import {
 import { PrepareCodexForWslPaneParams } from './agent-hooks-params'
 import { AgentLaunch, AgentLaunchReplay } from './agent-launch-params'
 import { AgentLaunchSettingsMutation } from './agent-launch-settings-params'
+import { AgentPromptListPendingParams, AgentPromptRespondParams } from './agent-prompt-params'
 import {
   AttachmentReadParams,
   AttachmentTextReadParams,
@@ -783,6 +784,8 @@ export const RPC_PARAMS_BY_METHOD = {
   'agent.launch': AgentLaunch,
   'agent.launchReplay': AgentLaunchReplay,
   'agentHooks.prepareCodexForWslPane': PrepareCodexForWslPaneParams,
+  'agentPrompt.listPending': AgentPromptListPendingParams,
+  'agentPrompt.respond': AgentPromptRespondParams,
   'agentSession.acknowledgeAttention': AcknowledgeAttentionParams,
   'agentSession.agents': AgentsParams,
   'agentSession.cancel': CancelParams,

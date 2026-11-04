@@ -10,7 +10,9 @@ import type { DeviceRegistry } from '../device-registry'
 import type { OrcaRuntimeService } from '../orca-runtime'
 import type { OrcaRuntimeRpcServer } from '../runtime-rpc'
 import { PushDispatcher } from './push-dispatcher'
+import { desktopPushPrompt } from './desktop-push-prompt'
 import { PushGatewayClient } from './push-gateway-client'
+import type { PushPromptCategoryGate } from './push-prompt-category-gate'
 import { PushRegisterThrottle } from './push-register-throttle'
 import type { PushUnregisterOutbox } from './push-unregister-outbox'
 
@@ -38,6 +40,7 @@ export class DesktopPushService {
   private readonly outbox: PushUnregisterOutbox
   private readonly client: PushGatewayClient
   private readonly dispatcher: PushDispatcher
+  private readonly promptCategory: PushPromptCategoryGate
   private readonly registerThrottle: PushRegisterThrottle
   private readonly scheduleRetry: (run: () => void, delayMs: number) => void
   private unsubscribe: (() => void) | null = null
@@ -58,7 +61,14 @@ export class DesktopPushService {
     this.registry = registry
     this.client = client
     this.outbox = options.runtimeRpc.getPushUnregisterOutbox()
-    this.dispatcher = new PushDispatcher({ client, registry })
+    const prompt = desktopPushPrompt(this.runtime, client)
+    this.promptCategory = prompt.gate
+    this.dispatcher = new PushDispatcher({
+      client,
+      registry,
+      promptCategory: prompt.gate,
+      promptFor: prompt.promptFor
+    })
     this.registerThrottle = options.registerThrottle ?? new PushRegisterThrottle()
     this.scheduleRetry =
       options.scheduleRetry ??
@@ -82,6 +92,7 @@ export class DesktopPushService {
 
   start(): void {
     this.stopped = false
+    this.promptCategory.refresh()
     this.dispatcher.start()
     this.runtime.setMobilePushRegistrar(this)
     this.unsubscribe = this.runtime.onNotificationDispatched((event) => {
