@@ -146,6 +146,12 @@
             "usesCleartextTraffic": true
           }
         }
+      ],
+      [
+        "@bacons/apple-targets",
+        {
+          "root": "./targets"
+        }
       ]
     ]
   }
