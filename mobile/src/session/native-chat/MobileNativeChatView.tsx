@@ -9,8 +9,6 @@ import {
 import { type NativeScrollEvent, type NativeSyntheticEvent, Text, View } from 'react-native'
 import { GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useChatBottomFit } from './composer/use-chat-bottom-fit'
-import type { AskAnswerSelection } from '../../../../src/shared/native-chat/input/native-chat-ask-answer'
-import type { AskPrompt } from '../../../../src/shared/native-chat/input/native-chat-ask-types'
 import type { NativeChatMessage } from '../../../../src/shared/native-chat/native-chat-types'
 import type {
   NativeChatLiveTurnIndicator,

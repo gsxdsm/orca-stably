@@ -1915,7 +1915,8 @@
       "collapse": "Collapse"
     },
     "nativeChatFloatingControls": {
-      "scrollToLatest": "Scroll to latest"
+      "scrollToLatest": "Scroll to latest",
+      "previousMessage": "Previous message"
     },
     "nativeChatFullContent": {
       "partialOutput": "Showing {{shown}} of {{total}}.",
