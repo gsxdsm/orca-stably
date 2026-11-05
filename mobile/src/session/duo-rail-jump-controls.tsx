@@ -20,8 +20,6 @@ import { MobileNativeChatFloatingControls } from './native-chat/MobileNativeChat
 type JumpActions = {
   showJumpToTail: boolean
   onJumpToTail: () => void
-  showPreviousMessage: boolean
-  onJumpToPrevious: (animated: boolean) => void
 }
 
 type JumpContextValue = {
@@ -40,12 +38,7 @@ function sameActions(left: JumpActions | null, right: JumpActions | null): boole
   if (left === null || right === null) {
     return false
   }
-  return (
-    left.showJumpToTail === right.showJumpToTail &&
-    left.showPreviousMessage === right.showPreviousMessage &&
-    left.onJumpToTail === right.onJumpToTail &&
-    left.onJumpToPrevious === right.onJumpToPrevious
-  )
+  return left.showJumpToTail === right.showJumpToTail && left.onJumpToTail === right.onJumpToTail
 }
 
 function useRailFrames(
@@ -164,13 +157,7 @@ export function MobileNativeChatJumpControls(props: JumpActions) {
   useEffect(() => {
     ctx?.register(props)
     return () => ctx?.register(null)
-  }, [
-    ctx?.register,
-    props.showJumpToTail,
-    props.showPreviousMessage,
-    props.onJumpToTail,
-    props.onJumpToPrevious
-  ])
+  }, [ctx?.register, props.showJumpToTail, props.onJumpToTail])
   if (ctx?.frames != null) {
     return null
   }
