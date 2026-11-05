@@ -1,4 +1,5 @@
 import { terminalSafe } from '../../shared/terminal/output/terminal-safe-text'
+import { replaceDispatchCapabilities } from './orchestration/worker-terminal-redaction'
 import { applyTerminalLineControls } from './terminal-tail-line-controls'
 
 const COMMAND_STARTED_MARK = '\x1b]133;C'
@@ -40,14 +41,15 @@ export function readLaunchedAgentExitOutput(
   const outer = stopAtFinish ? lastStarted : outermostUnclosedStart(recentOutput)
   const started = Math.max(0, outer >= 0 ? outer : lastStarted)
   const finished = recentOutput.lastIndexOf(COMMAND_FINISHED_MARK)
-  return recentOutput
+  const lines = recentOutput
     .slice(started, stopAtFinish && finished > started ? finished : undefined)
     .replace(ZSH_PROMPT_SP, '')
     .split(/\r*\n/)
     .map((line) => terminalSafe(applyTerminalLineControls(line).text).trim())
     .filter(Boolean)
     .join('\n')
-    .slice(-LAUNCH_OUTPUT_MAX_CHARS)
+  // Redact before the cut: truncation can strip a token's dcap_ prefix and defeat the pattern.
+  return replaceDispatchCapabilities(lines).value.slice(-LAUNCH_OUTPUT_MAX_CHARS)
 }
 
 export function retainLaunchedAgentExitOutput(
