@@ -103,4 +103,56 @@ describe('the per-workspace keys of a host-area page', () => {
     expect(readMirroredStorage([CHAT_TABS])).toEqual({})
     expect(await readMirroredKeyOrStore(CHAT_TABS)).toBe('["pending"]')
   })
+
+  it('reads back its own write before the store has landed it, a removal included', async () => {
+    const { settled } = await hostAreaPage()
+    await pageAsyncStorage.setItem(NEVER_STORED, '["new"]')
+    await pageAsyncStorage.removeItem(CHAT_TABS)
+    const read = Promise.all([
+      pageAsyncStorage.getItem(NEVER_STORED),
+      pageAsyncStorage.getItem(CHAT_TABS)
+    ])
+    expect(await settled(read)).toEqual(['["new"]', null])
+    expect(store.get(CHAT_TABS)).toBe('["tab-1"]')
+    persisted()
+    expect(store.get(NEVER_STORED)).toBe('["new"]')
+    expect(store.has(CHAT_TABS)).toBe(false)
+  })
+
+  it("refuses another host's key, to read or to write", async () => {
+    const { view, pair, settled } = await hostAreaPage()
+    await pageAsyncStorage.setItem(OTHER_HOST, '["x"]')
+    await pair.flush()
+    persisted()
+    expect(pair.storageWrites).toEqual([])
+    expect(store.get(OTHER_HOST)).toBe('["tab-9"]')
+    await expect(view.readWorkspaceKey(OTHER_HOST)).rejects.toThrow()
+    // Unreadable keys must reject rather than appear unset and invite destructive replacement.
+    const asked = pair.client.callNativeVerb('native.storage.read', { key: OTHER_HOST })
+    await pair.flush()
+    await expect(asked).rejects.toThrow()
+    expect(await settled(pageAsyncStorage.getItem(OTHER_HOST))).toBeNull()
+  })
+
+  it('reads Chat UI for a session page that does not own the host area', async () => {
+    store.set('orca:defaultSessionView', 'chat')
+    const view = await snapshotFor('/h/host-a/session/wt-1', false)
+    await expect(view.readWorkspaceKey('orca:defaultSessionView')).resolves.toBe('chat')
+    await expect(view.readWorkspaceKey(CHAT_TABS)).rejects.toThrow(
+      'this page may not read that key'
+    )
+  })
+
+  it('reads and writes none of them for a page that does not own the host area', async () => {
+    const phoneList = await snapshotFor('/h/host-a', false)
+    await expect(phoneList.readWorkspaceKey(CHAT_TABS)).rejects.toThrow()
+    phoneList.writeStorage(CHAT_TABS, '["no"]')
+    persisted()
+    expect(store.get(CHAT_TABS)).toBe('["tab-1"]')
+    const pair = createFakeBridgePortPair({ route: { pathname: '/h/host-a' } })
+    await pair.flush()
+    pair.client.notifyStorageWrite(CHAT_TABS, '["x"]')
+    await pair.flush()
+    expect(pair.storageWrites).toEqual([])
+  })
 })

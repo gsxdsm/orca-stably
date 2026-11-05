@@ -8,6 +8,7 @@ import {
   SESSION
 } from '../../native-chat/agent-session-timeline/provider-timeline-assembler-test-support'
 import type { AcpScriptedAgent } from '../process/testing/acp-scripted-agent.test-support'
+import { acpLaunchSpecFor } from '../launch/acp-launch-registry'
 import {
   GROK_CONFIG_OPTIONS,
   openAcpAdapterRig,
@@ -182,6 +183,66 @@ describe('reattaching a Grok chat the journal holds', () => {
     expect(rows.flatMap((row) => readAgentJournalTurn(row.body)?.state ?? [])).toEqual([
       'unverifiable'
     ])
+  })
+
+  it('starts a new Hermes session when session/load answers with an empty body', async () => {
+    const spec = acpLaunchSpecFor('hermes')
+    if (!spec) {
+      throw new Error('missing hermes launch spec')
+    }
+    const rig = await openAcpAdapterRig({
+      spec,
+      launch: {
+        resume: {
+          sessionId: 'never-saved',
+          key: 'acp:hermes:never-saved',
+          mayBeUnsaved: () => true,
+          unannouncedLosses: () => []
+        }
+      },
+      initialize: RESUMES,
+      script: (agent) => agent.on('session/load', (frame) => agent.reply(frame, {}))
+    })
+    await rig.acquire()
+    expect(rig.sent('session/load')).toHaveLength(1)
+    expect(rig.sent('session/new')).toHaveLength(1)
+    expect(rig.started().link).toMatchObject({
+      origin: 'created',
+      handle: { nativeId: PROVIDER_SESSION },
+      supersedesKey: 'acp:hermes:never-saved'
+    })
+    await exchange(rig, 'pong', true)
+    expect(await texts(rig)).toEqual(['hello', 'pong'])
+    expect(await notRestoredRows(rig)).toEqual([])
+  })
+
+  it('keeps a Hermes session whose load includes modes', async () => {
+    const spec = acpLaunchSpecFor('hermes')
+    if (!spec) {
+      throw new Error('missing hermes launch spec')
+    }
+    const rig = await openAcpAdapterRig({
+      spec,
+      launch: {
+        resume: {
+          sessionId: PROVIDER_SESSION,
+          key: 'acp:hermes:saved',
+          mayBeUnsaved: () => false,
+          unannouncedLosses: () => []
+        }
+      },
+      initialize: RESUMES,
+      script: (agent) =>
+        agent.on('session/load', (frame) =>
+          agent.reply(frame, { modes: { currentModeId: 'default', availableModes: [] } })
+        )
+    })
+    await rig.acquire()
+    expect(rig.sent('session/new')).toEqual([])
+    expect(rig.started().link).toMatchObject({
+      origin: 'resumed',
+      handle: { nativeId: PROVIDER_SESSION }
+    })
   })
 
   it.each([

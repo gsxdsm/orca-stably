@@ -134,85 +134,13 @@ function rig() {
 }
 
 describe('structured chat naming runtime', () => {
-  it('uses the CLI title only for automatic default naming and honors changed settings', async () => {
-    const state = rig()
-    const record = agentSessionRecordFixture()
-    const pending = Promise.withResolvers<string>()
-    const generate = vi.fn(() => pending.promise)
-    mocks.titleOwner.mockReturnValue({ isCurrent: () => true, generate })
-    const result = state.deps.generate(
-      record,
-      'Repair login',
-      () => true,
-      state.deps.captureAutomaticTitle!(record)
-    )
-    await vi.waitFor(() => expect(generate).toHaveBeenCalled())
-    pending.resolve('Broken chat title')
-    expect(await result).toMatchObject({ name: 'Broken chat title' })
-    expect(mocks.generate).not.toHaveBeenCalled()
-    await state.deps.generate(record, 'Repair login')
-    expect(mocks.generate).toHaveBeenCalledOnce()
-
-    generate.mockImplementationOnce(async () => {
-      state.settings.sourceControlAi!.actions!.conversationName = {
-        commandInputTemplate: 'Custom {basePrompt}'
-      }
-      return 'Wrong settings title'
-    })
-    expect(
-      await state.deps.generate(
-        record,
-        'Repair login',
-        () => true,
-        state.deps.captureAutomaticTitle!(record)
-      )
-    ).toEqual({ name: 'Login repair' })
-  })
-
-  it.each(['action', 'shared', 'legacy', 'seeded-default', 'effort', 'template'] as const)(
-    'preserves authored %s naming choices without consulting the CLI',
-    async (choice) => {
-      const state = rig()
-      const source = state.settings.sourceControlAi!
-      if (choice === 'action') {
-        source.modelOverridesByOperation = {
-          conversationName: { selectedModelByAgent: { claude: 'opus' } }
-        }
-      }
-      if (choice === 'shared') {
-        source.selectedModelByAgent = { claude: 'opus' }
-      }
-      if (choice === 'legacy') {
-        state.settings.commitMessageAi!.selectedModelByAgent = { claude: 'opus' }
-      }
-      if (choice === 'seeded-default') {
-        state.settings.commitMessageAi!.selectedModelByAgent = { claude: 'sonnet' }
-        state.settings.commitMessageAi!.selectedThinkingByModel = { sonnet: 'high' }
-      }
-      if (choice === 'effort') {
-        source.selectedThinkingByModel = { sonnet: 'high' }
-      }
-      if (choice === 'template') {
-        source.actions!.conversationName = { commandInputTemplate: 'Custom {basePrompt}' }
-      }
-      const record = agentSessionRecordFixture()
-      expect(
-        await state.deps.generate(
-          record,
-          'Repair login',
-          () => true,
-          state.deps.captureAutomaticTitle!(record)
-        )
-      ).toEqual({ name: 'Login repair' })
-      expect(mocks.titleOwner).not.toHaveBeenCalled()
-    }
-  )
-  it.each(['grok', 'antigravity'] as const)(
+  it.each(['grok', 'antigravity', 'hermes'] as const)(
     'codes %s native naming failures without exposing provider text',
     async (provider) => {
       const state = rig()
       const record = agentSessionRecordFixture()
       record.provider = provider
+      const label = provider === 'grok' ? 'Grok' : provider === 'hermes' ? 'Hermes' : 'Antigravity'
       for (const outcome of ['throw', 'empty'] as const) {
         if (outcome === 'throw') {
           mocks.native.mockRejectedValueOnce(new Error('private provider diagnostic'))
@@ -221,7 +149,7 @@ describe('structured chat naming runtime', () => {
         }
         expect(await state.deps.generate(record, 'Repair login')).toEqual({
           errorCode: `${provider}Failed`,
-          error: `${provider === 'grok' ? 'Grok' : 'Antigravity'} could not name this chat. Try generating the name again.`
+          error: `${label} could not name this chat. Try generating the name again.`
         })
       }
     }

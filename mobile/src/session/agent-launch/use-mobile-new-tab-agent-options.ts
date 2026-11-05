@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { hashKey, useQueryClient } from '@tanstack/react-query'
 import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
 import { hostConnectionEpoch } from '../../query/host-status-query'
@@ -14,6 +14,12 @@ import {
 import { newTabAgentOptionsFrom } from './mobile-new-tab-agent-loader'
 import type { MobileNewTabAgentOption } from './mobile-new-tab-agent-options'
 import type { MobileNewTabAgentLoadState } from './mobile-agent-load-state'
+import {
+  loadMobileStructuredChatLaunchContext,
+  readMobileStructuredChatLaunchContext,
+  subscribeMobileStructuredChatLaunch,
+  withMobileStructuredChatLaunch
+} from '../mobile-structured-chat-launch'
 
 // A login-shell refresh resets shared desktop state, so it runs once per workspace per connection.
 const refreshedTargets = new WeakMap<RpcClient, { epoch: string; targets: Set<string> }>()
@@ -41,6 +47,20 @@ export function useMobileNewTabAgentOptions(args: {
   prefetch: boolean
 }): { loadState: MobileNewTabAgentLoadState; options: MobileNewTabAgentOption[] } {
   const { client, connState, hostId, open } = args
+  const launchContext = useSyncExternalStore(
+    subscribeMobileStructuredChatLaunch,
+    readMobileStructuredChatLaunchContext,
+    () => null
+  )
+  useEffect(() => {
+    if (!client || connState !== 'connected') {
+      return
+    }
+    void loadMobileStructuredChatLaunchContext({
+      client,
+      hostCapabilities: args.hostCapabilities
+    }).catch(() => null)
+  }, [args.hostCapabilities, client, connState])
   const queryClient = useQueryClient()
   const connected = client !== null && connState === 'connected'
   const { detection, settings, target, input, settingsSignalled } = useMobileAgentLaunchQueries({
@@ -108,10 +128,13 @@ export function useMobileNewTabAgentOptions(args: {
           : 'loading'
   const options = useMemo(
     () =>
-      loadState === 'loaded' && detected?.kind === 'detected'
-        ? newTabAgentOptionsFrom(settings.data?.settings, detected.detectedAgents)
-        : NO_OPTIONS,
-    [detected, loadState, settings.data]
+      withMobileStructuredChatLaunch(
+        loadState === 'loaded' && detected?.kind === 'detected'
+          ? newTabAgentOptionsFrom(settings.data?.settings, detected.detectedAgents)
+          : NO_OPTIONS,
+        launchContext
+      ),
+    [detected, launchContext, loadState, settings.data]
   )
   return { loadState, options }
 }
