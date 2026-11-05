@@ -1,5 +1,7 @@
 import { PROJECT_ROOT_ORDER_RUNTIME_CAPABILITY } from './project-group-order-capability'
 import { EMULATOR_RUNTIME_CAPABILITIES } from './emulator-runtime-capabilities'
+import { NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY } from './native-chat/native-chat-terminal-queue-capability'
+import { HERMES_TRANSCRIPT_RUNTIME_CAPABILITY } from './native-chat/native-chat-hermes-capability'
 import { ACCOUNT_RUNTIME_CAPABILITIES } from './account-runtime-capabilities'
 import * as agentLaunchCapabilities from './agent-launch/contracts/agent-launch-runtime-capability'
 import {
@@ -88,6 +90,8 @@ export const SAVED_RESUME_ORIGIN_RUNTIME_CAPABILITY =
 export const RUNTIME_CAPABILITIES = /* @__PURE__ */ (() =>
   [
     ...EMULATOR_RUNTIME_CAPABILITIES,
+    HERMES_TRANSCRIPT_RUNTIME_CAPABILITY,
+    NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY,
     SAVED_RESUME_ORIGIN_RUNTIME_CAPABILITY,
     ...HOST_RUNTIME_CAPABILITIES,
     ...DEVICE_KEY_RUNTIME_CAPABILITIES,
