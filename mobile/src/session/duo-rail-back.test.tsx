@@ -20,6 +20,7 @@ const scene = vi.hoisted(() => ({
   occlusions: [{ x: 867, y: 0, width: 84, height: 124 }],
   expanded: false,
   keyboardInset: 0,
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: widens the null initializer so tests can assign a handler.
   pressBack: null as (() => boolean) | null
 }))
 
@@ -141,9 +142,7 @@ describe('the Duo rail back button', () => {
     expect(onBack).toHaveBeenCalledTimes(1)
 
     scene.expanded = true
-    expect(
-      backs(mount(railButton(true, onBack)))
-    ).toHaveLength(0)
+    expect(backs(mount(railButton(true, onBack)))).toHaveLength(0)
 
     scene.expanded = false
     scene.insets = { top: 0, right: 0, bottom: 34, left: 0 }

@@ -98,20 +98,13 @@ function clusterMidX(args: RowArgs, column: ReservedRect | null): number {
   return onRight ? args.windowWidth - STATUS_ROW_CENTER_FROM_EDGE : STATUS_ROW_CENTER_FROM_EDGE
 }
 
-function controlLeft(
-  midX: number,
-  span: { start: number; width: number },
-  size: number
-): number {
+function controlLeft(midX: number, span: { start: number; width: number }, size: number): number {
   const min = span.start
   const max = span.start + span.width - size
   return Math.min(Math.max(midX - size / 2, min), max)
 }
 
-function columnSpan(
-  args: RowArgs,
-  column: ReservedRect | null
-): { start: number; width: number } {
+function columnSpan(args: RowArgs, column: ReservedRect | null): { start: number; width: number } {
   if (column !== null) {
     return { start: column.x, width: column.width }
   }
