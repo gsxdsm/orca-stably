@@ -1,3 +1,5 @@
+import type { MobilePastedImages } from './native-chat/composer/mobile-native-chat-composer-paste'
+import type { NativeChatContextUsageSummary } from '../../../src/shared/native-chat/native-chat-context-usage-summary'
 import type { NativeChatSkillDiscoverySnapshot } from '../../../src/shared/native-chat/input/native-chat-picker-items'
 import type {
   AskAnswerSelection,
@@ -77,6 +79,7 @@ type ChatViewProps = MobileNativeChatSendProps & {
   draftKey: string | null
   onComposerTextChange: (text: string) => void
   onAttachImage?: () => void
+  onPasteImages?: (paste: MobilePastedImages) => void
   attachments?: PendingNativeChatImage[]
   onRemoveAttachment?: (id: string) => void
   isAttaching?: boolean
@@ -88,6 +91,7 @@ type ChatViewProps = MobileNativeChatSendProps & {
   onNeedFiles?: (query: string) => void
   skillDiscovery?: NativeChatSkillDiscoverySnapshot
   onNeedSkills?: () => void
+  contextUsage?: NativeChatContextUsageSummary | null
   sessionOptions?: MobileNativeChatSessionOptionPickersProps | null
   structuredComposer?: MobileNativeChatStructuredComposer | null
   ask?: AskPrompt | null

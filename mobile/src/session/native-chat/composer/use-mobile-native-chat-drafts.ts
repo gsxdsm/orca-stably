@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: draft, pending-send and discard state share one hook so send ordering stays one behavior surface. */
 import {
   useCallback,
   useEffect,
@@ -39,6 +40,7 @@ import {
   readMobileNativeChatDraftEditGeneration,
   setMobileNativeChatDraftText
 } from './mobile-native-chat-draft-store'
+import { loadMobileNativeChatDrafts } from './mobile-native-chat-draft-persistence'
 
 const NO_PENDING_MESSAGES: MobileNativeChatPendingMessage[] = []
 const NO_IMAGE_PREVIEWS: Record<string, string[]> = {}
@@ -116,6 +118,10 @@ export function useMobileNativeChatDrafts(args: {
   const getComposerEditGeneration = useCallback(() => composerEditGenerationRef.current, [])
   const messagesRef = useRef(messages)
   messagesRef.current = messages
+
+  useEffect(() => {
+    void loadMobileNativeChatDrafts(hostId, worktreeId)
+  }, [hostId, worktreeId])
 
   const { readSeededLaunchDraft, readSeededLaunchDraftSeed } = useMobileNativeChatLaunchDraftSeed({
     draftKey,

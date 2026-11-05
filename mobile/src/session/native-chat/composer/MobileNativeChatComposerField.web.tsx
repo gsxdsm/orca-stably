@@ -1,15 +1,5 @@
-import { useContext, useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { StyleSheet, TextInput, View, useWindowDimensions } from 'react-native'
-import {
-  MOBILE_COMPOSER_IMAGE_PASTE_EVENT,
-  createMobileComposerPasteImageDelivery,
-  spliceMobileComposerPasteText,
-  type MobileComposerPastedImage
-} from './mobile-native-chat-composer-image-paste'
-import {
-  claimMobileComposerImagePaste,
-  readMobileComposerImageFile
-} from './mobile-native-chat-composer-image-paste-claim.web'
 import { useKeyboardOcclusion } from '../../../platform/keyboard-occlusion'
 import { hostOs } from '../../../platform/host-os'
 import { useTextInputContentHeight } from '../../../platform/text-input-content-height'
@@ -20,7 +10,6 @@ import {
   MESSAGE_MIN_HEIGHT
 } from '../../../components/composer-input/composer-input-styles'
 import type { MobileNativeChatComposerFieldProps } from './mobile-native-chat-composer-field-skill'
-import { MobileNativeChatImagePasteSkipContext } from './mobile-native-chat-image-paste-context'
 import { MobileNativeChatComposerFieldCopy } from './MobileNativeChatComposerFieldCopy'
 
 // Share of the space above the keyboard the field may grow into before it scrolls.
@@ -44,21 +33,15 @@ function scrollTopOf(event: unknown): number {
     : 0
 }
 
-function composerTextarea(node: TextInput | null): HTMLTextAreaElement | null {
-  return node instanceof HTMLTextAreaElement ? node : null
-}
-
 export function MobileNativeChatComposerField({
   value,
   skillToken,
   dictationPreview,
   placeholder,
   ref,
-  onPasteImages,
-  onChangeText,
-  readClipboardImage,
   onKeyboardSubmit,
   onKeyPress,
+  onWebPaste,
   ...props
 }: MobileNativeChatComposerFieldProps) {
   useMobileColorScheme()
@@ -66,83 +49,16 @@ export function MobileNativeChatComposerField({
   const [fieldHeight, setFieldHeight] = useState(0)
   const ownRef = useRef<TextInput>(null)
   const input = ref ?? ownRef
-  const onPasteImagesRef = useRef(onPasteImages)
-  onPasteImagesRef.current = onPasteImages
-  const onChangeTextRef = useRef(onChangeText)
-  onChangeTextRef.current = onChangeText
-  const readClipboardImageRef = useRef(readClipboardImage)
-  readClipboardImageRef.current = readClipboardImage
-  const notifySkippedPaste = useContext(MobileNativeChatImagePasteSkipContext)
-  const notifySkippedPasteRef = useRef(notifySkippedPaste)
-  notifySkippedPasteRef.current = notifySkippedPaste
-  const valueRef = useRef(value)
-  valueRef.current = value
-  const pasteDeliveryRef = useRef(createMobileComposerPasteImageDelivery())
+  const paste = useEffectEvent((event: ClipboardEvent) => onWebPaste?.(event))
+  // react-native-web forwards no paste prop; its TextInput ref is the textarea itself.
   useEffect(() => {
-    const node = composerTextarea(input.current)
-    if (!node) {
+    const field: unknown = input.current
+    if (!(field instanceof HTMLElement)) {
       return
     }
-    const insertPrompt = (prompt: string, start: number, end: number): void => {
-      if (prompt.length === 0) {
-        return
-      }
-      const next = spliceMobileComposerPasteText(valueRef.current, prompt, { start, end })
-      onChangeTextRef.current?.(next.text)
-      queueMicrotask(() => node.setSelectionRange(next.caret, next.caret))
-    }
-    const deliverPasted = (incoming: Promise<readonly MobileComposerPastedImage[]>): void => {
-      const deliver = onPasteImagesRef.current
-      if (!deliver) {
-        return
-      }
-      // The draft pending count starts when this handler runs, so send must see the unsettled read.
-      void deliver(pasteDeliveryRef.current.take(incoming))
-    }
-    const attachNativeImage = (): void => {
-      const read = readClipboardImageRef.current
-      if (!onPasteImagesRef.current || !read) {
-        return
-      }
-      deliverPasted(read().then((image) => (image ? [image] : [])))
-    }
-    const onPaste = (event: ClipboardEvent): void => {
-      if (event.target !== node || event.defaultPrevented || !onPasteImagesRef.current) {
-        return
-      }
-      const claimed = claimMobileComposerImagePaste(event.clipboardData)
-      if (!claimed) {
-        return
-      }
-      event.preventDefault()
-      if (claimed.kind === 'files') {
-        insertPrompt(
-          claimed.promptText,
-          node.selectionStart ?? valueRef.current.length,
-          node.selectionEnd ?? node.selectionStart ?? valueRef.current.length
-        )
-        deliverPasted(Promise.all(claimed.files.map((file) => readMobileComposerImageFile(file))))
-        if (claimed.skippedCount > 0) {
-          notifySkippedPasteRef.current?.(claimed.skippedCount)
-        }
-        return
-      }
-      // iOS WKWebView omits image items from a textarea paste, so an empty paste asks the pasteboard.
-      attachNativeImage()
-    }
-    const onNativePaste = (event: Event): void => {
-      if (document.activeElement !== node) {
-        return
-      }
-      event.preventDefault()
-      attachNativeImage()
-    }
-    document.addEventListener('paste', onPaste, true)
-    document.addEventListener(MOBILE_COMPOSER_IMAGE_PASTE_EVENT, onNativePaste)
-    return () => {
-      document.removeEventListener('paste', onPaste, true)
-      document.removeEventListener(MOBILE_COMPOSER_IMAGE_PASTE_EVENT, onNativePaste)
-    }
+    const listener = (event: ClipboardEvent) => paste(event)
+    field.addEventListener('paste', listener)
+    return () => field.removeEventListener('paste', listener)
   }, [input])
   const shown = dictationPreview
     ? `${dictationPreview.before}${dictationPreview.text}${dictationPreview.after}`
@@ -177,7 +93,6 @@ export function MobileNativeChatComposerField({
       <TextInput
         ref={input}
         value={value}
-        onChangeText={onChangeText}
         style={[composerInputStyles.messageText, sizing, copied ? clearText().field : null]}
         onScroll={skillToken ? (event) => setScrollTop(scrollTopOf(event)) : undefined}
         placeholder={dictationPreview ? undefined : placeholder}

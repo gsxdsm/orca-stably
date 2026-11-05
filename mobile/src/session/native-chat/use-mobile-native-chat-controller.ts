@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the chat controller keeps send, queue and crew wiring in one hook so ordering stays one behavior surface. */
 import { asyncQuestionSourceScope } from '../../../../src/shared/native-chat/input/native-chat-ask'
 import { useCallback, useLayoutEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import type { RpcClient } from '../../transport/rpc-client'
@@ -300,6 +301,7 @@ export function useMobileNativeChatController(args: {
     handleNativeChatStop: activeChatStructured ? structuredNativeChat.cancel : terminalTurn.stop,
     nativeChatQueued: terminalQueueEnabled ? terminalQueue.controls : structuredNativeChat.queued,
     nativeChatBackgroundTasks: activeChatStructured ? structuredNativeChat.backgroundTasks : null,
+    nativeChatContextUsage: activeChatStructured ? structuredNativeChat.contextUsage : null,
     ...workspaceCatalog,
     handleNativeChatSend: activeChatStructured
       ? structuredNativeChatSend.send

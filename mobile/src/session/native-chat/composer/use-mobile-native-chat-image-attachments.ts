@@ -10,9 +10,8 @@ import { useCallback, useMemo } from 'react'
 import type { RpcClient } from '../../../transport/rpc-client'
 import type { ConnectionState } from '../../../transport/types'
 import type { MobileImageSource } from '../../../platform/media-picker-contract'
-import type { MobileComposerPastedImage } from './mobile-native-chat-composer-image-paste'
-import { showMobileComposerSkippedPaste } from './mobile-composer-skipped-paste-notice'
 import type { PendingNativeChatImage } from './mobile-native-chat-image-attachment'
+import type { MobilePastedImages } from './mobile-native-chat-composer-paste'
 import {
   MOBILE_NATIVE_CHAT_IMAGE_SETTLE_MS,
   pasteMobileNativeChatImagePaths
@@ -26,8 +25,7 @@ import {
   clearMobileNativeChatInputStale,
   healMobileNativeChatStaleInput,
   isMobileNativeChatInputStale,
-  markMobileNativeChatInputStale,
-  markMobileNativeChatInputStaleIfStarted
+  markMobileNativeChatInputStale
 } from '../mobile-native-chat-stale-input'
 import {
   acquireMobileNativeChatTerminalWrite,
@@ -91,15 +89,11 @@ export type MobileNativeChatImageAttachments = {
   /** Pending chips for the active scope (tab) only. */
   readonly attachments: PendingNativeChatImage[]
   readonly isAttaching: boolean
-  readonly attachImage: (source: MobileImageSource) => Promise<void>
-  readonly attachPickedImages: (
-    images: readonly MobileComposerPastedImage[] | Promise<readonly MobileComposerPastedImage[]>
-  ) => Promise<void>
+  readonly attachImage: (source: MobileImageSource | MobilePastedImages) => Promise<void>
   readonly removeAttachment: (id: string) => void
   /** Ride any pending images along with `text`, then submit; clears the sent
    *  chips (and only those) once the send is accepted. */
   readonly sendNativeChat: (text: string, intent?: MobileNativeChatSendIntent) => Promise<boolean>
-  readonly notifySkippedPaste?: (count: number) => void
 }
 
 const NO_FILES: readonly PendingNativeChatFile[] = []
@@ -131,7 +125,7 @@ export function useMobileNativeChatImageAttachments({
   const pending = useMobileNativeChatDraftInputs(scopeKey, 'pending')
   const attachments = useMemo(() => [...images], [images])
 
-  const { attachImage, attachPickedImages, isAttaching } = useMobileNativeChatImageUpload({
+  const { attachImage, isAttaching } = useMobileNativeChatImageUpload({
     client,
     activeHandleRef,
     getActiveWorktreeConnectionId,
@@ -170,7 +164,7 @@ export function useMobileNativeChatImageAttachments({
         return false
       }
       // Use one action budget across paste, settle and text so per-leg clocks cannot double the composer lock.
-      const deadline = openMobileNativeChatSendBudget(agent)
+      const deadline = openMobileNativeChatSendBudget()
       const sentAt = Date.now()
       try {
         const scope = scopeKey
@@ -263,7 +257,9 @@ export function useMobileNativeChatImageAttachments({
             ...(seededLaunchDraft ? { seededText: seededLaunchDraft } : {})
           })
           if (!pasted) {
-            markMobileNativeChatInputStaleIfStarted(inputWriteStarted, handle)
+            if (inputWriteStarted) {
+              markMobileNativeChatInputStale(handle)
+            }
             onError?.()
             onSendError('Message not sent')
             return false
@@ -302,7 +298,9 @@ export function useMobileNativeChatImageAttachments({
           return outcome !== 'rejected'
         } catch {
           // Only attempted writes can leave partial input for the next action to heal.
-          markMobileNativeChatInputStaleIfStarted(inputWriteStarted, handle)
+          if (inputWriteStarted) {
+            markMobileNativeChatInputStale(handle)
+          }
           onError?.()
           onSendError('Message not sent')
           return false
@@ -336,9 +334,7 @@ export function useMobileNativeChatImageAttachments({
     attachments,
     isAttaching: isAttaching || (pending ?? 0) > 0,
     attachImage,
-    attachPickedImages,
     removeAttachment,
-    sendNativeChat,
-    notifySkippedPaste: (count: number) => showMobileComposerSkippedPaste(showToast, count)
+    sendNativeChat
   }
 }

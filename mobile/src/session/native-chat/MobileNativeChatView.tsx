@@ -32,6 +32,7 @@ import {
 } from './use-mobile-native-chat-input-lease'
 import { MobileNativeChatLiveLine } from './transcript/MobileNativeChatLiveLine'
 import { MobileNativeChatAwaitingInputRow } from './transcript/MobileNativeChatAwaitingInputRow'
+import { MobileNativeChatOpenFileContext } from './mobile-native-chat-open-file-context'
 import { MobileNativeChatDraftComposer } from './composer/MobileNativeChatComposer'
 import { DuoRailComposerTop, MobileNativeChatJumpControls } from '../duo-rail-jump-controls'
 import { useMobileNativeChatPreviousStops } from './transcript/use-mobile-native-chat-previous-stops'
@@ -82,6 +83,7 @@ export function MobileNativeChatView({
   composerScopeKey,
   onComposerTextChange,
   onAttachImage,
+  onPasteImages,
   attachments,
   onRemoveAttachment,
   isAttaching,
@@ -100,6 +102,7 @@ export function MobileNativeChatView({
   skillDiscovery,
   onNeedSkills,
   sessionOptions,
+  contextUsage = null,
   structuredComposer: structured = null,
   ask,
   askKey,
@@ -224,7 +227,6 @@ export function MobileNativeChatView({
     runOwners: rowKeys.runOwners,
     taskListPredecessors,
     fontScale,
-    onOpenFile,
     structuredActivityUi,
     turns,
     turnJournal,
@@ -240,7 +242,6 @@ export function MobileNativeChatView({
       line={turns.liveLine}
       onToggleReasoning={turns.onToggleReasoning}
       fontScale={fontScale}
-      onOpenFile={onOpenFile}
     />
   ) : null
 
@@ -277,116 +278,128 @@ export function MobileNativeChatView({
   }
 
   return (
-    <View style={[styles.root, { paddingBottom: bottomPad }]}>
-      {status === 'loading' && messages.length === 0 ? (
-        <MobileStateView
-          loading
-          title={t('session.nativeChatView.loading', 'Loading conversation…')}
-        />
-      ) : (
-        <GestureHandlerRootView style={[styles.listWrap, transcriptInset]}>
-          <MobileNativeChatDisclosureContext.Provider value={disclosures}>
-            <MobileNativeChatOpenSubagentProvider onOpen={subagent.onFocusSubagent}>
-              <MobileNativeChatScrollRootsBoundary
-                {...{ rowKeys, layoutKey }}
-                roots={disclosures.roots}
-                runPlacements={rowKeys.runPlacements}
-              >
-                <MobileNativeChatRowList
-                  {...{ tail, rowKeys, renderItem, footer, emptyStateView, onScroll, layoutKey }}
-                  {...{
-                    header,
-                    hasHeader: historyHasMore === true,
-                    onNearTop: loadEarlierNearTop
-                  }}
-                  pinchGesture={pinchGesture}
-                  pinchTarget={pinchTarget}
-                  rows={turns.listMessages}
-                  runs={turns.presentation.workRuns.heads}
-                  roots={disclosures.roots}
-                  contentContainerStyle={styles.listContent}
-                />
-              </MobileNativeChatScrollRootsBoundary>
-            </MobileNativeChatOpenSubagentProvider>
-          </MobileNativeChatDisclosureContext.Provider>
-          <MobileNativeChatJumpControls
-            showJumpToTail={tail.showJumpToTail}
-            onJumpToTail={jumpToTail}
-            showPreviousMessage={tail.showPreviousMessage}
-            onJumpToPrevious={jumpToPreviousMessage}
+    <MobileNativeChatOpenFileContext value={onOpenFile}>
+      <View style={[styles.root, { paddingBottom: bottomPad }]}>
+        {status === 'loading' && messages.length === 0 ? (
+          <MobileStateView
+            loading
+            title={t('session.nativeChatView.loading', 'Loading conversation…')}
           />
-        </GestureHandlerRootView>
-      )}
-      <MobileNativeChatPromptCard
-        key={promptKey ?? undefined}
-        answering={promptOwnsInput && keyboardInset > 0}
-        {...{ askPending, askSendSource }}
-        {...{ ask, askKey, onDismissAsk, onAnswerAsk, onCancelAsk, onCancelPrompt, onCollapseAsk }}
-        requiresTerminal={askRequiresTerminal}
-        onAnswerInTerminal={onAnswerInTerminal}
-        {...{ permission, onRespondPermission, question, onAnswerQuestion, onCollapsePrompt }}
-        collapsedPrompt={collapsedPrompt}
-      />
-      <Text
-        style={lockReason === 'waiting' ? styles.inputLockStatus : undefined}
-        accessibilityLiveRegion="polite"
-      >
-        {lockReason === 'waiting' ? composerPlaceholder : null}
-      </Text>
-      {sendErrorMessage ? (
-        // This banner is the only channel for a send failure — announce it.
-        <View
-          style={styles.sendError}
-          accessibilityRole="alert"
-          accessibilityLiveRegion="assertive"
-        >
-          <Text style={styles.sendErrorText}>{sendErrorMessage}</Text>
-        </View>
-      ) : null}
-      {trayContent}
-      <MobileNativeChatActivityBar
-        list={subagent.taskList}
-        subagents={subagent.subagents}
-        focused={subagent.focused}
-        focusedTranscriptEmpty={subagent.focusedTranscriptEmpty}
-        fontScale={fontScale}
-        onFocusSubagent={subagent.onFocusSubagent}
-        dismissalScope={dismissalScope}
-        accessory={activityBar}
-      />
-      <DuoRailComposerTop keyboardInset={keyboardInset} hidden={promptOwnsInput}>
-        <MobileNativeChatDraftComposer
-          {...composerFit}
-          draftScopeKey={composerScopeKey}
-          structured={structuredActivityUi && structured ? { ...structured, onOpenFile } : null}
-          draftKey={draftKey}
-          onChangeText={onComposerTextChange}
-          onSend={handleSend}
-          sendSurfaceId={sendSurfaceId}
-          {...{ getSendCompletionGeneration, getComposerEditGeneration, inputRef, sendFollowUp }}
-          agent={agent}
-          sessionOptions={sessionOptions}
-          onAttachImage={onAttachImage}
-          attachments={attachments}
-          onRemoveAttachment={onRemoveAttachment}
-          isAttaching={isAttaching}
-          onMicPress={onMicPress}
-          micActive={micActive}
-          micStarting={micStarting}
-          micProcessing={micProcessing}
-          dictationMode={dictationMode}
-          onMicPressIn={onMicPressIn}
-          onMicPressOut={onMicPressOut}
-          disabled={lockReason !== null}
-          sendDisabled={expandedPromptOwnsSend}
-          placeholder={composerPlaceholder}
-          filePaths={filePaths}
-          onNeedFiles={onNeedFiles}
-          skillDiscovery={skillDiscovery}
-          onNeedSkills={onNeedSkills}
-          stop={canStop ? { onStop, held: turnIndicator?.stopRequestInFlight === true } : null}
+        ) : (
+          <GestureHandlerRootView style={[styles.listWrap, transcriptInset]}>
+            <MobileNativeChatDisclosureContext.Provider value={disclosures}>
+              <MobileNativeChatOpenSubagentProvider onOpen={subagent.onFocusSubagent}>
+                <MobileNativeChatScrollRootsBoundary
+                  {...{ rowKeys, layoutKey }}
+                  roots={disclosures.roots}
+                  runPlacements={rowKeys.runPlacements}
+                >
+                  <MobileNativeChatRowList
+                    {...{ tail, rowKeys, renderItem, footer, emptyStateView, onScroll, layoutKey }}
+                    {...{
+                      header,
+                      hasHeader: historyHasMore === true,
+                      onNearTop: loadEarlierNearTop
+                    }}
+                    pinchGesture={pinchGesture}
+                    pinchTarget={pinchTarget}
+                    rows={turns.listMessages}
+                    runs={turns.presentation.workRuns.heads}
+                    roots={disclosures.roots}
+                    contentContainerStyle={styles.listContent}
+                  />
+                </MobileNativeChatScrollRootsBoundary>
+              </MobileNativeChatOpenSubagentProvider>
+            </MobileNativeChatDisclosureContext.Provider>
+            <MobileNativeChatJumpControls
+              showJumpToTail={tail.showJumpToTail}
+              onJumpToTail={jumpToTail}
+              showPreviousMessage={tail.showPreviousMessage}
+              onJumpToPrevious={jumpToPreviousMessage}
+            />
+          </GestureHandlerRootView>
+        )}
+        <MobileNativeChatPromptCard
+          key={promptKey ?? undefined}
+          answering={promptOwnsInput && keyboardInset > 0}
+          {...{ askPending, askSendSource }}
+          {...{
+            ask,
+            askKey,
+            onDismissAsk,
+            onAnswerAsk,
+            onCancelAsk,
+            onCancelPrompt,
+            onCollapseAsk
+          }}
+          requiresTerminal={askRequiresTerminal}
+          onAnswerInTerminal={onAnswerInTerminal}
+          {...{ permission, onRespondPermission, question, onAnswerQuestion, onCollapsePrompt }}
+          collapsedPrompt={collapsedPrompt}
         />
-      </DuoRailComposerTop>
-    </View>
+        <Text
+          style={lockReason === 'waiting' ? styles.inputLockStatus : undefined}
+          accessibilityLiveRegion="polite"
+        >
+          {lockReason === 'waiting' ? composerPlaceholder : null}
+        </Text>
+        {sendErrorMessage ? (
+          // This banner is the only channel for a send failure — announce it.
+          <View
+            style={styles.sendError}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="assertive"
+          >
+            <Text style={styles.sendErrorText}>{sendErrorMessage}</Text>
+          </View>
+        ) : null}
+        {trayContent}
+        <MobileNativeChatActivityBar
+          list={subagent.taskList}
+          subagents={subagent.subagents}
+          focused={subagent.focused}
+          focusedTranscriptEmpty={subagent.focusedTranscriptEmpty}
+          fontScale={fontScale}
+          onFocusSubagent={subagent.onFocusSubagent}
+          dismissalScope={dismissalScope}
+          accessory={activityBar}
+        />
+        <DuoRailComposerTop keyboardInset={keyboardInset} hidden={promptOwnsInput}>
+          <MobileNativeChatDraftComposer
+            {...composerFit}
+            draftScopeKey={composerScopeKey}
+            structured={structuredActivityUi ? structured : null}
+            draftKey={draftKey}
+            onChangeText={onComposerTextChange}
+            onSend={handleSend}
+            sendSurfaceId={sendSurfaceId}
+            {...{ getSendCompletionGeneration, getComposerEditGeneration, inputRef, sendFollowUp }}
+            agent={agent}
+            sessionOptions={sessionOptions}
+            contextUsage={contextUsage}
+            onAttachImage={onAttachImage}
+            onPasteImages={onPasteImages}
+            attachments={attachments}
+            onRemoveAttachment={onRemoveAttachment}
+            isAttaching={isAttaching}
+            onMicPress={onMicPress}
+            micActive={micActive}
+            micStarting={micStarting}
+            micProcessing={micProcessing}
+            dictationMode={dictationMode}
+            onMicPressIn={onMicPressIn}
+            onMicPressOut={onMicPressOut}
+            disabled={lockReason !== null}
+            sendDisabled={expandedPromptOwnsSend}
+            placeholder={composerPlaceholder}
+            filePaths={filePaths}
+            onNeedFiles={onNeedFiles}
+            skillDiscovery={skillDiscovery}
+            onNeedSkills={onNeedSkills}
+            stop={canStop ? { onStop, held: turnIndicator?.stopRequestInFlight === true } : null}
+          />
+        </DuoRailComposerTop>
+      </View>
+    </MobileNativeChatOpenFileContext>
   )
 }

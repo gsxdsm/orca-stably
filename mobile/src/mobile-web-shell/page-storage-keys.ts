@@ -185,7 +185,7 @@ const WORKSPACE_KEY_PREFIXES = [
   DISMISSED_SUBAGENTS_STORAGE_PREFIX
 ] as const
 
-function workspaceScopedKey(prefix: string, hostId: string, worktreeId: string): string {
+export function workspaceScopedKey(prefix: string, hostId: string, worktreeId: string): string {
   return `${prefix}${encodeURIComponent(hostId)}:${encodeURIComponent(worktreeId)}`
 }
 

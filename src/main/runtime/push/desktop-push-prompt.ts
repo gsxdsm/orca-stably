@@ -1,7 +1,7 @@
 import type { MobilePushPrompt } from '../../../shared/mobile-push-contract'
 import { pushPromptForPane } from '../agent-prompt/agent-prompt-sources'
 import type { OrcaRuntimeService } from '../orca-runtime'
-import type { MobileNotificationEvent } from '../runtime-mobile-notification-controller'
+import type { MobileNotificationEvent } from './notifications/runtime-mobile-notification-controller'
 import type { PushGatewayClient } from './push-gateway-client'
 import { PushPromptCategoryGate } from './push-prompt-category-gate'
 

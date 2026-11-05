@@ -11,14 +11,17 @@ import type { ConnectionState } from '../../../transport/types'
 import { useMediaPicker } from '../../../platform/media-picker'
 import {
   ImageLibraryPermissionError,
-  type MobileImageSource,
-  type PickedMobileImage
+  type MobileImageSource
 } from '../../../platform/media-picker-contract'
 import {
-  uploadPreparedNativeChatImages,
+  uploadMobileNativeChatImages,
   type PendingNativeChatImage
 } from './mobile-native-chat-image-attachment'
-import type { MobileComposerPastedImage } from './mobile-native-chat-composer-image-paste'
+import {
+  readMobilePastedImages,
+  type MobilePastedImages
+} from './mobile-native-chat-composer-paste'
+import { useClipboardReader } from '../../../platform/clipboard'
 
 type CurrentRef<T> = { readonly current: T }
 type UploadedNativeChatImage = Omit<PendingNativeChatImage, 'id'>
@@ -39,10 +42,7 @@ export function useMobileNativeChatImageUpload(args: {
   onAttachSuccess?: () => void
   onError?: () => void
 }): {
-  attachImage: (source: MobileImageSource) => Promise<void>
-  attachPickedImages: (
-    images: readonly MobileComposerPastedImage[] | Promise<readonly MobileComposerPastedImage[]>
-  ) => Promise<void>
+  attachImage: (source: MobileImageSource | MobilePastedImages) => Promise<void>
   isAttaching: boolean
 } {
   const {
@@ -59,31 +59,22 @@ export function useMobileNativeChatImageUpload(args: {
   } = args
   const [isAttaching, setIsAttaching] = useState(false)
   const picker = useMediaPicker()
+  const clipboard = useClipboardReader()
   const attachingCount = useRef(0)
   const connStateRef = useRef(connState)
   useLayoutEffect(() => {
     connStateRef.current = connState
   }, [connState])
 
-  const canAttach = useCallback((): boolean => {
-    return Boolean(
-      client &&
-      scopeKey &&
-      connState === 'connected' &&
-      (activeHandleRef.current || structuredNativeChat)
-    )
-  }, [activeHandleRef, client, connState, scopeKey, structuredNativeChat])
-
-  const uploadOwned = useCallback(
-    async (
-      load: () =>
-        | Iterable<PickedMobileImage>
-        | AsyncIterable<PickedMobileImage>
-        | Promise<Iterable<PickedMobileImage> | AsyncIterable<PickedMobileImage>>
-    ): Promise<void> => {
+  const attachImage = useCallback(
+    async (source: MobileImageSource | MobilePastedImages): Promise<void> => {
       const scope = scopeKey
-      const rpc = client
-      if (!rpc || !scope) {
+      if (
+        !client ||
+        !scope ||
+        connState !== 'connected' ||
+        (!activeHandleRef.current && !structuredNativeChat)
+      ) {
         return
       }
       const destination = mobileNativeChatDraftDestination(scope)
@@ -95,10 +86,14 @@ export function useMobileNativeChatImageUpload(args: {
       const uploadedImages: UploadedNativeChatImage[] = []
       let uploadError: unknown = null
       try {
-        await uploadPreparedNativeChatImages(await load(), {
+        await uploadMobileNativeChatImages(source, {
           canContinue: () => destination.active,
-          client: rpc,
+          client,
           getConnectionId: getActiveWorktreeConnectionId,
+          pickImages: (from) =>
+            typeof from === 'string'
+              ? picker.pickImages(from)
+              : readMobilePastedImages(from, clipboard),
           onImageUploaded: (image) => uploadedImages.push(image),
           onUploadStart: () => {
             started = true
@@ -152,38 +147,20 @@ export function useMobileNativeChatImageUpload(args: {
       }
     },
     [
+      activeHandleRef,
       client,
+      connState,
       getActiveWorktreeConnectionId,
       onAttachSuccess,
       onError,
       onImagesUploaded,
+      clipboard,
+      picker,
       scopeKey,
-      showToast
+      showToast,
+      structuredNativeChat
     ]
   )
 
-  const attachImage = useCallback(
-    async (source: MobileImageSource): Promise<void> => {
-      if (!canAttach() || !client) {
-        return
-      }
-      await uploadOwned(() => picker.pickImages(source))
-    },
-    [canAttach, client, picker, uploadOwned]
-  )
-
-  const attachPickedImages = useCallback(
-    async (
-      images: readonly MobileComposerPastedImage[] | Promise<readonly MobileComposerPastedImage[]>
-    ): Promise<void> => {
-      if (!canAttach()) {
-        void Promise.resolve(images).catch(() => undefined)
-        return
-      }
-      await uploadOwned(async () => images)
-    },
-    [canAttach, uploadOwned]
-  )
-
-  return { attachImage, attachPickedImages, isAttaching }
+  return { attachImage, isAttaching }
 }

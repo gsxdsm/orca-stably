@@ -29,6 +29,7 @@ import type { useMobileNativeChatSession } from './use-mobile-native-chat-sessio
 import type { MobileNativeChatSessionOptionPickersProps } from './input/MobileNativeChatSessionOptionPickers'
 import type { useMobileNativeChatSubagentReader } from './input/read-mobile-native-chat-subagent-page'
 import type { MobileNativeChatVisualSource } from './visual/mobile-native-chat-visual-read'
+import type { NativeChatContextUsageSummary } from '../../../../src/shared/native-chat/native-chat-context-usage-summary'
 import type { useMobileStructuredSessionCommands } from '../use-mobile-structured-session-commands'
 
 export type MobileNativeChatShownSession = ReturnType<typeof useMobileNativeChatSession> & {
@@ -98,6 +99,7 @@ export type MobileNativeChatController = {
   handleNativeChatStop: () => void
   nativeChatQueued: MobileStructuredQueuedMessageControls
   nativeChatBackgroundTasks: MobileStructuredBackgroundTasks | null
+  nativeChatContextUsage: NativeChatContextUsageSummary | null
   nativeChatFilePaths: string[]
   loadNativeChatFiles: (query: string) => void
   nativeChatSkills: NativeChatSkillDiscoverySnapshot

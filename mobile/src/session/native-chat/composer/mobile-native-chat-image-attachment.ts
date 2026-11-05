@@ -24,12 +24,12 @@ export function appendPendingNativeChatImages(
   ]
 }
 
-export type UploadNativeChatImagesDeps = {
+export type UploadNativeChatImagesDeps<S = MobileImageSource> = {
   readonly canContinue?: () => boolean
   readonly client: MobileClipboardImageRpcSender
   readonly getConnectionId: () => Promise<string | null>
   readonly pickImages: (
-    source: MobileImageSource
+    source: S
   ) =>
     | Iterable<PickedMobileImage>
     | AsyncIterable<PickedMobileImage>
@@ -39,23 +39,25 @@ export type UploadNativeChatImagesDeps = {
   readonly onImageUploaded?: (image: Omit<PendingNativeChatImage, 'id'>) => void
 }
 
-// Chat holds composer chips until submit so visible attachments cannot diverge from agent input.
-export async function uploadPreparedNativeChatImages(
-  images: Iterable<PickedMobileImage> | AsyncIterable<PickedMobileImage>,
+// Upload without pasting: chat holds composer chips until submit so visible attachments cannot diverge from agent input.
+export async function uploadMobileNativeChatImages<S>(
+  source: S,
   {
     client,
     canContinue,
     getConnectionId,
+    pickImages,
     onUploadStart,
     onImageUploaded
-  }: Omit<UploadNativeChatImagesDeps, 'pickImages'>
+  }: UploadNativeChatImagesDeps<S>
 ): Promise<Omit<PendingNativeChatImage, 'id'>[]> {
+  const picked = await pickImages(source)
   const uploaded: Omit<PendingNativeChatImage, 'id'>[] = []
   let connectionId: string | null = null
   if (canContinue?.() === false) {
     return uploaded
   }
-  for await (const image of images) {
+  for await (const image of picked) {
     if (canContinue?.() === false) {
       break
     }
@@ -79,12 +81,4 @@ export async function uploadPreparedNativeChatImages(
     }
   }
   return uploaded
-}
-
-export async function uploadMobileNativeChatImages(
-  source: MobileImageSource,
-  deps: UploadNativeChatImagesDeps
-): Promise<Omit<PendingNativeChatImage, 'id'>[]> {
-  const picked = await deps.pickImages(source)
-  return uploadPreparedNativeChatImages(picked, deps)
 }

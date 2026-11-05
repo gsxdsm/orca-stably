@@ -78,6 +78,7 @@ export function answerQuestion(
     messageId: string
     runId: string
     body: string
+    captureSender?: () => string | undefined
   } & (
     | { consumerGeneration: number }
     /** A worker answering its own helper, fenced on its Dispatch instead of the Run's consumer. */
@@ -138,6 +139,7 @@ export function answerQuestion(
       from: byDispatch !== null ? `dispatch:${byDispatch}` : `run:${params.runId}`,
       to: `dispatch:${question.dispatch_id}`,
       subject: 'Re: Question',
+      answerSenderSnapshot: params.captureSender?.(),
       body: params.body,
       threadId: question.message_id,
       runId: params.runId

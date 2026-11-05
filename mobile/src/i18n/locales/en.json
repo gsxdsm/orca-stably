@@ -1942,6 +1942,10 @@
       "previewFile": "Preview file {{name}}",
       "unavailable": "Unavailable on mobile"
     },
+    "fileExplorerRowActions": {
+      "copyName": "Copy Name",
+      "copyRelativePath": "Copy Relative Path"
+    },
     "fileMutationOwnership": {
       "sshOwnerChanged": "Couldn't verify the SSH connection. Reconnect the host and try again."
     },
@@ -2025,7 +2029,6 @@
     },
     "queuedMessageComposer": {
       "commandsNotAllowed": "Commands can't be saved in a queued message.",
-      "editingAttributed": "Editing message · {{attribution}}",
       "editing": "Editing message"
     },
     "accessoryKeys": {
@@ -2234,13 +2237,8 @@
       "agent": "Agent"
     },
     "agentMessageAttribution": {
-      "messageFromUnnamed": "Message from an agent",
-      "fromUnnamed": "From an agent",
       "unnamedSender": "an agent",
-      "messageFromMore": "Message from {{sender}} +{{count}}",
-      "fromMore": "From {{sender}} +{{count}}",
-      "messageFrom": "Message from {{sender}}",
-      "from": "From {{sender}}"
+      "fromSender": "From"
     },
     "backgroundTask": {
       "monitoring": "Monitoring background tasks",
@@ -2253,6 +2251,7 @@
       "monitor": "Background monitor",
       "task": "Background task",
       "detailsUnavailable": "Task details are unavailable for this session.",
+      "outputFile": "Output: {{value0}}",
       "countAgents_one": "{{count}} agent",
       "countAgents_other": "{{count}} agents",
       "countShell_one": "{{count}} shell",
@@ -2849,6 +2848,11 @@
       "fileFailed": "Couldn't load file preview",
       "outsideWorkspace": "This file is outside the workspace. Open it on desktop to view it."
     },
+    "linkActionSheet": {
+      "openInOrca": "Open in Orca browser",
+      "openInBrowser": "Open in system browser",
+      "copyLink": "Copy link"
+    },
     "useDiffReviewGitHub": {
       "waitingForDesktop": "Waiting for desktop..."
     },
@@ -2872,6 +2876,11 @@
       "sendSteerHint": "Goes into what the agent is doing now",
       "skippedUnsupportedPaste_one": "Skipped {{count}} unsupported file",
       "skippedUnsupportedPaste_other": "Skipped {{count}} unsupported files"
+    },
+    "contextUsage": {
+      "label": "Context {{used}} of {{window}} tokens, {{percent}}% used",
+      "title": "Context",
+      "estimated": "Estimated from the last response."
     },
     "composerAttachments": {
       "file": "File",

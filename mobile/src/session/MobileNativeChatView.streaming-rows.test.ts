@@ -255,7 +255,6 @@ function Harness({
       attachments: [],
       isAttaching: false,
       attachImage: async () => {},
-      attachPickedImages: async () => {},
       removeAttachment: () => {},
       sendNativeChat: stable.onSend
     },

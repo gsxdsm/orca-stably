@@ -786,6 +786,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'agentHooks.prepareCodexForWslPane': PrepareCodexForWslPaneParams,
   'agentPrompt.listPending': AgentPromptListPendingParams,
   'agentPrompt.respond': AgentPromptRespondParams,
+  'agentSession.accountUsage': OptionsParams,
   'agentSession.acknowledgeAttention': AcknowledgeAttentionParams,
   'agentSession.agents': AgentsParams,
   'agentSession.cancel': CancelParams,
