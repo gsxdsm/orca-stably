@@ -2379,7 +2379,11 @@
     },
     "nativeChatToggleAction": {
       "switchToTerminalView": "Switch to terminal view",
-      "switchToChatView": "Switch to chat view"
+      "switchToChatView": "Switch to chat view",
+      "terminalCannotSwitchToChat": "Can't switch this {{agent}} terminal to Chat",
+      "startNewChatSession": "Start a new session with Chat UI on",
+      "switchHermesTerminalToChat": "Switch to Chat",
+      "startHermesChat": "Start new chat"
     },
     "prSidebarState": {
       "loadFailed": "Unable to load pull request"
@@ -2559,6 +2563,7 @@
       "presetsUnavailable": "Agent Presets Unavailable",
       "checkHostHint": "Check the host connection",
       "newSessionHint": "New agent session",
+      "opensAsChat": "Opens in Chat",
       "copyNotesHint": "Copy notes instead"
     },
     "useStartup": {
@@ -2885,6 +2890,9 @@
     },
     "usePrTextAction": {
       "updateFailed": "Failed to update pull request."
+    },
+    "hermesTerminalChatSwitch": {
+      "openFailed": "Couldn't open Hermes chat."
     }
   },
   "chat": {

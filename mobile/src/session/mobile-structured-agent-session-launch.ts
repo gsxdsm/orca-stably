@@ -13,7 +13,8 @@ import {
   createStructuredAgentSessionId,
   structuredAgentSessionCreateParams,
   type StructuredAgentSessionCreateParams,
-  type StructuredAgentSessionForkSource
+  type StructuredAgentSessionForkSource,
+  type StructuredAgentSessionResumeSource
 } from '../../../src/shared/agent-session/structured-agent-session-create'
 import type { StructuredAgentCreateSupportReply } from '../../../src/shared/agent-session/structured-agent-create-support-reply'
 import { TUI_AGENT_DISPLAY_NAMES } from '../../../src/shared/agent-launch/catalog/tui-agent-display-names'
@@ -46,7 +47,8 @@ function createParamsFor(
   agent: TuiAgent,
   worktree: string,
   forkFrom: StructuredAgentSessionForkSource | undefined,
-  tabPlacement: StructuredAgentSessionCreateParams['tabPlacement']
+  tabPlacement: StructuredAgentSessionCreateParams['tabPlacement'],
+  resumeFrom?: StructuredAgentSessionResumeSource
 ): StructuredAgentSessionCreateParams {
   return structuredAgentSessionCreateParams({
     sessionId: createStructuredAgentSessionId(agent, randomV4Uuid),
@@ -54,6 +56,7 @@ function createParamsFor(
     agent,
     ...(forkFrom ? { forkFrom } : {}),
     ...(tabPlacement ? { tabPlacement } : {}),
+    ...(resumeFrom ? { resumeFrom } : {}),
     randomUuid: randomV4Uuid
   })
 }
@@ -87,8 +90,10 @@ export async function createMobileStructuredAgentSession(
   client: RpcClient,
   worktreeId: string,
   agent: TuiAgent,
-  /** Sent only to a host advertising forks. */
-  forkFrom?: StructuredAgentSessionForkSource,
+  /** A fork source, or a Hermes resume options object from the terminal switch. */
+  forkFromOrResume?:
+    | StructuredAgentSessionForkSource
+    | { resumeFrom?: StructuredAgentSessionResumeSource },
   /** Sent only to a host advertising create placement; the replay keeps it. */
   tabPlacement?: StructuredAgentSessionCreateParams['tabPlacement']
 ): Promise<MobileStructuredAgentLaunchResult> {
@@ -131,7 +136,17 @@ export async function createMobileStructuredAgentSession(
     return { kind: 'unsupported', reason: support?.reason }
   }
 
-  const params = createParamsFor(agent, worktree, forkFrom, tabPlacement)
+  const resumeOptions =
+    forkFromOrResume && 'resumeFrom' in forkFromOrResume ? forkFromOrResume : undefined
+  const forkFrom =
+    forkFromOrResume && 'sessionId' in forkFromOrResume ? forkFromOrResume : undefined
+  const params = createParamsFor(
+    agent,
+    worktree,
+    forkFrom,
+    tabPlacement,
+    resumeOptions?.resumeFrom
+  )
   rememberMobileCreatedStructuredSession(params.envelope.sessionId, worktree)
   let response
   let priorCreateOutcomeUnknown = false

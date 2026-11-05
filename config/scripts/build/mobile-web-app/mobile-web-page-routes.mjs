@@ -103,6 +103,7 @@ export const MOBILE_WEB_PAGE_ROUTES = [
       'native.audio.stop'
     ],
     // Optional media.name falls back to the file type; terminalKeyRail falls back to the page's row; the image viewer drops its actions without native.image.act; dictation uses the computer without native.speech.act.
+    // native.storage.read is optional: a shell that lacks it still serves the session, and Chat UI stays at its default.
     optionalGrants: [
       'externalNavigation',
       'native.media.name',
@@ -110,7 +111,8 @@ export const MOBILE_WEB_PAGE_ROUTES = [
       'native.image.act',
       'native.speech.act',
       'terminalKeyRail',
-      DEVICE_STORE_GRANT
+      DEVICE_STORE_GRANT,
+      'native.storage.read'
     ]
   }
 ]

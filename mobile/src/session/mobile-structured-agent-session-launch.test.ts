@@ -28,6 +28,26 @@ describe('mobile structured agent-session launch', () => {
       kind: 'unknown'
     })
   })
+
+  it('sends a Hermes resume id in the create fingerprint', async () => {
+    const client = clientReturning(
+      { ok: true, result: { supported: true } },
+      { ok: true, result: { ok: true, value: { sessionId: 'created' } } }
+    )
+    await createMobileStructuredAgentSession(client, 'workspace-1', 'hermes', {
+      resumeFrom: { providerSessionId: '11111111-1111-4111-8111-111111111111' }
+    })
+    const params = client.sendRequest.mock.calls[1]?.[1] as {
+      agent: string
+      resumeFrom?: { providerSessionId: string }
+      envelope: { payloadFingerprint: string }
+    }
+    expect(params.agent).toBe('hermes')
+    expect(params.resumeFrom).toEqual({
+      providerSessionId: '11111111-1111-4111-8111-111111111111'
+    })
+    expect(params.envelope.payloadFingerprint).toMatch(/^[0-9a-f]{64}$/)
+  })
 })
 
 it('settles a proven missing-original fork refusal but keeps a lost earlier attempt unknown', async () => {
