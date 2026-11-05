@@ -60,10 +60,7 @@ import type { AgentSessionLatestTurn } from '../../../../shared/agent-session/ag
 import { isStructuredAgentSessionThinking } from '../../../../shared/agent-session/view/structured-agent-session-live-turn'
 import type { NativeChatSettledTurns } from '../../../../shared/native-chat/transcript/native-chat-turn-status'
 import type { NativeChatMessageListNavigation } from './native-chat-message-list-navigation'
-import type {
-  NativeChatDiffReveal,
-  NativeChatDiffTarget
-} from '../../../../shared/native-chat/tools/native-chat-turn-diffs'
+import type { NativeChatDiffTarget } from '../../../../shared/native-chat/tools/native-chat-turn-diffs'
 import { useNativeChatTurnDiffs } from './use-native-chat-turn-diffs'
 import { transcriptTailRow } from './native-chat-transcript-tail-row'
 import type { NativeChatAwaitingInput } from '../../../../shared/native-chat/native-chat-terminal-turn'

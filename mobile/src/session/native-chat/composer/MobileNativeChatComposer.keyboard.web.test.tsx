@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MobileNativeChatComposer } from './MobileNativeChatComposer'
 
 vi.mock('react-native', () => vi.importActual<typeof ReactNative>('react-native-web'))
+vi.mock('./MobileNativeChatActionGap', () => ({ MobileNativeChatActionGap: () => null }))
 vi.mock('./MobileNativeChatComposerField', () => import('./MobileNativeChatComposerField.web'))
 vi.mock('../../../platform/host-os', () => import('../../../platform/host-os.web'))
 vi.mock('../../../platform/keyboard-occlusion', () => ({ useKeyboardOcclusion: () => 0 }))

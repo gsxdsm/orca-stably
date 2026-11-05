@@ -313,11 +313,8 @@ export function MobileNativeChatComposer({
             onChangeText={menu.onFieldChange}
             onKeyboardSubmit={() => {
               const first = menu.rows[0]
-              if (first) {
-                menu.pick(first)
-                return
-              }
-              void handleSend(editSession ? undefined : { alternate: true }, true)
+              const intent = editSession ? undefined : ({ alternate: true } as const)
+              void (first ? menu.pick(first) : handleSend(intent, true))
             }}
             onFocus={() => {
               setFocused(true)
