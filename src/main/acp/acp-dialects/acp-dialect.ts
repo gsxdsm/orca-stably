@@ -121,6 +121,8 @@ export type AcpDialect = {
   }
   /** Native thinking choices remain valid across models; the agent clamps unsupported levels. */
   clampsUnlistedEffort?: true
+  /** session/load answered, but this body means the session is gone. */
+  loadedSessionMissing?(response: AcpLoadedSessionBody): boolean
   /** Claimed permission requests are never auto-approved. */
   request?(method: string, params: unknown): AcpRequestPresentation | undefined
   settleRequest?(method: string, params: unknown): AcpRequestSettlement | undefined
@@ -139,6 +141,13 @@ export type AcpDialect = {
   withheldCommands?: readonly string[]
   /** Which session rows are the agent's own built-ins, as this process's initialize response proves. */
   builtinCommands?(initialized: InitializeResponse): (command: AvailableCommand) => boolean
+}
+
+export type AcpLoadedSessionBody = {
+  modes?: unknown
+  models?: unknown
+  configOptions?: unknown
+  _meta?: unknown
 }
 
 export type AcpChildStops = { subagents: boolean; backgroundTasks: boolean }
