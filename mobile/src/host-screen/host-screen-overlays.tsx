@@ -1,3 +1,4 @@
+import { useSharedNow } from '../hooks/use-now'
 import { useState } from 'react'
 import { openExternalLink } from '../platform/external-links/external-link'
 import { workspaceRouteHref } from '../navigation/workspace-execution-host'
@@ -14,6 +15,11 @@ import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { WorkspaceOptionsSheet } from './workspace-options/workspace-options-sheet'
 import { HostNewBotSheet } from './host-new-bot-sheet'
 import { WorkspaceDetailsSheet } from './workspace-actions/workspace-details-sheet'
+import { setSelectedSidebarSession } from './selected-sidebar-session'
+import { SidebarSessionActionSheet } from './SidebarSessionActionSheet'
+import { closeHostSidebarSession } from './sidebar-session-close'
+import { clearClosedSidebarSession } from './sidebar-session-action'
+import { WorkspaceSessionJumpList } from './WorkspaceSessionJumpList'
 import { WorkspaceRenameSheet } from './workspace-actions/workspace-rename-sheet'
 import { WorkspaceStatusSheet } from './workspace-actions/workspace-status-sheet'
 import { WorkspaceDeleteConfirmSheet } from './workspace-actions/workspace-delete-confirm-sheet'
@@ -24,6 +30,7 @@ import type { HostScreenController } from './use-host-screen-controller'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 
 export function HostScreenOverlays({ controller }: { controller: HostScreenController }) {
+  const now = useSharedNow(30_000)
   const t = useMobileTranslation()
   useMobileColorScheme()
   const {
@@ -122,13 +129,24 @@ export function HostScreenOverlays({ controller }: { controller: HostScreenContr
           ) : (
             <ActionSheetContent actions={rowMenuActions}>
               {actionTarget ? (
-                <WorkspaceDetailsSheet
-                  row={actionTarget}
-                  onOpenLink={(url) => {
-                    openExternalLink(url)
-                    state.setActionTarget(null)
-                  }}
-                />
+                <>
+                  <WorkspaceDetailsSheet
+                    row={actionTarget}
+                    onOpenLink={(url) => {
+                      openExternalLink(url)
+                      state.setActionTarget(null)
+                    }}
+                  />
+                  <WorkspaceSessionJumpList
+                    agents={actionTarget.agents}
+                    now={now}
+                    onJump={(paneKey) => {
+                      setSelectedSidebarSession({ worktreeId: actionTarget.worktreeId, paneKey })
+                      actions.openWorktreeSession(actionTarget, paneKey)
+                      state.setActionTarget(null)
+                    }}
+                  />
+                </>
               ) : null}
             </ActionSheetContent>
           )}
@@ -168,6 +186,44 @@ export function HostScreenOverlays({ controller }: { controller: HostScreenContr
           onCancel={actions.dismissDeleteFailure}
         />
       </BottomDrawerModalHost>
+
+      <SidebarSessionActionSheet
+        session={state.sessionAction ?? null}
+        onDismiss={() => state.setSessionAction(null)}
+        onOpen={(session) => {
+          setSelectedSidebarSession({
+            worktreeId: session.worktree.worktreeId,
+            paneKey: session.paneKey
+          })
+          actions.openWorktreeSession(session.worktree, session.paneKey)
+          state.setSessionAction(null)
+        }}
+        onCloseSession={(session) => {
+          state.setSessionAction(null)
+          void closeHostSidebarSession(
+            client,
+            hostCapabilities,
+            session.worktree,
+            session.paneKey
+          ).then((outcome) => {
+            if (outcome === 'closed') {
+              clearClosedSidebarSession(session)
+              return
+            }
+            state.setActionError(
+              outcome === 'missing'
+                ? t(
+                    'hostScreen.hostScreenOverlays.closeSessionMissing',
+                    'This session is no longer open.'
+                  )
+                : t(
+                    'hostScreen.hostScreenOverlays.closeSessionFailed',
+                    'This session could not be closed.'
+                  )
+            )
+          })
+        }}
+      />
 
       <ConfirmModal
         visible={state.confirmRemoveHost}
