@@ -103,4 +103,21 @@ describe('the per-workspace keys of a host-area page', () => {
     expect(readMirroredStorage([CHAT_TABS])).toEqual({})
     expect(await readMirroredKeyOrStore(CHAT_TABS)).toBe('["pending"]')
   })
+
+  it('reads Chat UI for a session page that does not own the host area', async () => {
+    store.set('orca:defaultSessionView', 'chat')
+    const view = await snapshotFor('/h/host-a/session/wt-1', false)
+    await expect(view.readWorkspaceKey('orca:defaultSessionView')).resolves.toBe('chat')
+    await expect(view.readWorkspaceKey(CHAT_TABS)).rejects.toThrow(
+      'this page may not read that key'
+    )
+  })
+
+  it('reads and writes none of them for a page that does not own the host area', async () => {
+    const phoneList = await snapshotFor('/h/host-a', false)
+    await expect(phoneList.readWorkspaceKey(CHAT_TABS)).rejects.toThrow()
+    phoneList.writeStorage(CHAT_TABS, '["no"]')
+    persisted()
+    expect(store.get(CHAT_TABS)).toBe('["tab-1"]')
+  })
 })
