@@ -1,5 +1,5 @@
 import { createElement, type ReactNode } from 'react'
-import { act, create } from 'react-test-renderer'
+import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { describe, expect, it, vi } from 'vitest'
 import type { ComposedGesture } from 'react-native-gesture-handler'
 import {
@@ -11,8 +11,9 @@ import { MobileNativeChatRowList } from './MobileNativeChatRowList'
 const platform = vi.hoisted(() => ({ OS: 'ios' }))
 
 vi.mock('react-native', () => ({
-  FlatList: (props: { renderScrollComponent?: (scrollProps: object) => ReactNode }) =>
-    createElement('FlatList', null, props.renderScrollComponent?.({})),
+  FlatList: (props: {
+    renderScrollComponent?: (scrollProps: Record<string, never>) => ReactNode
+  }) => createElement('FlatList', null, props.renderScrollComponent?.({})),
   Platform: platform,
   ScrollView: 'ScrollView',
   View: 'View'
@@ -25,6 +26,7 @@ vi.mock('./MobileNativeChatPageList', () => ({
 }))
 
 // SAFETY: the list only forwards this object into GestureDetector.
+// oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: opaque stub only forwarded to a mocked GestureDetector
 const pinchGesture = { marker: 'pinch' } as unknown as ComposedGesture
 
 const tail = {
@@ -47,7 +49,7 @@ const tail = {
 }
 
 function renderList() {
-  let renderer: ReturnType<typeof create> | null = null
+  let renderer: ReactTestRenderer | null = null
   act(() => {
     renderer = create(
       createElement(MobileNativeChatRowList, {

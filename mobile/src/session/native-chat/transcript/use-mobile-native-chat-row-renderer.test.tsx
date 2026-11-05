@@ -30,6 +30,7 @@ function Probe({
     taskListPredecessors: new Map(),
     fontScale,
     structuredActivityUi: false,
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: test stub covers only what the renderer reads
     turns: { resolveRow: () => ({}), onToggleTurn: () => {} } as never,
     turnJournal: null,
     agent: null,
@@ -52,6 +53,7 @@ describe('useMobileNativeChatRowRenderer', () => {
     act(() => {
       renderer.update(createElement(Probe, { fontScale: 1.4, pin }))
     })
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: test stub covers only what the renderer reads
     const painted = pin.frozen?.({ item: message, index: 0 }) as ReactElement<{
       fontScale: number
     }>

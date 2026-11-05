@@ -11,6 +11,7 @@ let generation = 0
 const listeners = new Set<(scale: number) => void>()
 
 // SAFETY: the page bundle's storage adds a sync read and a listener; the native module does not.
+// oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: page bundle storage adds optional members absent from the native type
 const pageStorage = AsyncStorage as typeof AsyncStorage & {
   getItemSync?: (key: string) => string | null | undefined
   subscribePageStorage?: (key: string, listener: (value: string | null) => void) => () => void
