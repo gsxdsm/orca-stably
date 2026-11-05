@@ -8983,9 +8983,7 @@
           "f4310cf63f": "Agent",
           "1cd88d470a": "Customize",
           "403876bb48": "Use global",
-          "f0aa2cfaea": "Action recipes",
-          "2b2f38652b": "Custom command",
-          "0ffb081b3a": "Use default agent"
+          "f0aa2cfaea": "Action recipes"
         },
         "RepositorySourceControlAiCustomCommand": {
           "0704dd55cd": "Repository command",
@@ -20363,6 +20361,7 @@
       "editDeliveryNotice": "Edit",
       "addSelectionToChat": "Add to chat",
       "messageNotSent": "Message not sent",
+      "deliveryUnconfirmed": "Delivery unconfirmed — check chat before retrying",
       "messageSending": "Sending…",
       "userMessage": {
         "showFull": "Show full message",
