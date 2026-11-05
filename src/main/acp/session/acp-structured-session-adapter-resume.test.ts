@@ -7,7 +7,11 @@ import {
   messageText,
   SESSION
 } from '../../native-chat/agent-session-timeline/provider-timeline-assembler-test-support'
+import { createDeferredStructuredAgentSessionEventSink } from '../../native-chat/agent-session-wire/journal-ingress/structured-agent-session-event-sink'
+import { testEventSinkLogging } from '../../native-chat/agent-session-wire/host/testing/structured-agent-session-logger-test-support'
 import type { AcpScriptedAgent } from '../process/testing/acp-scripted-agent.test-support'
+import { acpLaunchSpecFor } from '../launch/acp-launch-registry'
+import { ACP_REOPEN_FAILED } from './start/acp-session-reopen-failure'
 import {
   GROK_CONFIG_OPTIONS,
   openAcpAdapterRig,
@@ -182,6 +186,114 @@ describe('reattaching a Grok chat the journal holds', () => {
     expect(rows.flatMap((row) => readAgentJournalTurn(row.body)?.state ?? [])).toEqual([
       'unverifiable'
     ])
+  })
+
+  it('writes no replay rows when the host binds the sink between acquire and open', async () => {
+    const reopen = onReopen()
+    const rig = await openAcpAdapterRig({
+      ...resume,
+      initialize: RESUMES,
+      script: (agent) =>
+        agent.on('session/load', (frame) => {
+          reopen(() => sendsWhileAttaching(agent, 'hi'))
+          agent.reply(frame, { configOptions: GROK_CONFIG_OPTIONS })
+        })
+    })
+    await rig.acquire()
+    await exchange(rig, 'hi', true)
+    await rig.adapter.closeSession(SESSION)
+    const before = await rig.rig.rows()
+    // The host binds after acquiring the child, before opening its provider session.
+    const deferred = createDeferredStructuredAgentSessionEventSink(testEventSinkLogging(SESSION))
+    try {
+      const acquired = await rig.adapter.acquire({
+        identity: {
+          sessionId: SESSION,
+          workspaceId: 'workspace-1',
+          hostId: 'local',
+          agent: 'grok',
+          providerHandle: null
+        },
+        fence: 2,
+        spawnToken: 'spawn-2',
+        events: deferred.sink
+      })
+      deferred.bind({ journal: rig.rig.journal, fence: 2, publish: () => {} })
+      await rig.adapter.open({
+        sessionId: SESSION,
+        fence: 2,
+        acquisitionGeneration: acquired.acquisitionGeneration,
+        signal: new AbortController().signal
+      })
+      expect(rig.sent('session/load')).toHaveLength(1)
+      expect(await deferred.drained()).toMatchObject({ ok: true })
+      expect((await rig.rig.rows()).map((row) => row.itemId)).toEqual(
+        before.map((row) => row.itemId)
+      )
+    } finally {
+      deferred.close()
+      await rig.adapter.closeSession(SESSION)
+    }
+  })
+
+  it('starts a new Hermes session when session/load answers with an empty body', async () => {
+    const spec = acpLaunchSpecFor('hermes')
+    if (!spec) {
+      throw new Error('missing hermes launch spec')
+    }
+    const rig = await openAcpAdapterRig({
+      spec,
+      launch: {
+        resume: {
+          sessionId: 'never-saved',
+          key: 'acp:hermes:never-saved',
+          mayBeUnsaved: () => true,
+          unannouncedLosses: () => []
+        }
+      },
+      initialize: RESUMES,
+      script: (agent) => agent.on('session/load', (frame) => agent.reply(frame, {}))
+    })
+    await rig.acquire()
+    expect(rig.sent('session/load')).toHaveLength(1)
+    expect(rig.sent('session/new')).toHaveLength(1)
+    expect(rig.started().link).toMatchObject({
+      origin: 'created',
+      handle: { nativeId: PROVIDER_SESSION },
+      supersedesKey: 'acp:hermes:never-saved'
+    })
+    await exchange(rig, 'pong', true)
+    expect(await texts(rig)).toEqual(['hello', 'pong'])
+    expect(await notRestoredRows(rig)).toEqual([])
+  })
+
+  it('keeps a Hermes session whose load includes modes', async () => {
+    const spec = acpLaunchSpecFor('hermes')
+    if (!spec) {
+      throw new Error('missing hermes launch spec')
+    }
+    const rig = await openAcpAdapterRig({
+      spec,
+      launch: {
+        resume: {
+          sessionId: PROVIDER_SESSION,
+          key: 'acp:hermes:saved',
+          mayBeUnsaved: () => false,
+          unannouncedLosses: () => []
+        }
+      },
+      initialize: RESUMES,
+      script: (agent) =>
+        agent.on('session/load', (frame) =>
+          agent.reply(frame, { modes: { currentModeId: 'default', availableModes: [] } })
+        )
+    })
+    await rig.acquire()
+    expect(rig.sent('session/new')).toEqual([])
+    expect(rig.started().link).toMatchObject({
+      origin: 'resumed',
+      handle: { nativeId: PROVIDER_SESSION }
+    })
   })
 
   it.each([
