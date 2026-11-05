@@ -20635,7 +20635,7 @@
         "subagent": "{{count}} subagent",
         "subagents": "{{count}} subagents",
         "subagentsTitle": "Subagents",
-        "dismissAllFailed": "Dismiss all failed",
+        "dismissAllFailed": "Dismiss all failed or unavailable",
         "backToConversation": "Back to the conversation",
         "dismissSubagent": "Dismiss {{name}}",
         "noActivity": "No activity yet",

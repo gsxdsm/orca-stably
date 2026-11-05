@@ -55,7 +55,7 @@ export function MobileNativeChatSubagentSheet({
   const t = useMobileTranslation()
   const [completedOpen, setCompletedOpen] = useState(false)
   const dismissible = agents.filter((agent) => nativeChatSubagentDismissible(agent.state))
-  const dismissAll = t('chat.activity.dismissAllFailed', 'Dismiss all failed')
+  const dismissAll = t('chat.activity.dismissAllFailed', 'Dismiss all failed or unavailable')
   return (
     <View style={styles.sheet}>
       <View style={styles.header}>

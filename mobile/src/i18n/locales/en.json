@@ -2980,7 +2980,7 @@
       "openSubagents": "Subagents, {{label}}",
       "subagentsTitle": "Subagents",
       "dismissSubagent": "Dismiss {{name}}",
-      "dismissAllFailed": "Dismiss all failed",
+      "dismissAllFailed": "Dismiss all failed or unavailable",
       "completedSubagents": "Completed ({{count}})",
       "openSubagent": "Open {{name}}",
       "viewingSubagent": "Viewing {{name}}",

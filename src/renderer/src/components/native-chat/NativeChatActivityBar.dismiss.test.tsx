@@ -51,7 +51,7 @@ it('dismisses failed children from the sheet, the pill, and the next mount', () 
   const view = render(bar())
   openSheet()
   expect(screen.getByTestId('native-chat-dismiss-all-failed')).toHaveTextContent(
-    'Dismiss all failed'
+    'Dismiss all failed or unavailable'
   )
   expect(screen.getAllByTestId('native-chat-dismiss-subagent')).toHaveLength(2)
   expect(screen.queryByRole('button', { name: 'Dismiss Runner' })).toBeNull()

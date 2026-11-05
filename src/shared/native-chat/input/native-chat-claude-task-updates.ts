@@ -175,7 +175,10 @@ function applyClaudeTaskTool(book: TaskBook, name: string, input: unknown, outpu
     return
   }
   const existing = book.get(id)
-  const content = nonempty(args?.subject) ?? existing?.content ?? id
+  const content = nonempty(args?.subject) ?? existing?.content
+  if (!content) {
+    return
+  }
   const activeForm = nonempty(args?.activeForm) ?? existing?.activeForm
   book.upsert(id, {
     content,

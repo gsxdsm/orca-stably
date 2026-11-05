@@ -107,6 +107,7 @@ export function useNativeChatLiveSession(
     transcriptEpochRef.current += 1
     setOlderHistoryGeneration(transcriptEpochRef.current)
     setLoadingEarlier(false)
+    setSubagents(null)
     const sourceChanged = retainedSourceKeyRef.current !== sourceKey
     retainedSourceKeyRef.current = sourceKey
     if (!enabled) {
@@ -144,7 +145,6 @@ export function useNativeChatLiveSession(
     setAppended([])
     setHasMore(false)
     setTaskList(null)
-    setSubagents(null)
     const wake = { wakeWslDistro: takeNativeChatOpenWake(latestPaneKey.current, sourceKey) }
 
     // Seed independently for silent streams, but never overwrite an authoritative frame.

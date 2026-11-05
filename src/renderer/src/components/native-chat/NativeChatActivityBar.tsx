@@ -233,7 +233,7 @@ export function NativeChatActivityBar({
                     >
                       {translate(
                         'components.native-chat.activity.dismissAllFailed',
-                        'Dismiss all failed'
+                        'Dismiss all failed or unavailable'
                       )}
                     </button>
                   ) : null}

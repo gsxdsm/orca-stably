@@ -121,15 +121,17 @@ export async function handleSubscribe(
 
   // Only the user's open may start the distro; the watch that follows stays background.
   const opened = openNativeChatTranscript(sessionId, transcriptPath, args.wakeWslDistro === true)
+  let taskScan = 0
   const publishTasks = (): void => {
     if (args.capabilities?.taskList !== 1) {
       return
     }
+    const scan = ++taskScan
     publishTranscriptTaskList({
       agent,
       sessionId,
       filePath: opened.transcriptPath,
-      stillCurrent: canPublish,
+      stillCurrent: () => canPublish() && scan === taskScan,
       emit: (seed) => {
         sender.send('nativeChat:appended', {
           subscriptionId,

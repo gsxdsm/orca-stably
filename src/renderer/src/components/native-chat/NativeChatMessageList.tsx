@@ -259,7 +259,7 @@ export function NativeChatMessageList({
     slots,
     turnRows,
     virtualItems: transcriptWindow.virtualItems,
-    outline: railOutline
+    outline: view.activity.focusedSubagentId ? null : railOutline
   })
   const requestRailJump = useCallback((item: NativeChatRailItem) => {
     navigationSequence.current += 1

@@ -75,8 +75,8 @@ export function useMobileNativeChatSubagentTranscript({
   }
   const requestedId = focus.surfaceId === sendSurfaceId ? focus.agentId : null
   const focused = subagents.find((entry) => entry.id === requestedId) ?? null
-  // Keep a roster entry focused before its rows arrive. Clear it only once the roster drops it.
-  if (requestedId && !focused) {
+  // Keep a roster entry focused before its rows arrive, and while a replacement leaves the roster unsettled.
+  if (requestedId && !focused && subagentSeed != null) {
     setFocus({ surfaceId: sendSurfaceId, agentId: null })
   }
   const focusedId = focused?.id ?? null

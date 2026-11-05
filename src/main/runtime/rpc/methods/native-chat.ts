@@ -177,15 +177,17 @@ export const NATIVE_CHAT_METHODS = [
         params.sessionId,
         params.transcriptPath
       )
+      let taskScan = 0
       const publishTasks = (): void => {
         if (params.capabilities?.taskList !== 1) {
           return
         }
+        const scan = ++taskScan
         publishTranscriptTaskList({
           agent: params.agent,
           sessionId: params.sessionId,
           filePath: transcriptPath,
-          stillCurrent: () => !closed,
+          stillCurrent: () => !closed && scan === taskScan,
           emit: (seed) =>
             emit({
               type: 'task-list',
