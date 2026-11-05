@@ -1,6 +1,5 @@
 // A chat paints a tail. The pills need the calls that happened before that tail.
 
-import { stat } from 'node:fs/promises'
 import type { AgentType } from '../../shared/agent-status/contracts/agent-status-types'
 import {
   latestNativeChatTaskSeed,
@@ -10,7 +9,9 @@ import {
 import type { NativeChatTaskSeedList } from '../../shared/native-chat/input/native-chat-claude-task-updates'
 import { projectNativeChatTranscript } from '../../shared/native-chat/transcript/native-chat-transcript-projection'
 import { foldToolMessages } from '../../shared/native-chat/tools/native-chat-tool-fold'
+import { resolveSessionFilePath } from './session-file-resolver'
 import { readNativeChatTranscript } from './transcript-reader'
+import { transcriptFileStat } from './wsl-transcript-fs-access'
 import { fillSubagentRosterActivity } from './transcript-subagent-roster-activity'
 
 export type NativeChatTranscriptActivitySeed = {
@@ -51,16 +52,23 @@ export async function scanNativeChatTranscriptActivity(
   if (!filePath) {
     return seedFromFile(agent, sessionId, undefined)
   }
-  const info = await stat(filePath).catch(() => null)
+  // The path is a client hint: validate it like the tail read before any touch.
+  const resolved = await resolveSessionFilePath(agent, sessionId, {
+    transcriptPath: filePath
+  }).catch(() => null)
+  if (!resolved) {
+    return emptySeed()
+  }
+  const info = await transcriptFileStat(resolved, 'exact').catch(() => null)
   if (!info) {
     return emptySeed()
   }
-  const hit = cache.get(filePath)
+  const hit = cache.get(resolved)
   if (hit && hit.mtimeMs === info.mtimeMs && hit.size === info.size) {
     return { taskList: hit.taskList, subagents: hit.subagents }
   }
-  const seed = await seedFromFile(agent, sessionId, filePath)
-  cache.set(filePath, { mtimeMs: info.mtimeMs, size: info.size, ...seed })
+  const seed = await seedFromFile(agent, sessionId, resolved)
+  cache.set(resolved, { mtimeMs: info.mtimeMs, size: info.size, ...seed })
   return seed
 }
 
