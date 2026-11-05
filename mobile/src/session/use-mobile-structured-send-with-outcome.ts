@@ -34,6 +34,7 @@ import type { MobileStructuredSendsOut } from './use-mobile-structured-stop-offe
 import { structuredSessionOperationId } from './structured-session-operation-id'
 import { timeoutForDeadline } from './mobile-structured-agent-session-rpc'
 import { nativeChatTextWithFileReferences } from './native-chat/composer/mobile-native-chat-file-attachment'
+import { projectMobileCrewMentions } from './orchestration-crew/mobile-orchestration-crew'
 import {
   actionableStructuredApproval,
   actionableStructuredQuestion
@@ -192,7 +193,7 @@ export function useMobileStructuredSendWithOutcome(args: {
           imageAttachments.push(attachment)
         }
       }
-      const wireText = nativeChatTextWithFileReferences(text, files)
+      const wireText = nativeChatTextWithFileReferences(projectMobileCrewMentions(text), files)
       const skills = takesSkills ? (pickedSkills ?? []) : []
       let body: ReturnType<typeof structuredAgentSessionSendBody>
       try {

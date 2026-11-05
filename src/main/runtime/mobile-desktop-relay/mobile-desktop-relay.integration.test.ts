@@ -261,6 +261,7 @@ describe('mobile desktop relay: phone -> desktop -> server', () => {
 
   it('admits a proven phone locator on the configured delegated target, never the relay owner', async () => {
     expect(MOBILE_RPC_METHOD_ROUTES.get('orchestration.partyLocation')).toBe('execution-host')
+    expect(MOBILE_RPC_METHOD_ROUTES.get('orchestration.crewSubscribe')).toBe('execution-host')
     const { host, desktop, handle } = await startTopology()
     const phone = await connectPhone(desktop.server, 'sender-open', cleanups)
     const atHost = vi.spyOn(host.runtime, 'getTerminalPaneKey')

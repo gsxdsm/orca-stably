@@ -1,6 +1,6 @@
 import type { NativeChatSkillDiscoverySnapshot } from '../../../../src/shared/native-chat/input/native-chat-picker-items'
 import { MobileStateView } from '../../components/MobileStateView'
-import { useCallback, useMemo, type ComponentProps } from 'react'
+import { useCallback, useMemo, type ComponentProps, type ReactNode } from 'react'
 import { nativeChatTaskListPredecessors } from '../../../../src/shared/native-chat/input/native-chat-task-list-history'
 import {
   MobileNativeChatDisclosureContext,
@@ -119,6 +119,8 @@ type ChatViewProps = MobileNativeChatSendProps &
     promptKey?: string | null
     onOpenFile?: (relativePath: string) => void
     keyboardInset?: number
+    /** Crew pill, beside the composer. Null when this agent has no orchestration relations. */
+    activityBar?: ReactNode
   }
 
 export function MobileNativeChatView({
@@ -194,7 +196,8 @@ export function MobileNativeChatView({
   onRespondPermission,
   composerTray: { content: trayContent, composerInputRef: inputRef } = NO_COMPOSER_TRAY,
   onOpenFile,
-  keyboardInset = 0
+  keyboardInset = 0,
+  activityBar = null
 }: Props): React.JSX.Element {
   useMobileColorScheme()
   const t = useMobileTranslation()
@@ -374,6 +377,7 @@ export function MobileNativeChatView({
         </View>
       ) : null}
       {trayContent}
+      {activityBar}
       <View style={promptOwnsInput ? styles.hidden : undefined}>
         <MobileNativeChatDraftComposer
           draftScopeKey={composerScopeKey}

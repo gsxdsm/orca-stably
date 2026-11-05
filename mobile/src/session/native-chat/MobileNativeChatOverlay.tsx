@@ -20,6 +20,7 @@ import { nativeChatAskRequiresTerminal } from '../../../../src/shared/native-cha
 import { tuiAgentDisplayName } from '../../../../src/shared/agent-launch/catalog/tui-agent-display-names'
 import { MobileNativeChatNoticeContext } from '../mobile-native-chat-notice-context'
 import type { MobileNativeChatImageSource } from './visual/mobile-native-chat-image-preview'
+import type { ReactNode } from 'react'
 
 type Props = {
   controller: MobileNativeChatController
@@ -45,6 +46,7 @@ type Props = {
   keyboardInset: number
   /** The Orca host that runs this chat, named for notices; null when unnamed. */
   hostName: string | null
+  activityBar?: ReactNode
 }
 
 // Keep the terminal subscription and streaming gate above view toggles; the chat list unmounts below this boundary.
@@ -69,7 +71,8 @@ export function MobileNativeChatOverlay({
   sessionId,
   getSendCompletionGeneration,
   keyboardInset,
-  hostName
+  hostName,
+  activityBar = null
 }: Props): React.JSX.Element | null {
   const session = controller.nativeChatSession
   const agent = controller.nativeChatAgent ?? ''
@@ -266,6 +269,7 @@ export function MobileNativeChatOverlay({
                     sessionOptions={controller.nativeChatSessionOptions}
                     structuredComposer={structuredComposer}
                     keyboardInset={keyboardInset}
+                    activityBar={activityBar}
                   />
                 </MobileNativeChatNoticeContext.Provider>
               </MobileNativeChatReplyRevealsContext.Provider>
