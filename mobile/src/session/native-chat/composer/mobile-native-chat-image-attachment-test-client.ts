@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
-import type { RpcClient } from '../../../transport/rpc-client'
-import type { RpcResponse, RpcSuccess } from '../../../transport/types'
+import type { RpcClient } from '../../../transport/rpc/rpc-client-contract'
+import type { RpcResponse, RpcSuccess } from '../../../transport/rpc/rpc-wire-types'
 
 export function ok(id: string, result: unknown): RpcSuccess {
   return { id, ok: true, result, _meta: { runtimeId: 'r' } }

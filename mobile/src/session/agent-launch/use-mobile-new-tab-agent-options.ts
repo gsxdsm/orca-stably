@@ -14,6 +14,8 @@ import {
 import { newTabAgentOptionsFrom } from './mobile-new-tab-agent-loader'
 import type { MobileNewTabAgentOption } from './mobile-new-tab-agent-options'
 import type { MobileNewTabAgentLoadState } from './mobile-agent-load-state'
+import { withMobileStructuredChatLaunch } from '../mobile-structured-chat-launch'
+import { useMobileStructuredChatLaunch } from '../use-mobile-structured-chat-launch'
 
 // A login-shell refresh resets shared desktop state, so it runs once per workspace per connection.
 const refreshedTargets = new WeakMap<RpcClient, { epoch: string; targets: Set<string> }>()
@@ -106,12 +108,16 @@ export function useMobileNewTabAgentOptions(args: {
         : detection.isError || settings.isError
           ? 'error'
           : 'loading'
-  const options = useMemo(
-    () =>
+  const launchContext = useMobileStructuredChatLaunch({
+    client,
+    hostCapabilities: args.hostCapabilities
+  })
+  const options = useMemo(() => {
+    const base =
       loadState === 'loaded' && detected?.kind === 'detected'
         ? newTabAgentOptionsFrom(settings.data?.settings, detected.detectedAgents)
-        : NO_OPTIONS,
-    [detected, loadState, settings.data]
-  )
+        : NO_OPTIONS
+    return withMobileStructuredChatLaunch(base, launchContext)
+  }, [detected, launchContext, loadState, settings.data])
   return { loadState, options }
 }

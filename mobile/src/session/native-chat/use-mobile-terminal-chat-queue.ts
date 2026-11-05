@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { RpcClient } from '../../transport/rpc-client'
+import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
 import { randomV4Uuid } from '../../platform/random-v4-uuid'
 import {
   NativeChatTerminalQueueSnapshotSchema,
