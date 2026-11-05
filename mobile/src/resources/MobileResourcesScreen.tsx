@@ -38,6 +38,8 @@ export function MobileResourcesScreen() {
   const { client, state: connState } = useHostClient(hostId)
   const [trackedHostId, setTrackedHostId] = useState(hostId)
   const [snapshot, setSnapshot] = useState<HostResourcesSnapshot | null>(null)
+  const [pollTick, setPollTick] = useState(0)
+  const handledPollTickRef = useRef(0)
   const [cpuHistory, setCpuHistory] = useState<readonly number[]>([])
   const [capability, setCapability] = useState<Capability>('unknown')
   const [methodUnsupported, setMethodUnsupported] = useState(false)
@@ -88,20 +90,12 @@ export function MobileResourcesScreen() {
 
   useEffect(() => {
     if (pollDelay === null || client === null || !hostId) {
-      return
+      return () => {}
     }
     const requestHostId = hostId
     let cancelled = false
-    let timer: ReturnType<typeof setTimeout> | null = null
-
-    const schedule = () => {
-      if (cancelled) {
-        return
-      }
-      timer = setTimeout(() => {
-        void sample()
-      }, pollDelay)
-    }
+    const afterPreviousSample = handledPollTickRef.current !== pollTick
+    handledPollTickRef.current = pollTick
 
     const sample = async () => {
       if (cancelled) {
@@ -134,17 +128,21 @@ export function MobileResourcesScreen() {
         }
         setSampleProblem('failed')
       }
-      schedule()
-    }
-
-    void sample()
-    return () => {
-      cancelled = true
-      if (timer !== null) {
-        clearTimeout(timer)
+      if (!cancelled) {
+        setPollTick((tick) => tick + 1)
       }
     }
-  }, [client, hostId, pollDelay])
+
+    const timer = setTimeout(() => void sample(), afterPreviousSample ? pollDelay : 0)
+    if (!afterPreviousSample) {
+      clearTimeout(timer)
+      void sample()
+    }
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [client, hostId, pollDelay, pollTick])
 
   const hasSample = snapshot !== null
   useEffect(() => {
