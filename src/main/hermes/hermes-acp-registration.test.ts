@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest'
 import { acpLaunchSpecFor } from '../acp/acp-launch-specs'
 import { decideAgentLaunchMode } from '../agent-launch/agent-launch-mode'
 import { structuredAgentRuntimeRegistration } from '../runtime/structured-agent-runtime-registrations'

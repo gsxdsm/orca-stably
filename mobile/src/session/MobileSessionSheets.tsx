@@ -214,10 +214,14 @@ export function MobileSessionSheets({ controller }: { controller: MobileSessionC
           tabs: sessionTabs.filter((tab) => tab.type === 'terminal'),
           isTabChatView: nativeChatController.isTabChatView,
           nativeChatTranscriptIsLocalReadable: controller.nativeChatTranscriptIsLocalReadable,
+          hostCapabilities: controller.hostCapabilities,
           structuredAgents: structuredChat?.registeredAgents ?? [],
           ...hermesTerminalActionFields({
-            controller, sessionTabs, handle: actionTarget?.handle,
-            closeTerminalTab: handleCloseSessionTab, showToast
+            controller,
+            sessionTabs,
+            handle: actionTarget?.handle,
+            closeTerminalTab: handleCloseSessionTab,
+            showToast
           }),
           onDismiss: () => setActionTarget(null),
           onToggleChat: toggleTabChatView,

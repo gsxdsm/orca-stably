@@ -10,7 +10,7 @@ vi.mock('../platform/haptics', () => ({
   triggerError: vi.fn()
 }))
 
-import { STRUCTURED_AGENT_SESSION_RESUME_HISTORY_RUNTIME_CAPABILITY } from '../../../src/shared/structured-agent-session-surface-capabilities'
+import { STRUCTURED_AGENT_SESSION_RESUME_HISTORY_RUNTIME_CAPABILITY } from '../../../src/shared/agent-session/structured-agent-session-surface-capabilities'
 import { switchMobileHermesTerminalToChat } from './mobile-hermes-terminal-chat-switch'
 import type { PendingSessionSelection } from './pending-session-selection'
 
