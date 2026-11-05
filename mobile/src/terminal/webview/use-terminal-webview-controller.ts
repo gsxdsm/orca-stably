@@ -52,6 +52,7 @@ export function useTerminalWebViewController(
     onTerminalQueryReply,
     onTerminalInteraction,
     onTerminalTap,
+    onTerminalSwipeDown,
     onFileTap,
     onOpenUrl,
     onTextScaleChange,
@@ -177,6 +178,7 @@ export function useTerminalWebViewController(
           onTerminalInput: interactionActive ? onTerminalInput : undefined,
           onTerminalInteraction: interactionActive ? onTerminalInteraction : undefined,
           onTerminalTap: interactionActive ? onTerminalTap : undefined,
+          onTerminalSwipeDown: interactionActive ? onTerminalSwipeDown : undefined,
           onFileTap: interactionActive ? onFileTap : undefined,
           onOpenUrl: interactionActive ? onOpenUrl : undefined,
           onTextScaleChange
@@ -199,6 +201,7 @@ export function useTerminalWebViewController(
       onTerminalQueryReply,
       onTerminalInteraction,
       onTerminalTap,
+      onTerminalSwipeDown,
       onFileTap,
       onOpenUrl,
       onTextScaleChange,
