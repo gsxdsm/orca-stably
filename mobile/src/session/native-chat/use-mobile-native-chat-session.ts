@@ -12,13 +12,11 @@ import type {
   NativeChatTurnLifecycle
 } from '../../../../src/shared/native-chat/native-chat-types'
 import type { NativeChatTranscriptPage } from '../../../../src/shared/native-chat/native-chat-transcript-frames'
+import type { NativeChatSubagentActivity } from '../../../../src/shared/native-chat/input/native-chat-activity'
 import { buildNativeChatSubscriptionId } from '../../../../src/shared/native-chat/native-chat-stream-unsubscribe'
 import type { RpcClient } from '../../transport/rpc-client'
 import { nativeChatSessionPageRead } from '../mobile-session-read-operations'
-import {
-  applyMobileNativeChatStreamFrame,
-  type MobileNativeChatStreamFrame
-} from './mobile-native-chat-stream-frame'
+import { applyMobileNativeChatSubscriptionFrame } from './apply-mobile-native-chat-subscription-frame'
 import { randomV4Uuid } from '../../platform/random-v4-uuid'
 import { useMobileOlderPageLoader, type OlderPagePhase } from '../use-mobile-older-page-loader'
 import {
@@ -52,6 +50,8 @@ export type MobileNativeChatSession = {
   loadEarlier: () => void
   /** Latest provider turn boundary from the transcript feed; absent from older hosts. */
   transcriptLifecycle?: NativeChatTurnLifecycle
+  /** Children from history outside the loaded tail. */
+  subagentSeed?: readonly NativeChatSubagentActivity[] | null
 }
 
 const INITIAL_LIMIT = 40
@@ -115,6 +115,10 @@ export function useMobileNativeChatSession(args: {
     lifecycle: NativeChatTurnLifecycle | undefined
   } | null>(null)
   const [hasMore, setHasMore] = useState(false)
+  const [subagentSeed, setSubagentSeed] = useState<{
+    identity: string
+    subagents: readonly NativeChatSubagentActivity[] | null
+  } | null>(null)
   const { phase: olderPages, load: loadOlderPages, supersede } = useMobileOlderPageLoader()
   const beforeOffsetRef = useRef<number | null>(null)
   // Cache the id index so live appends cost incoming rows rather than rescanning all history.
@@ -168,7 +172,7 @@ export function useMobileNativeChatSession(args: {
         limit: limitRef.current,
         // Use a distinct token per screen so another viewer cannot evict this host feed.
         subscriptionId: buildNativeChatSubscriptionId(agent, sessionId, randomV4Uuid()),
-        capabilities: { transcriptPending: 1, transcriptSourceOrder: 1 },
+        capabilities: { transcriptPending: 1, transcriptSourceOrder: 1, taskList: 1 },
         ...(transcriptPath ? { transcriptPath } : {}),
         ...(resumeAfter ? { resumeAfter } : {})
       },
@@ -176,66 +180,26 @@ export function useMobileNativeChatSession(args: {
         if (cancelled) {
           return
         }
-        const frame = raw as MobileNativeChatStreamFrame
-        // No file yet says nothing about rows this subscription already holds: unsettle the read, keep the rows.
-        if (resumeAfter && frame.type === 'snapshot' && frame.pending) {
-          setRead({ client, identity, status: 'awaiting-transcript' })
-          return
-        }
-        const applied = applyMobileNativeChatStreamFrame({
+        applyMobileNativeChatSubscriptionFrame({
+          raw,
+          identity,
+          client,
+          resumeAfter,
+          holdsCachedRows,
           merger: mergerRef.current,
-          frame,
-          // Bound by retained capacity, not the read page, so busy turns cannot drop rows under a scrolled-up reader.
-          limit: MAX_MESSAGES,
-          replaceSnapshot: !snapshotSeenRef.current
+          snapshotSeenRef,
+          beforeOffsetRef,
+          limitRef,
+          initialLimit: INITIAL_LIMIT,
+          maxMessages: MAX_MESSAGES,
+          setSubagentSeed,
+          setRead,
+          setError,
+          setLifecycle,
+          setMessages,
+          setHasMore,
+          supersede
         })
-        if (applied.kind === 'ignored') {
-          return
-        }
-        if (applied.kind === 'error') {
-          setRead({
-            client,
-            identity,
-            status: 'error',
-            rowsUnconfirmed: holdsCachedRows && !snapshotSeenRef.current
-          })
-          setError(applied.error)
-          return
-        }
-        if (frame.type === 'snapshot' && !applied.pending) {
-          // Pending windows establish no transcript base; the next real snapshot must still replace.
-          snapshotSeenRef.current = true
-        }
-        if (
-          applied.windowReplaced ||
-          (frame.type === 'snapshot' && beforeOffsetRef.current === null)
-        ) {
-          // Replacement/replay invalidates cursorless pages; cursor pages survive only while their captured window/cursor still match.
-          supersede()
-        }
-        if (applied.windowReplaced) {
-          // Keep the grown paging limit for overlapping replays; reset only for fresh windows.
-          limitRef.current = INITIAL_LIMIT
-          beforeOffsetRef.current = applied.beforeOffset ?? null
-          setHasMore(applied.hasMore ?? applied.messages.length >= INITIAL_LIMIT)
-        }
-        // Snapshots and replacements restate the boundary; appends only advance it.
-        if (frame.type === 'appended' ? frame.lifecycle !== undefined : !applied.pending) {
-          setLifecycle({ identity, lifecycle: frame.lifecycle })
-        }
-        setMessages(applied.messages)
-        if (!applied.windowReplaced && applied.hasMore != null) {
-          setHasMore(applied.hasMore)
-        }
-        if (!applied.windowReplaced && applied.beforeOffset != null) {
-          beforeOffsetRef.current = applied.beforeOffset
-        }
-        if (applied.cursorInvalidated) {
-          // After trimming invalidates the cursor, growing-tail reads avoid gaps behind the retained window.
-          supersede()
-          beforeOffsetRef.current = null
-        }
-        setRead({ client, identity, status: applied.pending ? 'awaiting-transcript' : 'ready' })
       }
     )
 
@@ -329,6 +293,7 @@ export function useMobileNativeChatSession(args: {
     loadingEarlier: olderPages === 'loading',
     olderPages,
     loadEarlier,
-    transcriptLifecycle: lifecycle?.identity === identity ? lifecycle.lifecycle : undefined
+    transcriptLifecycle: lifecycle?.identity === identity ? lifecycle.lifecycle : undefined,
+    subagentSeed: subagentSeed?.identity === identity ? subagentSeed.subagents : undefined
   }
 }
