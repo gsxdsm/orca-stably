@@ -2,14 +2,10 @@ import type { NativeChatSkillDiscoverySnapshot } from '../../../../src/shared/na
 import { MobileStateView } from '../../components/MobileStateView'
 import { useCallback, useMemo, type ComponentProps } from 'react'
 import { nativeChatTaskListPredecessors } from '../../../../src/shared/native-chat/input/native-chat-task-list-history'
-import {
-  MobileNativeChatDisclosureContext,
-  useMobileNativeChatDisclosures
-} from './transcript/mobile-native-chat-disclosure-store'
+import { useMobileNativeChatDisclosures } from './transcript/mobile-native-chat-disclosure-store'
 import { type NativeScrollEvent, type NativeSyntheticEvent, View } from 'react-native'
 import { MobileNativeChatSendErrorBanner } from './MobileNativeChatSendErrorBanner'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'
 import type { NativeChatMessage } from '../../../../src/shared/native-chat/native-chat-types'
 import type {
   NativeChatLiveTurnIndicator,
@@ -41,7 +37,6 @@ import {
 import { MobileNativeChatLiveLine } from './transcript/MobileNativeChatLiveLine'
 import { MobileNativeChatAwaitingInputRow } from './transcript/MobileNativeChatAwaitingInputRow'
 import type { NativeChatAwaitingInput } from '../../../../src/shared/native-chat/native-chat-terminal-turn'
-import { MobileNativeChatFloatingControls } from './MobileNativeChatFloatingControls'
 import type { PendingNativeChatImage } from './composer/mobile-native-chat-image-attachment'
 import type { MobilePastedImages } from './composer/mobile-native-chat-composer-paste'
 import {
@@ -57,8 +52,9 @@ import {
   type ComposerTrayProps
 } from './composer/use-mobile-native-chat-composer-tray'
 import type { MobileNativeChatSessionOptionPickersProps } from './input/MobileNativeChatSessionOptionPickers'
-import { MobileNativeChatScrollRootsBoundary } from '../MobileNativeChatScrollRootsBoundary'
-import { MobileNativeChatRowList } from './transcript/MobileNativeChatRowList'
+import { MobileNativeChatTranscriptPane } from './MobileNativeChatTranscriptPane'
+import { MobileNativeChatTaskPill } from './input/MobileNativeChatTaskPill'
+import type { NativeChatTaskSeedList } from '../../../../src/shared/native-chat/input/native-chat-claude-task-updates'
 import { useMobileNativeChatRowRenderer } from './transcript/use-mobile-native-chat-row-renderer'
 import type { MobileNativeChatStatus } from './use-mobile-native-chat-session'
 import type { OlderPagePhase } from '../use-mobile-older-page-loader'
@@ -129,6 +125,7 @@ type ChatViewProps = MobileNativeChatSendProps &
     askRequiresTerminal?: boolean
     promptKey?: string | null
     onOpenFile?: (relativePath: string) => void
+    taskList?: NativeChatTaskSeedList | null
     keyboardInset?: number
   }
 
@@ -209,6 +206,7 @@ export function MobileNativeChatView({
   onRespondPermission,
   composerTray: { content: trayContent, composerInputRef: inputRef } = NO_COMPOSER_TRAY,
   onOpenFile,
+  taskList = null,
   keyboardInset = 0
 }: Props): React.JSX.Element {
   useMobileColorScheme()
@@ -336,30 +334,12 @@ export function MobileNativeChatView({
             title={t('session.nativeChatView.loading', 'Loading conversation…')}
           />
         ) : (
-          <GestureHandlerRootView style={styles.listWrap}>
-            <MobileNativeChatDisclosureContext.Provider value={disclosures}>
-              <MobileNativeChatScrollRootsBoundary
-                {...{ rowKeys, layoutKey }}
-                roots={disclosures.roots}
-                runPlacements={rowKeys.runPlacements}
-              >
-                <GestureDetector gesture={pinchGesture}>
-                  <MobileNativeChatRowList
-                    {...{ tail, rowKeys, renderItem, footer, emptyStateView, onScroll, layoutKey }}
-                    {...{ header, hasHeader: hasMore === true, onNearTop: loadEarlierNearTop }}
-                    rows={turns.listMessages}
-                    runs={turns.presentation.workRuns.heads}
-                    roots={disclosures.roots}
-                    contentContainerStyle={styles.listContent}
-                  />
-                </GestureDetector>
-              </MobileNativeChatScrollRootsBoundary>
-            </MobileNativeChatDisclosureContext.Provider>
-            <MobileNativeChatFloatingControls
-              showJumpToTail={tail.showJumpToTail}
-              onJumpToTail={jumpToTail}
-            />
-          </GestureHandlerRootView>
+          <MobileNativeChatTranscriptPane
+            {...{ tail, rowKeys, renderItem, footer, emptyStateView, onScroll, layoutKey, header }}
+            {...{ disclosures, turns, pinchGesture, jumpToTail }}
+            hasHeader={hasMore === true}
+            onNearTop={loadEarlierNearTop}
+          />
         )}
         <MobileNativeChatPromptCard
           key={promptKey ?? undefined}
@@ -389,6 +369,7 @@ export function MobileNativeChatView({
           onDismiss={onDismissSendError}
         />
         {trayContent}
+        <MobileNativeChatTaskPill messages={folded} seed={taskList} fontScale={fontScale} />
         <View style={promptOwnsInput ? styles.hidden : undefined}>
           <MobileNativeChatDraftComposer
             draftScopeKey={composerScopeKey}
