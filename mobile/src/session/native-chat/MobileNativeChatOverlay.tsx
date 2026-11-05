@@ -184,6 +184,7 @@ export function MobileNativeChatOverlay({
                 <MobileNativeChatNoticeContext.Provider value={noticeNames}>
                   <MobileNativeChatView
                     messages={session.messages}
+                    taskList={session.taskList}
                     folded={folded}
                     status={session.status}
                     error={session.error}

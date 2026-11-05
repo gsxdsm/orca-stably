@@ -54,6 +54,8 @@ import {
 } from './composer/use-mobile-native-chat-composer-tray'
 import type { MobileNativeChatSessionOptionPickersProps } from './input/MobileNativeChatSessionOptionPickers'
 import { MobileNativeChatScrollRootsBoundary } from '../MobileNativeChatScrollRootsBoundary'
+import { MobileNativeChatTaskPill } from './input/MobileNativeChatTaskPill'
+import type { NativeChatTaskSeedList } from '../../../../src/shared/native-chat/input/native-chat-claude-task-updates'
 import { MobileNativeChatRowList } from './transcript/MobileNativeChatRowList'
 import { useMobileNativeChatRowRenderer } from './transcript/use-mobile-native-chat-row-renderer'
 import type { MobileNativeChatStatus } from './use-mobile-native-chat-session'
@@ -119,6 +121,7 @@ type ChatViewProps = MobileNativeChatSendProps &
     askRequiresTerminal?: boolean
     promptKey?: string | null
     onOpenFile?: (relativePath: string) => void
+    taskList?: NativeChatTaskSeedList | null
     keyboardInset?: number
   }
 
@@ -195,6 +198,7 @@ export function MobileNativeChatView({
   onRespondPermission,
   composerTray: { content: trayContent, composerInputRef: inputRef } = NO_COMPOSER_TRAY,
   onOpenFile,
+  taskList = null,
   keyboardInset = 0
 }: Props): React.JSX.Element {
   useMobileColorScheme()
@@ -382,6 +386,7 @@ export function MobileNativeChatView({
           </View>
         ) : null}
         {trayContent}
+        <MobileNativeChatTaskPill messages={folded} seed={taskList} fontScale={fontScale} />
         <View style={promptOwnsInput ? styles.hidden : undefined}>
           <MobileNativeChatDraftComposer
             draftScopeKey={composerScopeKey}

@@ -273,6 +273,7 @@ export function useMobileStructuredAgentSession(
     submissions: state.submissions,
     session: {
       messages,
+      taskList: state.taskList,
       status,
       transcriptLoading: status === 'loading',
       error: state.error,
