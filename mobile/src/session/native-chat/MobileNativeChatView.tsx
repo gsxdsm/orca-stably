@@ -7,8 +7,8 @@ import {
   useMobileNativeChatDisclosures
 } from './transcript/mobile-native-chat-disclosure-store'
 import { type NativeScrollEvent, type NativeSyntheticEvent, Text, View } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'
+import { useChatBottomFit } from './composer/use-chat-bottom-fit'
 import type { NativeChatMessage } from '../../../../src/shared/native-chat/native-chat-types'
 import type {
   NativeChatLiveTurnIndicator,
@@ -198,8 +198,7 @@ export function MobileNativeChatView({
 }: Props): React.JSX.Element {
   useMobileColorScheme()
   const t = useMobileTranslation()
-  const insets = useSafeAreaInsets()
-  const bottomPad = keyboardInset > 0 ? keyboardInset + insets.bottom : insets.bottom
+  const { bottomPad, composerFit, transcriptInset } = useChatBottomFit(keyboardInset)
   const { fontScale, pinchGesture } = useMobileNativeChatPinchGesture()
 
   const { data } = useMemo(
@@ -322,7 +321,7 @@ export function MobileNativeChatView({
           title={t('session.nativeChatView.loading', 'Loading conversation…')}
         />
       ) : (
-        <GestureHandlerRootView style={styles.listWrap}>
+        <GestureHandlerRootView style={[styles.listWrap, transcriptInset]}>
           <MobileNativeChatDisclosureContext.Provider value={disclosures}>
             <MobileNativeChatScrollRootsBoundary
               {...{ rowKeys, layoutKey }}
@@ -376,6 +375,7 @@ export function MobileNativeChatView({
       {trayContent}
       <View style={promptOwnsInput ? styles.hidden : undefined}>
         <MobileNativeChatDraftComposer
+          {...composerFit}
           draftScopeKey={composerScopeKey}
           structured={structuredActivityUi && structured ? { ...structured, onOpenFile } : null}
           draftKey={draftKey}
