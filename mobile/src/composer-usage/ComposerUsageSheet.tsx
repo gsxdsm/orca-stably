@@ -1,3 +1,4 @@
+import { getProviderDisplayName } from '../../../src/shared/usage-provider-windows'
 import { Text, View } from 'react-native'
 import { BottomDrawer } from '../components/bottom-drawer/BottomDrawer'
 import { useNow } from '../hooks/use-now'
@@ -5,7 +6,7 @@ import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { colors, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
-import { USAGE_PROVIDER_NAMES, type AgentUsage } from './agent-usage-provider'
+import type { AgentUsage } from './agent-usage-provider'
 import { ComposerUsageDisplayPicker } from './ComposerUsageDisplayPicker'
 import { ComposerUsageWindowPicker } from './ComposerUsageWindowPicker'
 import { ComposerUsageWindowRow } from './ComposerUsageWindowRow'
@@ -21,7 +22,7 @@ export function ComposerUsageSheet({ visible, onClose, usage, spanSideStrip }: P
       <View testID="composer-usage-sheet">
         <Text style={styles.heading}>
           {t('composerUsage.sheet.title', '{{provider}} usage', {
-            provider: USAGE_PROVIDER_NAMES[usage.provider]
+            provider: getProviderDisplayName(usage.provider)
           })}
         </Text>
         <Text style={styles.subtitle}>

@@ -1,3 +1,4 @@
+import { getProviderDisplayName } from '../../../src/shared/usage-provider-windows'
 import { useContext, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { usageBarFill } from '../components/AccountUsage'
@@ -11,8 +12,7 @@ import {
   formatUsageWindowLength,
   pickComposerUsageWindow,
   selectAgentUsage,
-  usageProviderForAgent,
-  USAGE_PROVIDER_NAMES
+  usageProviderForAgent
 } from './agent-usage-provider'
 import {
   ComposerUsageClientContext,
@@ -61,7 +61,7 @@ export function ComposerUsageMeter({
   }
   const readout = composerUsageMeterReadout(entry.window.usedPercent, display)
   const length = formatUsageWindowLength(entry.window.windowMinutes)
-  const provider = USAGE_PROVIDER_NAMES[usage.provider]
+  const provider = getProviderDisplayName(usage.provider)
   const showingRemaining = display === 'remaining'
   return (
     <>
