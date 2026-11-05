@@ -147,8 +147,7 @@ export async function attachPtyFromRuntimeController(
       )
     }
     if (attachResult) {
-      seedAttachedRuntimeTerminal(deps.runtime, attachResult, sizeBeforeAttach)
-    }
+      seedAttachedRuntimeTerminal(deps.runtime, attachResult, sizeBeforeAttach)    }
     deps.syncPtyBackgroundedDelivery?.(ptyId, 'main-attach')
     return true
   } catch {
