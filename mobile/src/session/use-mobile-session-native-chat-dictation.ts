@@ -49,6 +49,7 @@ export function useMobileSessionNativeChatDictation(
   const nativeChatController = useMobileNativeChatController({
     client,
     pairedHostClient,
+    hostCapabilities: scope.hostCapabilities,
     hostId,
     worktreeId,
     activeSessionTab,

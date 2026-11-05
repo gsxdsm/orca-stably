@@ -98,6 +98,7 @@ describe('mail to a Hermes terminal attached without a renderer', () => {
         expect(await attachPtyFromRuntimeController(deps, PTY_ID)).toBe(true)
         expect(ptySizes.get(PTY_ID)).toEqual({ cols: 120, rows: 40 })
         await runtime.serializeMainTerminalBuffer(PTY_ID)
+        runtime.onPtyData(PTY_ID, '\x1b]0;Hermes ready\x07', Date.now())
         runtime.notifyMessageArrived(mailbox, 'status')
         await vi.advanceTimersByTimeAsync(1000)
 

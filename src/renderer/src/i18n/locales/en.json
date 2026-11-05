@@ -20947,6 +20947,7 @@
           "alreadyRedeemed": "That reset credit was already used."
         }
       },
+      "deliveryUnconfirmed": "Delivery unconfirmed — check chat before retrying",
       "cardKindHidden": {
         "description": "You can change this anytime in",
         "settingsLink": "Settings > Chat UI > Turn activity",
