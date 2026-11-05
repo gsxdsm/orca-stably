@@ -17,6 +17,8 @@ import { WorkspaceServerContext } from '../worktree/execution-hosts/workspace-se
 import { useSessionTitleCard } from './tabs/use-session-title-card'
 import { useDetailCardScope } from '../components/detail-cards/use-detail-card-scope'
 import { useShellSideRail } from '../layout/use-shell-side-rail'
+import { useReleasedSideInset } from '../layout/released-side-inset'
+import { sideStripPadding } from './session-side-strip-inset'
 
 export function MobileSessionSurface({ controller }: { controller: MobileSessionController }) {
   useMobileColorScheme()
@@ -25,6 +27,7 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
   const server = useContext(WorkspaceServerContext)
   const layout = useResponsiveLayout()
   const sideRail = useShellSideRail()
+  const releasedStrip = useReleasedSideInset()
   const hasTabs = controller.visibleTabs.length > 0
   const besideTabs = (layout.isLandscapePhone || sideRail) && hasTabs
   const titleVisible =
@@ -99,7 +102,9 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
     <View ref={setMobileSessionRootRef} style={styles.container}>
       <View style={styles.kavInner}>
         <MobileSessionHeader controller={controller} details={details} />
-        <MobileWorkerAutoCloseStrip controller={controller} />
+        <View style={sideStripPadding(releasedStrip)}>
+          <MobileWorkerAutoCloseStrip controller={controller} />
+        </View>
         {/* A chat's item chips open the item's page in the bot panel. */}
         <BotItemOpenContext.Provider value={openItem}>
           <BotChatOpenContext.Provider value={openChat}>

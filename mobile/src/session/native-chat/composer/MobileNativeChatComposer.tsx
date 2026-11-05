@@ -39,6 +39,8 @@ import { MobileNativeChatComposerPlanChip } from './commands/MobileNativeChatCom
 import type { MobileNativeChatComposerProps } from './mobile-native-chat-composer-props'
 import { MobileNativeChatMcpTray } from '../mcp/MobileNativeChatMcpTray'
 import { MobileNativeChatQuoteTab } from './quotes/MobileNativeChatQuoteTab'
+import { MobileNativeChatWidthToggle } from './MobileNativeChatWidthToggle'
+export type { MobileNativeChatStructuredComposer } from './commands/mobile-native-chat-structured-composer'
 
 const NO_FILE_PATHS: string[] = []
 const NO_ATTACHMENTS: PendingNativeChatImage[] = []
@@ -90,6 +92,8 @@ export function MobileNativeChatComposer({
   onNeedSkills,
   stop = null,
   sendFollowUp = null,
+  fitScreenCorners = false,
+  widthToggle = null,
   steerHead
 }: Props): React.JSX.Element {
   useMobileColorScheme()
@@ -255,12 +259,19 @@ export function MobileNativeChatComposer({
         onOpenBotChats={menu.openBotChats}
         nestedScrollEnabled={editSession ? true : undefined}
       />
-      <View style={styles.composerInset} testID="native-chat-composer-inset">
+      <View
+        style={fitScreenCorners ? styles.composerInsetCornerFit : styles.composerInset}
+        testID="native-chat-composer-inset"
+      >
         {editSession ? null : <MobileNativeChatMcpTray panel={structured?.mcpPanel} />}
         {orca.usageSheet}
         {goal.strip}
         {editSession ? null : <MobileNativeChatQuoteTab {...{ value, onChangeText, fieldRef }} />}
-        <View {...contextRing.barProps} style={styles.bar} testID="native-chat-composer">
+        <View
+          {...contextRing.barProps}
+          style={fitScreenCorners ? styles.barCornerFit : styles.bar}
+          testID="native-chat-composer"
+        >
           <MobileNativeChatComposerAttachments
             images={attachments}
             files={files}
@@ -350,6 +361,7 @@ export function MobileNativeChatComposer({
               ) : null}
               <MobileNativeChatComposerPlanChip options={sessionOptions} inputRef={fieldRef} />
               {goal.chip}
+              {widthToggle ? <MobileNativeChatWidthToggle {...widthToggle} /> : null}
             </MobileNativeChatDictationLeading>
             {onMicPress ? (
               <MobileNativeChatComposerMic
