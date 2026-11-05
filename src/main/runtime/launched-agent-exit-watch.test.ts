@@ -112,11 +112,13 @@ describe('a launched agent exiting during readiness', () => {
   it('keeps what a verbose launch printed last after its start left the buffer', async () => {
     const launch = watchedLaunch({})
     launch.emit(ZSH_RUNS_LAUNCH_LINE)
-    launch.setRecent(REJECTION)
+    launch.setRecent(`dcap_${'q'.repeat(24)}\n${'y'.repeat(1912)}\n${REJECTION}`)
     launch.emit(ZSH_PROMPT_AFTER_EXIT)
     await runRereads()
 
-    await expect(launch.result).rejects.toThrow(REJECTION.trim())
+    const error = await launch.result.catch((caught: unknown) => String(caught))
+    expect(error).toContain(REJECTION.trim())
+    expect(error).not.toMatch(/q{5}/)
   })
 
   it('reads a redrawn line as its last frame, over CRLF', async () => {
