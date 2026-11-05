@@ -12,6 +12,10 @@ import {
   type MobileDetectedAgents
 } from './mobile-agent-launch-queries'
 import { newTabAgentOptionsFrom } from './mobile-new-tab-agent-loader'
+import {
+  loadMobileStructuredChatLaunchContext,
+  withMobileStructuredChatLaunch
+} from '../mobile-structured-chat-launch'
 import type { MobileNewTabAgentOption } from './mobile-new-tab-agent-options'
 import type { MobileNewTabAgentLoadState } from './mobile-agent-load-state'
 
@@ -106,12 +110,38 @@ export function useMobileNewTabAgentOptions(args: {
         : detection.isError || settings.isError
           ? 'error'
           : 'loading'
-  const options = useMemo(
-    () =>
+  const [launchContext, setLaunchContext] = useState<Awaited<
+    ReturnType<typeof loadMobileStructuredChatLaunchContext>
+  > | null>(null)
+  useEffect(() => {
+    if (!client || connState !== 'connected' || !(open || args.prefetch)) {
+      return
+    }
+    let cancelled = false
+    void loadMobileStructuredChatLaunchContext({
+      client,
+      hostCapabilities: args.hostCapabilities
+    })
+      .then((context) => {
+        if (!cancelled) {
+          setLaunchContext(context)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLaunchContext(null)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [args.hostCapabilities, args.prefetch, client, connState, open])
+  const options = useMemo(() => {
+    const listed =
       loadState === 'loaded' && detected?.kind === 'detected'
         ? newTabAgentOptionsFrom(settings.data?.settings, detected.detectedAgents)
-        : NO_OPTIONS,
-    [detected, loadState, settings.data]
-  )
+        : NO_OPTIONS
+    return withMobileStructuredChatLaunch(listed, launchContext)
+  }, [detected, launchContext, loadState, settings.data])
   return { loadState, options }
 }

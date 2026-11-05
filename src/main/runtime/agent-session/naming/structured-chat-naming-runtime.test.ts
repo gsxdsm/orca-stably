@@ -21,6 +21,7 @@ import { getDefaultSettings } from '../../../../shared/constants'
 import { agentSessionRecordFixture } from '../../../../shared/agent-session/lifecycle/agent-session-record.test-fixture'
 import { normalizeSourceControlAiSettings } from '../../../../shared/source-control/ai/settings/source-control-ai-settings'
 import { structuredChatNamingDeps } from './structured-chat-naming-runtime'
+import { STRUCTURED_AGENT_RUNTIME_CATALOG } from '../installation/structured-agent-runtime-metadata'
 import type { AgentJournalSnapshot } from '../../../../shared/agent-session/journal/agent-session-journal-types'
 import type * as TextGeneration from '../../../text-generation/commit-message-text-generation'
 import * as shellEnvironment from '../environment/structured-agent-shell-environment'
@@ -233,12 +234,13 @@ describe('structured chat naming runtime', () => {
       expect(mocks.titleOwner).not.toHaveBeenCalled()
     }
   )
-  it.each(['grok', 'antigravity'] as const)(
+  it.each(['grok', 'antigravity', 'hermes'] as const)(
     'codes %s native naming failures without exposing provider text',
     async (provider) => {
       const state = rig()
       const record = agentSessionRecordFixture()
       record.provider = provider
+      const label = provider === 'grok' ? 'Grok' : provider === 'hermes' ? 'Hermes' : 'Antigravity'
       for (const outcome of ['throw', 'empty'] as const) {
         if (outcome === 'throw') {
           mocks.native.mockRejectedValueOnce(new Error('private provider diagnostic'))
@@ -247,11 +249,65 @@ describe('structured chat naming runtime', () => {
         }
         expect(await state.deps.generate(record, 'Repair login')).toEqual({
           errorCode: `${provider}Failed`,
-          error: `${provider === 'grok' ? 'Grok' : 'Antigravity'} could not name this chat. Try generating the name again.`
+          error: `${label} could not name this chat. Try generating the name again.`
         })
       }
     }
   )
+
+  it.each(
+    STRUCTURED_AGENT_RUNTIME_CATALOG.map(({ metadata }) => metadata.definition.agent).filter(
+      (agent) => agent !== 'pi' && agent !== 'omp'
+    )
+  )('names a %s chat with its own agent regardless of global selection', async (provider) => {
+    const state = rig()
+    state.settings.sourceControlAi = {
+      ...normalizeSourceControlAiSettings(state.settings.sourceControlAi),
+      agentId: 'codex'
+    }
+    const record = agentSessionRecordFixture()
+    record.provider = provider
+    record.accountHome =
+      provider === 'opencode' || provider === 'opencode2'
+        ? { kind: 'opencode', locator: { kind: 'unmanaged' } }
+        : {
+            variable:
+              provider === 'codex'
+                ? 'CODEX_HOME'
+                : provider === 'claude'
+                  ? 'CLAUDE_CONFIG_DIR'
+                  : provider === 'grok'
+                    ? 'GROK_HOME'
+                    : provider === 'antigravity'
+                      ? 'GEMINI_HOME'
+                      : provider === 'hermes'
+                        ? 'HERMES_HOME'
+                        : 'PI_CODING_AGENT_DIR',
+            path: '/pinned-account'
+          }
+    const shouldExecute = () => true
+    await state.deps.generate(record, 'Repair login', shouldExecute)
+    if (provider === 'grok' || provider === 'antigravity' || provider === 'hermes') {
+      expect(mocks.native).toHaveBeenCalledWith(
+        expect.objectContaining({ accountHome: record.accountHome, shouldExecute })
+      )
+      expect(mocks.generate).not.toHaveBeenCalled()
+    } else {
+      expect(mocks.generate).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ agentId: provider }),
+        expect.objectContaining({
+          env: expect.objectContaining(
+            'variable' in record.accountHome
+              ? { [record.accountHome.variable]: record.accountHome.path }
+              : {}
+          )
+        }),
+        shouldExecute
+      )
+    }
+    expect(state.settings.sourceControlAi?.actions?.conversationName?.agentId).toBeUndefined()
+  })
 })
 
 function automaticNaming(state: ReturnType<typeof rig>, before?: 'prompt' | 'seed') {
