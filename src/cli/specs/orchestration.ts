@@ -81,7 +81,7 @@ export const ORCHESTRATION_COMMAND_SPECS: CommandSpec[] = [
       "worker_done and heartbeat are exact-Dispatch signals and cannot target groups; omit --to to use the Dispatch's Run mailbox.",
       'An active worker may declare a scheduled wait with --type status --wait-until <ISO timestamp with timezone|30s|5m|4h|1d> --body <reason>; omit --to to reach its coordinator. It suppresses only a clean idle-stop alert until that deadline, does not schedule a wake, and alerts once on expiry without progress. A later turn or status without --wait-until clears it.',
       'worker_done requires --outcome succeeded or --outcome failed.',
-      'From an active Dispatch, an omitted recipient defaults to its owning Run mailbox.',
+      'From a worker, an omitted recipient defaults to its coordinator, also after it finished; mail sent after finishing, worker_done included, leaves the finished task unchanged.',
       'Use --to dispatch:<id> for attempt-specific coordinator guidance; Orca durably relays it to a connected worker server.',
       'A worker_done with the active task/dispatch IDs completes that task only from the dispatched pane. When stable pane identity is unavailable, the sender handle must exactly match the dispatch assignee; injected preambles include the correct --from value.',
       'Prefer --task-id/--dispatch-id/etc. over raw --payload JSON in worker commands; PowerShell strips JSON quotes easily.'
@@ -241,7 +241,7 @@ export const ORCHESTRATION_COMMAND_SPECS: CommandSpec[] = [
     ],
     identityFlagRoles: { from: 'caller' },
     notes: [
-      'From an active Dispatch, a new question goes to its owning Run mailbox and ask returns at once: end your turn, and Orca wakes you with the answer as mail. --wait and --resume block until the answer instead; --timeout-ms accepts 1 to 1800000 ms per wait (default 600000 = 10 minutes, max 30 minutes), and a timeout leaves the question pending.'
+      'From a worker, a new question goes to its coordinator and ask returns at once: end your turn, and Orca wakes you with the answer as mail. A worker that already finished waits for the answer instead. --wait and --resume block until the answer instead; --timeout-ms accepts 1 to 1800000 ms per wait (default 600000 = 10 minutes, max 30 minutes), and a timeout leaves the question pending.'
     ]
   },
   {
