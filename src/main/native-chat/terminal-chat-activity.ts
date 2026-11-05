@@ -2,7 +2,7 @@ import type { NativeChatTerminalActivity } from '../../shared/native-chat/native
 import type { TerminalAgent } from '../../shared/agent-status/identity/terminal-agent'
 import { hermesNativeTitleStatus } from '../../shared/hermes-terminal-title'
 import { evaluateAgentStateRules } from '../runtime/agent-state-rules/agent-state-rules-engine'
-import type { RuledScreen } from '../runtime/screen-input-veto'
+import type { RuledScreen } from '../runtime/terminal/wait/screen-input-veto'
 import type { AgentStatus } from '../../shared/agent-status/title/agent-title-core'
 
 export function readHermesChatActivity(input: {

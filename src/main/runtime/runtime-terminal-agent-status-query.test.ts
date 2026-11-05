@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { RuntimeTerminalAgentStatusQuery } from './runtime-terminal-agent-status-query'
-import type { RuntimePtyWorktreeRecord } from './runtime-terminal-state-records'
+import { RuntimeTerminalAgentStatusQuery } from './terminal/query/runtime-terminal-agent-status-query'
+import type { RuntimePtyWorktreeRecord } from './terminal/records/runtime-terminal-state-records'
 
 describe('Hermes terminal status', () => {
   it.each([
