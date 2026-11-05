@@ -34,7 +34,7 @@ describe('subscribeAccountsSnapshot', () => {
   it('shares one accounts stream across composers and closes it after the last leaves', () => {
     vi.useFakeTimers()
     const fake = fakeClient()
-    // SAFETY: the store only calls subscribe and sendRequest, which the fake implements.
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the store only calls subscribe and sendRequest, which the fake implements.
     const client = fake.client as RpcClient
     const first = vi.fn()
     const second = vi.fn()
