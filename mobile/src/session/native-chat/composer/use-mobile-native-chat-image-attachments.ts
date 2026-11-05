@@ -25,7 +25,8 @@ import {
   clearMobileNativeChatInputStale,
   healMobileNativeChatStaleInput,
   isMobileNativeChatInputStale,
-  markMobileNativeChatInputStale
+  markMobileNativeChatInputStale,
+  markMobileNativeChatInputStaleIfStarted
 } from '../mobile-native-chat-stale-input'
 import {
   acquireMobileNativeChatTerminalWrite,
@@ -164,7 +165,7 @@ export function useMobileNativeChatImageAttachments({
         return false
       }
       // Use one action budget across paste, settle and text so per-leg clocks cannot double the composer lock.
-      const deadline = openMobileNativeChatSendBudget()
+      const deadline = openMobileNativeChatSendBudget(agent)
       const sentAt = Date.now()
       try {
         const scope = scopeKey
@@ -257,9 +258,7 @@ export function useMobileNativeChatImageAttachments({
             ...(seededLaunchDraft ? { seededText: seededLaunchDraft } : {})
           })
           if (!pasted) {
-            if (inputWriteStarted) {
-              markMobileNativeChatInputStale(handle)
-            }
+            markMobileNativeChatInputStaleIfStarted(inputWriteStarted, handle)
             onError?.()
             onSendError('Message not sent')
             return false
@@ -298,9 +297,7 @@ export function useMobileNativeChatImageAttachments({
           return outcome !== 'rejected'
         } catch {
           // Only attempted writes can leave partial input for the next action to heal.
-          if (inputWriteStarted) {
-            markMobileNativeChatInputStale(handle)
-          }
+          markMobileNativeChatInputStaleIfStarted(inputWriteStarted, handle)
           onError?.()
           onSendError('Message not sent')
           return false

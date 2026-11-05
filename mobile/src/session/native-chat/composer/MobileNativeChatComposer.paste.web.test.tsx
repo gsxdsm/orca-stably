@@ -26,6 +26,7 @@ vi.mock('./MobileNativeChatContextUsageRing', () => ({
 }))
 vi.mock('./MobileNativeChatSendButton', () => ({ MobileNativeChatSendButton: () => null }))
 vi.mock('./MobileNativeChatEditActions', () => ({ MobileNativeChatEditActions: () => null }))
+vi.mock('./MobileNativeChatActionGap', () => ({ MobileNativeChatActionGap: () => null }))
 vi.mock('./MobileNativeChatComposerAttachments', () => ({
   MobileNativeChatComposerAttachments: () => null
 }))

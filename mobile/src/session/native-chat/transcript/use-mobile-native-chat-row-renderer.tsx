@@ -70,7 +70,8 @@ export function useMobileNativeChatRowRenderer({
         message={item}
         index={index}
         lookups={lookups}
-        {...{ scope, fontScale, structuredActivityUi, onToggleTurn }}
+        {...{ scope, structuredActivityUi, onToggleTurn }}
+        fontScale={fontScaleRef.current}
       />
     ),
     [scope, rowKeyOf, lookups, fontScale, structuredActivityUi, onToggleTurn]
