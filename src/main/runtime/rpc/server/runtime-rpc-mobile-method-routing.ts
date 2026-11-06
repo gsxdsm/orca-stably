@@ -214,6 +214,7 @@ export const EXECUTION_HOST_METHODS = [
   'session.tabs.unsubscribeAll',
   ...MOBILE_AGENT_SESSION_RPC_METHODS,
   ...MOBILE_AGENT_PROMPT_RPC_METHODS,
+  'terminal.ackOutput',
   'terminal.adoptOrphans',
   'terminal.agentStatus',
   'terminal.clearBuffer',

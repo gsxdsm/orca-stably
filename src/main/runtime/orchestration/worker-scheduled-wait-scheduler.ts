@@ -1,7 +1,10 @@
-import type { OrchestrationDb } from './db'
+import type { OrchestrationDb } from './db/orchestration-db'
 import type { WorkerScheduledWait } from './db/worker-scheduled-waits'
 import { clearWorkerScheduledWait, isWorkerScheduledWaitCurrent } from './db/worker-scheduled-waits'
-import { reportWorkerTurnStop, type WorkerTurnStopReportDeps } from './worker-turn-stop-report'
+import {
+  reportWorkerTurnStop,
+  type WorkerTurnStopReportDeps
+} from './workers/turn-stops/worker-turn-stop-report'
 
 type ScheduledWaitRuntime = {
   getOrchestrationDb: () => OrchestrationDb

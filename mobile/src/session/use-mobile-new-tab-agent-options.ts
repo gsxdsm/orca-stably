@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { RpcClient } from '../transport/rpc-client'
+import { runtimeStatusProbeEpoch } from '../transport/runtime-status-probe'
 import type { ConnectionState } from '../transport/types'
 import { composeWorktreeHostIdentity } from '../../../src/shared/worktree/host-qualified-identity'
 import {
@@ -19,6 +20,19 @@ import {
   loadMobileStructuredChatLaunchContext,
   withMobileStructuredChatLaunch
 } from './mobile-structured-chat-launch'
+
+// A login-shell refresh resets shared desktop state, so it runs once per workspace per connection.
+const refreshedTargets = new WeakMap<RpcClient, { epoch: string; targets: Set<string> }>()
+
+function refreshedThisConnection(client: RpcClient): Set<string> {
+  const epoch = runtimeStatusProbeEpoch(client)
+  let entry = refreshedTargets.get(client)
+  if (entry?.epoch !== epoch) {
+    entry = { epoch, targets: new Set() }
+    refreshedTargets.set(client, entry)
+  }
+  return entry.targets
+}
 
 export function useMobileNewTabAgentOptions(args: {
   client: RpcClient | null
@@ -66,16 +80,22 @@ export function useMobileNewTabAgentOptions(args: {
     const observedTargets = observedTargetsRef.current
     const target = `${hostId}\u0000${workspaceKey}\u0000${hostRefusesOtherRuntime}`
     const observed = observedTargets.has(target)
+    const refreshed = refreshedThisConnection(client)
+    const refresh = !observed && !refreshed.has(target) && Boolean(cached?.detectedAgents.length)
     setLoadState(cached ? 'loaded' : 'loading')
     setOptions(cached?.options ?? [])
 
+    // Mark on send: the desktop finishes the refresh even if this sheet closes first.
+    if (refresh) {
+      refreshed.add(target)
+    }
     void (async () => {
       const inventory = await loadMobileNewTabAgentOptions({
         client,
         worktreeId,
         hostRefusesOtherRuntime,
         settled: observed ? cached : null,
-        refresh: !observed && Boolean(cached?.detectedAgents.length)
+        refresh
       })
       if (stale) {
         return

@@ -18,7 +18,7 @@ import {
   type NativeChatMessage
 } from '../../../../src/shared/native-chat/native-chat-types'
 import type { AgentType } from '../../../../src/shared/agent-status/contracts/agent-status-types'
-import type { MobileNativeChatStatus } from './use-mobile-native-chat-session'
+import type { MobileNativeChatStatus } from './mobile-native-chat-session-status'
 import { orderNativeChatDisplayMessages } from '../../../../src/shared/native-chat/transcript/native-chat-message-order'
 import { translate } from '../../i18n/mobile-i18n'
 
@@ -108,34 +108,12 @@ export type MobileNativeChatPendingItem = {
   pendingSend?: NativeChatMessage['pendingSend']
 }
 
-function foldPreparedMobileNativeChatMessages(
-  messages: readonly NativeChatMessage[],
-  agent: AgentType
-): NativeChatMessage[] {
-  // Drop undrawn frames before folding so they cannot split a tool run. Project plan updates afterward so they cannot consume another call's result.
-  return linkUnrecordedSubagentSpawns(
-    projectNativeChatTaskListFrames(
-      stripNoiseMessages(
-        foldToolMessages(
-          foldSubagentItems(
-            prepareNativeChatMessages(
-              messages.filter((message) => !isUndrawnProviderFrameMessage(message)),
-              agent
-            )
-          )
-        )
-      )
-    )
-  ).filter((message) => !isWordlessProviderFrameMessage(message))
-}
-
 export function foldMobileNativeChatMessages(
   messages: readonly NativeChatMessage[],
   agent: AgentType
 ): NativeChatMessage[] {
-  return foldPreparedMobileNativeChatMessages(
-    messages.filter((message) => isRootAgentJournalItem(message)),
-    agent
+  return finishMobileNativeChatMessages(
+    foldToolMessages(foldSubagentItems(prepareMobileNativeChatMessages(messages, agent)))
   )
 }
 
@@ -144,7 +122,44 @@ export function foldMobileNativeChatAgentMessages(
   messages: readonly NativeChatMessage[],
   agent: AgentType
 ): NativeChatMessage[] {
-  return foldPreparedMobileNativeChatMessages(messages, agent)
+  return finishMobileNativeChatMessages(
+    foldToolMessages(
+      foldSubagentItems(
+        prepareNativeChatMessages(
+          messages.filter((message) => !isUndrawnProviderFrameMessage(message)),
+          agent
+        )
+      )
+    )
+  )
+}
+
+export function isMobileNativeChatSource(message: NativeChatMessage): boolean {
+  return isRootAgentJournalItem(message) && !isUndrawnProviderFrameMessage(message)
+}
+
+export function prepareMobileNativeChatMessages(
+  messages: readonly NativeChatMessage[],
+  agent: AgentType,
+  recordSource?: (message: NativeChatMessage, visible: boolean) => void
+): NativeChatMessage[] {
+  return prepareNativeChatMessages(
+    messages.filter((message) => {
+      const visible = isMobileNativeChatSource(message)
+      recordSource?.(message, visible)
+      return visible
+    }),
+    agent
+  )
+}
+
+export function finishMobileNativeChatMessages(
+  messages: readonly NativeChatMessage[]
+): NativeChatMessage[] {
+  // Plan frames must not consume another call's result.
+  return linkUnrecordedSubagentSpawns(
+    projectNativeChatTaskListFrames(stripNoiseMessages(messages))
+  ).filter((message) => !isWordlessProviderFrameMessage(message))
 }
 
 export function buildMobileNativeChatTransientData({

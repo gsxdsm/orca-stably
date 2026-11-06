@@ -1,4 +1,4 @@
-// Lost acknowledgements may hide delivered sends: hold them quietly until transcript confirmation or deadline, without restoring drafts. Structured sends own a separate hold.
+// Lost acknowledgements may hide delivered sends: hold them quietly until the transcript confirms them, or hand them back at the deadline. Structured sends own a separate hold.
 
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import type { NativeChatMessage } from '../../../../src/shared/native-chat/native-chat-types'
@@ -10,6 +10,43 @@ import type { MobileNativeChatSendOrigin } from './mobile-native-chat-pending-ec
 
 export const UNCONFIRMED_SEND_DEADLINE_MS = 20_000
 export const UNCONFIRMED_SEND_MESSAGE = 'Delivery unconfirmed — check chat before retrying'
+export const UNCONFIRMED_SEND_RESTORED_MESSAGE = 'Not confirmed. Restored to the box.'
+
+/** A send whose acknowledgement was lost: chat waits for the transcript; a command hands its text back. */
+export function settleUnknownChatSend(args: {
+  chat: boolean
+  hold: (origin: MobileNativeChatSendOrigin, text: string, onUnconfirmed: () => void) => void
+  origin: MobileNativeChatSendOrigin
+  wireText: string
+  syncComposer: boolean
+  draftText: string
+  restoreRejectedDraft: (
+    origin: MobileNativeChatSendOrigin,
+    text: string,
+    options?: { preserveConversationCommands?: boolean }
+  ) => void
+  onSendError: (message: string) => void
+}): void {
+  const { chat, hold, origin, wireText, syncComposer, draftText, restoreRejectedDraft } = args
+  const { onSendError } = args
+  if (!chat) {
+    if (syncComposer) {
+      restoreRejectedDraft(origin, draftText, { preserveConversationCommands: true })
+    }
+    onSendError(UNCONFIRMED_SEND_MESSAGE)
+    return
+  }
+  // Lost acknowledgement proves no failure; wait for the transcript, then hand back text it never showed.
+  hold(origin, wireText, () => {
+    // A TUI holds a mid-turn send with no transcript row until the turn ends, so its absence proves nothing.
+    if (!syncComposer || origin.queuedDuringWorkingEpoch !== undefined) {
+      onSendError(UNCONFIRMED_SEND_MESSAGE)
+      return
+    }
+    restoreRejectedDraft(origin, draftText)
+    onSendError(UNCONFIRMED_SEND_RESTORED_MESSAGE)
+  })
+}
 
 export function useMobileNativeChatUnconfirmedSends(args: {
   draftKey: string | null

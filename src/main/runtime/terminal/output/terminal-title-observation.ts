@@ -5,7 +5,7 @@ import type { TerminalTitleFactMeta } from '../../../../shared/terminal/output/t
 import { detectAgentStatusFromTitle } from '../../../../shared/agent-status/title/agent-title-status'
 import { terminalTitleBlocksExplicitAgentStatus } from '../../workspaces/process-listing/runtime-worktree-status-projection'
 import type { ClaudeTerminalEvidence } from '../../../../shared/claude-terminal-interrupt'
-import { agentStatusTakesTypedInput } from '../../orchestration/mailbox-owner'
+import { agentStatusTakesTypedInput } from '../../orchestration/mailbox/routing/mailbox-owner'
 import { hermesNativeTitleStatus } from '../../../../shared/hermes-terminal-title'
 
 export abstract class OrcaRuntimeWithApplyTrackedPtyTitle extends OrcaRuntimeWithGetUnpersistedTrackedTitleForPty {

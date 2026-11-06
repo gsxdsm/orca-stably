@@ -47,11 +47,13 @@ const NO_DISCOVERY: NativeChatSkillDiscoverySnapshot = { status: 'ready', skills
 export function mobileComposerCatalog({
   agent,
   structured,
-  discovery = NO_DISCOVERY
+  discovery = NO_DISCOVERY,
+  interactionModeSupported = false
 }: {
   agent: string | null
   structured: MobileComposerStructuredCatalog | undefined
   discovery?: NativeChatSkillDiscoverySnapshot
+  interactionModeSupported?: boolean
 }): MobileComposerCatalog {
   if (!agent) {
     return { profile: null, commands: [], discovery: NO_DISCOVERY, sessionSkills: [] }
@@ -62,7 +64,8 @@ export function mobileComposerCatalog({
         agent,
         structured.conversationCommands,
         reported,
-        structured.compactInstructions
+        structured.compactInstructions,
+        interactionModeSupported
       )
     : getMobileNativeChatCommands(agent)
   return {

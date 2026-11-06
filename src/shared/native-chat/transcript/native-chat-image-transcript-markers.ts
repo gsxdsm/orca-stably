@@ -30,12 +30,25 @@ export function imageSourcePathFromText(text: string): string | null {
   return text.match(IMAGE_SOURCE_MARKER)?.[1]?.trim() ?? null
 }
 
+const imageSourcePaths = new WeakMap<NativeChatMessage['blocks'], string[]>()
+const imagePromptMarkers = new WeakMap<NativeChatMessage['blocks'], boolean>()
+
 /** Source paths only from all-text turns whose every block is an image-source marker. Claude groups multi-image pastes into one turn;
  * requiring one block misses them, while accepting mixed blocks would hide real prompts. */
 export function imageSourcePathsFromMessage(message: NativeChatMessage): string[] {
-  if (message.role !== 'user' || message.blocks.length === 0) {
+  if (message.role !== 'user') {
     return []
   }
+  const cached = imageSourcePaths.get(message.blocks)
+  if (cached) {
+    return cached
+  }
+  const paths = deriveImageSourcePaths(message)
+  imageSourcePaths.set(message.blocks, paths)
+  return paths
+}
+
+function deriveImageSourcePaths(message: NativeChatMessage): string[] {
   const paths: string[] = []
   for (const block of message.blocks) {
     if (!isTextBlock(block)) {
@@ -166,7 +179,53 @@ function stripImagePromptMarkersFromTextBlocks(
 }
 
 export function hasImagePromptMarker(message: NativeChatMessage): boolean {
-  return message.blocks.some((block) => isTextBlock(block) && IMAGE_PROMPT_MARKER.test(block.text))
+  const cached = imagePromptMarkers.get(message.blocks)
+  if (cached !== undefined) {
+    return cached
+  }
+  const hasMarker = message.blocks.some(
+    (block) => isTextBlock(block) && IMAGE_PROMPT_MARKER.test(block.text)
+  )
+  imagePromptMarkers.set(message.blocks, hasMarker)
+  return hasMarker
+}
+
+/** Consecutive source turns and their optional prompt form one preparation dependency. */
+export function nativeChatImageTranscriptUnits(
+  messages: readonly NativeChatMessage[]
+): NativeChatMessage[][] {
+  const units: NativeChatMessage[][] = []
+  for (let index = 0; index < messages.length; index += 1) {
+    const first = messages[index]!
+    const members = [first]
+    if (imageSourcePathsFromMessage(first).length > 0) {
+      while (index + 1 < messages.length) {
+        const next = messages[index + 1]!
+        if (next.source !== first.source || imageSourcePathsFromMessage(next).length === 0) {
+          break
+        }
+        members.push(next)
+        index += 1
+      }
+      const prompt = messages[index + 1]
+      if (
+        prompt?.role === 'user' &&
+        prompt.source === first.source &&
+        hasImagePromptMarker(prompt)
+      ) {
+        members.push(prompt)
+        index += 1
+      }
+    } else if (hasImagePromptMarker(first)) {
+      const following = equalTimestampImageSourceRun(messages, index + 1, first)
+      if (following) {
+        members.push(...messages.slice(index + 1, following.end))
+        index = following.end - 1
+      }
+    }
+    units.push(members)
+  }
+  return units
 }
 
 /** Companions Claude writes after the prompt share its clock. A missing clock is not that clock. */
@@ -216,76 +275,40 @@ function insertImageRefsInCompanionOrder(
 export function normalizeImageTranscriptMessages(
   messages: readonly NativeChatMessage[]
 ): NativeChatMessage[] {
-  let normalized: NativeChatMessage[] | null = null
-  for (let index = 0; index < messages.length; index += 1) {
-    const message = messages[index]!
-    if (message.role !== 'user') {
-      normalized?.push(message)
-      continue
+  const rows = nativeChatImageTranscriptUnits(messages).flatMap(normalizeImageTranscriptUnit)
+  return rows.length === messages.length && rows.every((row, index) => row === messages[index])
+    ? (messages as NativeChatMessage[])
+    : rows
+}
+
+export function normalizeImageTranscriptUnit(
+  messages: readonly NativeChatMessage[]
+): NativeChatMessage[] {
+  const first = messages[0]!
+  if (imageSourcePathsFromMessage(first).length > 0) {
+    const last = messages.at(-1)!
+    const hasPrompt = imageSourcePathsFromMessage(last).length === 0
+    const sources = hasPrompt ? messages.slice(0, -1) : messages
+    const paths = (source: NativeChatMessage) => imageSourcePathsFromMessage(source)
+    if (!hasPrompt) {
+      return sources.map((source) => ({
+        ...source,
+        blocks: paths(source).map((path) => ({ type: 'image-ref' as const, path }))
+      }))
     }
-    const messageImagePaths = imageSourcePathsFromMessage(message)
-    if (messageImagePaths.length > 0) {
-      normalized ??= messages.slice(0, index)
-      const sourceTurns = [{ message, paths: messageImagePaths }]
-      let nextIndex = index + 1
-      while (nextIndex < messages.length) {
-        const candidate = messages[nextIndex]!
-        const candidatePaths = imageSourcePathsFromMessage(candidate)
-        if (
-          candidate.role !== 'user' ||
-          candidate.source !== message.source ||
-          candidatePaths.length === 0
-        ) {
-          break
-        }
-        sourceTurns.push({ message: candidate, paths: candidatePaths })
-        nextIndex += 1
-      }
-      const prompt = messages[nextIndex]
-      if (
-        prompt?.role === 'user' &&
-        prompt.source === message.source &&
-        hasImagePromptMarker(prompt)
-      ) {
-        const blocks = [...stripImagePromptMarkersFromTextBlocks(prompt.blocks)]
-        insertImageRefsInCompanionOrder(
-          blocks,
-          sourceTurns.flatMap(({ paths }) => paths)
-        )
-        normalized.push({
-          ...prompt,
-          blocks
-        })
-        index = nextIndex
-        continue
-      }
-      for (const sourceTurn of sourceTurns) {
-        normalized.push({
-          ...sourceTurn.message,
-          blocks: sourceTurn.paths.map((path) => ({ type: 'image-ref' as const, path }))
-        })
-      }
-      index = nextIndex - 1
-      continue
-    }
-    const following = hasImagePromptMarker(message)
-      ? equalTimestampImageSourceRun(messages, index + 1, message)
-      : null
-    if (following) {
-      normalized ??= messages.slice(0, index)
-      const blocks = [...stripImagePromptMarkersFromTextBlocks(message.blocks)]
-      insertImageRefsInCompanionOrder(blocks, following.paths)
-      normalized.push({ ...message, blocks })
-      index = following.end - 1
-      continue
-    }
-    const blocks = stripImagePromptMarkersFromTextBlocks(message.blocks)
-    if (blocks === message.blocks) {
-      normalized?.push(message)
-    } else {
-      normalized ??= messages.slice(0, index)
-      normalized.push({ ...message, blocks })
-    }
+    const blocks = [...stripImagePromptMarkersFromTextBlocks(last.blocks)]
+    insertImageRefsInCompanionOrder(blocks, sources.flatMap(paths))
+    return [{ ...last, blocks }]
   }
-  return normalized ?? (messages as NativeChatMessage[])
+  if (first.role !== 'user') {
+    return messages as NativeChatMessage[]
+  }
+  const blocks = [...stripImagePromptMarkersFromTextBlocks(first.blocks)]
+  if (messages.length > 1) {
+    insertImageRefsInCompanionOrder(blocks, messages.slice(1).flatMap(imageSourcePathsFromMessage))
+    return [{ ...first, blocks }]
+  }
+  return blocks.length === first.blocks.length && blocks.every((b, i) => b === first.blocks[i])
+    ? (messages as NativeChatMessage[])
+    : [{ ...first, blocks }]
 }

@@ -1,4 +1,4 @@
-import { useContext } from 'react'
+import { useContext, type ComponentProps } from 'react'
 import { Text, View } from 'react-native'
 import { styles } from './mobile-session-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
@@ -20,7 +20,21 @@ import { useReleasedSideInset } from '../layout/released-side-inset'
 import { sideStripPadding } from './session-side-strip-inset'
 import { DuoRailBackButton } from './DuoRailBackButton'
 import { DuoRailJumpHost, DuoRailJumpOverlay } from './duo-rail-jump-controls'
+import { useKeyboardOcclusion } from '../platform/keyboard-occlusion'
 import { useSessionRailBack } from './use-duo-rail-back'
+
+// Read the keyboard here, so a keyboard change re-renders only these shells and not the whole session.
+function KeyboardDuoRailJumpHost(
+  props: Omit<ComponentProps<typeof DuoRailJumpHost>, 'keyboardInset'>
+) {
+  return <DuoRailJumpHost {...props} keyboardInset={useKeyboardOcclusion()} />
+}
+
+function KeyboardDuoRailBackButton(
+  props: Omit<ComponentProps<typeof DuoRailBackButton>, 'keyboardInset'>
+) {
+  return <DuoRailBackButton {...props} keyboardInset={useKeyboardOcclusion()} />
+}
 
 export function MobileSessionSurface({ controller }: { controller: MobileSessionController }) {
   useMobileColorScheme()
@@ -67,10 +81,7 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
     }
   })
   return (
-    <DuoRailJumpHost
-      chatVisible={controller.showNativeChat}
-      keyboardInset={controller.keyboardHeight}
-    >
+    <KeyboardDuoRailJumpHost chatVisible={controller.showNativeChat}>
       <SessionListLongPressOverride action={controller.requestLeaveToSessionList}>
         <View ref={setMobileSessionRootRef} style={styles.container}>
           <View style={styles.kavInner}>
@@ -80,11 +91,7 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
             </View>
             <MobileSessionContentRow controller={controller} />
           </View>
-          <DuoRailBackButton
-            chatVisible={controller.showNativeChat}
-            keyboardInset={controller.keyboardHeight}
-            onBack={onRailBack}
-          />
+          <KeyboardDuoRailBackButton chatVisible={controller.showNativeChat} onBack={onRailBack} />
           <DuoRailJumpOverlay />
           <AnchoredDetailCardLayer
             card={details}
@@ -103,6 +110,6 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
           <MobileSessionSheets controller={controller} />
         </View>
       </SessionListLongPressOverride>
-    </DuoRailJumpHost>
+    </KeyboardDuoRailJumpHost>
   )
 }

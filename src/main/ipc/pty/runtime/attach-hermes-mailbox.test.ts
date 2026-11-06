@@ -2,7 +2,7 @@ import '../../../runtime/rpc/unused-default-rpc-methods.test-fixture'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { settledWriteStub } from '../../../providers/settled-pty-write-stub'
 import type { IPtyProvider } from '../../../providers/pty-provider-contract'
-import { OrchestrationDb } from '../../../runtime/orchestration/db'
+import { OrchestrationDb } from '../../../runtime/orchestration/db/orchestration-db'
 import { createRootDispatch } from '../../../runtime/orchestration/db/root-dispatch-test-fixture'
 import {
   createRuntime,

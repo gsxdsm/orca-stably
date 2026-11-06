@@ -1,5 +1,5 @@
 import { clearWorkerScheduledWaitForMessages } from '../worker-scheduled-waits'
-import type { DeliveryRow, MessageRow, MessageType } from '../../types'
+import type { DeliveryRow, MessageRow, MessageType } from '../orchestration-records'
 import { OrchestrationError } from '../../orchestration-error'
 import { generateId } from '../generated-id'
 import type { OrchestrationDb } from '../orchestration-db'

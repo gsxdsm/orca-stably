@@ -4,10 +4,14 @@ import {
 } from './send-lifecycle-admission'
 import { scheduledWaitFromMessage } from '../../../../orchestration/scheduled-wait-message'
 import { recordWorkerScheduledWait } from '../../../../orchestration/db/worker-scheduled-waits'
-import type { MessagePriority, MessageType, OrchestrationDb } from '../../../../orchestration/db'
+import type {
+  MessagePriority,
+  MessageType
+} from '../../../../orchestration/db/orchestration-records'
+import type { OrchestrationDb } from '../../../../orchestration/db/orchestration-db'
 import type { OrcaRuntimeService } from '../../../../orca-runtime'
-import { reconcileLifecycleMessage } from '../../../../orchestration/lifecycle-reconciliation'
-import { bindCoordinatorMutationPayload } from '../../../../orchestration/dispatch-message-binding'
+import { reconcileLifecycleMessage } from '../../../../orchestration/workers/lifecycle/lifecycle-reconciliation'
+import { bindCoordinatorMutationPayload } from '../../../../orchestration/workers/reports/dispatch-message-binding'
 import { isDispatchMutationMessageType, parseMessageTaskId } from '../schemas'
 import type { SendParams } from '../schemas'
 import { legacyWorkerDeliveryContract } from '../routing'
@@ -18,7 +22,7 @@ import type { SendRecipientWarning } from './recipient-routing'
 import {
   workerReportRefusal,
   type WorkerReportRefusal
-} from '../../../../orchestration/worker-report-admission'
+} from '../../../../orchestration/workers/reports/worker-report-admission'
 import type { z } from 'zod'
 
 type SendParamsInput = z.infer<typeof SendParams>

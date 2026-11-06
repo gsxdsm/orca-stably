@@ -1,5 +1,5 @@
-import type { OrchestrationDb } from './db'
-import { dispatchReportMailbox } from './dispatch-report-mailbox'
+import type { OrchestrationDb } from './db/orchestration-db'
+import { dispatchReportMailbox } from './workers/reports/dispatch-report-mailbox'
 import { parseScheduledWaitUntil } from '../../../shared/orchestration-scheduled-wait'
 import { OrchestrationError } from './orchestration-error'
 

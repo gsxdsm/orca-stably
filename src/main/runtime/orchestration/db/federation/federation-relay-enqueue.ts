@@ -1,14 +1,17 @@
 import { recordWorkerScheduledWait, clearWorkerScheduledWait } from '../worker-scheduled-waits'
-import { readAnswerSenderRelayReport } from '../../answer-sender-relay-report'
+import { readAnswerSenderRelayReport } from '../../mailbox/senders/answer-sender-relay-report'
 import type {
   WorkerReportOutcome,
   FederationRelayDirection,
   FederationRelayItemRow
-} from '../../types'
+} from '../orchestration-records'
 import { OrchestrationError } from '../../orchestration-error'
 import { generateId } from '../generated-id'
 import type { OrchestrationDb } from '../orchestration-db'
-import { isWorkerStateIn, SETTLEABLE_WORKER_STATES } from '../../worker-report-admission'
+import {
+  isWorkerStateIn,
+  SETTLEABLE_WORKER_STATES
+} from '../../workers/reports/worker-report-admission'
 
 export function enqueueFederationRelay(
   this: OrchestrationDb,

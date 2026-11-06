@@ -27,7 +27,7 @@ vi.mock('react-native', () => ({
   StyleSheet: { create: (styles: unknown) => styles, absoluteFillObject: {} },
   Platform: { OS: 'ios' },
   useWindowDimensions: () => ({ width: 390, height: 844 }),
-  Keyboard: { dismiss: vi.fn() },
+  Keyboard: { dismiss: vi.fn(), addListener: vi.fn(() => ({ remove: vi.fn() })) },
   Easing: { bezier: () => 'toast-easing' },
   Animated: {
     timing: (

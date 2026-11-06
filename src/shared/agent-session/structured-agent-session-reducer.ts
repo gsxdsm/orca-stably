@@ -1,3 +1,4 @@
+import { trimStructuredAgentSessionHistory } from './structured-agent-session-history-retention'
 import type { AgentSessionCurrentRequestsMarker } from './requests/agent-session-current-requests-wire'
 import {
   hostClockField,
@@ -103,6 +104,7 @@ export type StructuredAgentSessionState = AgentSessionCurrentRequestsState & {
 
 export type StructuredAgentSessionAction =
   | { type: 'loading' }
+  | { type: 'trim-history' }
   | { type: 'requests-marker'; marker: AgentSessionCurrentRequestsMarker }
   | {
       type: 'requests-complete'
@@ -141,6 +143,9 @@ export function reduceStructuredAgentSession(
   action: StructuredAgentSessionAction,
   receivedAt: number = Date.now()
 ): StructuredAgentSessionState {
+  if (action.type === 'trim-history') {
+    return trimStructuredAgentSessionHistory(state)
+  }
   if (action.type === 'requests-marker') {
     return { ...state, ...applyCurrentRequestsMarker(state, action.marker) }
   }

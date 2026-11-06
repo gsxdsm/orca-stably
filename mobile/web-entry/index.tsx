@@ -39,6 +39,7 @@ import { SessionListLongPressProvider } from '../src/navigation/session-list-lon
 import { publishShellKeyboardSource } from '../src/platform/keyboard-occlusion.web'
 // Select the page-client provider explicitly; the builder aliases extensionless screen imports to this same web module.
 import { RpcClientProvider } from '../src/transport/client-context.web'
+import { OrcaQueryProvider } from '../src/query/orca-query-provider.web'
 // Body replaced at build time: esbuild has no require.context, so the builder synthesizes one.
 import routeContext from './route-manifest'
 
@@ -64,11 +65,13 @@ function createRootProviders(client: BridgeRpcClient, target: PageMountTarget) {
     }, [])
     return (
       <RpcClientProvider client={client}>
-        <SessionListLongPressProvider>
-          <RouteScreenPaintProvider report={reportRouteScreenPaint}>
-            {children}
-          </RouteScreenPaintProvider>
-        </SessionListLongPressProvider>
+        <OrcaQueryProvider>
+          <SessionListLongPressProvider>
+            <RouteScreenPaintProvider report={reportRouteScreenPaint}>
+              {children}
+            </RouteScreenPaintProvider>
+          </SessionListLongPressProvider>
+        </OrcaQueryProvider>
       </RpcClientProvider>
     )
   }

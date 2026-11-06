@@ -1,4 +1,4 @@
-import { OrchestrationDb } from '../../../../orchestration/db'
+import { OrchestrationDb } from '../../../../orchestration/db/orchestration-db'
 import {
   clearWorkerScheduledWait,
   recordWorkerScheduledWait
@@ -6,7 +6,7 @@ import {
 import '../../../unused-default-rpc-methods.test-fixture'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRootDispatch } from '../../../../orchestration/db/root-dispatch-test-fixture'
-import { reportWorkerTurnStop } from '../../../../orchestration/worker-turn-stop-report'
+import { reportWorkerTurnStop } from '../../../../orchestration/workers/turn-stops/worker-turn-stop-report'
 import { createOrchestrationRpcHarness } from '../rpc-test-harness'
 
 const NOW = Date.parse('2026-11-03T12:00:00Z')

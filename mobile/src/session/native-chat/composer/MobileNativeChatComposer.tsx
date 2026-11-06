@@ -11,6 +11,7 @@ import {
 } from './mobile-native-chat-draft-inputs'
 import type { NativeChatSkillDiscoverySnapshot } from '../../../../../src/shared/native-chat/input/native-chat-picker-items'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useMobileNativeChatComposerRegion } from '../mobile-native-chat-lower-region-context'
 import { Keyboard, type TextInput, View } from 'react-native'
 import type { NativeChatContextUsageSummary } from '../../../../../src/shared/native-chat/native-chat-context-usage-summary'
 import { colors } from '../../../theme/mobile-theme'
@@ -21,11 +22,8 @@ import { MobileNativeChatComposerField } from './MobileNativeChatComposerField'
 import { MobileNativeChatComposerAttachments } from './MobileNativeChatComposerAttachments'
 import type { PendingNativeChatFile } from './mobile-native-chat-file-attachment'
 import { MobileNativeChatComposerAttachButton } from './MobileNativeChatComposerAttachButton'
-import {
-  MobileNativeChatSessionOptionPickers,
-  type MobileNativeChatPickerPresentation,
-  type MobileNativeChatSessionOptionPickersProps
-} from '../input/MobileNativeChatSessionOptionPickers'
+import type { MobileNativeChatSessionOptionPickersProps } from '../input/MobileNativeChatSessionOptionPickers'
+import { MobileNativeChatComposerSessionPickers } from './MobileNativeChatComposerSessionPickers'
 import type { PendingNativeChatImage } from './mobile-native-chat-image-attachment'
 import {
   mobileNativeChatComposerPasteHandler,
@@ -43,12 +41,11 @@ import { MobileNativeChatSendButton } from './MobileNativeChatSendButton'
 import { MobileNativeChatEditActions } from './MobileNativeChatEditActions'
 import { useMobileNativeChatContextRing } from './MobileNativeChatContextUsageRing'
 import type { MobileNativeChatSendIntent } from '../mobile-native-chat-send'
-import {
-  MobileNativeChatComposerMic,
-  type MobileNativeChatMicProps
-} from './MobileNativeChatComposerMic'
+import { MobileNativeChatComposerMic } from './MobileNativeChatComposerMic'
+import type { MobileNativeChatMicProps } from './MobileNativeChatComposerMic'
 import type { MobileStructuredThreadGoal } from '../../use-mobile-structured-thread-goal'
 import { useMobileNativeChatComposerGoalMode } from './use-mobile-native-chat-composer-goal-mode'
+import { MobileNativeChatComposerPlanChip } from './MobileNativeChatComposerPlanChip'
 
 const NO_FILE_PATHS: string[] = []
 const NO_ATTACHMENTS: PendingNativeChatImage[] = []
@@ -72,7 +69,12 @@ type Props = MobileNativeChatMicProps & {
   // Applies dictation's edit to the draft this composer shows; false when it can no longer take it.
   insertDictation?: (insert: (draft: string) => string) => boolean | void
   draftScopeKey?: string | null
-  editSession?: { cancel: () => void; refuseCommand: (text: string) => boolean; locked: boolean }
+  editSession?: {
+    cancel: () => void
+    refuseCommand: (text: string) => boolean
+    locked: boolean
+    interactionModeSupported?: boolean
+  }
   onPickSkill?: (skill: { name: string; path: string }) => void
   inputRef?: React.RefObject<TextInput | null>
   // Terminal-backed chats keep curated commands and image-only attachment actions.
@@ -162,13 +164,6 @@ export function MobileNativeChatComposer({
   const fallbackInputRef = useRef<TextInput>(null)
   const fieldRef = inputRef ?? fallbackInputRef
   const [focused, setFocused] = useState(false)
-  const [picker, setPicker] = useState<MobileNativeChatPickerPresentation | null>(null)
-  const request = sessionOptions?.controller.optionPickerRequest
-  const [lastRequest, setLastRequest] = useState(request)
-  if (request && lastRequest !== request) {
-    setLastRequest(request)
-    setPicker({ page: request.id, refocus: false })
-  }
   const files = structured?.files ?? NO_FILES
   const onWebPaste = mobileNativeChatComposerPasteHandler({
     disabled: disabled || editSession?.locked === true,
@@ -201,6 +196,12 @@ export function MobileNativeChatComposer({
     goalMode: goal.menu,
     agent,
     structuredCatalog: structured?.catalog,
+    interactionModeSupported:
+      editSession?.interactionModeSupported ??
+      sessionOptions?.controller.snapshot.some((entry) => entry.id === 'interactionMode'),
+    admitsInteractionMode: (mode) =>
+      sessionOptions?.controller.optionSurface?.admits?.('interactionMode', mode) === true,
+    onPickInteractionMode: (mode) => sessionOptions?.controller.setOption('interactionMode', mode),
     filePaths,
     onNeedFiles,
     skillDiscovery,
@@ -292,8 +293,10 @@ export function MobileNativeChatComposer({
     }
   }
 
+  const groupRef = useMobileNativeChatComposerRegion(menu.rows.length > 0, focused)
+
   return (
-    <View>
+    <View ref={groupRef} testID="native-chat-composer-group">
       {menu.rows.length > 0 ? (
         <MobileNativeChatComposerMenu
           rows={menu.rows}
@@ -360,30 +363,26 @@ export function MobileNativeChatComposer({
             textAlignVertical="top"
           />
           <View style={inputStyles.actionRow} testID="native-chat-composer-actions">
-            <MobileNativeChatComposerAttachButton
-              onAttachImage={onAttachImage}
-              onAttachFiles={structured?.onAttachFiles}
-              structured={structured !== null}
-              isAttaching={isAttaching}
-              disabled={disabled}
-              menu={menu}
-            />
-            {goal.chip}
-            {sessionOptions ? (
-              <MobileNativeChatSessionOptionPickers
-                {...sessionOptions}
-                sendInFlight={sending || isAttaching}
-                presentation={picker}
-                onNavigate={(page) => setPicker((current) => current && { ...current, page })}
-                onDrawerOpen={(page) => setPicker({ page, refocus: focused })}
-                onDrawerAfterClose={() => {
-                  if (picker?.refocus) {
-                    fieldRef.current?.focus()
-                  }
-                  setPicker(null)
-                }}
+            <View style={styles.leadingControls}>
+              <MobileNativeChatComposerAttachButton
+                onAttachImage={onAttachImage}
+                onAttachFiles={structured?.onAttachFiles}
+                structured={structured !== null}
+                isAttaching={isAttaching}
+                disabled={disabled}
+                menu={menu}
               />
-            ) : null}
+              {sessionOptions ? (
+                <MobileNativeChatComposerSessionPickers
+                  sessionOptions={sessionOptions}
+                  sendInFlight={sending || isAttaching}
+                  focused={focused}
+                  fieldRef={fieldRef}
+                />
+              ) : null}
+              <MobileNativeChatComposerPlanChip options={sessionOptions} inputRef={fieldRef} />
+              {goal.chip}
+            </View>
             <MobileNativeChatActionGap agent={editSession ? null : agent} toggle={widthToggle} />
             {contextRing.ring}
             {onMicPress ? (

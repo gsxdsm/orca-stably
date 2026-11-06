@@ -1,4 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, type RefObject } from 'react'
+import { currentSoftKeyboardHeight } from '../platform/keyboard-occlusion'
 import {
   clearTerminalLiveInputFocusTimer,
   focusTerminalLiveInputTarget,
@@ -10,7 +11,6 @@ import { dismissTerminalKeyboard } from './terminal-keyboard-dismiss'
 
 type TerminalLiveInputFocusContext = {
   readonly canSend: boolean
-  readonly keyboardHeight: number
   readonly reopenFocusedInputWhenKeyboardHidden: boolean
 }
 
@@ -36,7 +36,6 @@ export function useTerminalLiveInputFocus<T extends TerminalLiveInputFocusTarget
   canSend,
   dismissKeyboard,
   inputRef,
-  keyboardHeight,
   lifecycleIdentity,
   lifecycleKey,
   reopenFocusedInputWhenKeyboardHidden,
@@ -44,12 +43,11 @@ export function useTerminalLiveInputFocus<T extends TerminalLiveInputFocusTarget
 }: UseTerminalLiveInputFocusOptions<T>): TerminalLiveInputFocusHandlers {
   const contextRef = useRef<TerminalLiveInputFocusContext>({
     canSend,
-    keyboardHeight,
     reopenFocusedInputWhenKeyboardHidden
   })
   useLayoutEffect(() => {
-    contextRef.current = { canSend, keyboardHeight, reopenFocusedInputWhenKeyboardHidden }
-  }, [canSend, keyboardHeight, reopenFocusedInputWhenKeyboardHidden])
+    contextRef.current = { canSend, reopenFocusedInputWhenKeyboardHidden }
+  }, [canSend, reopenFocusedInputWhenKeyboardHidden])
 
   const resetLiveInputFocus = useCallback(() => {
     clearTerminalLiveInputFocusTimer(timerRef)
@@ -65,7 +63,7 @@ export function useTerminalLiveInputFocus<T extends TerminalLiveInputFocusTarget
       return
     }
     focusTerminalLiveInputTarget(inputRef.current, {
-      keyboardHeight: context.keyboardHeight,
+      keyboardHeight: currentSoftKeyboardHeight(),
       reopenFocusedInputWhenKeyboardHidden: context.reopenFocusedInputWhenKeyboardHidden,
       refocus: () => scheduleTerminalLiveInputFocus(timerRef, focusLiveInput)
     })
@@ -74,7 +72,7 @@ export function useTerminalLiveInputFocus<T extends TerminalLiveInputFocusTarget
   // A tap or downward swipe on the terminal while the keyboard is up puts it away, in either input mode.
   const dismissKeyboardForGesture = useCallback(
     (handle: string): boolean => {
-      if (handle !== activeHandleRef.current || contextRef.current.keyboardHeight <= 0) {
+      if (handle !== activeHandleRef.current || currentSoftKeyboardHeight() <= 0) {
         return false
       }
       dismissTerminalKeyboard({

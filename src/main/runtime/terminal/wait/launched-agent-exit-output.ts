@@ -1,5 +1,5 @@
 import { terminalSafe } from '../../../../shared/terminal/output/terminal-safe-text'
-import { replaceDispatchCapabilities } from '../../orchestration/worker-terminal-redaction'
+import { replaceDispatchCapabilities } from '../../orchestration/terminal-authority/views/worker-terminal-redaction'
 import { applyTerminalLineControls } from '../output/tail/terminal-tail-line-controls'
 
 const COMMAND_STARTED_MARK = '\x1b]133;C'

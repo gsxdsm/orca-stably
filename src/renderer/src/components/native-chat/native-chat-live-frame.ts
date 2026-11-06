@@ -7,6 +7,7 @@ import type { NativeChatSubagentActivity } from '../../../../shared/native-chat/
 import type { NativeChatTaskSeedList } from '../../../../shared/native-chat/input/native-chat-claude-task-updates'
 import {
   applyAppend,
+  boundNativeChatWindow,
   replaceList,
   type NativeChatMerger
 } from '../../../../shared/native-chat/native-chat-merge'
@@ -67,10 +68,11 @@ export function applyNativeChatLiveFrame(
     }
     sink.flags.frameArrived = true
     sink.lifecycle.replace(frame.lifecycle)
-    replaceList(sink.appendMerger, frame.messages)
+    const messages = boundNativeChatWindow(frame.messages, sink.limitRef.current)
+    replaceList(sink.appendMerger, messages)
     sink.setAppended([])
     sink.setRead({ phase: 'ready', messages: sink.appendMerger.list })
-    sink.setHasMore(frame.hasMore)
+    sink.setHasMore(frame.hasMore || messages !== frame.messages)
     return
   }
   sink.lifecycle.append(frame.lifecycle)

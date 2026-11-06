@@ -21,7 +21,7 @@ import {
   discardOptimisticMobileNativeChatSend,
   type MobileNativeChatSendOrigin
 } from '../mobile-native-chat-pending-echo'
-import { UNCONFIRMED_SEND_MESSAGE } from '../use-mobile-native-chat-unconfirmed-sends'
+import { settleUnknownChatSend } from '../use-mobile-native-chat-unconfirmed-sends'
 import type { MobileNativeChatLaunchDraftSeed } from '../composer/use-mobile-native-chat-launch-draft-seed'
 import { buildNativeChatPasteBytes } from '../../../../../src/shared/native-chat/input/native-chat-paste-bytes'
 import { retryHeldHermesSubmit } from '../mobile-hermes-held-submit'
@@ -126,10 +126,16 @@ export function useMobileNativeChatMessageSend(args: {
         deviceToken: deviceTokenRef.current,
         deadline
       }
-      if (!(await healMobileNativeChatStaleInput(healArgs))) {
+      const reject = (restoreDraft: boolean): 'rejected' => {
         discardOptimisticMobileNativeChatSend(optimisticId, discardPendingSend)
+        if (restoreDraft && syncComposer) {
+          restoreRejectedDraft(origin, draftText)
+        }
         onSendError('Message not sent')
         return 'rejected'
+      }
+      if (!(await healMobileNativeChatStaleInput(healArgs))) {
+        return reject(false)
       }
       // A picked skill leading the draft is chat, as on desktop; read it before the clear forgets it.
       // Clear optimistically before slow/lost acknowledgements; only definite rejection restores the draft.
@@ -159,12 +165,7 @@ export function useMobileNativeChatMessageSend(args: {
             : {})
         })
         if (!cleared) {
-          discardOptimisticMobileNativeChatSend(optimisticId, discardPendingSend)
-          if (syncComposer) {
-            restoreRejectedDraft(origin, draftText)
-          }
-          onSendError('Message not sent')
-          return 'rejected'
+          return reject(true)
         }
       }
       const mobileClient = deviceTokenRef.current
@@ -192,24 +193,20 @@ export function useMobileNativeChatMessageSend(args: {
             ...(mobileClient ? { mobileClient } : {})
           })
       if (outcome === 'unknown') {
-        if (classification === 'chat') {
-          // Lost acknowledgement proves no failure; verify delivery by transcript rather than reporting not sent.
-          holdUnconfirmedSend(origin, wireText, () => onSendError(UNCONFIRMED_SEND_MESSAGE))
-        } else {
-          if (syncComposer) {
-            restoreRejectedDraft(origin, draftText, { preserveConversationCommands: true })
-          }
-          onSendError(UNCONFIRMED_SEND_MESSAGE)
-        }
+        settleUnknownChatSend({
+          chat: classification === 'chat',
+          hold: holdUnconfirmedSend,
+          origin,
+          wireText,
+          syncComposer,
+          draftText,
+          restoreRejectedDraft,
+          onSendError
+        })
         return 'unknown'
       }
       if (outcome === 'rejected') {
-        discardOptimisticMobileNativeChatSend(optimisticId, discardPendingSend)
-        if (syncComposer) {
-          restoreRejectedDraft(origin, draftText)
-        }
-        onSendError('Message not sent')
-        return 'rejected'
+        return reject(true)
       }
       if (agent === 'hermes' && classification === 'chat') {
         await retryHeldHermesSubmit({

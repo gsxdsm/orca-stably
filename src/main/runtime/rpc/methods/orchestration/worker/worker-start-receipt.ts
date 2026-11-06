@@ -1,6 +1,6 @@
 import { formatTerminalStartFailure } from '../../../../../../shared/terminal/pty/lifecycle/terminal-start-failure'
-import type { OrchestrationDb } from '../../../../orchestration/db'
-import type { WorkerDispatchRow } from '../../../../orchestration/types'
+import type { OrchestrationDb } from '../../../../orchestration/db/orchestration-db'
+import type { WorkerDispatchRow } from '../../../../orchestration/db/orchestration-records'
 import type { OrcaRuntimeService } from '../../../../orca-runtime'
 import { tearDownFailedWorkerStart } from './failed-worker-start-teardown'
 import {
@@ -11,7 +11,7 @@ import {
 import type { OrchestrationWorkerLaunchReceipt } from './worker-launch-preferences'
 import type { AgentLaunchModeReceipt as WorkerStartModeReceipt } from '../../../../../../shared/agent-launch/contracts/agent-launch-intent'
 import { isStructuredWorkerHandle } from '../../../../../../shared/structured-worker-handle'
-import { replaceDispatchCapabilities } from '../../../../orchestration/worker-terminal-redaction'
+import { replaceDispatchCapabilities } from '../../../../orchestration/terminal-authority/views/worker-terminal-redaction'
 
 type WorkerStartFailureArgs = {
   runtime: OrcaRuntimeService

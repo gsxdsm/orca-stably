@@ -238,7 +238,13 @@ export function MobileNativeChatPageList({
       }
     }
   })
-  useEffect(() => () => clearTimeout(settleTimer.current), [])
+  // A hidden chat keeps its hold but loses the timer; settle it again when the chat shows.
+  useEffect(() => {
+    if (heldRef.current) {
+      settle.current()
+    }
+    return () => clearTimeout(settleTimer.current)
+  }, [])
 
   const drawAndFetch = useCallback(
     (s: Scroller) => {
@@ -269,11 +275,9 @@ export function MobileNativeChatPageList({
     notePlace,
     latest,
     revealUndrawn: (index) => {
+      // The index comes from the key map, so its key exists.
       const { keys: drawnKeys, n, rowKeys: keysNow } = latest.current
-      const firstKey = drawnKeys[index]
-      if (firstKey !== undefined) {
-        setDrawn({ scope: keysNow.scope, firstKey, count: n - index })
-      }
+      setDrawn({ scope: keysNow.scope, firstKey: drawnKeys[index]!, count: n - index })
     }
   })
 

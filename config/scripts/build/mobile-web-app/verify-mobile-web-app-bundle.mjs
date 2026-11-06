@@ -30,8 +30,9 @@ export function mobileWebAppBundleMaxAssets(routeCount, imageCount, catalogChunk
 export const MOBILE_WEB_APP_BUNDLE_MAX_CATALOG_CHUNKS = 10
 export const MOBILE_WEB_APP_BUNDLE_MAX_CATALOG_BYTES = 3 * 1024 * 1024
 
-// Upstream's 9.5 MiB fence is above the old fork floor of 9,600,000, so the fork keeps it.
-export const MOBILE_WEB_APP_BUNDLE_MAX_TOTAL_BYTES = 9.5 * 1024 * 1024
+// Our own fence on the page's code, well inside the phone contract (32 MiB total, 10 MiB per asset in
+// manifest-contract.ts); it fails the build before the code weighs more than any one asset may.
+export const MOBILE_WEB_APP_BUNDLE_MAX_TOTAL_BYTES = 9.75 * 1024 * 1024
 
 // Only this licensed desktop-identical asset has its own allowance; other fonts (KaTeX's) and code count.
 export const MOBILE_WEB_APP_TERMINAL_FONT_MAX_BYTES = 1200 * 1024

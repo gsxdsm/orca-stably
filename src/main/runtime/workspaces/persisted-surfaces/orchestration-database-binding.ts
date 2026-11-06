@@ -1,7 +1,7 @@
 import { orchestrationDbFile } from '../../orchestration/db/orchestration-db-file'
 import { getAppEnvironment } from '../../../../shared/app-environment'
 import { OrcaRuntimeWithPtyForegroundProcessReads } from '../../client/runtime-client-state'
-import { getWorkerTerminalAutoReleaseScheduler } from '../../orchestration/worker-terminal-auto-release-scheduler'
+import { getWorkerTerminalAutoReleaseScheduler } from '../../orchestration/terminal-authority/release/worker-terminal-auto-release-scheduler'
 import type { OrchestrationDb } from '../../orchestration/db/orchestration-db'
 import { getWorkerScheduledWaitScheduler } from '../../orchestration/worker-scheduled-wait-scheduler'
 
