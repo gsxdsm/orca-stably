@@ -31,7 +31,8 @@ import type { NativeChatTaskSeedList } from '../../../src/shared/native-chat/inp
 import type { OlderPagePhase } from './use-mobile-older-page-loader'
 import type { MobileNativeChatSubagentRead } from './native-chat/input/use-mobile-native-chat-subagent-page'
 import type { MobileDismissedSubagentScope } from './native-chat/input/use-mobile-dismissed-subagents'
-import type { ReactNode } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
+import type { MobileNativeChatInputLockStatus } from './native-chat/composer/MobileNativeChatInputLockStatus'
 
 export type MobileNativeChatInputLockReason = 'disconnected' | 'waiting'
 
@@ -84,9 +85,13 @@ type ChatViewProps = MobileNativeChatSendProps & {
   onRemoveAttachment?: (id: string) => void
   isAttaching?: boolean
   inputLockReason?: MobileNativeChatInputLockReason | null
+  /** Why a `disconnected` lock holds: which host is out, and Reconnect when it can help. */
+  hostOutage?: ComponentProps<typeof MobileNativeChatInputLockStatus>['hostOutage']
   // Report send failures here only while mounted; the route uses a toast otherwise.
   sendErrorMessage?: string | null
   onClearSendError?: () => void
+  /** Present for an error that stays until dismissed, such as a failed Continue. */
+  onDismissSendError?: () => void
   filePaths?: string[]
   onNeedFiles?: (query: string) => void
   skillDiscovery?: NativeChatSkillDiscoverySnapshot

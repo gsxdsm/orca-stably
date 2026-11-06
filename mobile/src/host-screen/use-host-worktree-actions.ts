@@ -20,7 +20,12 @@ import { getWorktreeRowIdentity, isSameWorktreeRow } from '../worktree/worktree-
 import { noteLastVisitedWorktree } from '../worktree/last-visited-worktree-by-host'
 import { isWorktreePinned, type Worktree } from '../worktree/workspace-list-sections'
 import { homeWorktreeForAgentPane } from './agent-pane-home-worktree'
-import { worktreeActivate, worktreePinWrite, worktreeSleep } from './host-screen-operations'
+import {
+  worktreeActivate,
+  worktreeDisplayNameWrite,
+  worktreePinWrite,
+  worktreeSleep
+} from './host-screen-operations'
 import { setPendingSubagentFocus } from '../session/pending-subagent-focus'
 import type { HostScreenState } from './use-host-screen-state'
 import { useHostWorktreeDelete } from './use-host-worktree-delete'
@@ -180,6 +185,24 @@ export function useHostWorktreeActions(args: {
     [client, setSleptIds]
   )
 
+  // Written at the row's owner, as desktop does; empty text returns the label to automatic.
+  const renameWorktree = useCallback(
+    async (item: Worktree, displayName: string) => {
+      const rowClient = clientForRow(item)
+      if (!rowClient) {
+        throw new Error('Not connected: worktree.set')
+      }
+      worktreeDisplayNameWrite.interpret(
+        await worktreeDisplayNameWrite.request(rowClient, {
+          worktree: `id:${item.worktreeId}`,
+          displayName
+        })
+      )
+      void fetchWorktrees()
+    },
+    [clientForRow, fetchWorktrees]
+  )
+
   const worktreeDelete = useHostWorktreeDelete({ client, clientForRow, fetchWorktrees, state })
 
   const handleRemoveHost = useCallback(async () => {
@@ -298,6 +321,7 @@ export function useHostWorktreeActions(args: {
     closeNewWorktreeModal,
     openWorktreeSession,
     putWorktreeToSleep,
+    renameWorktree,
     togglePin
   }
 }

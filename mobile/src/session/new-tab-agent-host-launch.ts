@@ -13,6 +13,7 @@ import {
   reserveMobileAgentLaunch
 } from './mobile-existing-agent-launch'
 import { agentPromptNotSentMessage } from './pr-ai-triage-launch'
+import { readAgentLaunchNotice } from '../tasks/agent-launch-request'
 import { translate } from '../i18n/mobile-i18n'
 import {
   isLaunchedSurfaceListed,
@@ -146,7 +147,8 @@ export async function launchNewTabAgentThroughHost(args: {
     showToast(launched.message, 1800)
     return true
   }
-  const { outcome, warning } = launched.result
+  const { outcome } = launched.result
+  const warning = readAgentLaunchNotice(launched.result)
   // An older host ignores the reservation, so the reply's own ids are the fallback.
   pendingSelectionRef.current = withLaunchReply(
     pendingSelectionRef.current,
@@ -172,8 +174,9 @@ export async function launchNewTabAgentThroughHost(args: {
       options.successToast ?? translate('session.newTabAgentHostLaunch.notesSent', 'Notes sent')
     )
     options.onPromptSent?.()
-  } else if (warning?.trim()) {
-    showToast(warning.trim(), 2400)
+  } else if (warning) {
+    // Host notices are full sentences, such as why a chat started as a terminal.
+    showToast(warning, 6000)
   }
   return true
 }

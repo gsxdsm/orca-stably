@@ -6,9 +6,11 @@ import {
   useMobileNativeChatDisclosures
 } from './transcript/mobile-native-chat-disclosure-store'
 import { MobileNativeChatOpenSubagentProvider } from './input/mobile-native-chat-open-subagent'
-import { type NativeScrollEvent, type NativeSyntheticEvent, Text, View } from 'react-native'
+import { type NativeScrollEvent, type NativeSyntheticEvent, View } from 'react-native'
+import { MobileNativeChatSendErrorBanner } from './MobileNativeChatSendErrorBanner'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
+import { MobileNativeChatInputLockStatus } from './composer/MobileNativeChatInputLockStatus'
 import { useMobileColorScheme } from '../../theme/use-mobile-color-scheme'
 import { styles } from './mobile-native-chat-view-styles'
 import { MobileNativeChatEmptyStateView } from '../MobileNativeChatEmptyStateView'
@@ -95,8 +97,10 @@ export function MobileNativeChatView({
   onMicPressIn,
   onMicPressOut,
   inputLockReason,
+  hostOutage = null,
   sendErrorMessage,
   onClearSendError,
+  onDismissSendError,
   filePaths,
   onNeedFiles,
   skillDiscovery,
@@ -337,22 +341,15 @@ export function MobileNativeChatView({
           {...{ permission, onRespondPermission, question, onAnswerQuestion, onCollapsePrompt }}
           collapsedPrompt={collapsedPrompt}
         />
-        <Text
-          style={lockReason === 'waiting' ? styles.inputLockStatus : undefined}
-          accessibilityLiveRegion="polite"
-        >
-          {lockReason === 'waiting' ? composerPlaceholder : null}
-        </Text>
-        {sendErrorMessage ? (
-          // This banner is the only channel for a send failure — announce it.
-          <View
-            style={styles.sendError}
-            accessibilityRole="alert"
-            accessibilityLiveRegion="assertive"
-          >
-            <Text style={styles.sendErrorText}>{sendErrorMessage}</Text>
-          </View>
-        ) : null}
+        <MobileNativeChatInputLockStatus
+          lockReason={lockReason}
+          waitingText={composerPlaceholder}
+          hostOutage={hostOutage}
+        />
+        <MobileNativeChatSendErrorBanner
+          message={sendErrorMessage}
+          onDismiss={onDismissSendError}
+        />
         {trayContent}
         <MobileNativeChatActivityBar
           list={subagent.taskList}

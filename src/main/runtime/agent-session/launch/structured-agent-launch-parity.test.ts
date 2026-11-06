@@ -654,7 +654,7 @@ afterAll(async () => {
 })
 
 describe.skipIf(process.platform === 'win32')('native-chat launch parity', () => {
-  it('wires only OMP at-rest discovery through configured host launch inputs without a conversation spawn', async () => {
+  it('wires at-rest discovery for session-listing agents through configured host launch inputs without a conversation spawn', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     const launch = {
       agent: 'omp',
@@ -680,12 +680,18 @@ describe.skipIf(process.platform === 'win32')('native-chat launch parity', () =>
       expect(child.env).toMatchObject({ PARITY_OVERLAY: 'omp-configured' })
       expect(child.env).not.toHaveProperty('ORCA_AGENT_SESSION_ID')
       expect(pins).toEqual([])
-      for (const agent of ['grok', 'opencode', 'opencode2', 'antigravity', 'hermes']) {
+      for (const [agent, wired] of [
+        ['grok', false],
+        ['opencode', true],
+        ['opencode2', true],
+        ['antigravity', false],
+        ['hermes', false]
+      ] as const) {
         expect(
           STRUCTURED_AGENT_RUNTIME_REGISTRATIONS.find(
             ({ definition }) => definition.agent === agent
-          )!.createAdapter(context).atRestCommands
-        ).toBeUndefined()
+          )!.createAdapter(context).atRestCommands !== undefined
+        ).toBe(wired)
       }
     } finally {
       await adapter.closeAll()

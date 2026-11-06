@@ -11,14 +11,19 @@ import { routeMarkdownHref } from './markdown-href-routing'
 import { styles, type MarkdownTone } from './mobile-markdown-styles'
 import { MarkdownText } from './mobile-markdown-text'
 import { plainText } from './mobile-markdown-tree'
+import { MobileMarkdownMath } from './MobileMarkdownMath'
 
 export type MarkdownInlineContext = {
   // File targets call this when viewer exists; omit to keep paths plain.
   onOpenFile?: (pathText: string) => void
   // Web links other than mail go here; the screen decides where they open.
   onOpenLink: (url: string) => void
+  /** Host-confirmed paths are already links in the tree; draw no others. */
+  filePathsLinkedInTree?: boolean
   tone: MarkdownTone
   textScale: number
+  /** Chat text: desktop chat's math delimiters and sizes; otherwise GitHub's. */
+  chatMath: boolean
 }
 
 type SpanStyle = TextProps['style']
@@ -48,10 +53,10 @@ export function openMarkdownHref(
 function renderTextRun(
   text: string,
   key: string,
-  { onOpenFile, tone }: MarkdownInlineContext,
+  { onOpenFile, filePathsLinkedInTree, tone }: MarkdownInlineContext,
   outer: SpanStyle
 ): ReactNode {
-  if (!onOpenFile) {
+  if (!onOpenFile || filePathsLinkedInTree) {
     return text
   }
   const segments = detectFilePathSegments(text)
@@ -91,6 +96,31 @@ function renderLink(
   )
 }
 
+// A span keeps its line's leading; only its own smaller size scales.
+function renderInlineCode(
+  key: string,
+  code: string,
+  ctx: MarkdownInlineContext,
+  outer: SpanStyle,
+  onPress?: () => void
+): ReactNode {
+  const size = ctx.textScale !== 1 ? { fontSize: styles.inlineCode.fontSize * ctx.textScale } : null
+  const style = [outer, styles.inlineCode, size, ctx.tone.inlineCode]
+  return onPress ? (
+    <MarkdownText
+      key={key}
+      style={[...style, styles.inlineCodeLink, ctx.tone.link]}
+      onPress={onPress}
+    >
+      {code}
+    </MarkdownText>
+  ) : (
+    <MarkdownText key={key} style={style}>
+      {code}
+    </MarkdownText>
+  )
+}
+
 function renderPhrasing(
   node: PhrasingContent,
   key: string,
@@ -119,33 +149,29 @@ function renderPhrasing(
         </MarkdownText>
       )
     }
-    case 'inlineCode': {
-      // A span keeps its line's leading; only its own smaller size scales.
-      const size =
-        ctx.textScale !== 1 ? { fontSize: styles.inlineCode.fontSize * ctx.textScale } : null
-      return ctx.onOpenFile && isFilePathCodeSpan(node.value) ? (
-        <MarkdownText
-          key={key}
-          style={[
-            outer,
-            styles.inlineCode,
-            size,
-            ctx.tone.inlineCode,
-            styles.inlineCodeLink,
-            ctx.tone.link
-          ]}
-          onPress={() => ctx.onOpenFile?.(normalizeFilePath(node.value.trim()))}
-        >
-          {node.value}
-        </MarkdownText>
-      ) : (
-        <MarkdownText key={key} style={[outer, styles.inlineCode, size, ctx.tone.inlineCode]}>
-          {node.value}
-        </MarkdownText>
-      )
+    case 'inlineCode':
+      return ctx.onOpenFile && !ctx.filePathsLinkedInTree && isFilePathCodeSpan(node.value)
+        ? renderInlineCode(key, node.value, ctx, outer, () =>
+            ctx.onOpenFile?.(normalizeFilePath(node.value.trim()))
+          )
+        : renderInlineCode(key, node.value, ctx, outer)
+    case 'link': {
+      const only = node.children.length === 1 ? node.children[0] : undefined
+      return only?.type === 'inlineCode'
+        ? renderInlineCode(key, only.value, ctx, outer, () => openMarkdownHref(node.url, ctx))
+        : renderLink(key, plainText(node), node.url, ctx, outer)
     }
-    case 'link':
-      return renderLink(key, plainText(node), node.url, ctx, outer)
+    case 'inlineMath':
+      return (
+        <MobileMarkdownMath
+          key={key}
+          value={node.value}
+          source={node.source}
+          display={false}
+          githubSizes={!ctx.chatMath}
+          style={outer}
+        />
+      )
     case 'image':
       return renderLink(key, node.alt || 'image', node.url, ctx, outer)
     case 'footnoteReference':

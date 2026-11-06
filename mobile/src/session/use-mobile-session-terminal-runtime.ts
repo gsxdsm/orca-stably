@@ -126,6 +126,7 @@ export function useMobileSessionTerminalRuntime(scope: MobileSessionScreenStateM
     getLiveInputInteractionGeneration,
     handleLiveInputAccessoryBytes,
     handleLiveInputChange,
+    handleLiveInputCompositionEnd,
     handleLiveInputKeyPress,
     handleLiveInputSubmit,
     sendLiveInputClick
@@ -222,6 +223,7 @@ export function useMobileSessionTerminalRuntime(scope: MobileSessionScreenStateM
     flushPendingLiveInputBeforeExternalSend,
     handleLiveInputAccessoryBytes,
     handleLiveInputChange,
+    handleLiveInputCompositionEnd,
     handleLiveInputKeyPress,
     handleLiveInputSubmit,
     sendLiveInputClick,
