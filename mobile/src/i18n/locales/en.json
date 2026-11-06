@@ -1059,6 +1059,10 @@
       "workspace": "Workspace",
       "automations": "Automations",
       "mcpServers": "MCP servers"
+    },
+    "sessionListBack": {
+      "action": "Back to sessions",
+      "hint": "Long press to go back to sessions"
     }
   },
   "notifications": {

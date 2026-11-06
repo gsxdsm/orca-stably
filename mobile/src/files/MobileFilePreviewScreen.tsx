@@ -314,11 +314,14 @@ function MobileFilePreviewDocument({ route }: Props) {
   // Unmount retires pending saves; a refused back keeps the document and its save alive.
   const leave = useCallback(() => router.back(), [router])
   const editDraftKey = filePreviewEditDraftKey(previewSource, previewParams?.hostId, executionHost)
-  const { confirmingDiscard, requestBack, stay, discard } = useMobileFilePreviewBack({
-    hasUnsavedDraft: hasUnsavedTerminalArtifactDraft,
-    leave,
-    onDiscard: () => editDraftKey && dropDocumentEditDraft(editDraftKey)
-  })
+  const { confirmingDiscard, requestBack, requestLeaveToSessionList, stay, discard } =
+    useMobileFilePreviewBack({
+      hasUnsavedDraft: hasUnsavedTerminalArtifactDraft,
+      leave,
+      router,
+      hostId: previewParams?.hostId,
+      onDiscard: () => editDraftKey && dropDocumentEditDraft(editDraftKey)
+    })
 
   return (
     <View style={styles.container}>
@@ -328,6 +331,7 @@ function MobileFilePreviewDocument({ route }: Props) {
             <NavBarButton
               icon={ChevronLeft}
               onPress={requestBack}
+              onLongPress={previewParams?.hostId ? requestLeaveToSessionList : undefined}
               accessibilityLabel={t('files.filePreviewScreen.backToFiles', 'Back to files')}
             />
           }

@@ -1,8 +1,10 @@
 import { createContext, useContext, type ComponentType, type Ref } from 'react'
 import { Pressable, Text, View, type HostInstance } from 'react-native'
+import { ChevronLeft } from 'lucide-react-native'
 import { colors, feedback, radii } from '../../theme/mobile-theme'
 import { themedStyleSheet } from '../../theme/themed-styles'
 import { useMobileColorScheme } from '../../theme/use-mobile-color-scheme'
+import { useSessionListLongPressProps } from '../../navigation/session-list-long-press-props'
 
 export const NAV_BAR_BUTTON_SIZE = 36
 
@@ -16,6 +18,8 @@ type NavBarButtonProps = {
   icon: ComponentType<IconProps>
   accessibilityLabel: string
   onPress: () => void
+  /** Replaces the session-list long press. Tap still uses onPress. */
+  onLongPress?: () => void
   /** The screen or panel this button opens is showing. */
   active?: boolean
   disabled?: boolean
@@ -31,12 +35,15 @@ export function NavBarButton({
   icon: Icon,
   accessibilityLabel,
   onPress,
+  onLongPress,
   active = false,
   disabled = false,
   iconColor,
   badge
 }: NavBarButtonProps) {
   useMobileColorScheme()
+  const sessionListLongPress = useSessionListLongPressProps(onLongPress)
+  const longPress = Icon === ChevronLeft || onLongPress ? sessionListLongPress : undefined
   const onSheet = useContext(NavBarButtonOnSheetContext)
   return (
     <Pressable
@@ -54,6 +61,7 @@ export function NavBarButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled, selected: active }}
+      {...longPress}
     >
       <Icon
         size={18}

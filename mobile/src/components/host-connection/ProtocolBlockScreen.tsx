@@ -2,6 +2,7 @@ import { isGooglePlayInstall, useWallAppUpdate } from '../../app-update/use-wall
 import { openExternalLink } from '../../platform/external-links/external-link'
 import { leaveHostRoute } from '../../host-route-exit'
 import { useRouteHandoff } from '../../navigation/route-handoff'
+import { useSessionListLongPressProps } from '../../navigation/session-list-long-press-props'
 import { Platform, Pressable, Text, View } from 'react-native'
 import { colors, radii, spacing, typography } from '../../theme/mobile-theme'
 import { themedStyleSheet } from '../../theme/themed-styles'
@@ -155,6 +156,7 @@ export function ProtocolBlockScreen({ verdict }: Props) {
   useMobileColorScheme()
   const t = useMobileTranslation()
   const router = useRouteHandoff()
+  const sessionListLongPress = useSessionListLongPressProps()
   const remedy = blockRemedy(verdict)
   const mobileAction = useMobileUpdateLink()
   // No download to offer when the fix is a refetch: reconnecting is what this screen leaves you to do.
@@ -203,6 +205,7 @@ export function ProtocolBlockScreen({ verdict }: Props) {
             // Back to the Home under this screen, not a second one stacked on it (a page hands this to the shell).
             leaveHostRoute(router)
           }}
+          {...sessionListLongPress}
         >
           <Text style={styles.secondaryButtonText}>
             {t('components.protocolBlockScreen.backToHosts', 'Back to hosts')}

@@ -119,6 +119,7 @@ export function AutomationEditorNavigation({
         <AutomationButton
           label={t('automations.mobile.back', 'Back')}
           onPress={onBack}
+          toSessionList
           disabled={busy}
         />
       ) : null}

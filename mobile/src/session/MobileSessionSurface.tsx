@@ -17,6 +17,7 @@ import { WorkspaceServerContext } from '../worktree/execution-hosts/workspace-se
 import { useSessionTitleCard } from './tabs/use-session-title-card'
 import { useDetailCardScope } from '../components/detail-cards/use-detail-card-scope'
 import { useShellSideRail } from '../layout/use-shell-side-rail'
+import { SessionListLongPressOverride } from '../navigation/session-list-long-press-context'
 import { useReleasedSideInset } from '../layout/released-side-inset'
 import { sideStripPadding } from './session-side-strip-inset'
 
@@ -104,6 +105,7 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
         <MobileSessionHeader controller={controller} details={details} />
         <View style={sideStripPadding(releasedStrip)}>
           <MobileWorkerAutoCloseStrip controller={controller} />
+          </View>
         </View>
         {/* A chat's item chips open the item's page in the bot panel. */}
         <BotItemOpenContext.Provider value={openItem}>
