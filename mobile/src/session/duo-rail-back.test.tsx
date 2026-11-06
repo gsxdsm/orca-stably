@@ -13,15 +13,25 @@ import { DuoRailBackButton } from './DuoRailBackButton'
 import { duoRailBackVisible, performSessionRailBack } from './duo-rail-back'
 import { useSessionRailBack } from './use-duo-rail-back.web'
 
-const scene = vi.hoisted(() => ({
-  width: 951,
-  height: 669,
-  insets: { top: 0, right: 84, bottom: 34, left: 0 },
-  occlusions: [{ x: 867, y: 0, width: 84, height: 124 }],
-  expanded: false,
-  keyboardInset: 0,
-  pressBack: null as (() => boolean) | null
-}))
+const scene = vi.hoisted(
+  (): {
+    width: number
+    height: number
+    insets: { top: number; right: number; bottom: number; left: number }
+    occlusions: { x: number; y: number; width: number; height: number }[]
+    expanded: boolean
+    keyboardInset: number
+    pressBack: (() => boolean) | null
+  } => ({
+    width: 951,
+    height: 669,
+    insets: { top: 0, right: 84, bottom: 34, left: 0 },
+    occlusions: [{ x: 867, y: 0, width: 84, height: 124 }],
+    expanded: false,
+    keyboardInset: 0,
+    pressBack: null
+  })
+)
 
 vi.mock('react-native', () => ({
   View: 'View',
@@ -39,7 +49,7 @@ vi.mock('../layout/reserved-regions', () => ({
 vi.mock('./duo-chat-width', () => ({
   useDuoChatExpanded: () => scene.expanded
 }))
-vi.mock('../transport/connection/client-context.web', () => ({
+vi.mock('../transport/client-context.web', () => ({
   usePageBridgeClientIfPresent: () =>
     scene.pressBack === null ? null : { pressBack: scene.pressBack }
 }))

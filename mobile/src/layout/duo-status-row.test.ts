@@ -4,8 +4,7 @@ import {
   DUO_RAIL_CONTROL_SIZE,
   DUO_STATUS_GLYPH_FROM_EDGE,
   DUO_STATUS_GLYPH_SIZE,
-  duoRailBackFrame,
-  duoStatusRowCenter
+  duoRailBackFrame
 } from './duo-status-row'
 import { getSideRailStrip } from './side-rail-strip'
 
@@ -45,7 +44,6 @@ describe('the Duo status row', () => {
     const column = INNER.occlusions[0]!
     const midX = INNER.windowWidth - ROW_CENTER
     expect(strip).not.toBeNull()
-    expect(duoStatusRowCenter({ ...INNER, strip: strip! })).toBe(ROW_CENTER)
     const frame = duoRailBackFrame({ ...INNER, strip: strip! })
     expect(frame).toEqual({
       top: column.y + column.height + spacing.sm,
@@ -62,7 +60,6 @@ describe('the Duo status row', () => {
     const cover = getSideRailStrip(COVER)
     const glyph = COVER.occlusions[0]!
     const column = COVER.occlusions[1]!
-    expect(duoStatusRowCenter({ ...COVER, strip: cover! })).toBe(glyph.y + glyph.height / 2)
     const midX = glyph.x + glyph.width / 2
     const frame = duoRailBackFrame({ ...COVER, strip: cover! })
     expect(frame).toEqual({

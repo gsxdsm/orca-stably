@@ -71,22 +71,6 @@ function statusGlyph(
   return mark
 }
 
-function glyphCenter(column: ReservedRect, occlusions: readonly ReservedRect[]): number | null {
-  const mark = statusGlyph(column, occlusions)
-  return mark === null ? null : mark.y + mark.height / 2
-}
-
-/** Vertical center of the battery, wifi and Control Center row, in window points. */
-export function duoStatusRowCenter(args: RowArgs): number {
-  const column = statusColumn(args)
-  const measured = column === null ? null : glyphCenter(column, args.occlusions)
-  if (measured !== null) {
-    return measured
-  }
-  const fromTop = column !== null ? column.y <= 1 : args.strip.top > 1
-  return fromTop ? STATUS_ROW_CENTER_FROM_EDGE : args.windowHeight - STATUS_ROW_CENTER_FROM_EDGE
-}
-
 /**
  * Below the reported status occlusion, on the status cluster's midX.
  * The full control stays inside the column. A bottom column clears upward.
@@ -100,6 +84,37 @@ export function duoRailBackFrame(args: RowArgs): DuoRailControlFrame {
   const occludedEdge = statusOcclusionEdge(args, column, fromTop)
   const top = fromTop ? occludedEdge + spacing.sm : occludedEdge - spacing.sm - size
   return { top, left, size }
+}
+
+export type DuoRailJumpFrames = {
+  previous: DuoRailControlFrame
+  latest: DuoRailControlFrame
+}
+
+/**
+ * ↑ above ↓, on the back button's midX, with a gap above the composer.
+ * Null when that stack would meet the back button or the status occlusion.
+ * While the keyboard is up the back button is hidden, so the stack may use that slot.
+ */
+export function duoRailJumpFrames(
+  args: RowArgs & { composerTop: number; keyboardUp: boolean }
+): DuoRailJumpFrames | null {
+  if (!(args.composerTop > 0)) {
+    return null
+  }
+  const back = duoRailBackFrame(args)
+  const size = back.size
+  const gap = spacing.sm
+  const latestTop = args.composerTop - gap - size
+  const previousTop = latestTop - gap - size
+  const floor = args.keyboardUp ? args.strip.top : back.top + back.size + gap
+  if (previousTop < floor || latestTop + size > args.composerTop - gap) {
+    return null
+  }
+  return {
+    previous: { top: previousTop, left: back.left, size },
+    latest: { top: latestTop, left: back.left, size }
+  }
 }
 
 function clusterMidX(args: RowArgs, column: ReservedRect | null): number {
