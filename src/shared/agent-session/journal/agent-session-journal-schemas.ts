@@ -137,6 +137,9 @@ const Question = z.object({
   freeTextInput: FreeTextInput.optional()
 })
 
+const OptionalText = z.string().optional()
+const ToolResultImageRef = z.object({ path: OptionalText, url: OptionalText, alt: OptionalText })
+
 const ResolvedByDevice = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('current') }),
   z.object({ kind: z.literal('named'), name: z.string() })
@@ -224,15 +227,7 @@ const KnownItemBody = z.discriminatedUnion('kind', [
     // Open like `state`: an ending a newer build writes reads as the `state` beside it.
     endedAs: z.string().min(1).optional(),
     output: BoundedPayload.optional(),
-    images: z
-      .array(
-        z.object({
-          path: z.string().optional(),
-          url: z.string().optional(),
-          alt: z.string().optional()
-        })
-      )
-      .optional()
+    images: z.array(ToolResultImageRef).optional()
   }),
   z.object({ kind: z.literal('diff'), path: z.string(), patch: BoundedPayload }),
   z.object({
@@ -273,7 +268,8 @@ const KnownItemBody = z.discriminatedUnion('kind', [
     providerFrame: ProviderFrame.optional(),
     threadGoal: AgentJournalThreadGoalStateSchema.optional(),
     failure: AgentSessionFailureFactSchema.optional(),
-    orcaStop: z.object({ cause: z.string().min(1) }).optional()
+    orcaStop: z.object({ cause: z.string().min(1) }).optional(),
+    forkedFrom: z.object({ sessionId: z.string().min(1) }).optional()
   }),
   z.object({
     kind: z.literal('turn'),

@@ -2,6 +2,8 @@
 export const MOBILE_AGENT_SESSION_RPC_METHODS = [
   'agentSession.agents',
   'agentSession.createSupport',
+  // The host's agents and what each can do: the phone's "Fork from this response" reads it.
+  'agentSession.agents',
   'agentSession.create',
   'agentSession.ensure',
   'agentSession.reveal',
@@ -38,6 +40,8 @@ export const MOBILE_AGENT_SESSION_RPC_METHODS = [
   'agentSession.item',
   // "Rewind to here"; phones offer it only where AGENT_SESSION_PHONE_REWIND_RUNTIME_CAPABILITY says so.
   'agentSession.rewind',
+  // "Don't continue" on a usage-limit row the host will continue at its reset.
+  'agentSession.cancelUsageLimitContinue',
   // A file the phone attaches to a chat, stored on this host; the agent sees only the host path.
   'agentSessionAttachment.uploadStart',
   'agentSessionAttachment.uploadAppend',

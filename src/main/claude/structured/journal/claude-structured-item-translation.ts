@@ -7,9 +7,16 @@ import type {
   NativeChatBlock,
   NativeChatImageRefBlock
 } from '../../../../shared/native-chat/native-chat-types'
-import { journalPayload } from '../../../native-chat/agent-session-journal/journal-payload-bounds'
+import { journalPayload } from '../../../native-chat/agent-session-journal/item-lifecycle/journal-payload-bounds'
 import { collectToolResultImageSources } from '../../../native-chat/transcript-record-blocks'
 import type { ToolResultImageSource } from '../../../native-chat/transcript-record-blocks'
+import { isClaudeInjectedUserMessage } from '../../claude-internal-message-content'
+import {
+  isClaudeToolUseContent,
+  isClaudeToolResultContent,
+  claudeToolResultText,
+  claudeToolResultFailed
+} from '../../../../shared/claude-tool-content'
 
 export type ClaudeMessageEnvelope = {
   sessionId: string
@@ -50,9 +57,7 @@ export function readClaudeMessageEnvelope(
   const sessionId = claudeText(frame.session_id)
   const uuid = claudeText(frame.uuid)
   const role = message?.role
-  const isInjectedUserTurn =
-    frame.type === 'user' &&
-    (frame.isMeta === true || frame.isSynthetic === true || frame.isCompactSummary === true)
+  const isInjectedUserTurn = isClaudeInjectedUserMessage(frame)
   return sessionId && uuid && (role === 'assistant' || role === 'user')
     ? {
         sessionId,
@@ -88,7 +93,7 @@ export function claudeOutputEnvelope(envelope: ClaudeMessageEnvelope): ClaudeMes
   }
   return {
     ...envelope,
-    content: envelope.content.filter((part) => claudeRecord(part)?.type === 'tool_result')
+    content: envelope.content.filter(isClaudeToolResultContent)
   }
 }
 
@@ -121,7 +126,7 @@ export function claudeHasReplayContent(envelope: ClaudeMessageEnvelope): boolean
   }
   return envelope.content.some((value) => {
     const part = claudeRecord(value)
-    return part !== null && part.type !== 'tool_result'
+    return part !== null && !isClaudeToolResultContent(part)
   })
 }
 
@@ -130,7 +135,9 @@ export function claudeToolUses(envelope: ClaudeMessageEnvelope): ClaudeToolUse[]
     const part = claudeRecord(value)
     const id = claudeText(part?.id)
     const name = claudeText(part?.name)
-    return part?.type === 'tool_use' && id && name ? [{ id, name, input: part.input ?? null }] : []
+    return isClaudeToolUseContent(part) && id && name
+      ? [{ id, name, input: part.input ?? null }]
+      : []
   })
 }
 
@@ -154,7 +161,7 @@ function resultText(value: unknown): string {
 
 export function claudeToolResultId(part: Record<string, unknown> | null): string | null {
   const toolUseId = claudeText(part?.tool_use_id)
-  return part?.type === 'tool_result' ? toolUseId : null
+  return isClaudeToolResultContent(part) ? toolUseId : null
 }
 
 export function claudeToolResults(envelope: ClaudeMessageEnvelope): ClaudeToolResult[] {
@@ -168,8 +175,11 @@ export function claudeToolResults(envelope: ClaudeMessageEnvelope): ClaudeToolRe
     return [
       {
         toolUseId,
-        output: resultText(part.content),
-        failed: part.is_error === true,
+        output:
+          part.type === 'tool_result'
+            ? resultText(part.content)
+            : claudeToolResultText(part.content),
+        failed: claudeToolResultFailed(part),
         ...(images.length > 0 ? { images } : {})
       }
     ]

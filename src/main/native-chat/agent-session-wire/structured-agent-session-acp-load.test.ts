@@ -4,7 +4,7 @@ import {
   attachFingerprintFields,
   reserveRequestFor,
   type AgentSessionAttachParams
-} from './structured-agent-session-attach'
+} from './acquisition/structured-agent-session-attach'
 
 const SESSION_ID = '11111111-1111-4111-8111-111111111111'
 

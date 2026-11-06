@@ -1,6 +1,6 @@
 import { computeAgentSessionPayloadFingerprint } from '../../../shared/agent-session/lifecycle/agent-session-mutation-envelope'
 import type { AgentSessionMutationEnvelope } from '../../../shared/agent-session/agent-session-wire'
-import type { AgentSessionPromptRequest } from '../../native-chat/agent-session-wire/structured-agent-session-turns-prompt'
+import type { AgentSessionPromptRequest } from '../../native-chat/agent-session-wire/operations/structured-agent-session-turns-prompt'
 import {
   AgentSessionRefusalError,
   type AgentSessionWireRefusalCode
@@ -14,8 +14,8 @@ import type {
   AgentPromptRespondResult,
   PendingAgentPrompt
 } from '../../../shared/rpc-contract/agent-prompt-params'
-import { getStructuredAgentSessionHost } from '../../native-chat/agent-session-wire/structured-agent-session-registry'
-import type { StructuredAgentSessionHost } from '../../native-chat/agent-session-wire/structured-agent-session-host'
+import { getStructuredAgentSessionHost } from '../../native-chat/agent-session-wire/host/structured-agent-session-registry'
+import type { StructuredAgentSessionHost } from '../../native-chat/agent-session-wire/host/structured-agent-session-host'
 import type { LocatedAgentPrompt } from './located-agent-prompt'
 
 type ChatPromptHost = Pick<

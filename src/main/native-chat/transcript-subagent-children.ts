@@ -11,7 +11,7 @@ import {
   subagentTranscriptsDirFor
 } from '../ai-vault/scanners/claude/session-scanner-subagent-transcripts'
 import { asRecord, extractString, parseJsonObject } from '../ai-vault/session-scanner-values'
-import { BOUNDED_FRAME_CONTENT_BUDGET_BYTES } from './agent-session-wire/agent-session-history-page-bounds'
+import { BOUNDED_FRAME_CONTENT_BUDGET_BYTES } from './agent-session-wire/publication/history/agent-session-history-page-bounds'
 import { decodeClaudeTranscriptLine } from './transcript-line-decoders-claude'
 import { decodeCodexTranscriptLine } from './transcript-line-decoders-codex'
 import { decodeGrokTranscriptLine } from './transcript-line-decoders-grok'

@@ -11,7 +11,7 @@ import { clearNativeChatTranscriptCache } from '../native-chat/transcript-read-c
 import { nativeChatReadSessionBounds } from './native-chat-read-bounds'
 import type { ReadTranscriptResult } from '../native-chat/transcript-reader'
 import { readNativeChatTranscriptTail } from '../native-chat/transcript-watch'
-import { getStructuredAgentSessionHost } from '../native-chat/agent-session-wire/structured-agent-session-registry'
+import { getStructuredAgentSessionHost } from '../native-chat/agent-session-wire/host/structured-agent-session-registry'
 import { openNativeChatTranscript } from '../native-chat/native-chat-open-wake'
 import {
   _getNativeChatPendingSubscriptionCountForTest,

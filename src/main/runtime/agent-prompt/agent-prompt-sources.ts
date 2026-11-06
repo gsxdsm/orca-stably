@@ -3,7 +3,7 @@ import {
   parseTerminalPromptId
 } from '../../../shared/agent-prompt/pending-agent-prompt'
 import type { MobilePushPrompt } from '../../../shared/mobile-push-contract'
-import { getStructuredAgentSessionHost } from '../../native-chat/agent-session-wire/structured-agent-session-registry'
+import { getStructuredAgentSessionHost } from '../../native-chat/agent-session-wire/host/structured-agent-session-registry'
 import { applyChatPrompt, chatTargetExists, listChatPrompts } from './agent-prompt-chat'
 import type { AgentPromptDirectory } from './agent-prompt-service'
 import {

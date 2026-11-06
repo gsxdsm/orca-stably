@@ -1,9 +1,12 @@
 import type { NativeChatMessage } from '../../../../shared/native-chat/native-chat-types'
+import {
+  MOBILE_NATIVE_CHAT_DEFAULT_WINDOW,
+  isDatabaseTranscript,
+  pageForClient
+} from './native-chat-rpc-client-page'
 import { NATIVE_CHAT_TERMINAL_QUEUE_METHODS } from './native-chat-terminal-queue'
-import type {
-  NativeChatTranscriptFrame,
-  NativeChatTranscriptPage
-} from '../../../../shared/native-chat/native-chat-transcript-frames'
+import { recordMobileViewOpened } from '../../../telemetry/mobile-client-telemetry'
+import type { NativeChatTranscriptFrame } from '../../../../shared/native-chat/native-chat-transcript-frames'
 import { resolveNativeChatTranscriptAgent } from '../../../../shared/native-chat/native-chat-agent-support'
 import {
   readNativeChatTranscriptTail,
@@ -16,56 +19,14 @@ import {
   publishTranscriptTaskList,
   scanNativeChatTranscriptTasks
 } from '../../../native-chat/native-chat-transcript-task-scan'
-import { defineMethod, defineStreamingMethod, type RpcContext } from '../core'
-import { windowNativeChatWithChildren } from '../../../native-chat/transcript-subagent-children'
+import { defineMethod, defineStreamingMethod } from '../core'
+import { sanitizeNativeChatRpcMessages } from './native-chat-rpc-block-sanitize'
+import { nativeChatRpcAppendBatches } from './native-chat-rpc-page-bounds'
 import {
-  sanitizeNativeChatRpcMessage,
-  sanitizeNativeChatRpcMessages
-} from './native-chat-rpc-block-sanitize'
-import {
-  boundNativeChatRpcPageByBytes,
-  nativeChatRpcAppendBatches
-} from './native-chat-rpc-page-bounds'
-import {
-  MOBILE_NATIVE_CHAT_MAX_WINDOW,
   NativeChatSession,
   NativeChatUnsubscribe,
   type NativeChatResumePoint
 } from '../../../../shared/rpc-contract/native-chat-params'
-
-// Default to a small transcript tail for fast paired-client paint; clients page older history, while local IPC stays virtualized.
-const MOBILE_NATIVE_CHAT_DEFAULT_WINDOW = 40
-
-/** Window every RPC client by message count; apply mobile-only character clipping separately. */
-function windowTranscript(
-  messages: readonly NativeChatMessage[],
-  limit = MOBILE_NATIVE_CHAT_DEFAULT_WINDOW
-): NativeChatMessage[] {
-  const window = Math.min(Math.max(limit, 1), MOBILE_NATIVE_CHAT_MAX_WINDOW)
-  return windowNativeChatWithChildren(messages, window)
-}
-
-function isDatabaseTranscript(agent: string | undefined): boolean {
-  const source = resolveNativeChatTranscriptAgent(agent)
-  return source === 'opencode' || source === 'hermes'
-}
-
-function pageForClient(
-  messages: readonly NativeChatMessage[],
-  hasMore: boolean,
-  beforeOffset: number,
-  clientKind: RpcContext['clientKind'],
-  limit = MOBILE_NATIVE_CHAT_DEFAULT_WINDOW,
-  agent?: string
-): NativeChatTranscriptPage {
-  const isDatabase = isDatabaseTranscript(agent)
-  const sanitized = (isDatabase ? messages : windowTranscript(messages, limit)).map((message) =>
-    sanitizeNativeChatRpcMessage(message, clientKind)
-  )
-  return isDatabase
-    ? boundNativeChatRpcPageByBytes(sanitized, hasMore, beforeOffset)
-    : { messages: sanitized, hasMore, beforeOffset }
-}
 
 /** Where the first page starts for a client holding `resumeAfter`; its offset and timestamp catch a rewritten file. */
 function resumeIndex(
@@ -138,7 +99,11 @@ export const NATIVE_CHAT_METHODS = [
     name: 'nativeChat.subscribe',
     permission: 'workspace',
     params: NativeChatSession,
-    handler: async (params, { runtime, connectionId, clientKind, signal }, emitAny) => {
+    handler: async (
+      params,
+      { runtime, connectionId, clientKind, pairedDeviceId, signal },
+      emitAny
+    ) => {
       const emit = (frame: NativeChatTranscriptFrame): void => emitAny(frame)
       if (signal?.aborted) {
         return
@@ -288,6 +253,17 @@ export const NATIVE_CHAT_METHODS = [
         })
       }
       unsubscribe = subscription.unsubscribe
+      if (!subscription.watching) {
+        return
+      }
+      recordMobileViewOpened(
+        { clientKind, pairedDeviceId },
+        {
+          surface: 'chat',
+          viewKey: `nativeChat:${params.agent}:${params.sessionId}`,
+          agent: () => params.agent
+        }
+      )
     }
   }),
   defineMethod({

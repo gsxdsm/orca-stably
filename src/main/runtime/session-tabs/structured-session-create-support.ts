@@ -1,3 +1,4 @@
+import { resolveStructuredAgentSessionForkIntent } from '../../native-chat/structured-agent-session-fork'
 import {
   captureStructuredAgentCliSource,
   structuredAgentCliSourceFromEvidence
@@ -5,7 +6,7 @@ import {
 import type { OrcaRuntimeWithRestoreStructuredAgentSessionTabsOnce as RestoreStructuredAgentSessionTabsOnceMethods } from './structured-session-tab-restoration'
 import { agentSessionRefusalError } from '../../../shared/agent-session/failures/agent-session-wire-refusals'
 import { StructuredSessionWorkspaceScope } from './structured-session-workspace-scope'
-import { getStructuredAgentSessionHost } from '../../native-chat/agent-session-wire/structured-agent-session-registry'
+import { getStructuredAgentSessionHost } from '../../native-chat/agent-session-wire/host/structured-agent-session-registry'
 import {
   resolveCommittedStructuredAgentSessionAdoptionIntent,
   requireUnownedStructuredAgentSessionAdoption,
@@ -13,7 +14,7 @@ import {
   structuredAgentSessionAdoptAttach,
   type StructuredAgentSessionCreateIntentInput
 } from '../agent-session/structured-agent-session-create-adoption'
-import type { AgentSessionAttachParams } from '../../native-chat/agent-session-wire/structured-agent-session-attach'
+import type { AgentSessionAttachParams } from '../../native-chat/agent-session-wire/acquisition/structured-agent-session-attach'
 import {
   resolveHostStructuredAgentCreateSupport,
   resolveHostStructuredAgentLaunchEnvironment
@@ -28,6 +29,7 @@ import { isFloatingWorkspaceSelector } from '../../../shared/floating-workspace-
 import type { AgentSessionAccountHome } from '../../../shared/agent-session/lifecycle/agent-session-account-home'
 import type { StructuredAgentId } from '../../../shared/agent-session/lifecycle/agent-session-provider-handle'
 import { hermesAcpLoadSessionId } from '../../../shared/hermes-session-id'
+import { withHermesLoadSessionId } from '../agent-session/structured-agent-hermes-replay'
 import type { StructuredAgentCreateSupportReply } from '../../../shared/agent-session/structured-agent-create-support-reply'
 
 export abstract class OrcaRuntimeWithGetStructuredAgentSessionCreateSupport extends StructuredSessionWorkspaceScope {
@@ -109,6 +111,15 @@ export abstract class OrcaRuntimeWithGetStructuredAgentSessionCreateSupport exte
     const hostLaunchDirectory = isFloatingWorkspaceSelector(input.worktree)
       ? (await this.resolveRuntimeFileTarget(input.worktree)).worktree.path
       : undefined
+    if (input.forkFrom) {
+      const resolved = await resolveStructuredAgentSessionForkIntent({
+        ...input,
+        forkFrom: input.forkFrom,
+        host: getStructuredAgentSessionHost(),
+        location: await this.resolveStructuredAgentSessionLocation(input.worktree)
+      })
+      return hostLaunchDirectory ? { ...resolved, hostLaunchDirectory } : resolved
+    }
     const resolveAccountHome = this.structuredAgentAccountHomeResolver(
       input.agent,
       input.worktree,
@@ -185,19 +196,7 @@ export abstract class OrcaRuntimeWithGetStructuredAgentSessionCreateSupport exte
       ...(options ? { options } : {})
     })
     if (committedReplay) {
-      if (!hermesLoadId) {
-        return committedReplay
-      }
-      return {
-        envelope: committedReplay.envelope,
-        location: committedReplay.location,
-        provider: committedReplay.provider,
-        agent: committedReplay.agent,
-        accountHome: committedReplay.accountHome,
-        ...(committedReplay.options ? { options: committedReplay.options } : {}),
-        acpLoadSessionId: hermesLoadId,
-        runtimeKind: committedReplay.runtimeKind
-      }
+      return withHermesLoadSessionId(committedReplay, hermesLoadId)
     }
     const resumeFrom = input.resumeFrom
     if (resumeFrom) {

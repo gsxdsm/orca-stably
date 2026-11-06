@@ -3,7 +3,7 @@ import type { OrcaRuntimeService } from '../../orca-runtime'
 import { NativeChatTerminalQueueRequest } from '../../../../shared/native-chat/native-chat-terminal-queue'
 import { AgentSessionJournal } from '../../../native-chat/agent-session-journal/journal-store'
 import { TerminalChatQueue } from '../../../native-chat/terminal-chat-queue'
-import { getStructuredAgentSessionHost } from '../../../native-chat/agent-session-wire/structured-agent-session-registry'
+import { getStructuredAgentSessionHost } from '../../../native-chat/agent-session-wire/host/structured-agent-session-registry'
 
 const queues = new WeakMap<OrcaRuntimeService, Map<string, Promise<TerminalChatQueue>>>()
 

@@ -8,7 +8,8 @@ import {
   createStructuredAgentSessionId,
   structuredAgentSessionCreateParams,
   type StructuredAgentSessionCreateParams,
-  type StructuredAgentSessionResumeSource
+  type StructuredAgentSessionResumeSource,
+  type StructuredAgentSessionForkSource
 } from '../../../src/shared/agent-session/structured-agent-session-create'
 import type { StructuredAgentCreateSupportReply } from '../../../src/shared/agent-session/structured-agent-create-support-reply'
 import { TUI_AGENT_DISPLAY_NAMES } from '../../../src/shared/agent-launch/catalog/tui-agent-display-names'
@@ -40,6 +41,8 @@ export type MobileStructuredAgentLaunchResult =
 function createParamsFor(
   agent: StructuredAgentId,
   worktree: string,
+  forkFrom: StructuredAgentSessionForkSource | undefined,
+  tabPlacement: StructuredAgentSessionCreateParams['tabPlacement'],
   resumeFrom?: StructuredAgentSessionResumeSource
 ): StructuredAgentSessionCreateParams {
   return structuredAgentSessionCreateParams({
@@ -47,6 +50,8 @@ function createParamsFor(
     worktree,
     agent,
     ...(resumeFrom ? { resumeFrom } : {}),
+    ...(forkFrom ? { forkFrom } : {}),
+    ...(tabPlacement ? { tabPlacement } : {}),
     randomUuid: randomV4Uuid
   })
 }
@@ -88,6 +93,10 @@ export async function createMobileStructuredAgentSession(
   client: RpcClient,
   worktreeId: string,
   agent: StructuredAgentId,
+  /** Sent only to a host advertising forks. */
+  forkFrom?: StructuredAgentSessionForkSource,
+  /** Sent only to a host advertising create placement; the replay keeps it. */
+  tabPlacement?: StructuredAgentSessionCreateParams['tabPlacement'],
   options?: { resumeFrom?: StructuredAgentSessionResumeSource }
 ): Promise<MobileStructuredAgentLaunchResult> {
   const worktree = `id:${worktreeId}`
@@ -129,7 +138,7 @@ export async function createMobileStructuredAgentSession(
     return { kind: 'unsupported', reason: support?.reason }
   }
 
-  const params = createParamsFor(agent, worktree, options?.resumeFrom)
+  const params = createParamsFor(agent, worktree, forkFrom, tabPlacement, options?.resumeFrom)
   rememberMobileCreatedStructuredSession(params.envelope.sessionId, worktree)
   let response
   try {

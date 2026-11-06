@@ -7,7 +7,7 @@ import { projectNativeChatTranscript } from '../../shared/native-chat/transcript
 import { decodeClaudeTranscriptLine } from './transcript-line-decoders-claude'
 import { decodeCodexTranscriptLine } from './transcript-line-decoders-codex'
 import { MOBILE_BRIDGE_MAX_FRAME_BYTES } from '../../shared/mobile-bridge-frame-bytes'
-import { BOUNDED_FRAME_CONTENT_BUDGET_BYTES } from './agent-session-wire/agent-session-history-page-bounds'
+import { BOUNDED_FRAME_CONTENT_BUDGET_BYTES } from './agent-session-wire/publication/history/agent-session-history-page-bounds'
 import { decodeGrokTranscriptLine } from './transcript-line-decoders-grok'
 import { windowNativeChatWithChildren } from './transcript-subagent-children'
 import { readNativeChatTranscriptTail } from './transcript-live-tail'

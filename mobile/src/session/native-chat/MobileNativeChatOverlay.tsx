@@ -59,6 +59,8 @@ type Props = {
   hostName: string | null
   /** Terminal handle for the crew subscription; agent chats use sessionId. */
   crewTerminal?: string | null
+  /** Opens the accounts of the host that runs this chat; absent when the phone can't reach them. */
+  onOpenAccounts?: () => void
   /** Offered for tapped links; absent where the host can't open a browser tab. */
   onOpenUrlInOrca?: (url: string) => void
   /** Opens a host terminal tab in this chat's workspace running `command`. */
@@ -96,7 +98,8 @@ export function MobileNativeChatOverlay({
   crewTerminal = null,
   onOpenUrlInOrca,
   onRunInTerminal,
-  hostOutage = null
+  hostOutage = null,
+  onOpenAccounts
 }: Props): React.JSX.Element | null {
   const initialSubagentId = useRef(takePendingSubagentFocus(worktreeId)).current
   const session = controller.nativeChatSession
@@ -205,6 +208,8 @@ export function MobileNativeChatOverlay({
       hostName,
       ...(agent ? { agentName: tuiAgentDisplayName(agent) ?? agent } : {}),
       onRunInTerminal: runInTerminal,
+      usageLimit: controller.nativeChatUsageLimit,
+      ...(onOpenAccounts ? { openAccounts: onOpenAccounts } : {}),
       ...(continuation
         ? {
             continuation: {
@@ -218,7 +223,15 @@ export function MobileNativeChatOverlay({
           }
         : {})
     }),
-    [hostName, agent, continuation, onClearSendError, runInTerminal]
+    [
+      hostName,
+      agent,
+      continuation,
+      onClearSendError,
+      runInTerminal,
+      controller.nativeChatUsageLimit,
+      onOpenAccounts
+    ]
   )
   const markdownLinks = useMobileNativeChatMarkdownLinks({
     enabled: controller.showNativeChat,
@@ -348,7 +361,9 @@ export function MobileNativeChatOverlay({
                       sessionOptions={controller.nativeChatSessionOptions}
                       contextUsage={controller.nativeChatContextUsage}
                       structuredComposer={structuredComposer}
-                      dismissalScope={hostId && worktreeId ? { hostId, worktreeId, sessionId } : null}
+                      dismissalScope={
+                        hostId && worktreeId ? { hostId, worktreeId, sessionId } : null
+                      }
                       keyboardInset={keyboardInset}
                       activityBar={
                         <MobileSessionCrewActivity

@@ -199,7 +199,10 @@ export function useMobileStructuredSendWithOutcome(args: {
           imageAttachments.push(attachment)
         }
       }
-      const wireText = nativeChatTextWithFileReferences(projectMobileCrewMentions(messageText), files)
+      const wireText = nativeChatTextWithFileReferences(
+        projectMobileCrewMentions(messageText),
+        files
+      )
       const skills = takesSkills ? (pickedSkills ?? []) : []
       let body: ReturnType<typeof structuredAgentSessionSendBody>
       try {
@@ -242,6 +245,9 @@ export function useMobileStructuredSendWithOutcome(args: {
           ? { delivery: 'queue-if-active' as const }
           : {}),
         ...captured,
+        ...(intent?.usageLimitContinuationOfTurnItemId
+          ? { usageLimitContinuationOfTurnItemId: intent.usageLimitContinuationOfTurnItemId }
+          : {}),
         deadline,
         clientMessageId: send.clientMessageId,
         onAccepted: (cursor) => acknowledge(send.clientMessageId, cursor),

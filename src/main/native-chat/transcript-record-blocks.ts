@@ -4,6 +4,12 @@ import type {
   NativeChatToolResultBlock
 } from '../../shared/native-chat/native-chat-types'
 import { asRecord, extractString } from '../ai-vault/session-scanner-values'
+import {
+  isClaudeToolUseContent,
+  isClaudeToolResultContent,
+  claudeToolResultText,
+  claudeToolResultFailed
+} from '../../shared/claude-tool-content'
 
 /** Bytes live here, not on the block, so a snapshot cannot serialize them. */
 const pendingToolResultImages = new WeakMap<NativeChatToolResultBlock, ToolResultImageSource[]>()
@@ -115,8 +121,25 @@ function claudeContentBlock(record: Record<string, unknown>): NativeChatBlock[] 
       const image = imageRefBlock(record)
       return image ? [image] : []
     }
-    default:
+    default: {
+      if (isClaudeToolUseContent(record)) {
+        return [
+          {
+            type: 'tool-call',
+            name: String(record.name),
+            input: record.input,
+            callId: String(record.id)
+          }
+        ]
+      }
+      if (isClaudeToolResultContent(record)) {
+        return toolResultBlocks(claudeToolResultText(record.content), {
+          callId: String(record.tool_use_id),
+          isError: claudeToolResultFailed(record)
+        })
+      }
       return []
+    }
   }
 }
 

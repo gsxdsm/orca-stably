@@ -92,9 +92,16 @@ describe('mobile structured agent-session launch', () => {
 
   it('sends a Hermes resume id in the create fingerprint', async () => {
     const client = clientReturning({ ok: true, result: { supported: true } }, acceptedCreate)
-    await createMobileStructuredAgentSession(client, 'workspace-1', 'hermes', {
-      resumeFrom: { providerSessionId: '11111111-1111-4111-8111-111111111111' }
-    })
+    await createMobileStructuredAgentSession(
+      client,
+      'workspace-1',
+      'hermes',
+      undefined,
+      undefined,
+      {
+        resumeFrom: { providerSessionId: '11111111-1111-4111-8111-111111111111' }
+      }
+    )
     const params = client.sendRequest.mock.calls[1]?.[1] as {
       agent: string
       resumeFrom?: { providerSessionId: string }
