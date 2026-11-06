@@ -50,6 +50,7 @@ function render(text: string): ReactTestRenderer {
           value: {
             openImage,
             openActions: () => {},
+            openRewind: () => {},
             imageSource: { client: stubRpcClient(), worktreeId: 'worktree' }
           }
         },
