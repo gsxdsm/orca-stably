@@ -1,7 +1,6 @@
-import {
-  assertSendLifecycleAdmission,
-  isDispatchMutationMessageType
-} from './send-lifecycle-admission'
+/* eslint-disable max-lines -- Why: send validation, routing and receipts stay in one handler module. */
+import { assertSendLifecycleAdmission } from './send-lifecycle-admission'
+import { isDispatchMutationMessageType } from '../../../../../../shared/rpc-contract/orchestration-params'
 import { scheduledWaitFromMessage } from '../../../../orchestration/scheduled-wait-message'
 import { defineMethod } from '../../../core'
 import { OrchestrationError } from '../../../../orchestration/orchestration-error'
