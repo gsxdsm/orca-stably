@@ -68,10 +68,12 @@ export async function initializeAcpStructuredSession(
   // Choose authentication using the execution host's launch environment.
   const authMethodId = spec.authMethod?.({
     advertised: (initialized.authMethods ?? []).map((method) => method.id),
-    env: launch.env
+    env: launch.env,
+    antigravityChatAuth: launch.antigravityChatAuth
   })
   const setup = {
     authMethodId,
+    authMethodUnavailableMessage: spec.authMethodUnavailableMessage,
     resumePreference: spec.resumePreference,
     ...(spec.dialect.loadedSessionMissing
       ? { loadedSessionMissing: spec.dialect.loadedSessionMissing }

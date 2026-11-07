@@ -41,6 +41,7 @@ import {
 import { OrcadTerminalCensusParamsSchema } from '../orcad-terminal-census'
 import { CrewSubscribeParams } from '../orchestration-crew'
 import { RegisterDeviceKeyParamsSchema } from '../remote-runtime/pairing/device-key-registration-contract'
+import { PairingCreateOfferParamsSchema } from '../remote-runtime/pairing/pairing-create-offer-contract'
 import {
   PairingGetEndpointsParamsSchema,
   PairingProvisionRelayParamsSchema
@@ -89,6 +90,7 @@ import {
 import {
   AntigravityAccountMutationParams,
   AntigravityAccountTargetParams,
+  AntigravityChatAuthConfigSchema,
   AntigravityChatSignInCompleteParams,
   AntigravityChatSignInFlowParams
 } from './antigravity-accounts-params'
@@ -294,6 +296,7 @@ import {
   WorktreeSelector as WorktreeSelectorOfGitParams
 } from './git-params'
 import { BindableAccounts, ValidateAccountBinding } from './github-account-binding-params'
+import { UploadGitHubAttachment } from './github-attachment-params'
 import { CreateIssue, Issue, IssueComment, UpdateIssue } from './github-issue-params'
 import {
   ClearProjectItemField,
@@ -517,12 +520,15 @@ import {
 import { WorkerStartParams } from './orchestration-worker-start-params'
 import { WorkerDispatchParams as WorkerDispatchParamsOfOrchestrationWorkerStopParams } from './orchestration-worker-stop-params'
 import {
+  PluginCatalogAddParams,
+  PluginCatalogRemoveParams,
   PluginDevEmitParams,
   PluginDevInspectParams,
   PluginDevLoadParams,
   PluginDevRequestParams,
   PluginDevUnloadParams,
   PluginGetLogsParams,
+  PluginInstallParams,
   PluginInvokeCommandParams,
   PluginOpenParams,
   PluginReadPanelEntryParams,
@@ -534,6 +540,8 @@ import {
   PluginShotEditorParams,
   PluginShotParams,
   PluginShotReplayParams,
+  PluginUninstallParams,
+  PluginUpdateParams,
   PluginsPanelActionParams
 } from './plugins-params'
 import {
@@ -725,6 +733,7 @@ import {
   WorktreeResolveCallerParent,
   WorktreeResolveMrBase,
   WorktreeResolvePrBase,
+  WorktreeRunApprovedSetup,
   WorktreeSelector as WorktreeSelectorOfWorktreeParams,
   WorktreeSet,
   WorktreeSleepParams,
@@ -755,6 +764,8 @@ export const RPC_PARAMS_BY_METHOD = {
   'accounts.addCodexFromHome': AddCodexFromHomeParams,
   'accounts.addDataFromHome': AddDataAccountParams,
   'accounts.antigravityAddCurrent': AntigravityAccountTargetParams,
+  'accounts.antigravityChatAuthApply': AntigravityChatAuthConfigSchema,
+  'accounts.antigravityChatAuthGet': null,
   'accounts.antigravityChatSignInCancel': AntigravityChatSignInFlowParams,
   'accounts.antigravityChatSignInComplete': AntigravityChatSignInCompleteParams,
   'accounts.antigravityChatSignInStart': null,
@@ -1148,6 +1159,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'github.updatePR': UpdatePr,
   'github.updatePRState': UpdatePrState,
   'github.updatePRTitle': UpdatePrTitle,
+  'github.uploadAttachment': UploadGitHubAttachment,
   'github.validateAccountBinding': ValidateAccountBinding,
   'github.workItem': WorkItem,
   'github.workItemByOwnerRepo': WorkItemByOwnerRepo,
@@ -1352,10 +1364,14 @@ export const RPC_PARAMS_BY_METHOD = {
   'orchestration.workerStart': WorkerStartParams,
   'orchestration.workerStop': WorkerDispatchParamsOfOrchestrationWorkerStopParams,
   'orchestration.workerTerminalUserInput': OrchestrationWorkerSubjectParams,
+  'pairing.createOffer': PairingCreateOfferParamsSchema,
   'pairing.delegatedMobileDevice.sync': DelegatedMobileDeviceSyncParamsSchema,
   'pairing.getEndpoints': PairingGetEndpointsParamsSchema,
   'pairing.provisionRelay': PairingProvisionRelayParamsSchema,
   'pairing.registerDeviceKey': RegisterDeviceKeyParamsSchema,
+  'plugins.catalogAdd': PluginCatalogAddParams,
+  'plugins.catalogList': null,
+  'plugins.catalogRemove': PluginCatalogRemoveParams,
   'plugins.consent': PluginRpcConsentParams,
   'plugins.devEmit': PluginDevEmitParams,
   'plugins.devHook': PluginDevEmitParams,
@@ -1364,6 +1380,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'plugins.devRequest': PluginDevRequestParams,
   'plugins.devUnload': PluginDevUnloadParams,
   'plugins.getLogs': PluginGetLogsParams,
+  'plugins.install': PluginInstallParams,
   'plugins.invokeCommand': PluginInvokeCommandParams,
   'plugins.list': null,
   'plugins.open': PluginOpenParams,
@@ -1377,6 +1394,8 @@ export const RPC_PARAMS_BY_METHOD = {
   'plugins.shotChrome': PluginShotChromeParams,
   'plugins.shotEditor': PluginShotEditorParams,
   'plugins.shotReplay': PluginShotReplayParams,
+  'plugins.uninstall': PluginUninstallParams,
+  'plugins.update': PluginUpdateParams,
   'preflight.check': PreflightCheck,
   'preflight.detectAgents': PreflightProjectAgentDetection,
   'preflight.detectRemoteAgents': PreflightDetectRemoteAgents,
@@ -1582,6 +1601,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'worktree.resolveMrBase': WorktreeResolveMrBase,
   'worktree.resolvePrBase': WorktreeResolvePrBase,
   'worktree.rm': WorktreeRemove,
+  'worktree.runApprovedSetup': WorktreeRunApprovedSetup,
   'worktree.set': WorktreeSet,
   'worktree.show': WorktreeSelectorOfWorktreeParams,
   'worktree.sleep': WorktreeSleepParams,

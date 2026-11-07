@@ -1,3 +1,7 @@
+import {
+  providerDiagnostic,
+  withProviderDiagnostic
+} from '../../shared/agent-session/failures/agent-session-failure'
 import type { z } from 'zod'
 import type { AcpLoadedSessionBody } from './acp-dialects/acp-dialect'
 import { AcpAuthRequiredError, AcpRpcError, acpAuthRequiredError } from './acp-errors'
@@ -31,6 +35,7 @@ export type AcpSessionStartOptions = NewSessionRequest & {
   authMethodId?: string
   /** When set, an accepted load can still mean the session is gone. */
   loadedSessionMissing?: (response: AcpLoadedSessionBody) => boolean
+  authMethodUnavailableMessage?: string
 }
 type Request = <T>(
   method: string,
@@ -51,6 +56,7 @@ export async function setupAcpSession(
       resumePreference,
       authMethodId: _auth,
       loadedSessionMissing,
+      authMethodUnavailableMessage: _unavailable,
       ...params
     } = options
     if (sessionId === undefined) {
@@ -103,6 +109,12 @@ export async function setupAcpSession(
     const required = acpAuthRequiredError(error, initialized.authMethods)
     const method = initialized.authMethods?.find((method) => method.id === options.authMethodId)
     if (!method) {
+      if (initialized.authMethods && options.authMethodId && options.authMethodUnavailableMessage) {
+        throw withProviderDiagnostic(
+          new AcpRpcError(-32602, options.authMethodUnavailableMessage),
+          providerDiagnostic(options.authMethodUnavailableMessage, 'person')
+        )
+      }
       throw required
     }
     try {

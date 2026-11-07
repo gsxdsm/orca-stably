@@ -30,7 +30,9 @@ vi.mock('./MobileNativeChatActionGap', () => ({ MobileNativeChatActionGap: () =>
 vi.mock('./MobileNativeChatComposerAttachments', () => ({
   MobileNativeChatComposerAttachments: () => null
 }))
-vi.mock('./MobileNativeChatComposerMenu', () => ({ MobileNativeChatComposerMenu: () => null }))
+vi.mock('./MobileNativeChatComposerMenu', () => ({
+  MobileNativeChatComposerSuggestions: () => null
+}))
 
 type ComposerProps = ComponentProps<typeof MobileNativeChatComposer>
 

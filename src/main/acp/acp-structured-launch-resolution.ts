@@ -10,6 +10,12 @@ import {
 } from '../native-chat/structured-agent-command-resolution'
 // Launch from durable record values for the working directory, pinned account and resume session.
 
+import {
+  resolveAntigravityChatAuthConfig,
+  type AntigravityChatAuthConfig
+} from '../../shared/antigravity-chat-auth-config'
+import type { GlobalSettings } from '../../shared/global-settings-types'
+import { assertAntigravityChatAuthPublished } from '../antigravity/antigravity-chat-auth-publication'
 import { delimiter } from 'node:path'
 import { homedir } from 'node:os'
 import { agentSessionProviderHandleChainHead } from '../../shared/agent-session/lifecycle/agent-session-provider-handle'
@@ -23,9 +29,7 @@ import {
   resolveInstalledRuntimeRelease
 } from '../node-runtime/managed-runtime-release'
 import { hasExplicitTuiLaunchCommand } from '../../shared/agent-launch/startup/tui-agent-launch-command-override'
-import { readAgentJournalTurn } from '../../shared/agent-session/lifecycle/agent-session-turn-record'
 import type { JournalLoad } from '../native-chat/agent-session-journal/replay/journal-open'
-import { isProviderTimelineTurnInNamespace } from '../native-chat/agent-session-timeline/provider-timeline-identity'
 import type { StructuredAgentLaunchPartResolver } from '../runtime/agent-session/launch/structured-agent-launch-composition'
 import { STRUCTURED_CHILD_ENV_TO_DELETE } from '../runtime/agent-session/environment/structured-session-child-env'
 import {
@@ -34,12 +38,14 @@ import {
   withNativeChatVisualsEnv
 } from '../native-chat/native-chat-visuals-delivery'
 import type { AcpLaunchSpec } from './acp-launch-specs'
+import { nothingExchangedOn } from './acp-structured-resume-history'
 import { acpUnannouncedLosses } from './acp-session-reopen-failure'
 import { loadAcpVisualsSkill, type AcpLaunchVisualsDeps } from './acp-structured-launch-visuals'
 import { assertAcpDependency } from '../hermes/hermes-acp-preflight'
 
 export type AcpStructuredLaunch = StructuredAgentCommand & {
   spec: AcpLaunchSpec
+  antigravityChatAuth?: AntigravityChatAuthConfig
   args: string[]
   cwd: string
   /** Sealed for spawns; recovery reads use the unsealed agent environment. */
@@ -68,13 +74,16 @@ export type AcpStructuredLaunchPartDeps = {
   dataDirectory: string
 } & Pick<AcpLaunchVisualsDeps, 'logger'>
 
+export type AcpLaunchSettings = StructuredAgentCommandSettings &
+  Partial<Pick<GlobalSettings, 'antigravityChatAuth'>>
+
 export type AcpLaunchInvocationDeps = {
   operation?: StructuredAgentResolutionOperation
   /** Reread per acquisition. */
   resolveEnvironment: () => Promise<Record<string, string>>
   resolveLaunchEnv?: (agent: string) => Record<string, string>
   /** Reread per acquisition; absent uses the stock command. */
-  resolveCommandSettings?: () => StructuredAgentCommandSettings
+  resolveCommandSettings?: () => AcpLaunchSettings
   /** Optional environment refresh after a missing-program lookup. */
   refreshEnvironmentAfterMiss?: (askedAt: number) => Promise<void>
   /** Resolves relative PATH entries against the launch directory. */
@@ -83,6 +92,12 @@ export type AcpLaunchInvocationDeps = {
   AcpStructuredLaunchPartDeps,
   'resolveCommand' | 'homePath' | 'inheritedEnv' | 'dataDirectory'
 >
+
+export type AcpLaunchInvocation = StructuredAgentCommand & {
+  env: Record<string, string>
+  envToDelete: string[]
+  antigravityChatAuth?: AntigravityChatAuthConfig
+}
 
 /** Prefer explicit commands, then managed releases, then complete pinned copies on PATH. */
 export function resolveAcpLaunchCommand(
@@ -130,7 +145,7 @@ export function resolveAcpLaunchInvocation(
   spec: AcpLaunchSpec,
   accountHome: AgentSessionAccountHome,
   deps: AcpLaunchInvocationDeps
-): Promise<StructuredAgentCommand & { env: Record<string, string>; envToDelete: string[] }> {
+): Promise<AcpLaunchInvocation> {
   return resolveAgainAfterRefreshOnMissingProgram(
     () => readAcpLaunchInvocation(spec, accountHome, deps),
     deps.refreshEnvironmentAfterMiss,
@@ -143,7 +158,7 @@ async function readAcpLaunchInvocation(
   spec: AcpLaunchSpec,
   accountHome: AgentSessionAccountHome,
   deps: AcpLaunchInvocationDeps
-): Promise<StructuredAgentCommand & { env: Record<string, string>; envToDelete: string[] }> {
+): Promise<AcpLaunchInvocation> {
   assertStructuredAgentResolutionCurrent(deps.operation)
   const base = await deps.resolveEnvironment()
   assertStructuredAgentResolutionCurrent(deps.operation)
@@ -153,11 +168,21 @@ async function readAcpLaunchInvocation(
   })
   const envToDelete = spec.scrubEnvironment?.(env, deps.inheritedEnv ?? process.env) ?? []
   Object.assign(env, spec.env)
-  const invocation = resolveAcpLaunchCommand(spec, env, {
-    ...deps,
-    ...(deps.resolveCommandSettings ? { commandSettings: deps.resolveCommandSettings() } : {})
-  })
-  return { ...invocation, env, envToDelete }
+  const commandSettings = deps.resolveCommandSettings?.()
+  if (spec.agent === 'antigravity') {
+    assertAntigravityChatAuthPublished(commandSettings?.antigravityChatAuth)
+  }
+  const antigravityChatAuth =
+    spec.agent === 'antigravity'
+      ? resolveAntigravityChatAuthConfig(commandSettings?.antigravityChatAuth)
+      : undefined
+  const invocation = resolveAcpLaunchCommand(spec, env, { ...deps, commandSettings })
+  return {
+    ...invocation,
+    env,
+    envToDelete,
+    ...(antigravityChatAuth ? { antigravityChatAuth } : {})
+  }
 }
 
 export function acpStructuredLaunchPart(
@@ -166,10 +191,8 @@ export function acpStructuredLaunchPart(
 ): StructuredAgentLaunchPartResolver<AcpStructuredLaunch> {
   return async (basis, identity) => {
     const { record } = basis
-    const { env, envToDelete, command, prefixArgs } = await resolveAcpLaunchInvocation(
-      spec,
-      record.accountHome,
-      {
+    const { env, envToDelete, command, prefixArgs, antigravityChatAuth } =
+      await resolveAcpLaunchInvocation(spec, record.accountHome, {
         resolveEnvironment: basis.baseEnvironment,
         resolveLaunchEnv: () => basis.launchEnv(),
         resolveCommandSettings: basis.commandSettings,
@@ -179,8 +202,7 @@ export function acpStructuredLaunchPart(
         ...(deps.homePath ? { homePath: deps.homePath } : {}),
         ...(deps.inheritedEnv ? { inheritedEnv: deps.inheritedEnv } : {}),
         dataDirectory: deps.dataDirectory
-      }
-    )
+      })
     const cwd = await basis.launchDirectory()
     await assertAcpDependency(spec.agent, { program: command, prefixArgs, cwd, env })
     const visuals = spec.visualsSkill ? await basis.visuals() : null
@@ -213,6 +235,7 @@ export function acpStructuredLaunchPart(
     return {
       launch: {
         spec,
+        ...(antigravityChatAuth ? { antigravityChatAuth } : {}),
         command,
         prefixArgs,
         args: [...prefixArgs, ...args],
@@ -244,31 +267,4 @@ export function acpStructuredLaunchPart(
       ]
     }
   }
-}
-
-/** Missing journals count as empty; read errors or damaged/newer journals cannot prove no exchange. */
-function nothingExchangedOn(
-  readJournal: AcpStructuredLaunchPartDeps['readJournal'],
-  sessionId: string,
-  nativeId: string
-): boolean {
-  let load: JournalLoad | null
-  try {
-    load = readJournal(sessionId)
-  } catch {
-    return false
-  }
-  if (!load) {
-    return true
-  }
-  if (load.damage || load.newer) {
-    return false
-  }
-  for (const item of load.state.items.values()) {
-    const turn = readAgentJournalTurn(item.body)
-    if (turn && isProviderTimelineTurnInNamespace(turn.turnId, nativeId)) {
-      return false
-    }
-  }
-  return true
 }
