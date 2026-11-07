@@ -11,7 +11,7 @@ import {
 import {
   ensureLocalRuntimeCapabilities,
   subscribeLocalRuntimeCapabilitiesKnown
-} from './local-runtime-capabilities'
+} from './hosts/capabilities/local-runtime-capabilities'
 import { localStructuredChatsInUse, newAgentLaunchesMayOpenChats } from './local-structured-chats'
 
 // Paired hosts on older builds install structured storage just to answer; ask them only once chat is in use.

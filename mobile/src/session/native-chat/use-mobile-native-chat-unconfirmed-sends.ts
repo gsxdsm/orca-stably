@@ -25,6 +25,7 @@ export function settleUnknownChatSend(args: {
     text: string,
     options?: { preserveConversationCommands?: boolean }
   ) => void
+  onHandBack?: () => void
   onSendError: (message: string) => void
 }): void {
   const { chat, hold, origin, wireText, syncComposer, draftText, restoreRejectedDraft } = args
@@ -44,6 +45,7 @@ export function settleUnknownChatSend(args: {
       return
     }
     restoreRejectedDraft(origin, draftText)
+    args.onHandBack?.()
     onSendError(UNCONFIRMED_SEND_RESTORED_MESSAGE)
   })
 }

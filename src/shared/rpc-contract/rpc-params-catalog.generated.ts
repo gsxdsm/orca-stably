@@ -42,6 +42,7 @@ import { OrcadTerminalCensusParamsSchema } from '../orcad-terminal-census'
 import { CrewSubscribeParams } from '../orchestration-crew'
 import { RegisterDeviceKeyParamsSchema } from '../remote-runtime/pairing/device-key-registration-contract'
 import { PairingCreateOfferParamsSchema } from '../remote-runtime/pairing/pairing-create-offer-contract'
+import { ExchangePairingTicketParamsSchema } from '../remote-runtime/pairing/ticket-exchange-contract'
 import {
   PairingGetEndpointsParamsSchema,
   PairingProvisionRelayParamsSchema
@@ -158,7 +159,7 @@ import {
   Viewport,
   Wait
 } from './browser-params'
-import { ScreencastUnsubscribe } from './browser-screencast-params'
+import { ScreencastAck, ScreencastUnsubscribe } from './browser-screencast-params'
 import { BrowserOpenUrlParams, BrowserTabCreateParams } from './browser-tab-create-params'
 import { ClientEventsSubscribeParams, ClientEventsUnsubscribeParams } from './client-events-params'
 import {
@@ -287,6 +288,7 @@ import {
   GitHistory,
   GitPush,
   GitRebaseFromBase,
+  GitRefs,
   GitRemoteCommitUrl,
   GitRemoteFileUrl,
   GitResolveConflict,
@@ -945,6 +947,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'browser.profileList': null,
   'browser.reload': ExpectUrlBrowserTarget,
   'browser.screencast': Screencast,
+  'browser.screencast.ack': ScreencastAck,
   'browser.screencast.unsubscribe': ScreencastUnsubscribe,
   'browser.screenshot': Screenshot,
   'browser.scroll': Scroll,
@@ -1102,6 +1105,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'git.pull': GitTargetedRemote,
   'git.push': GitPush,
   'git.rebaseFromBase': GitRebaseFromBase,
+  'git.refs': GitRefs,
   'git.remoteCommitUrl': GitRemoteCommitUrl,
   'git.remoteFileUrl': GitRemoteFileUrl,
   'git.resolveConflict': GitResolveConflict,
@@ -1366,6 +1370,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'orchestration.workerTerminalUserInput': OrchestrationWorkerSubjectParams,
   'pairing.createOffer': PairingCreateOfferParamsSchema,
   'pairing.delegatedMobileDevice.sync': DelegatedMobileDeviceSyncParamsSchema,
+  'pairing.exchangeTicket': ExchangePairingTicketParamsSchema,
   'pairing.getEndpoints': PairingGetEndpointsParamsSchema,
   'pairing.provisionRelay': PairingProvisionRelayParamsSchema,
   'pairing.registerDeviceKey': RegisterDeviceKeyParamsSchema,

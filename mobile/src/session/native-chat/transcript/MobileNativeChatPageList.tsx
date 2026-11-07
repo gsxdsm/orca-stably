@@ -386,11 +386,12 @@ export function MobileNativeChatPageList({
         return
       }
       // The jump's own frames and the momentum stop are not the reader taking over.
+      // RN Web repeats the last scroll event 100 ms after scrolling stops; keep our write so that repeat is ours too.
       const byReader =
         !align.aligning.current &&
         (own.current === null || Math.abs(s.scrollTop - own.current) >= 1)
-      own.current = null
       if (byReader) {
+        own.current = null
         readerScrolledAt.current = Date.now()
       }
       onEndDistance(Math.max(0, -s.scrollTop), byReader)

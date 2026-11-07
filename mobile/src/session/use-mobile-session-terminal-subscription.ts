@@ -13,6 +13,7 @@ import {
   runTerminalViewportFitPass
 } from './mobile-terminal-viewport-resubscribe'
 import { updateTerminalCwdFromStreamEvent } from './mobile-session-route-helpers'
+import { createTerminalOutputAck, writeTerminalStreamOutput } from '../terminal/terminal-output-ack'
 import type { MobileSessionTerminalSubscriptionFoundationModel } from './use-mobile-session-terminal-subscription-foundation'
 
 const snapshotByteBudget = mobileTerminalSnapshotByteBudget()
@@ -131,6 +132,14 @@ export function useMobileSessionTerminalSubscription(
         }
       })
 
+      // Lease-only streams carry no output, so only a rendered terminal asks for credit.
+      const outputAck = createTerminalOutputAck({
+        client,
+        capabilities: nativeChatTerminalStream.mobileNativeChatTerminalCapabilities(covered),
+        terminal: covered ? undefined : getTerminalRef(handle),
+        isCurrent: lifetime.isCurrent
+      })
+
       // A path switch replays this listener on a new stream whose snapshot covers output the old one never delivered.
       let snapshotStreamId: unknown
 
@@ -141,7 +150,7 @@ export function useMobileSessionTerminalSubscription(
           terminal: handle,
           client: { id: clientId, type: 'mobile' as const },
           viewport: sentViewport,
-          capabilities: nativeChatTerminalStream.mobileNativeChatTerminalCapabilities(covered),
+          capabilities: outputAck.capabilities,
           // Omit absent native budgets to preserve older hosts’ subscribe shape.
           ...(snapshotByteBudget === undefined ? {} : { snapshotByteBudget })
         },
@@ -157,6 +166,7 @@ export function useMobileSessionTerminalSubscription(
             return
           }
           if (data.type === 'subscribed') {
+            outputAck.start(data)
             markNativeChatInputLeaseReady(handle)
             return
           }
@@ -168,6 +178,8 @@ export function useMobileSessionTerminalSubscription(
               handle
             )
           ) {
+            // Ack output dropped unwritten too, or the host's window leaks and the stream stalls.
+            outputAck.owe(data)?.()
             return
           }
           // Reject superseded resize sequences; fresh scrollback resets the mark or reconnect can blank the terminal.
@@ -245,23 +257,13 @@ export function useMobileSessionTerminalSubscription(
             updateTerminalCwdFromStreamEvent(handle, data, terminalCwdRef.current)
           } else if (data.type === 'data') {
             updateTerminalCwdFromStreamEvent(handle, data, terminalCwdRef.current)
-            // Missing refs explain input-working/blank-output states after unmount or missing scrollback.
-            const dataRef = getTerminalRef(handle)
-            if (!dataRef) {
-              console.log('[fit][session] data DROPPED — no terminal ref', {
-                handle: handle.slice(-8),
-                chunkLen: typeof data.chunk === 'string' ? data.chunk.length : 0,
-                initialized: initializedHandlesRef.current.has(handle)
-              })
-              return
-            }
-            if (!initializedHandlesRef.current.has(handle)) {
-              console.log('[fit][session] data RECEIVED before scrollback', {
-                handle: handle.slice(-8),
-                chunkLen: typeof data.chunk === 'string' ? data.chunk.length : 0
-              })
-            }
-            dataRef.write(data.chunk as string)
+            writeTerminalStreamOutput({
+              handle,
+              chunk: data.chunk as string,
+              terminal: getTerminalRef(handle),
+              initialized: initializedHandlesRef.current.has(handle),
+              settle: outputAck.owe(data)
+            })
           } else if (data.type === 'resized') {
             updateTerminalCwdFromStreamEvent(handle, data, terminalCwdRef.current)
             // Width reflow needs full-buffer reinit; geometry-only events just resize.

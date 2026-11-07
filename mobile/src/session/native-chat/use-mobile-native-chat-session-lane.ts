@@ -78,6 +78,7 @@ export function useMobileNativeChatSessionLane({
   })
   const structuredSession = useMobileStructuredAgentSession({
     client,
+    hostId,
     pairedHostClient,
     sessionId: structured ? sessionId : null,
     sourceIdentity,
