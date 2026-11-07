@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the structured session hook keeps queue, card and catalog wiring in one place. */
 import { asyncQuestionSourceScope as questionSourceScope } from '../../../src/shared/native-chat/input/native-chat-ask'
 import { useMemo, useRef } from 'react'
 import { encodeNativeChatTranscriptIdentity } from '../../../src/shared/native-chat/transcript/native-chat-transcript-retention'

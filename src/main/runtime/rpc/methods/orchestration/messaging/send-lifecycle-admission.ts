@@ -8,7 +8,7 @@ import {
 } from '../../../../orchestration/scheduled-wait-message'
 import { clearWorkerScheduledWait } from '../../../../orchestration/db/worker-scheduled-waits'
 import { assertLifecycleCallerIsNotAnotherParty } from './lifecycle-caller-fence'
-import { isWorkerReportOutcome, parseRemoteWorkerPayload } from '../schemas'
+import { isWorkerReportOutcome, parseRemoteWorkerPayload } from './message-payload'
 
 export type MessageProgressCaller = {
   evidence?: OrchestrationCompatibilityEvidence

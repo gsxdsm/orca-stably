@@ -1,9 +1,9 @@
-import { RuntimeRpcCallError } from '@/runtime/runtime-rpc-result'
+import { RuntimeRpcCallError } from '@/runtime/rpc/calls/runtime-rpc-result'
 import { isRecoverableRemoteRuntimeConnectionError } from '../../../../shared/remote-runtime/remote-runtime-client-error-classification'
 import { createNonSecureContextUuid as createBrowserUuid } from '../../../../shared/non-secure-context-uuid'
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { callRuntimeRpc } from '@/runtime/runtime-rpc-client'
-import { getRemoteRuntimePtyOwner } from '@/runtime/runtime-terminal-stream'
+import { callRuntimeRpc } from '@/runtime/rpc/calls/runtime-rpc-call'
+import { getRemoteRuntimePtyOwner } from '@/runtime/hosted-terminals/identity/remote-runtime-pty-owner'
 import { toHostSessionPaneKey } from '../../../../shared/workspace-layout/terminal-surface-id'
 import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
 import {

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: send, hold and hand-back share one hook so unconfirmed-send ordering stays one behavior surface. */
 import { useCallback, type MutableRefObject } from 'react'
 import type { RpcClient } from '../../../transport/rpc-client'
 import {

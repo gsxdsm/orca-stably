@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { hashKey, useQueryClient } from '@tanstack/react-query'
 import type { RpcClient } from '../transport/rpc-client'
 import { runtimeStatusProbeEpoch } from '../transport/runtime-status-probe'
@@ -98,16 +98,19 @@ export function useMobileNewTabAgentOptions(args: {
         : detection.isError || settings.isError
           ? 'error'
           : 'loading'
-  const [launchContext, setLaunchContext] = useState<MobileStructuredChatLaunchContext | null>(
-    null
-  )
-  const hostCapabilities = args.hostCapabilities
+  const [launchContext, setLaunchContext] = useState<MobileStructuredChatLaunchContext | null>(null)
+  const capabilitiesRef = useRef(args.hostCapabilities)
+  capabilitiesRef.current = args.hostCapabilities
+  const capabilitiesKey = args.hostCapabilities?.join('\0') ?? null
   useEffect(() => {
     if (!client || !connected || loadState !== 'loaded') {
       return
     }
     let stale = false
-    void loadMobileStructuredChatLaunchContext({ client, hostCapabilities })
+    void loadMobileStructuredChatLaunchContext({
+      client,
+      hostCapabilities: capabilitiesRef.current
+    })
       .catch(() => null)
       .then((context) => {
         if (!stale) {
@@ -117,7 +120,7 @@ export function useMobileNewTabAgentOptions(args: {
     return () => {
       stale = true
     }
-  }, [client, connected, hostCapabilities, loadState])
+  }, [capabilitiesKey, client, connected, loadState])
   const options = useMemo(
     () =>
       loadState === 'loaded' && detected?.kind === 'detected'
