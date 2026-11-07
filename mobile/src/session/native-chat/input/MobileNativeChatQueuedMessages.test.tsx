@@ -235,7 +235,6 @@ describe('MobileNativeChatQueuedMessages', () => {
     function Tray(props: Parameters<typeof useMobileNativeChatComposerTray>[0]['queued']) {
       tray = useMobileNativeChatComposerTray({
         queued: props,
-        taskList: null,
         backgroundTasks: null
       })
       return createElement('View', null, tray.content)
