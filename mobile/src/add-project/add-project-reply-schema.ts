@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { salvagedOptional, salvagingArray } from '../../../src/shared/zod-salvage'
 
 // Read only what the sheet shows or hands to New Workspace; the host list re-reads the full repo afterwards.

@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import type { AgentSessionQueuedMessage } from '../agent-session/requests/agent-session-queued-message-wire'
 export { NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY } from './native-chat-terminal-queue-capability'
 

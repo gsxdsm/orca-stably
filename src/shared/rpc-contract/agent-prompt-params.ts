@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { Identifier } from './structured-agent-session-identifiers'
 
 export const AGENT_PROMPT_OPTION_ROLES = ['approve', 'approve-always', 'deny', 'other'] as const

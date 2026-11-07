@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import type { AgentType } from '../agent-status/contracts/agent-status-types'
 
 // Expose the same transcript readers over RPC for paired mobile/web native chat.

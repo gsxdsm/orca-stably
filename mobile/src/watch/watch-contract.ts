@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 
 const watchId = z.string().min(1)
 const watchConnection = z.enum(['connected', 'connecting', 'offline'])
