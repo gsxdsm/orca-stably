@@ -11,12 +11,12 @@ import { frameNativeChatSubagentTranscript } from '../../../../shared/native-cha
 import { nativeChatTaskListPredecessors } from '../../../../shared/native-chat/input/native-chat-task-list-history'
 import { linkUnrecordedSubagentSpawns } from '../../../../shared/native-chat/input/native-chat-unlinked-subagent-spawn'
 import type { NativeChatMessage } from '../../../../shared/native-chat/native-chat-types'
-import type { NativeChatOlderPageResult } from './native-chat-pagination'
+import type { NativeChatOlderPageResult } from './viewport/history/native-chat-pagination'
 import {
   useNativeChatSubagentPage,
   type NativeChatSubagentPageRead
 } from './use-native-chat-subagent-page'
-import { useNativeChatSubagentSections } from './use-native-chat-subagent-sections'
+import { useNativeChatSubagentSections } from './subagents/use-native-chat-subagent-sections'
 
 const NO_SUBAGENT_ROWS: ReadonlyMap<string, readonly NativeChatSubagentRow[]> = new Map()
 

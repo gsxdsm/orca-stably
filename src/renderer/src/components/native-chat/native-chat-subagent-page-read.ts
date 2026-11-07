@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { AgentType } from '../../../../shared/agent-status/contracts/agent-status-types'
-import type { NativeChatSessionTransport } from './native-chat-session-transport'
+import type { NativeChatSessionTransport } from './session/terminal/read/native-chat-session-transport'
 import type { NativeChatReadSessionResult } from '../../../../preload/api/native-chat-api'
 import type { NativeChatSubagentPageRead } from './use-native-chat-subagent-page'
 

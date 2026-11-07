@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { NativeChatMessage } from '../../../../shared/native-chat/native-chat-types'
-import type { NativeChatOlderPageResult } from './native-chat-pagination'
+import type { NativeChatOlderPageResult } from './viewport/history/native-chat-pagination'
 
 const INITIAL_LIMIT = 40
 const PAGE_LIMIT = 60

@@ -1,4 +1,4 @@
-import { writeNativeChatFontSize } from '@/components/native-chat/native-chat-font-size-write'
+import { writeNativeChatFontSize } from '@/components/native-chat/appearance/native-chat-font-size-write'
 import { chatWheelPinchOwnsZoom } from '@/components/native-chat/native-chat-wheel-pinch'
 import { applyUIZoom } from '@/lib/ui-zoom'
 import { computeEditorFontSize, nextEditorFontZoomLevel } from '@/lib/editor-font-zoom'

@@ -18,7 +18,7 @@ import type {
   NativeChatMessage,
   NativeChatSubagentState
 } from '../../../../shared/native-chat/native-chat-types'
-import { NativeChatTaskList } from './NativeChatTaskList'
+import { NativeChatTaskList } from './tools/tasks/NativeChatTaskList'
 import { useNativeChatSubagentDismissals } from './use-native-chat-subagent-dismissals'
 
 function stateLabel(state: NativeChatSubagentState): string {

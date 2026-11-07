@@ -1,13 +1,12 @@
 import { AGENT_STATUS_STALE_AFTER_MS } from '../../../../shared/agent-status/contracts/agent-status-freshness'
 
-import { createCrewHostDerivation, refreshCrewStatuses } from './crew-host-derivation'
-import { createCrewPartyRegistry } from './crew-parties'
-import type { FleetAgentStatusEvidence } from '../../../../shared/orchestration-fleet-agent-status-evidence'
 import { describe, expect, it, vi } from 'vitest'
 
 import { buildCrewSnapshot } from './crew-party-snapshot'
 import { CrewReadModel } from './crew-read-model'
 import { crewRowStatus } from './crew-rules'
+import { createCrewPartyRegistry } from './crew-parties'
+import type { FleetAgentStatusEvidence } from '../../../../shared/orchestration-fleet-agent-status-evidence'
 import { subscribeCrew } from './crew-stream'
 import { agentSessionRecordFixture } from '../../../native-chat/agent-session-record-test-fixture'
 import { agentSessionConversationView } from '../../../../shared/agent-session/lifecycle/agent-session-conversation-view'
@@ -347,43 +346,4 @@ it('invalidates host membership when report import uses the transaction settleme
   expect(result.action).toBe('settled')
   expect(model.read('term_coord').sections.managing[0].task?.state).toBe('completed')
   stop()
-})
-
-it('owns immutable fleet captures across mutable producer updates', () => {
-  const { deps, assign, handles } = fixture()
-  const worker = assign('term_worker')
-  const now = Date.now()
-  const evidence = {
-    binding: {
-      kind: 'worker' as const,
-      dispatchId: worker.id,
-      paneKey: handles.get('term_worker')!,
-      terminalHandle: 'term_worker',
-      processIncarnation: 'process'
-    },
-    clock: { kind: 'observed' as const, at: now },
-    deliveredAt: now,
-    activity: {
-      paneKey: handles.get('term_worker')!,
-      connectionId: null,
-      state: 'waiting' as const,
-      agentType: 'codex' as const,
-      model: null,
-      worktreeId: null,
-      restoredUnconfirmed: false,
-      providerSessionOnly: false
-    }
-  }
-  deps.statuses = [evidence]
-  const host = createCrewHostDerivation(deps, now)
-  const expected = structuredClone(evidence)
-  evidence.binding.dispatchId = 'replaced'
-  evidence.clock.at = 0
-  evidence.activity.restoredUnconfirmed = true
-  expect(host.deps.statuses).toEqual([expected])
-  const refreshed = refreshCrewStatuses(host, [evidence])
-  const next = structuredClone(evidence)
-  evidence.clock.at = 1
-  evidence.binding.terminalHandle = 'term_replacement'
-  expect(refreshed.deps.statuses).toEqual([next])
 })

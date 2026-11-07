@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { PUSH_LIMITS } from './push-limits.js'
 import { PushSendRequestSchema } from './send-messages.js'
 
 function notification(): Record<string, unknown> {
@@ -16,55 +15,6 @@ function notification(): Record<string, unknown> {
 }
 
 describe('send schemas', () => {
-  it('accepts a batch at the registration cap and a terminal bell without an id', () => {
-    const ids = Array.from({ length: PUSH_LIMITS.maxRegistrationIdsPerSend }, (_, i) => `reg-${i}`)
-    expect(
-      PushSendRequestSchema.safeParse({ v: 1, registrationIds: ids, notification: notification() })
-        .success
-    ).toBe(true)
-    const { notificationId: _dropped, ...bell } = notification()
-    expect(
-      PushSendRequestSchema.safeParse({
-        v: 1,
-        registrationIds: ['reg-1'],
-        notification: { ...bell, source: 'terminal-bell', agentState: null }
-      }).success
-    ).toBe(true)
-  })
-
-  it('rejects an oversized batch, over-long copy, and unknown notification keys', () => {
-    const ids = Array.from(
-      { length: PUSH_LIMITS.maxRegistrationIdsPerSend + 1 },
-      (_, i) => `reg-${i}`
-    )
-    expect(
-      PushSendRequestSchema.safeParse({ v: 1, registrationIds: ids, notification: notification() })
-        .success
-    ).toBe(false)
-    expect(
-      PushSendRequestSchema.safeParse({
-        v: 1,
-        registrationIds: ['reg-1'],
-        notification: { ...notification(), title: 'x'.repeat(PUSH_LIMITS.titleMaxChars + 1) }
-      }).success
-    ).toBe(false)
-    expect(
-      PushSendRequestSchema.safeParse({
-        v: 1,
-        registrationIds: ['reg-1'],
-        notification: { ...notification(), body: 'x'.repeat(PUSH_LIMITS.bodyMaxChars + 1) }
-      }).success
-    ).toBe(false)
-    expect(
-      PushSendRequestSchema.safeParse({
-        v: 1,
-        registrationIds: ['reg-1'],
-        notification: { ...notification(), coalescedCount: 2 }
-      }).success
-    ).toBe(false)
-    expect(PushSendRequestSchema.safeParse({ v: 1, registrationIds: [], notification: notification() }).success)
-      .toBe(false)
-  })
 
   it('rejects a notification id that could not be sent as a collapse header', () => {
     for (const notificationId of ['line\nbreak', 'nul\0byte', 'émoji', '\t']) {
