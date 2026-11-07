@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import { isPublicOrchestrationAddress } from './orchestration-agent-reference'
 
 export const CrewParty = z.string().refine(isPublicOrchestrationAddress)
