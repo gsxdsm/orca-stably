@@ -115,6 +115,7 @@ export const EXECUTION_HOST_METHODS = [
   'github.mergePR',
   'github.prCheckDetails',
   'github.prChecks',
+  'github.prComments',
   'github.prFileContents',
   'github.prForBranch',
   'github.removePRReviewers',

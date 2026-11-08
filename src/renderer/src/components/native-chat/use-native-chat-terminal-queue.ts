@@ -14,7 +14,7 @@ import {
 } from '../../../../shared/native-chat/native-chat-terminal-queue'
 import { projectQueuedMessageCards } from '../../../../shared/agent-session/view/structured-agent-session-queued-cards'
 import type { StructuredAgentSessionQueuedMessagesController } from './queue/use-structured-agent-session-queued-messages'
-import { useStructuredAgentSessionHostCapabilityState } from '@/runtime/structured-agent-session-host-capability'
+import { useStructuredAgentSessionHostCapabilityState } from '@/runtime/native-chat/host-capabilities/structured-agent-session-host-capability'
 import type { NativeChatComposerHandle } from './composer/native-chat-composer-types'
 
 export function useNativeChatTerminalQueue(args: {

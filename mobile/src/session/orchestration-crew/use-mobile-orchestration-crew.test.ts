@@ -6,7 +6,7 @@ import { useMobileOrchestrationCrew } from './use-mobile-orchestration-crew'
 import {
   emptyCrew,
   type OrchestrationCrewSnapshot
-} from '../../../../src/shared/orchestration-crew'
+} from '../../../../src/shared/orchestration/orchestration-crew'
 
 const PARTY = 'term_agent'
 const OTHER = 'term_other'

@@ -5,13 +5,13 @@ import {
   mayHoldAgentReferences,
   printableAgentLabel,
   type OrchestrationAgentReference
-} from '../../../../src/shared/orchestration-agent-reference'
+} from '../../../../src/shared/orchestration/mailbox/orchestration-agent-reference'
 import {
   CrewFrame,
   emptyCrew,
   type OrchestrationCrewRow,
   type OrchestrationCrewSnapshot
-} from '../../../../src/shared/orchestration-crew'
+} from '../../../../src/shared/orchestration/orchestration-crew'
 import type {
   AgentMessageSender,
   AgentMessageSource

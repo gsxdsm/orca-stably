@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import {
   emptyCrew,
   type OrchestrationCrewSnapshot
-} from '../../../../src/shared/orchestration-crew'
-import { isPublicOrchestrationAddress } from '../../../../src/shared/orchestration-agent-reference'
+} from '../../../../src/shared/orchestration/orchestration-crew'
+import { isPublicOrchestrationAddress } from '../../../../src/shared/orchestration/mailbox/orchestration-agent-reference'
 import type { RpcClient } from '../../transport/rpc-client'
 import { reduceCrewSubscription } from './mobile-orchestration-crew'
 

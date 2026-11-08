@@ -5,7 +5,7 @@ import type {
   NativeChatImageRefBlock,
   NativeChatMessage
 } from '../../shared/native-chat/native-chat-types'
-import { IMAGE_FILE_MIME_TYPES } from '../../shared/image-file-extensions'
+import { IMAGE_FILE_MIME_TYPES } from '../../shared/file-preview/image-mime-types'
 import { asRecord, extractString, parseJsonObject } from '../ai-vault/session-scanner-values'
 import { RUNTIME_PREVIEWABLE_BINARY_MAX_BYTES } from '../runtime/files/file-preview-budget'
 import { getAgentSessionAttachmentStore } from './agent-session-attachments/agent-session-attachment-store-registry'

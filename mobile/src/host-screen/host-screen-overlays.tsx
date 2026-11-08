@@ -1,3 +1,4 @@
+import { useSharedNow } from '../hooks/use-now'
 import { useState } from 'react'
 import { openExternalLink } from '../platform/external-link'
 import { Pressable, Text, View } from 'react-native'
@@ -28,6 +29,7 @@ import type { HostScreenController } from './use-host-screen-controller'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 
 export function HostScreenOverlays({ controller }: { controller: HostScreenController }) {
+  const now = useSharedNow(30_000)
   const t = useMobileTranslation()
   useMobileColorScheme()
   const {
@@ -199,7 +201,7 @@ export function HostScreenOverlays({ controller }: { controller: HostScreenContr
                   />
                   <WorkspaceSessionJumpList
                     agents={actionTarget.agents}
-                    now={controller.now}
+                    now={now}
                     onJump={(paneKey) => {
                       setSelectedSidebarSession({ worktreeId: actionTarget.worktreeId, paneKey })
                       actions.openWorktreeSession(actionTarget, paneKey)

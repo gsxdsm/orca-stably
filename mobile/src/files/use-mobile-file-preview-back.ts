@@ -35,8 +35,10 @@ export function useMobileFilePreviewBack(options: {
   router?: { dismissTo: (href: HostStackHostRoute) => void }
   hostId?: string
   leaveToSessionList?: (() => void) | null
+  // Runs before leaving with a discarded draft, so it is not offered back later.
+  onDiscard?: () => void
 }): MobileFilePreviewBack {
-  const { hasUnsavedDraft, leave } = options
+  const { hasUnsavedDraft, leave, onDiscard } = options
   const leaveToSessionList =
     options.leaveToSessionList ??
     (options.router ? filePreviewSessionListLeave(options.router, options.hostId) : null)
@@ -79,8 +81,9 @@ export function useMobileFilePreviewBack(options: {
 
   const discard = useCallback(() => {
     setAsking(false)
+    onDiscard?.()
     pendingLeave.current()
-  }, [])
+  }, [onDiscard])
 
   useBackClaim(requestBack)
 

@@ -1,3 +1,4 @@
+import { useSharedNow } from '../hooks/use-now'
 import { memo, useCallback, useEffect, useMemo, type ReactElement } from 'react'
 import {
   ActivityIndicator,
@@ -27,12 +28,12 @@ import {
   HostWorkspaceListReopen,
   HostWorkspaceListStates
 } from '../worktree/host-workspace-list-states'
-import { getWorktreeDotStatus } from '../worktree/workspace-list-ordering'
+import { getWorktreeDotStatus, hasWorktreeAgentState } from '../worktree/workspace-list-ordering'
 import type { Section, WorkspaceListItem, Worktree } from '../worktree/workspace-list-types'
 import { DEFAULT_REPO_BADGE_COLOR } from '../../../src/shared/repo-badge-color'
 import { getWorktreeCardDetails } from '../../../src/shared/worktree/card-properties'
 import { hostScreenStyles as styles } from './host-screen-styles'
-import { buildRepoLookById, type RepoLook } from './host-repo-looks'
+import { useRepoLookById, type RepoLook } from './host-repo-looks'
 import { HostPendingCreationRow } from './host-pending-creation-row'
 import { useSlowPendingKeys } from './use-slow-pending-keys'
 import { useHostMutationDrafts } from '../query/host-mutation-drafts'
@@ -72,7 +73,6 @@ export function HostWorkspaceList({
     isWideLayout,
     lastConnectedAt,
     noticeParam,
-    now,
     reconnectAttempts,
     relayRecovery,
     routeNotice,
@@ -84,6 +84,7 @@ export function HostWorkspaceList({
   } = controller
   const { rawSections, sections, repoById } = sectionsResult
   const { setSessionAction } = state
+  const now = useSharedNow(30_000)
   const openSessionMenu = useCallback(
     (item: Worktree, paneKey: string) => {
       setSessionAction(sidebarSessionAction(item, paneKey, now))
@@ -106,7 +107,8 @@ export function HostWorkspaceList({
     outage: isConnectionOutage(controller.connectionVerdict),
     forceReconnect: hostId && forceReconnectHost ? () => void forceReconnectHost(hostId) : null,
     // Group headers can stand with no rows under them; that list says "unreachable" in its body.
-    hasData: (controller.feed ? sections.length : displayWorktrees.length) > 0
+    hasData: (controller.feed ? sections.length : displayWorktrees.length) > 0,
+    asOf: catalog.readAt
   })
   const renameDrafts = useHostMutationDrafts()
   const resetTitle = pageTitle?.collapsing.reset
@@ -115,7 +117,7 @@ export function HostWorkspaceList({
       resetTitle?.()
     }
   }, [hasRows, resetTitle])
-  const repoLookById = useMemo(() => buildRepoLookById(repoById), [repoById])
+  const repoLookById = useRepoLookById(repoById)
   const { worktreeCardProperties, compactWorktreeCards, newCardStyle } = state.view
   const cardDetails = useMemo(
     () => getWorktreeCardDetails(worktreeCardProperties, { compactWorktreeCards, newCardStyle }),
@@ -161,9 +163,7 @@ export function HostWorkspaceList({
         item={item}
         view={view}
         isReadOnly={isReadOnly}
-        // Only inline agents show times, so other rows skip the 30 s clock.
-        now={cardDetails.inlineAgents && item.agents?.length ? now : 0}
-        status={getWorktreeDotStatus(item)}
+        status={hasWorktreeAgentState(item) ? getWorktreeDotStatus(item) : null}
         repoColor={repoLookById.get(item.repoId)?.color ?? DEFAULT_REPO_BADGE_COLOR}
         repoIcon={repoLookById.get(item.repoId)?.icon ?? null}
         hideRepo={groupBy === 'repo' && !view.showProjectName}
@@ -184,7 +184,6 @@ export function HostWorkspaceList({
       hostId,
       isReadOnly,
       cardDetails,
-      now,
       repoLookById,
       groupBy,
       agentActivityDisplayMode,

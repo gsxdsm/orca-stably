@@ -4,7 +4,7 @@ import { Users } from 'lucide-react-native'
 import type {
   OrchestrationCrewRow,
   OrchestrationCrewSnapshot
-} from '../../../../../src/shared/orchestration-crew'
+} from '../../../../../src/shared/orchestration/orchestration-crew'
 import { BottomDrawer } from '../../../components/bottom-drawer/BottomDrawer'
 import { MobileAgentIcon } from '../../../components/MobileAgentIcon'
 import { useMobileTranslation } from '../../../i18n/use-mobile-translation'

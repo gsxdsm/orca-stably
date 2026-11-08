@@ -1,5 +1,5 @@
 import type { OrcaRuntimeService } from '../../../orca-runtime'
-import type { SubscriptionEndReason } from '../../../runtime-subscription-registry'
+import type { SubscriptionEndReason } from '../../../client/runtime-subscription-registry'
 
 type RegistrationRuntime = Pick<
   OrcaRuntimeService,

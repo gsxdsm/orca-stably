@@ -14,6 +14,7 @@ vi.mock('react-native', () => ({
   Text: 'Text',
   View: 'View'
 }))
+vi.mock('../hooks/use-now', () => ({ useSharedNow: () => 2_000 }))
 vi.mock('lucide-react-native', () => ({
   ChevronDown: 'ChevronDown',
   ChevronRight: 'ChevronRight'
@@ -77,7 +78,6 @@ describe('cross-workspace session nesting', () => {
             agent(coordinator, null, 'Main Coordinator'),
             agent(worker, coordinator, 'Crew session-list nesting fix')
           ],
-          now: 2_000,
           unvisited: false,
           fullList: true,
           onAgentPress,

@@ -12,7 +12,7 @@ import type {
 import {
   TerminalAgentPromptAnswers,
   type TerminalAgentPromptAnswerRuntime
-} from '../terminal-agent-prompt-answer'
+} from '../terminal/input/terminal-agent-prompt-answer'
 import type { LocatedAgentPrompt } from './located-agent-prompt'
 
 export type AgentPromptRuntime = TerminalAgentPromptAnswerRuntime & {

@@ -9,7 +9,7 @@ import {
   PANE_KEY,
   PTY_ID,
   TERMINAL_HANDLE
-} from '../../../runtime/orchestration-mailbox-notification-test-harness'
+} from '../../../runtime/orchestration/mailbox/terminal-pointer/orchestration-mailbox-notification-test-harness'
 import { ptySizes } from '../delivery/visibility-state'
 import { getLocalPtyProvider, setLocalPtyProvider } from '../provider/registry'
 import { attachPtyFromRuntimeController, getSizeFromRuntimeController } from './operations'

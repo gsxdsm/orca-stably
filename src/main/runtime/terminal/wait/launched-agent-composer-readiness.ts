@@ -15,7 +15,11 @@ import { TUI_AGENT_CONFIG } from '../../../../shared/agent-launch/catalog/tui-ag
 import { draftPasteReadySignalHasMarker } from '../../../../shared/draft-paste-ready-scanner'
 import { nameOnlyIdleNeedsCorroboration } from './tui-idle-evidence'
 import type { OrcaRuntimeService } from '../../orca-runtime'
-import { failOnLaunchedAgentExit, type LaunchedAgentExitRuntime } from './launched-agent-exit-watch'
+import {
+  failOnLaunchedAgentExit,
+  launchedAgentExitMessage,
+  type LaunchedAgentExitRuntime
+} from './launched-agent-exit-watch'
 import { showsHoldAnchor } from '../../agent-state-rules/agent-state-text-anchors'
 import { detectTerminalWaitBlockedReason } from './terminal-wait-detection'
 
@@ -29,7 +33,10 @@ export type LaunchedAgentReadinessRuntime = Pick<
   OrcaRuntimeService,
   'waitForTerminal' | 'waitForFreshWorkerComposer'
 > &
-  Partial<Pick<OrcaRuntimeService, 'getPtyLivenessVerdict'> & LaunchedAgentExitRuntime>
+  Partial<
+    Pick<OrcaRuntimeService, 'getPtyLivenessVerdict' | 'readExitedLaunchOutput'> &
+      LaunchedAgentExitRuntime
+  >
 
 export type TerminalReadinessCreation = Pick<
   RuntimeTerminalCreate,
@@ -73,14 +80,15 @@ function readinessFailure(
     id: ptyId,
     incarnationId: creation.incarnationId
   })
-  const output = runtime.readRecentTerminalOutput?.(ptyId)
-  if (!(failure instanceof Error) || !output) {
+  const output = runtime.readExitedLaunchOutput?.(ptyId, creation.incarnationId)
+  if (!output || !(failure instanceof Error)) {
     return failure
   }
-  const diagnostic = new Error(`${failure.message}\nLast launch output:\n${output}`)
-  return Object.defineProperties(diagnostic, {
+  // The PTY's death is the real reason, whichever wait noticed it.
+  const message = launchedAgentExitMessage(output)
+  return Object.defineProperties(new Error(message), {
     ...Object.getOwnPropertyDescriptors(failure),
-    ...Object.getOwnPropertyDescriptors(diagnostic)
+    message: { value: message, configurable: true, writable: true }
   })
 }
 

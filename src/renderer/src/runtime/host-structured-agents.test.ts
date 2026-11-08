@@ -53,8 +53,8 @@ import {
   hostStructuredAgentsReadFailed,
   loadHostStructuredAgents,
   resetHostStructuredAgentsForTests
-} from './host-structured-agents'
-import { installHostStructuredAgentsSync } from './host-structured-agents-sync'
+} from './native-chat/agent-catalogs/host-structured-agents'
+import { installHostStructuredAgentsSync } from './native-chat/agent-catalogs/host-structured-agents-sync'
 import { chatProviderAgents } from '@/lib/chat-provider-agents'
 import { buildNewTabAgentMenuRows } from '../../../shared/agent-launch/picker/agent-launch-picker-rows'
 

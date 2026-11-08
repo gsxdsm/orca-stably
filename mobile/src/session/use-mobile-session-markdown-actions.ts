@@ -1,12 +1,14 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import { Keyboard, Platform } from 'react-native'
 import { useClipboardWriter } from '../platform/clipboard'
 import { translate } from '../i18n/mobile-i18n'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { useBackClaim } from '../navigation/use-back-claim'
 import { returnToHostSessionList } from '../navigation/session-list-back'
+import { useWorkspaceExecutionHost } from '../navigation/workspace-execution-host'
 import { useSessionLeaveGuard } from './session-leave-guard'
 import { markdownTabSave } from './mobile-session-write-operations'
+import { dropDocumentEditDraft, markdownTabDraftKey } from '../drafts/document-edit-draft-rows'
 import { triggerEdgeBump, triggerSuccess, triggerError } from '../platform/haptics'
 import type { DirtyMarkdownDraft, MobileSessionTab } from './mobile-session-route-types'
 import type { MobileSessionDiffCommentsModel } from './use-mobile-session-diff-comments'
@@ -51,6 +53,11 @@ export function useMobileSessionMarkdownActions(scope: MobileSessionMarkdownActi
     dictationLeaveHold: { hold: holdLeaveForDictation, holdsLeave: dictationHoldsLeave }
   } = scope
   const clipboard = useClipboardWriter()
+  const executionHost = useWorkspaceExecutionHost()
+  const draftScope = useMemo(
+    () => ({ hostId, executionHost, worktreeId }),
+    [executionHost, hostId, worktreeId]
+  )
   const updateMarkdownLocalContent = useCallback((tabId: string, content: string) => {
     setMarkdownDocs((prev) => {
       const current = prev.get(tabId)
@@ -69,15 +76,11 @@ export function useMobileSessionMarkdownActions(scope: MobileSessionMarkdownActi
     })
   }, [])
 
-  const copyMarkdownLocalContent = useCallback(
-    async (tabId: string) => {
-      const current = markdownDocs.get(tabId)
-      if (current?.status !== 'ready') {
-        return
-      }
+  const copyMarkdownText = useCallback(
+    async (text: string) => {
       // Contain fire-and-forget clipboard refusal so Copied cannot remain as false success feedback.
       try {
-        await clipboard.writeText(current.localContent)
+        await clipboard.writeText(text)
       } catch {
         triggerError()
         showToast(translate('session.useMarkdownActions.copyFailed', "Couldn't copy"), 1500)
@@ -86,7 +89,7 @@ export function useMobileSessionMarkdownActions(scope: MobileSessionMarkdownActi
       triggerSuccess()
       showToast(translate('common.copied', 'Copied'))
     },
-    [clipboard, markdownDocs, showToast]
+    [clipboard, showToast]
   )
 
   const copyMarkdownPath = useCallback(
@@ -158,6 +161,17 @@ export function useMobileSessionMarkdownActions(scope: MobileSessionMarkdownActi
     requestLeave('list')
   }, [requestLeave])
 
+  // The sheet's Copy and Discard both settle the phone's drafts, so none is offered back next time.
+  const leaveSessionDroppingDrafts = useCallback(
+    (drafts: readonly DirtyMarkdownDraft[]) => {
+      for (const draft of drafts) {
+        dropDocumentEditDraft(markdownTabDraftKey(draftScope, draft.tabId))
+      }
+      leaveSession()
+    },
+    [draftScope, leaveSession]
+  )
+
   // Native always claims Back to avoid root exit; the web shell already pops, so only dirty drafts and dictation need a claim.
   const hasDirtyDraft = getDirtyMarkdownDrafts().length > 0
   useBackClaim(
@@ -190,9 +204,10 @@ export function useMobileSessionMarkdownActions(scope: MobileSessionMarkdownActi
     const target = discardMarkdownTarget
     setDiscardMarkdownTarget(null)
     if (target) {
+      dropDocumentEditDraft(markdownTabDraftKey(draftScope, target.id))
       void readMarkdownTab(target)
     }
-  }, [discardMarkdownTarget, readMarkdownTab])
+  }, [discardMarkdownTarget, draftScope, readMarkdownTab])
 
   const saveMarkdownTab = useCallback(
     async (tab: Extract<MobileSessionTab, { type: 'markdown' }>) => {
@@ -247,6 +262,8 @@ export function useMobileSessionMarkdownActions(scope: MobileSessionMarkdownActi
           })
         })
         markdownSaveSeqRef.current.delete(tab.id)
+        // The reader may be gone by now (another tab is showing), so the saved edits leave the store here.
+        dropDocumentEditDraft(markdownTabDraftKey(draftScope, tab.id))
         triggerSuccess()
         showToast(translate('session.useMarkdownActions.saved', 'Saved'))
       } catch (error) {
@@ -274,14 +291,15 @@ export function useMobileSessionMarkdownActions(scope: MobileSessionMarkdownActi
         markdownSaveInFlightRef.current.delete(tab.id)
       }
     },
-    [client, markdownDocs, showToast, worktreeId]
+    [client, draftScope, markdownDocs, showToast, worktreeId]
   )
   return {
     updateMarkdownLocalContent,
-    copyMarkdownLocalContent,
+    copyMarkdownText,
     copyMarkdownPath,
     getDirtyMarkdownDrafts,
     leaveSession,
+    leaveSessionDroppingDrafts,
     requestLeaveSession,
     requestLeaveToSessionList,
     discardMarkdownLocalContent,

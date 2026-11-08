@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the transcript view wires the fork activity bar and upstream subagent transcript together. */
 import { copyChatMathSelection } from '../sidebar/chat-markdown-math-selection'
 import {
   nativeChatTranscriptOuterClass,
@@ -40,6 +41,10 @@ import { useNativeChatHistoryRetention } from './viewport/history/use-native-cha
 import type { useNativeChatSubagentSections } from './subagents/use-native-chat-subagent-sections'
 import { toggleNativeChatExpandedKey } from './messages/disclosure/native-chat-expanded-keys'
 import { useNativeChatTurnMembership } from './conversation/slots/use-native-chat-turn-membership'
+import {
+  useNativeChatSideChatForkOffer,
+  useNativeChatSideChatForkPointReport
+} from './messages/actions/use-native-chat-side-chat'
 import { useNativeChatTranscriptScroll } from './viewport/scroll/use-native-chat-transcript-scroll'
 import { useNativeChatOlderHistoryAutoload } from './viewport/history/use-native-chat-older-history-autoload'
 import { NativeChatOlderHistoryRow } from './viewport/history/NativeChatOlderHistoryRow'
@@ -178,6 +183,7 @@ export function NativeChatMessageList({
     () => (showCiResultLines ? turnRows : withoutPullRequestEventRows(turnRows)),
     [showCiResultLines, turnRows]
   )
+  const latestTurnKey = turnKeys.findLast((key) => key !== undefined)
   const showTurnDiffs = useAppStore((state) => nativeChatShowsTurnDiffSummary(state.settings))
   const turnDiffs = useNativeChatTurnDiffs(
     showTurnDiffs ? turnRows : null,
@@ -201,7 +207,8 @@ export function NativeChatMessageList({
   // Only unshown prompts need a waiting tail row; prompt cards explain their own wait.
   const tailRow = transcriptTailRow(view.shownWorking, view.shownAwaitingInput)
   const { measureContent, typography } = useNativeChatRowTypography(contentRef)
-  const { slots: allSlots, liveLine } = useNativeChatTranscriptSlots({
+  const forkOffer = useNativeChatSideChatForkOffer(latestTurnKey)
+  const transcript = useNativeChatTranscriptSlots({
     typography,
     messages: rows,
     unresolvedRowIds: turnRows.unresolvedRowIds,
@@ -216,6 +223,7 @@ export function NativeChatMessageList({
     lifecycleWorking: view.shownLifecycleWorking,
     subagentSections,
     subagentChoices,
+    forkOffer,
     line: {
       draws: tailRow === 'activity',
       thinking: turnStatuses.active?.thinking === true,
@@ -223,6 +231,8 @@ export function NativeChatMessageList({
       activityText: view.shownActivityText
     }
   })
+  const { slots: allSlots, liveLine } = transcript
+  useNativeChatSideChatForkPointReport(transcript.forkPoint)
   // A message waiting behind the live turn draws after that turn's live activity, not inside it.
   const { slots, waitingSlots } = useMemo(
     () =>
@@ -347,7 +357,7 @@ export function NativeChatMessageList({
     revealedDiff: navigationRequest.revealedDiff,
     taskListPredecessors: view.taskListPredecessors,
     expandedTurnIds,
-    latestTurnKey: turnKeys.findLast((key) => key !== undefined),
+    latestTurnKey,
     deliveryNotices,
     runtimeContext,
     onToggleExpandedTurn: toggleExpandedTurn,

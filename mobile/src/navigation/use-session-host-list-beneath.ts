@@ -28,7 +28,8 @@ function hostParamMatches(param: unknown, expectedHostId: string): boolean {
 function focusedHostRoute(state: HostStackNavigationState): HostStackNavigationRoute | null {
   let current: HostStackNavigationState | undefined = state
   while (current) {
-    const route: HostStackNavigationRoute | undefined = current.routes[current.index]
+    const route: HostStackNavigationRoute | undefined =
+      current.routes[current.index ?? current.routes.length - 1]
     if (!route) {
       return null
     }
@@ -66,7 +67,7 @@ function withHostSessionListBeneath(
   hostId: string
 ): { index: number; routes: HostStackNavigationRoute[] } | null {
   let sessionIndex = -1
-  for (let index = level.index; index >= 0; index -= 1) {
+  for (let index = level.index ?? level.routes.length - 1; index >= 0; index -= 1) {
     const route = level.routes[index]
     if (route?.name === HOST_SESSION_SCREEN && hostParamMatches(route.params?.hostId, hostId)) {
       sessionIndex = index
@@ -92,7 +93,8 @@ function withHostSessionListBeneath(
     },
     ...level.routes.slice(sessionIndex)
   ]
-  return { index: level.index >= sessionIndex ? level.index + 1 : level.index, routes }
+  const levelIndex = level.index ?? level.routes.length - 1
+  return { index: levelIndex >= sessionIndex ? levelIndex + 1 : levelIndex, routes }
 }
 
 // Repair a web session opened with no host list under it. Native navigation pushes over the list instead.

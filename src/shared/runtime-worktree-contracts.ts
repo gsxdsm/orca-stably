@@ -76,6 +76,8 @@ export type RuntimeWorktreePsSummary = {
   worktreeId: string
   repoId: string
   hostId?: Worktree['hostId']
+  /** Host-qualified identity; tells same-id rows on different hosts apart. Absent from older hosts. */
+  identity?: Worktree['identity']
   terminalPlatform?: NodeJS.Platform
   repo: string
   path: string
@@ -175,7 +177,7 @@ export type RuntimeSpeechSetupState = {
   models: RuntimeSpeechModelSummary[]
 }
 
-export type RuntimeGitSwitchResult = { ok: true; branch: string; warning?: string }
+export type RuntimeGitSwitchResult = { ok: true; branch: string; head?: string; warning?: string }
 
 export type RuntimeGitCheckoutResult = {
   ok: true

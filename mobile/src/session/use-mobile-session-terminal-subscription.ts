@@ -1,8 +1,8 @@
+/* eslint-disable max-lines -- Why: the fork's stream-takeover guard and upstream resume wiring stay in one subscribe flow. */
 import { useCallback } from 'react'
 import { isTerminalOscLinkRanges } from '../../../src/shared/terminal/links/terminal-osc-link-ranges'
 import * as nativeChatTerminalStream from './native-chat/mobile-native-chat-terminal-stream'
 import {
-  adoptTerminalDisplayMode,
   createMobileTerminalStreamLifetime,
   noteTerminalStreamTakeover,
   subscribeMobileTerminalSafely
@@ -14,6 +14,8 @@ import {
 } from './mobile-terminal-viewport-resubscribe'
 import { updateTerminalCwdFromStreamEvent } from './mobile-session-route-helpers'
 import { createTerminalOutputAck, writeTerminalStreamOutput } from '../terminal/terminal-output-ack'
+import { acceptTerminalLayoutSeq, terminalDisplayModeAdopter } from './terminal-stream-layout'
+import { createTerminalStreamResumeCursor } from './terminal-stream-resume'
 import type { MobileSessionTerminalSubscriptionFoundationModel } from './use-mobile-session-terminal-subscription-foundation'
 
 const snapshotByteBudget = mobileTerminalSnapshotByteBudget()
@@ -32,6 +34,7 @@ export function useMobileSessionTerminalSubscription(
     leaseOnlyHandlesRef,
     replacedHandlesRef,
     initializedHandlesRef,
+    terminalResume,
     terminalDiagnosticsRef,
     viewportResubscribeBudgetRef,
     webReadyHandlesRef,
@@ -54,20 +57,17 @@ export function useMobileSessionTerminalSubscription(
       const diagnostics = terminalDiagnosticsRef.current
       const logSkippedGate = (reason: string) =>
         diagnostics.streamSkipped(handle, reason, handle === activeHandleRef.current)
-      if (!client) {
-        logSkippedGate('no-client')
-        return false
-      }
-      if (clientId === null) {
-        logSkippedGate('no-client-identity')
-        return false
-      }
-      if (terminalUnsubsRef.current.has(handle)) {
-        logSkippedGate('already-subscribed')
-        return false
-      }
-      if (subscribingHandlesRef.current.has(handle)) {
-        logSkippedGate('subscribe-in-flight')
+      const refusal = !client
+        ? 'no-client'
+        : clientId === null
+          ? 'no-client-identity'
+          : terminalUnsubsRef.current.has(handle)
+            ? 'already-subscribed'
+            : subscribingHandlesRef.current.has(handle)
+              ? 'subscribe-in-flight'
+              : null
+      if (refusal !== null || !client || clientId === null) {
+        logSkippedGate(refusal ?? 'no-client')
         return false
       }
       // Another surface of this phone holds the stream; taking it back would start an eviction loop.
@@ -139,9 +139,13 @@ export function useMobileSessionTerminalSubscription(
         terminal: covered ? undefined : getTerminalRef(handle),
         isCurrent: lifetime.isCurrent
       })
+      const canResume = outputAck.capabilities.outputAck === 1
+      const resume = createTerminalStreamResumeCursor(terminalResume, handle, canResume)
 
       // A path switch replays this listener on a new stream whose snapshot covers output the old one never delivered.
       let snapshotStreamId: unknown
+
+      const adoptDisplayMode = terminalDisplayModeAdopter(setTerminalModes, handle)
 
       // Send viewport in subscribe so host fitting precedes snapshot serialization without a focus/fit race.
       const stopStream = subscribeMobileTerminalSafely(
@@ -151,6 +155,7 @@ export function useMobileSessionTerminalSubscription(
           client: { id: clientId, type: 'mobile' as const },
           viewport: sentViewport,
           capabilities: outputAck.capabilities,
+          ...resume.params,
           // Omit absent native budgets to preserve older hosts’ subscribe shape.
           ...(snapshotByteBudget === undefined ? {} : { snapshotByteBudget })
         },
@@ -162,11 +167,17 @@ export function useMobileSessionTerminalSubscription(
           diagnostics.firstStreamEvent(handle, seq, data.type)
           if (data.type === 'end' || data.type === 'error') {
             noteTerminalStreamTakeover(data, handle, replacedHandlesRef, activeHandleRef, wasActive)
+            resume.ended(data.type)
             lifetime.end()
             return
           }
           if (data.type === 'subscribed') {
             outputAck.start(data)
+            if (resume.subscribed(data)) {
+              initializedHandlesRef.current.add(handle)
+              snapshotStreamId = data.streamId
+              adoptDisplayMode(data.displayMode)
+            }
             markNativeChatInputLeaseReady(handle)
             return
           }
@@ -178,30 +189,15 @@ export function useMobileSessionTerminalSubscription(
               handle
             )
           ) {
+            resume.output(data, false)
             // Ack output dropped unwritten too, or the host's window leaks and the stream stalls.
             outputAck.owe(data)?.()
             return
           }
-          // Reject superseded resize sequences; fresh scrollback resets the mark or reconnect can blank the terminal.
-          const eventSeq = typeof data.seq === 'number' ? data.seq : null
-          if (eventSeq != null && data.type === 'resized') {
-            const last = layoutSeqRef.current.get(handle)
-            if (last != null && eventSeq < last && last - eventSeq <= 20) {
-              console.log('[fit][session] DROP-stale-seq', {
-                handle: handle.slice(-8),
-                type: data.type,
-                eventSeq,
-                lastSeq: last,
-                cols: data.cols,
-                rows: data.rows,
-                displayMode: data.displayMode
-              })
-              return
-            }
-            layoutSeqRef.current.set(handle, eventSeq)
-          } else if (eventSeq != null && data.type === 'scrollback') {
-            layoutSeqRef.current.set(handle, eventSeq)
+          if (!acceptTerminalLayoutSeq(layoutSeqRef.current, handle, data)) {
+            return
           }
+          const eventSeq = typeof data.seq === 'number' ? data.seq : null
           if (data.type === 'scrollback') {
             diagnostics.streamScrollback(handle, seq, eventSeq, data)
             if (data.streamId === snapshotStreamId && initializedHandlesRef.current.has(handle)) {
@@ -229,7 +225,8 @@ export function useMobileSessionTerminalSubscription(
             ref.init({ cols, rows, initialData, preserveScroll: true, oscLinks, kittyFlags, frame })
             initializedHandlesRef.current.add(handle)
             snapshotStreamId = data.streamId
-            adoptTerminalDisplayMode(setTerminalModes, handle, data.displayMode)
+            resume.snapshotApplied(data.streamId)
+            adoptDisplayMode(data.displayMode)
             // Refit after DOM settles because init can see transient scrollWidth.
             lifetime.scheduleSettledFit(ref)
             // Measure viewport-less subscriptions after init, then retry within the bounded per-handle budget.
@@ -257,6 +254,7 @@ export function useMobileSessionTerminalSubscription(
             updateTerminalCwdFromStreamEvent(handle, data, terminalCwdRef.current)
           } else if (data.type === 'data') {
             updateTerminalCwdFromStreamEvent(handle, data, terminalCwdRef.current)
+            resume.output(data, getTerminalRef(handle) !== undefined)
             writeTerminalStreamOutput({
               handle,
               chunk: data.chunk as string,
@@ -277,6 +275,7 @@ export function useMobileSessionTerminalSubscription(
             diagnostics.streamResized(handle, seq, eventSeq, data, getTerminalRef(handle) != null)
             const oscLinks = isTerminalOscLinkRanges(data.oscLinks) ? data.oscLinks : undefined
             if (serialized != null) {
+              resume.invalidate()
               getTerminalRef(handle)?.init({
                 cols,
                 rows,
@@ -289,14 +288,20 @@ export function useMobileSessionTerminalSubscription(
             } else {
               getTerminalRef(handle)?.resize(cols, rows, terminalFrameRef.current)
             }
-            adoptTerminalDisplayMode(setTerminalModes, handle, data.displayMode)
+            adoptDisplayMode(data.displayMode)
             lifetime.scheduleSettledFit(getTerminalRef(handle))
           }
         },
         lifetime.end
       )
 
-      const unsub = lifetime.wrapUnsubscribe(stopStream)
+      const unsub = lifetime.wrapUnsubscribe(() => {
+        // Read the count once this stream stops applying; a caller that drops initialization first wants a snapshot.
+        resume.stop(
+          initializedHandlesRef.current.has(handle) && getTerminalRef(handle) !== undefined
+        )
+        stopStream()
+      })
       if (lifetime.isCurrent()) {
         terminalUnsubsRef.current.set(handle, unsub)
       } else {

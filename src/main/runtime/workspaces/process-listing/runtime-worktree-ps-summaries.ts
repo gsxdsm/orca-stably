@@ -10,9 +10,12 @@ import { getWorkspaceRowKindFacts } from '../../../../shared/worktree/workspace-
 import { readWorkspaceReviewPR } from '../../../../shared/sidebar-list/workspace-review-facts'
 import { withOwnerRepos } from '../../../../shared/sidebar-list/workspace-rows'
 import { UNCACHED_LINKED_PR_STATE } from '../../../../shared/runtime-worktree-contracts'
-import type { RuntimeStore } from '../../runtime-store-contract'
+import type { RuntimeStore } from '../../construction/runtime-store-contract'
 import { runtimeVisibleFolderWorkspaces } from '../catalog/runtime-visible-catalog'
 import type { ResolvedWorktree } from '../catalog/runtime-worktree-path-identity'
+import type { ExecutionHostId } from '../../../../shared/execution-host'
+import type { WorktreeMeta } from '../../../../shared/worktree/meta-types'
+import { runtimeWorktreePsRowKey } from './runtime-worktree-summary-paths'
 
 export function buildRuntimeWorktreePsSummaries(args: {
   store: RuntimeStore | null
@@ -24,6 +27,22 @@ export function buildRuntimeWorktreePsSummaries(args: {
   // Switch point: main's sort stamps rank Smart then, and readers ignore sortOrder.
   const omitSavedSmartOrder = !ORCA_SIDEBAR_INPUTS_IS_MAIN && args.windowless === true
   const summaries = new Map<string, RuntimeWorktreePsSummary>()
+  const metaByHost = new Map<ExecutionHostId, Record<string, WorktreeMeta>>()
+  // A same-id twin on another host has its own metadata; an unhosted row keeps the id-keyed read.
+  const readMeta = (worktree: ResolvedWorktree): WorktreeMeta | undefined => {
+    const hostId = worktree.identity?.executionHostId ?? worktree.hostId
+    if (!hostId || !args.store?.getAllWorktreeMetaForHost) {
+      return (
+        args.store?.getWorktreeMeta?.(worktree.id) ?? args.store?.getAllWorktreeMeta()[worktree.id]
+      )
+    }
+    let hostMeta = metaByHost.get(hostId)
+    if (!hostMeta) {
+      hostMeta = args.store.getAllWorktreeMetaForHost(hostId)
+      metaByHost.set(hostId, hostMeta)
+    }
+    return hostMeta[worktree.id]
+  }
   const ghCache = args.store?.getGitHubCache?.()
   const crossStoreLineage = args.store?.getAllCrossStoreWorkspaceLineage?.() ?? {}
   const workspaceLineage = args.store?.getAllWorkspaceLineage?.()
@@ -31,8 +50,7 @@ export function buildRuntimeWorktreePsSummaries(args: {
     args.resolvedWorktrees,
     args.store?.getRepos() ?? []
   )) {
-    const meta =
-      args.store?.getWorktreeMeta?.(worktree.id) ?? args.store?.getAllWorktreeMeta()[worktree.id]
+    const meta = readMeta(worktree)
     // Why: read the cache entry the desktop's PR lanes read; an uncached link keeps its badge as state 'unknown'.
     const cachedPR = ghCache ? readWorkspaceReviewPR(worktree, repo, ghCache.pr) : null
     const linkedPR: RuntimeWorktreePsSummary['linkedPR'] = cachedPR
@@ -48,13 +66,21 @@ export function buildRuntimeWorktreePsSummaries(args: {
         ? { number: meta.linkedPR, state: UNCACHED_LINKED_PR_STATE }
         : null
     const lineage = worktree.lineage
-    const crossStoreParent = crossStoreLineage[worktreeWorkspaceKey(worktree.id)]
+    const recordedCrossStoreParent = crossStoreLineage[worktreeWorkspaceKey(worktree.id)]
+    // Lineage keyed by workspace key belongs to the row whose instance recorded it.
+    const crossStoreParent =
+      recordedCrossStoreParent &&
+      (!worktree.instanceId || recordedCrossStoreParent.childInstanceId === worktree.instanceId)
+        ? recordedCrossStoreParent
+        : undefined
     const priorWorktreeIds = meta?.priorWorktreeIds ?? worktree.priorWorktreeIds
-    summaries.set(worktree.id, {
+    const hostId = meta?.hostId ?? worktree.hostId
+    setPsSummary(summaries, {
       workspaceKind: 'git',
       worktreeId: worktree.id,
       repoId: worktree.repoId,
-      ...((meta?.hostId ?? worktree.hostId) ? { hostId: meta?.hostId ?? worktree.hostId } : {}),
+      ...(hostId ? { hostId } : {}),
+      ...(worktree.identity ? { identity: worktree.identity } : {}),
       terminalPlatform: args.platformByRepoId.get(worktree.repoId) ?? process.platform,
       repo: repo?.displayName ?? worktree.repoId,
       path: worktree.path,
@@ -119,7 +145,7 @@ export function buildRuntimeWorktreePsSummaries(args: {
       continue
     }
     const worktree = folderWorkspaceToWorktree(folderWorkspace)
-    summaries.set(worktree.id, {
+    setPsSummary(summaries, {
       workspaceKind: 'folder-workspace',
       worktreeId: worktree.id,
       repoId: worktree.repoId,
@@ -175,6 +201,13 @@ function orderSummaryFields(
     sortOrder: omitSavedSmartOrder ? 0 : (sortOrder ?? 0),
     ...(manual !== undefined ? { manualOrder: manual } : {})
   }
+}
+
+function setPsSummary(
+  summaries: Map<string, RuntimeWorktreePsSummary>,
+  summary: RuntimeWorktreePsSummary
+): void {
+  summaries.set(runtimeWorktreePsRowKey(summary), summary)
 }
 
 function sortStampSummaryFields(
