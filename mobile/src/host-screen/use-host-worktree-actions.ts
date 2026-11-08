@@ -12,7 +12,6 @@ import {
   rpcClientForExecutionHost,
   workspaceRouteExecutionHost
 } from '../transport/execution-host-scoped-rpc-client'
-import { MOBILE_ADD_PROJECT_RUNTIME_CAPABILITY } from '../../../src/shared/protocol-version'
 import { serverUpdateNeededNotice } from '../host-route-notice'
 import type { ConnectionState } from '../transport/types'
 import { leaveHostRoute } from '../host-route-exit'
@@ -27,8 +26,29 @@ import {
   worktreeSleep
 } from './host-screen-operations'
 import { setPendingSubagentFocus } from '../session/pending-subagent-focus'
+import { useHostNewWorkspaceActions } from './use-host-new-workspace-actions'
 import type { HostScreenState } from './use-host-screen-state'
 import { useHostWorktreeDelete } from './use-host-worktree-delete'
+import { defineHostMutation, useHostMutation, type HostMutationPhase } from '../query/host-mutation'
+
+async function sendWorkspaceRename(
+  client: RpcClient,
+  vars: { worktreeId: string; displayName: string }
+): Promise<void> {
+  worktreeDisplayNameWrite.interpret(
+    await worktreeDisplayNameWrite.request(client, {
+      worktree: `id:${vars.worktreeId}`,
+      displayName: vars.displayName
+    })
+  )
+}
+
+const workspaceRename = defineHostMutation({
+  offline: 'draft',
+  send: sendWorkspaceRename,
+  // Renaming is idempotent, so a lost reply is settled by sending the same name again.
+  confirm: sendWorkspaceRename
+})
 
 export function useHostWorktreeActions(args: {
   client: RpcClient | null
@@ -85,24 +105,12 @@ export function useHostWorktreeActions(args: {
     }
   }, [router])
 
-  const openNewWorktreeForRepo = useCallback(
-    (repoId?: string) => {
-      setNewWorktreeInitialRepoId(repoId ?? null)
-      setNewWorktreeVisible(true)
-    },
-    [setNewWorktreeInitialRepoId, setNewWorktreeVisible]
-  )
-  const closeNewWorktreeModal = useCallback(() => {
-    setNewWorktreeVisible(false)
-    setNewWorktreeInitialRepoId(null)
-  }, [setNewWorktreeInitialRepoId, setNewWorktreeVisible])
-  // Older hosts refuse the phone's repo.add/create/clone, so + keeps opening New Workspace directly there.
-  const addProjectSupported = hostCapabilities.includes(MOBILE_ADD_PROJECT_RUNTIME_CAPABILITY)
-  const openCreateMenu = useCallback(
-    () => (addProjectSupported ? setShowAddProject : setNewWorktreeVisible)(true),
-    [addProjectSupported, setNewWorktreeVisible, setShowAddProject]
-  )
-  const closeAddProject = useCallback(() => setShowAddProject(false), [setShowAddProject])
+  const newWorkspace = useHostNewWorkspaceActions({
+    hostCapabilities,
+    setNewWorktreeInitialRepoId,
+    setNewWorktreeVisible,
+    setShowAddProject
+  })
 
   const updateLocalPins = useCallback(
     (worktreeId: string, pinned: boolean) => {
@@ -185,22 +193,23 @@ export function useHostWorktreeActions(args: {
     [client, setSleptIds]
   )
 
+  const workspaceRenameWrite = useHostMutation(workspaceRename, { hostId: hostId ?? '', client })
+  const { mutate: mutateWorkspaceName } = workspaceRenameWrite
   // Written at the row's owner, as desktop does; empty text returns the label to automatic.
   const renameWorktree = useCallback(
-    async (item: Worktree, displayName: string) => {
-      const rowClient = clientForRow(item)
-      if (!rowClient) {
-        throw new Error('Not connected: worktree.set')
-      }
-      worktreeDisplayNameWrite.interpret(
-        await worktreeDisplayNameWrite.request(rowClient, {
-          worktree: `id:${item.worktreeId}`,
-          displayName
-        })
+    async (item: Worktree, displayName: string, onPhase?: (phase: HostMutationPhase) => void) => {
+      await mutateWorkspaceName(
+        { worktreeId: item.worktreeId, displayName },
+        {
+          // Re-routed per attempt: a reconnect replaces the host client under a lost reply.
+          route: (hostClient) =>
+            rpcClientForExecutionHost(hostClient, hostCapabilities, item.hostId),
+          onPhase
+        }
       )
       void fetchWorktrees()
     },
-    [clientForRow, fetchWorktrees]
+    [mutateWorkspaceName, hostCapabilities, fetchWorktrees]
   )
 
   const worktreeDelete = useHostWorktreeDelete({ client, clientForRow, fetchWorktrees, state })
@@ -314,14 +323,11 @@ export function useHostWorktreeActions(args: {
     leaveHost,
     navigateFromHostList,
     openFloatingWorkspace,
-    addProjectSupported,
-    closeAddProject,
-    openCreateMenu,
-    openNewWorktreeForRepo,
-    closeNewWorktreeModal,
+    ...newWorkspace,
     openWorktreeSession,
     putWorktreeToSleep,
     renameWorktree,
+    workspaceRenameWrite,
     togglePin
   }
 }

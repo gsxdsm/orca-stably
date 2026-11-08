@@ -20,6 +20,7 @@ import { MobileRepoIcon } from './MobileRepoIcon'
 import { WorktreeAgentList } from './WorktreeAgentList'
 import { WorktreeMetaGlyphs, prStateColor } from './WorktreeMetaGlyphs'
 import { LINEAGE_TOGGLE_HIT_SLOP, styles } from './worktree-list-row-styles'
+import { WorktreeUnsavedName } from './WorktreeUnsavedName'
 import { useWorktreeRowSession, workspaceCardActivation } from './worktree-session-press'
 
 // Match desktop formatBranchName by hiding refs/heads/ prefix.
@@ -49,6 +50,8 @@ type Props = {
   /** Actions for one session. The card long-press stays the workspace menu. */
   onSessionLongPress?: (item: Worktree, paneKey: string) => void
   onToggleLineage?: (item: WorkspaceListItem) => void
+  /** A rename the desktop hasn't taken yet; the row keeps its real name and points to this one. */
+  unsavedName?: string
 }
 
 function WorktreeListRowComponent({
@@ -68,7 +71,8 @@ function WorktreeListRowComponent({
   statusLive,
   onLongPress,
   onSessionLongPress,
-  onToggleLineage
+  onToggleLineage,
+  unsavedName
 }: Props) {
   useMobileColorScheme()
   const t = useMobileTranslation()
@@ -233,6 +237,7 @@ function WorktreeListRowComponent({
             </View>
           )}
         </View>
+        {unsavedName ? <WorktreeUnsavedName name={unsavedName} /> : null}
         {/* Match desktop agent activity only; plain terminal shell-output tails stay hidden. */}
         {cardDetails.inlineAgents && item.agents && item.agents.length > 0 ? (
           <WorktreeAgentList

@@ -26,10 +26,7 @@ import { useMobileNativeChatRowKeys } from './transcript/mobile-native-chat-row-
 import { useMobileNativeChatPinchGesture } from './transcript/use-mobile-native-chat-pinch-gesture'
 import { useMobileNativeChatTailFollow } from './transcript/use-mobile-native-chat-tail-follow'
 import { useMobileNativeChatTurnDisclosure } from './transcript/use-mobile-native-chat-turn-disclosure'
-import {
-  mobileNativeChatComposerPlaceholder,
-  useSettledMobileNativeChatInputLock
-} from './use-mobile-native-chat-input-lease'
+import { mobileNativeChatComposerPlaceholder } from './use-mobile-native-chat-input-lease'
 import { MobileNativeChatLiveLine } from './transcript/MobileNativeChatLiveLine'
 import { MobileNativeChatAwaitingInputRow } from './transcript/MobileNativeChatAwaitingInputRow'
 import { MobileNativeChatOpenFileContext } from './mobile-native-chat-open-file-context'
@@ -43,6 +40,8 @@ import { MobileNativeChatScrollRootsBoundary } from '../MobileNativeChatScrollRo
 import { MobileNativeChatRowList } from './transcript/MobileNativeChatRowList'
 import { useMobileNativeChatRowRenderer } from './transcript/use-mobile-native-chat-row-renderer'
 import { MobileNativeChatLowerRegion } from './MobileNativeChatLowerRegion'
+import { MobileNativeChatOfflineQueue } from './input/MobileNativeChatOfflineQueue'
+import { useMobileNativeChatOfflineQueue } from './composer/use-mobile-native-chat-offline-sends'
 
 export type { MobileNativeChatInputLockReason } from '../mobile-native-chat-view-props'
 
@@ -163,18 +162,30 @@ export function MobileNativeChatView({
   const tail = useMobileNativeChatTailFollow({ hasItems: data.length > 0, scopeKey: sendSurfaceId })
   const { jumpToTail, recordScrollMetrics, scrollMayLoadEarlier, jumpToPreviousMessage } = tail
 
+  // Lock only terminal-backed Send: it can answer an agent prompt, while drafting is harmless and structured sends queue.
+  const promptShown = !collapsedPrompt && (ask ?? permission ?? question) != null
+  const expandedPromptOwnsSend = !structuredActivityUi && promptShown
+  const offlineQueue = useMobileNativeChatOfflineQueue({
+    scope: draftKey,
+    inputLockReason: inputLockReason ?? null,
+    held: structuredActivityUi
+      ? status !== 'ready'
+      : (ask ?? permission ?? question ?? collapsedPrompt ?? awaitingInput) != null,
+    send: onSend
+  })
+  const { lockReason } = offlineQueue
   const handleSend = useCallback(
     async (...send: Parameters<typeof onSend>): Promise<boolean> => {
       // Retire the previous notice before this action can report a new one.
       onClearSendError?.()
-      const accepted = await onSend(...send)
+      const accepted = await offlineQueue.send(...send)
       if (!accepted) {
         return false
       }
       jumpToTail()
       return true
     },
-    [onSend, onClearSendError, jumpToTail]
+    [offlineQueue.send, onClearSendError, jumpToTail]
   )
 
   const loadEarlier = useCallback(() => onHistoryLoadEarlier?.(), [onHistoryLoadEarlier])
@@ -249,14 +260,10 @@ export function MobileNativeChatView({
   const emptyState = mobileNativeChatEmptyState(status, agent ?? null, error, sessionLive)
   const suppressEmptyState = subagent.focusedId != null && !readFailedFinally
 
-  const lockReason = useSettledMobileNativeChatInputLock(inputLockReason)
   const composerPlaceholder = mobileNativeChatComposerPlaceholder(
     lockReason,
     turnIndicator?.afterStop
   )
-  // Lock only terminal-backed Send: it can answer an agent prompt, while drafting is harmless and structured sends queue.
-  const promptShown = !collapsedPrompt && (ask ?? permission ?? question) != null
-  const expandedPromptOwnsSend = !structuredActivityUi && promptShown
   const promptOwnsInput = useMobileNativeChatPromptInputOwner(
     { promptShown, ask, askRequiresTerminal, permission, micActive, micProcessing },
     inputRef
@@ -306,6 +313,7 @@ export function MobileNativeChatView({
         dismissalScope={dismissalScope}
         accessory={activityBar}
       />
+      <MobileNativeChatOfflineQueue queue={offlineQueue} />
       <DuoRailComposerTop keyboardInset={keyboardInset} hidden={promptOwnsInput}>
         <MobileNativeChatDraftComposer
           {...composerFit}
@@ -326,7 +334,7 @@ export function MobileNativeChatView({
           {...{ onAttachImage, onPasteImages, attachments, onRemoveAttachment }}
           {...{ isAttaching, onMicPress, micActive, micStarting, micProcessing }}
           {...{ dictationMode, onMicPressIn, onMicPressOut }}
-          disabled={lockReason !== null}
+          {...offlineQueue.composerLock}
           sendDisabled={expandedPromptOwnsSend}
           placeholder={composerPlaceholder}
           {...{ filePaths, onNeedFiles, skillDiscovery, onNeedSkills }}

@@ -27,6 +27,7 @@ type AlignArgs<S extends MobileNativeChatScrollNode> = {
   scroller: () => S | null
   write: (s: S, to: number) => void
   notePlace: (s: S) => void
+  keepPlace: (s: S) => void
   latest: { current: LatestGeometry }
   revealUndrawn: (index: number) => void
 }
@@ -37,6 +38,8 @@ export type MobileNativeChatPreviousAlign<S extends MobileNativeChatScrollNode> 
   hasPreviousMessage: (keys: readonly string[]) => boolean
   revealPreviousMessage: (keys: readonly string[], animated: boolean) => void
   finishPendingAlign: (s: S) => void
+  /** Keeps the reader's place, except while a jump is easing and would be pulled back to the old line. */
+  keepPlaceUnlessAligning: (s: S) => void
 }
 
 function stopsOf(s: MobileNativeChatScrollNode, keys: readonly string[]): PreviousMessageStop[] {
@@ -247,5 +250,17 @@ export function useMobileNativeChatPreviousAlign<S extends MobileNativeChatScrol
     [alignRow]
   )
 
-  return { aligning, cancelAlign, hasPreviousMessage, revealPreviousMessage, finishPendingAlign }
+  const keepPlaceUnlessAligning = useCallback((s: S) => {
+    if (!aligning.current) {
+      argsRef.current.keepPlace(s)
+    }
+  }, [])
+  return {
+    aligning,
+    cancelAlign,
+    hasPreviousMessage,
+    revealPreviousMessage,
+    finishPendingAlign,
+    keepPlaceUnlessAligning
+  }
 }

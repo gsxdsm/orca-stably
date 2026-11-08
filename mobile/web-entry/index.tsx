@@ -22,6 +22,10 @@ import {
 } from '../src/mobile-web-shell/bridge/page-async-storage'
 import { applyStoredDuoChatExpanded, DUO_CHAT_EXPANDED_KEY } from '../src/session/duo-chat-width'
 import {
+  createPageDeviceStore,
+  publishPageDeviceStore
+} from '../src/mobile-web-shell/bridge/page-device-store'
+import {
   RouteScreenPaintProvider,
   createRouteScreenPaintReporter
 } from '../src/mobile-web-shell/bridge/page-first-paint'
@@ -80,6 +84,17 @@ function createRootProviders(client: BridgeRpcClient, target: PageMountTarget) {
 }
 
 // Older shells send no language; follow the WebView's, which tracks the phone's.
+// The shell's `open` target paints first; a target that can't be parsed boots the document's own route.
+function bootPathname(openTarget: string | undefined): string {
+  try {
+    return openTarget
+      ? new URL(openTarget, window.location.href).pathname
+      : window.location.pathname
+  } catch {
+    return window.location.pathname
+  }
+}
+
 function activatePageUiLocale(locale: BridgeUiLocale | null): Promise<void> {
   return activateMobileUiLocale(locale ?? resolveUiLocaleFromTags(readDeviceUiLocaleTags()))
 }
@@ -170,6 +185,7 @@ bootstrapShellPage({
       session.ownsHostArea ? readNativeStorage : null,
       readNativeStorage
     )
+    publishPageDeviceStore(createPageDeviceStore(client))
     client.onStorageUpdate(() => {
       const current = client.getShellSession()
       if (current !== null) {
@@ -177,10 +193,10 @@ bootstrapShellPage({
         applyStoredDuoChatExpanded(current.storage[DUO_CHAT_EXPANDED_KEY] ?? null)
       }
     })
-    // Open-target boots stay lazy: the stack moves the URL to the target only when it mounts after the container.
-    const bootRoutes = session.route?.params?.[BRIDGE_OPEN_ROUTE_PARAM]
-      ? null
-      : preloadBootRoutes(window.location.pathname)
+    // An open-target boot paints the shell's target first, so that is the screen to preload.
+    const bootRoutes = preloadBootRoutes(
+      bootPathname(session.route?.params?.[BRIDGE_OPEN_ROUTE_PARAM])
+    )
     // Activation settles to English on failure and preloads settle either way, so the page always mounts.
     void Promise.all([settleLatest(() => uiLocaleActivation), bootRoutes]).then(() =>
       createRoot(container).render(

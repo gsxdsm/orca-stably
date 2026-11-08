@@ -13,6 +13,8 @@ import { AuthFailedBanner } from '../components/AuthFailedBanner'
 import { Presence } from '../components/AutoHeight'
 import { DisclosureChevron } from '../components/DisclosureChevron'
 import { HostDiagnosticsLink } from '../components/HostDiagnosticsLink'
+import { HostOfflineBanner, useHostOfflineBanner } from '../components/HostOfflineBanner'
+import { isConnectionOutage } from '../transport/connection-health'
 import { HostRouteNoticeBanner } from '../components/HostRouteNoticeBanner'
 import { MobileRepoIcon } from '../components/MobileRepoIcon'
 import type { CollapsingTitle } from '../components/nav-bar/PageTitle'
@@ -21,19 +23,20 @@ import { WORKTREE_ROW_LAYOUT } from '../components/worktree-list-row-layout'
 import { colors, spacing } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { getWorktreeRowIdentity } from '../worktree/worktree-host-row-identity'
-import type { Worktree } from '../worktree/workspace-list-types'
 import {
   HostWorkspaceListReopen,
   HostWorkspaceListStates
 } from '../worktree/host-workspace-list-states'
 import { getWorktreeDotStatus } from '../worktree/workspace-list-ordering'
-import type { Section, WorkspaceListItem } from '../worktree/workspace-list-types'
+import type { Section, WorkspaceListItem, Worktree } from '../worktree/workspace-list-types'
 import { DEFAULT_REPO_BADGE_COLOR } from '../../../src/shared/repo-badge-color'
 import { getWorktreeCardDetails } from '../../../src/shared/worktree/card-properties'
 import { hostScreenStyles as styles } from './host-screen-styles'
 import { buildRepoLookById, type RepoLook } from './host-repo-looks'
 import { HostPendingCreationRow } from './host-pending-creation-row'
 import { useSlowPendingKeys } from './use-slow-pending-keys'
+import { useHostMutationDrafts } from '../query/host-mutation-drafts'
+import { workspaceRenameDraftKey } from './workspace-rename-sheet'
 import { projectGroupHeaderIndent } from '../worktree/project-group-indent'
 import type { HostScreenController } from './use-host-screen-controller'
 import { sidebarSessionAction } from './sidebar-session-action'
@@ -56,15 +59,18 @@ export function HostWorkspaceList({
     actions,
     activeWorktreeScroll,
     catalog,
+    client,
     connState,
     contentMaxWidth,
     displayWorktrees,
     embedded,
     forceReconnectHost,
+    hostDisplay,
     hostId,
     insets,
     isReadOnly,
     isWideLayout,
+    lastConnectedAt,
     noticeParam,
     now,
     reconnectAttempts,
@@ -93,6 +99,16 @@ export function HostWorkspaceList({
     )
   )
   const hasRows = sections.length > 0
+  const offlineBanner = useHostOfflineBanner({
+    client,
+    connState,
+    lastConnectedAt,
+    outage: isConnectionOutage(controller.connectionVerdict),
+    forceReconnect: hostId && forceReconnectHost ? () => void forceReconnectHost(hostId) : null,
+    // Group headers can stand with no rows under them; that list says "unreachable" in its body.
+    hasData: (controller.feed ? sections.length : displayWorktrees.length) > 0
+  })
+  const renameDrafts = useHostMutationDrafts()
   const resetTitle = pageTitle?.collapsing.reset
   useEffect(() => {
     if (!hasRows) {
@@ -160,9 +176,12 @@ export function HostWorkspaceList({
         onLongPress={item.workspaceKind === 'folder-workspace' ? undefined : setActionTarget}
         onSessionLongPress={openSessionMenu}
         onToggleLineage={toggleWorktreeLineage}
+        unsavedName={unsavedRename(renameDrafts, hostId, item)}
       />
     ),
     [
+      renameDrafts,
+      hostId,
       isReadOnly,
       cardDetails,
       now,
@@ -267,7 +286,21 @@ export function HostWorkspaceList({
       {sections.length > 0 && (
         <Animated.SectionList
           ref={activeWorktreeScroll.sectionListRef}
-          ListHeaderComponent={pageTitle?.element}
+          ListHeaderComponent={
+            <>
+              {pageTitle?.element}
+              {offlineBanner ? (
+                <View style={styles.offlineBanner}>
+                  <HostOfflineBanner
+                    hostName={hostDisplay.title}
+                    offline={offlineBanner.offline}
+                    asOf={offlineBanner.asOf}
+                    onRetry={offlineBanner.retry}
+                  />
+                </View>
+              ) : null}
+            </>
+          }
           ListFooterComponent={listState}
           onScroll={pageTitle?.collapsing.onScroll}
           {...pageTitle?.collapsing.touchHandlers}
@@ -304,6 +337,16 @@ export function HostWorkspaceList({
       )}
     </>
   )
+}
+
+// The row keeps its real name; a rename the desktop never took is shown under it.
+function unsavedRename(
+  drafts: ReadonlyMap<string, string>,
+  hostId: string | undefined,
+  row: Worktree
+): string | undefined {
+  const draft = hostId ? drafts.get(workspaceRenameDraftKey(hostId, row)) : undefined
+  return draft?.trim() && draft !== row.displayName ? draft : undefined
 }
 
 // Takes the header's own fields, not the section, so a poll that rebuilds sections skips unchanged headers.

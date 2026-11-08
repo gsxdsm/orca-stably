@@ -238,12 +238,15 @@ export function MobileNativeChatPageList({
       }
     }
   })
-  // A hidden chat keeps its hold but loses the timer; settle it again when the chat shows.
+  // A hidden chat keeps its hold but loses the timer and touch listeners; settle it again when the chat shows.
   useEffect(() => {
     if (heldRef.current) {
       settle.current()
     }
-    return () => clearTimeout(settleTimer.current)
+    return () => {
+      clearTimeout(settleTimer.current)
+      touching.current = false
+    }
   }, [])
 
   const drawAndFetch = useCallback(
@@ -273,11 +276,11 @@ export function MobileNativeChatPageList({
     scroller,
     write,
     notePlace,
+    keepPlace,
     latest,
     revealUndrawn: (index) => {
-      // The index comes from the key map, so its key exists.
-      const { keys: drawnKeys, n, rowKeys: keysNow } = latest.current
-      setDrawn({ scope: keysNow.scope, firstKey: drawnKeys[index]!, count: n - index })
+      const { keys: rows, n, rowKeys: scoped } = latest.current
+      setDrawn({ scope: scoped.scope, firstKey: rows[index]!, count: n - index })
     }
   })
 
@@ -311,7 +314,6 @@ export function MobileNativeChatPageList({
       return
     }
     // Chromium keeps a touch scroll's offset from the top, so rows drawn or cut above would carry the reader with them; a write hands the scroll the end-anchored offset.
-    // Skip place restoration while a previous-message jump is easing, or it pulls back to the old line.
     if (!align.aligning.current && keys[first] !== drawnHead.current) {
       drawnHead.current = keys[first]
       if (!resting() && !scrollWritesStopMomentum()) {
@@ -320,9 +322,7 @@ export function MobileNativeChatPageList({
         write(s, top)
       }
     }
-    if (!align.aligning.current) {
-      keepPlace(s)
-    }
+    align.keepPlaceUnlessAligning(s)
     drawAndFetch(s)
     align.finishPendingAlign(s)
   })
@@ -337,9 +337,7 @@ export function MobileNativeChatPageList({
     }
     const observer = new ResizeObserver(() => {
       roots?.restoreAll()
-      if (!align.aligning.current) {
-        keepPlace(s)
-      }
+      align.keepPlaceUnlessAligning(s)
       drawAndFetch(s)
       align.finishPendingAlign(s)
     })
@@ -385,7 +383,6 @@ export function MobileNativeChatPageList({
       if (!s) {
         return
       }
-      // The jump's own frames and the momentum stop are not the reader taking over.
       // RN Web repeats the last scroll event 100 ms after scrolling stops; keep our write so that repeat is ours too.
       const byReader =
         !align.aligning.current &&
