@@ -1879,7 +1879,9 @@
       "switchToPhoneMode": "휴대폰 모드로 전환",
       "pasteFromClipboard": "클립보드에서 붙여넣기",
       "paste": "붙여넣기",
-      "addCustomShortcut": "사용자 지정 단축키 추가"
+      "addCustomShortcut": "사용자 지정 단축키 추가",
+      "keysMode": "키",
+      "messageMode": "메시지"
     },
     "activeContent": {
       "createTab": "탭 만들기",
@@ -1986,7 +1988,11 @@
     },
     "commandDock": {
       "liveInputHint": "입력한 텍스트가 활성 터미널로 바로 전송됩니다.",
-      "liveInputLabel": "실시간 터미널 입력"
+      "liveInputLabel": "실시간 터미널 입력",
+      "sendCommand": "명령 보내기",
+      "messageAgentPlaceholder": "{{agent}}에게 메시지 보내기",
+      "theAgent": "에이전트",
+      "writeCommandPlaceholder": "명령을 작성한 후 전송"
     },
     "contentRow": {
       "dismissCreationWarning": "워크스페이스 생성 경고 닫기"

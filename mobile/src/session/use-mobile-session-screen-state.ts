@@ -25,10 +25,11 @@ import type {
   Terminal
 } from './mobile-session-route-types'
 import { useMobileSessionTabActionTargets } from './use-mobile-session-tab-action-targets'
+import { useTerminalMessageMode } from './use-terminal-message-mode'
 import type { MobileSessionFoundationModel } from './use-mobile-session-foundation'
 
 export function useMobileSessionScreenState(scope: MobileSessionFoundationModel) {
-  const { worktreeId, initialCreateWarning } = scope
+  const { hostId, worktreeId, initialCreateWarning } = scope
   const terminalSplitLayout = useTerminalSplitLayout()
   const [terminals, setTerminals] = useState<Terminal[]>([])
   const terminalsRef = useRef<Terminal[]>([])
@@ -45,6 +46,7 @@ export function useMobileSessionScreenState(scope: MobileSessionFoundationModel)
   const [liveInputCapture] = useState(createLiveInputCapture)
   const [activeHandle, setActiveHandle] = useState<string | null>(null)
   const [coveredStreamRevision, setCoveredStreamRevision] = useState(0)
+  const terminalMessageMode = useTerminalMessageMode({ hostId, worktreeId, activeHandle })
   const [activeSessionTabId, setActiveSessionTabId] = useState<string | null>(null)
   const activeSessionTabIdRef = useRef<string | null>(null)
   // Preserve an explicit phone tab pick while a host snapshot is transiently incomplete.
@@ -217,7 +219,8 @@ export function useMobileSessionScreenState(scope: MobileSessionFoundationModel)
     setToastMessage,
     toastOpacityRef,
     toastHideTimerRef,
-    toastSeqRef
+    toastSeqRef,
+    ...terminalMessageMode
   }
 }
 

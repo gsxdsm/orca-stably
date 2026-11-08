@@ -92,6 +92,33 @@ export async function saveTerminalTextScale(scale: number): Promise<void> {
   await persistMirrored(TEXT_SCALE_KEY, value)
 }
 
+// Handles of terminals switched to Message mode; Keys is the default.
+const TERMINAL_MESSAGE_MODE_PREFIX = 'orca:terminalLiveInputDisabled:'
+
+function terminalMessageModeKey(hostId: string, worktreeId: string): string {
+  return `${TERMINAL_MESSAGE_MODE_PREFIX}${encodeURIComponent(hostId)}:${encodeURIComponent(worktreeId)}`
+}
+
+export async function loadTerminalMessageModeHandles(
+  hostId: string,
+  worktreeId: string
+): Promise<Set<string>> {
+  try {
+    const raw = await AsyncStorage.getItem(terminalMessageModeKey(hostId, worktreeId))
+    return new Set(raw ? stringArray(JSON.parse(raw)) : [])
+  } catch {
+    return new Set()
+  }
+}
+
+export async function saveTerminalMessageModeHandles(
+  hostId: string,
+  worktreeId: string,
+  handles: ReadonlySet<string>
+): Promise<void> {
+  await persistMirrored(terminalMessageModeKey(hostId, worktreeId), JSON.stringify([...handles]))
+}
+
 const SIDEBAR_WIDTH_KEY = 'orca:hostSidebarWidth'
 
 // Caller also caps this tablet/foldable sidebar against the window to preserve detail space.

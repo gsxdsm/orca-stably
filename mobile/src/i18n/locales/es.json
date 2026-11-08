@@ -1933,7 +1933,9 @@
       "switchToPhoneMode": "Cambiar al modo teléfono",
       "pasteFromClipboard": "Pegar desde el portapapeles",
       "paste": "Pegar",
-      "addCustomShortcut": "Agregar atajo personalizado"
+      "addCustomShortcut": "Agregar atajo personalizado",
+      "keysMode": "Teclas",
+      "messageMode": "Mensaje"
     },
     "activeContent": {
       "createTab": "Crear pestaña",
@@ -2056,7 +2058,11 @@
     },
     "commandDock": {
       "liveInputHint": "El texto que escribes se envía directamente a la terminal activa.",
-      "liveInputLabel": "Entrada al terminal en tiempo real"
+      "liveInputLabel": "Entrada al terminal en tiempo real",
+      "sendCommand": "Enviar comando",
+      "messageAgentPlaceholder": "Mensaje para {{agent}}",
+      "theAgent": "el agente",
+      "writeCommandPlaceholder": "Escribe un comando y luego envíalo"
     },
     "contentRow": {
       "dismissCreationWarning": "Descartar la advertencia de creación del espacio de trabajo"

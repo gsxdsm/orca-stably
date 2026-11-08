@@ -1983,7 +1983,9 @@
       "switchToPhoneMode": "Переключить в режим телефона",
       "pasteFromClipboard": "Вставить из буфера обмена",
       "paste": "Вставить",
-      "addCustomShortcut": "Добавить пользовательское сочетание клавиш"
+      "addCustomShortcut": "Добавить пользовательское сочетание клавиш",
+      "keysMode": "Клавиши",
+      "messageMode": "Сообщение"
     },
     "activeContent": {
       "createTab": "Создать вкладку",
@@ -2122,7 +2124,11 @@
     },
     "commandDock": {
       "liveInputHint": "Вводимый текст отправляется прямо в активный терминал",
-      "liveInputLabel": "Прямой ввод в терминал"
+      "liveInputLabel": "Прямой ввод в терминал",
+      "sendCommand": "Отправить команду",
+      "messageAgentPlaceholder": "Сообщение для {{agent}}",
+      "theAgent": "агент",
+      "writeCommandPlaceholder": "Напишите команду и отправьте её"
     },
     "contentRow": {
       "dismissCreationWarning": "Закрыть предупреждение о создании рабочего пространства"

@@ -14,6 +14,8 @@ type MobileDictationTarget =
   | { field: 'chat'; scope: string | null; anchor: MobileDictationAnchor | null }
   // Live terminal input: the words show on that terminal's status row.
   | { field: 'live'; handle: string }
+  // Message mode: the words fill that terminal's composer, to be sent with Send.
+  | { field: 'message'; handle: string }
   | null
 
 // Where a dictation's words go, read once when it starts: a chat composer or the terminal's live input.
@@ -28,7 +30,7 @@ export function useMobileDictationDestination({
   const [target, setTarget] = useState<MobileDictationTarget>(null)
   const targetRef = useRef<MobileDictationTarget>(null)
   const captureDestination = useCallback(
-    (chatShown: boolean, terminalHandle: string | null) => {
+    (chatShown: boolean, terminalHandle: string | null, messageMode = false) => {
       const chat = captureMobileNativeChatTextDestination()
       chatRef.current = chat
       targetRef.current =
@@ -39,7 +41,7 @@ export function useMobileDictationDestination({
               anchor: chat?.anchor ?? null
             }
           : terminalHandle
-            ? { field: 'live', handle: terminalHandle }
+            ? { field: messageMode ? 'message' : 'live', handle: terminalHandle }
             : null
       setTarget(targetRef.current)
     },
@@ -69,6 +71,7 @@ export function useMobileDictationDestination({
     captureDestination,
     // A chat dictation stays in its chat after a switch; a terminal can't take words once a chat replaces it.
     landsInChat: (chatShown: boolean) => chatShown || targetRef.current?.field === 'chat',
+    messageHandle: () => (targetRef.current?.field === 'message' ? targetRef.current.handle : null),
     insertInChat
   }
 }
@@ -89,6 +92,7 @@ export function useMobileDictationPreviews(
   )
   return {
     chatDictationPreview,
-    liveDictationText: target?.field === 'live' && target.handle === activeHandle ? heard : ''
+    liveDictationText: target?.field === 'live' && target.handle === activeHandle ? heard : '',
+    messageDictationText: target?.field === 'message' && target.handle === activeHandle ? heard : ''
   }
 }

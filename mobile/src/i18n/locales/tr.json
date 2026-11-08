@@ -1883,7 +1883,9 @@
       "switchToPhoneMode": "Telefon moduna geç",
       "pasteFromClipboard": "Panodan yapıştır",
       "paste": "Yapıştır",
-      "addCustomShortcut": "Özel kısayol ekle"
+      "addCustomShortcut": "Özel kısayol ekle",
+      "keysMode": "Tuşlar",
+      "messageMode": "Mesaj"
     },
     "activeContent": {
       "createTab": "Sekme Oluştur",
@@ -1990,7 +1992,11 @@
     },
     "commandDock": {
       "liveInputHint": "Yazılan metin doğrudan etkin terminale gönderilir",
-      "liveInputLabel": "Canlı terminal girişi"
+      "liveInputLabel": "Canlı terminal girişi",
+      "sendCommand": "Komut gönder",
+      "messageAgentPlaceholder": "{{agent}} için mesaj",
+      "theAgent": "ajan",
+      "writeCommandPlaceholder": "Bir komut yazın ve gönderin"
     },
     "contentRow": {
       "dismissCreationWarning": "Çalışma alanı oluşturma uyarısını kapat"

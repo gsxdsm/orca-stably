@@ -22,8 +22,16 @@ export function useSessionTerminalKeyRail(controller: MobileSessionController): 
   moreKeysVisible: boolean
   closeMoreKeys: () => void
 } {
-  const { activeHandle, activeSessionTab, terminalModes, canSend, directionPadEnabled, dockKeys } =
-    controller
+  const {
+    activeHandle,
+    activeSessionTab,
+    terminalModes,
+    canSend,
+    canCompose,
+    terminalMessageMode,
+    directionPadEnabled,
+    dockKeys
+  } = controller
   const [moreKeysVisible, setMoreKeysVisible] = useState(false)
   const railShown =
     sessionCommandDockShown(controller) &&
@@ -37,16 +45,24 @@ export function useSessionTerminalKeyRail(controller: MobileSessionController): 
   const toolbar = useMemo<BridgeTerminalToolbar>(
     () => ({
       canSend,
-      // There is no composer to switch to: shipped shells grey their input-mode key, newer ones hide it.
-      canCompose: false,
+      canCompose,
       keyboardVisible,
-      liveInputEnabled: true,
+      liveInputEnabled: !terminalMessageMode,
       phoneDisplayMode,
       runsAgent,
       modifiers,
       directionPadEnabled
     }),
-    [canSend, keyboardVisible, phoneDisplayMode, runsAgent, modifiers, directionPadEnabled]
+    [
+      canSend,
+      canCompose,
+      keyboardVisible,
+      terminalMessageMode,
+      phoneDisplayMode,
+      runsAgent,
+      modifiers,
+      directionPadEnabled
+    ]
   )
   const railKeys = useShellTerminalKeyRail(
     railShown,
@@ -58,13 +74,18 @@ export function useSessionTerminalKeyRail(controller: MobileSessionController): 
       if (id === 'toggleKeyboard') {
         if (keyboardVisible) {
           controller.dismissSoftwareKeyboard()
-        } else if (canSend) {
-          controller.liveInputRef.current?.focus()
+        } else if (terminalMessageMode ? canCompose : canSend) {
+          ;(terminalMessageMode
+            ? controller.messageInputRef
+            : controller.liveInputRef
+          ).current?.focus()
         }
         return
       }
-      // Sent by shipped shells only; the terminal has one input now.
       if (id === 'toggleInputMode') {
+        if (canCompose) {
+          controller.toggleInputMode()
+        }
         return
       }
       if (id === 'moreKeys') {

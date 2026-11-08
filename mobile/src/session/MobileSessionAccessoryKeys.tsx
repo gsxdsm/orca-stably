@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Keyboard as KeyboardIcon,
   Monitor,
+  PenLine,
   Plus,
   Smartphone
 } from 'lucide-react-native'
@@ -46,7 +47,10 @@ export function MobileSessionAccessoryKeys({
     stopAccessoryRepeat,
     cancelAccessoryRepeat,
     prepareAccessoryPress,
-    handlePaste
+    handlePaste,
+    canCompose,
+    terminalMessageMode,
+    toggleInputMode
   } = controller
   const keyboardLift = useMobileSessionKeyboardLift(controller.dockBottomInset)
   const accessoryPresses = useRef(new Map<string, ReturnType<typeof prepareAccessoryPress>>())
@@ -72,6 +76,39 @@ export function MobileSessionAccessoryKeys({
     t('session.accessoryKeys.sendKey', 'Send {{label}}', { label })
   return (
     <View ref={keepsKeyboard} style={styles.keyRow}>
+      <Pressable
+        style={({ pressed }) => [
+          styles.modeKey,
+          pressed && styles.keyPressed,
+          !canCompose && styles.disabled
+        ]}
+        disabled={!canCompose}
+        hitSlop={TERMINAL_KEY_HIT_SLOP}
+        onPress={toggleInputMode}
+        accessibilityRole="button"
+        accessibilityLabel={
+          terminalMessageMode
+            ? t(
+                'session.accessoryKeys.messageModeLabel',
+                'Message mode: write, then send. Switch to Keys mode'
+              )
+            : t(
+                'session.accessoryKeys.keysModeLabel',
+                'Keys mode: typing goes straight to the terminal. Switch to Message mode'
+              )
+        }
+      >
+        {terminalMessageMode ? (
+          <PenLine size={15} color={colors.textPrimary} strokeWidth={2} />
+        ) : (
+          <KeyboardIcon size={15} color={colors.textPrimary} strokeWidth={2} />
+        )}
+        <Text style={styles.modeKeyText}>
+          {terminalMessageMode
+            ? t('session.accessoryKeys.messageMode', 'Message')
+            : t('session.accessoryKeys.keysMode', 'Keys')}
+        </Text>
+      </Pressable>
       {/* Why: fixed keyboard escape hatch; outside the ScrollView so it can't scroll away (#5106). */}
       {keyboardLift > 0 && (
         <Pressable

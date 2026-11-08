@@ -1933,7 +1933,9 @@
       "switchToPhoneMode": "Basculer en mode téléphone",
       "pasteFromClipboard": "Coller depuis le presse-papiers",
       "paste": "Coller",
-      "addCustomShortcut": "Ajouter un raccourci personnalisé"
+      "addCustomShortcut": "Ajouter un raccourci personnalisé",
+      "keysMode": "Touches",
+      "messageMode": "Message"
     },
     "activeContent": {
       "createTab": "Créer un onglet",
@@ -2056,7 +2058,11 @@
     },
     "commandDock": {
       "liveInputHint": "Le texte saisi est envoyé directement au terminal actif.",
-      "liveInputLabel": "Saisie en direct dans le terminal"
+      "liveInputLabel": "Saisie en direct dans le terminal",
+      "sendCommand": "Envoyer la commande",
+      "messageAgentPlaceholder": "Message à {{agent}}",
+      "theAgent": "l'agent",
+      "writeCommandPlaceholder": "Écrivez une commande, puis envoyez-la"
     },
     "contentRow": {
       "dismissCreationWarning": "Ignorer l'avertissement de création de l'espace de travail"
