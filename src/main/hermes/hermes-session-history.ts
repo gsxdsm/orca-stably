@@ -16,6 +16,8 @@ export const HERMES_SESSION_HISTORY: StructuredAgentSessionHistory = {
       return null
     }
     // Titles, `latest`, and targetless continue can name any owned session.
-    return invocation.target && hermesResumeSessionId(invocation.target) ? invocation : { target: null }
+    return invocation.target && hermesResumeSessionId(invocation.target)
+      ? invocation
+      : { target: null }
   }
 }

@@ -1,0 +1,313 @@
+import { useCallback, useRef } from 'react'
+import { Keyboard } from 'react-native'
+import { translate } from '../../i18n/mobile-i18n'
+import { triggerError } from '../../platform/haptics'
+import { currentSoftKeyboardHeight } from '../../platform/keyboard-occlusion'
+import type { createTerminalLiveAccessoryInput } from '../terminal-live-accessory-input'
+import { sendTerminalLiveAccessoryRawBytes } from '../terminal-live-accessory-raw-send'
+import {
+  clearTerminalLiveInputFocusTimer,
+  isTerminalLiveInputWithinByteLimit
+} from '../terminal-live-input'
+import { dismissTerminalKeyboard } from '../terminal-keyboard-dismiss'
+import { terminalInputSend } from '../mobile-terminal-operations'
+import { buildTerminalSendParams, TERMINAL_INPUT_SEND_OPTIONS } from '../terminal-send-request'
+import { normalizeTerminalTextInput } from '../terminal-text-input-normalization'
+import { encodeTerminalKeyForModes } from '../terminal-key-mode-encoding'
+import { useTerminalTextFieldSubmitBinding } from '../use-terminal-text-field-submit-binding'
+import { useAgentSendKeyboardDismissal } from './use-agent-send-keyboard-dismissal'
+import type { MobileSessionTab } from '../../session/tabs/mobile-session-tabs'
+import { useMobileSessionTabActionSheetOpener } from '../../session/tabs/use-mobile-session-tab-action-targets'
+import type { MobileSessionTerminalWebviewModel } from './use-mobile-session-terminal-webview'
+import type { TerminalLiveInputSender } from '../terminal-live-input-sender'
+
+export function useMobileSessionTerminalSendActions(scope: MobileSessionTerminalWebviewModel) {
+  const {
+    client,
+    sendTerminalUserInput: sendUserInput,
+    sendTerminalOrderedInput,
+    terminalRefs,
+    activeHandle,
+    activeSessionTab,
+    setActionTarget,
+    setMarkdownActionTarget,
+    setFileActionTarget,
+    setBrowserActionTarget,
+    setAgentSessionActionTarget,
+    deviceTokenRef,
+    clientRef,
+    connStateRef,
+    liveInputRef,
+    ptyModesRef,
+    liveInputFocusTimerRef,
+    sendLiveTerminalInputRef,
+    sessionTabActionSheetKeyboardHideSubRef,
+    sessionTabActionSheetRequestSeqRef,
+    activeHandleRef,
+    activeSessionTabTypeRef,
+    getSendCompletionGeneration,
+    getLiveInteractionGeneration,
+    handleLiveInputAccessoryBytes,
+    handleLiveInputCompositionEnd,
+    handleLiveInputSubmit,
+    canSend,
+    scheduleDelayedAction,
+    showToast,
+    messageInputRef,
+    terminalDraft,
+    setTerminalDraft,
+    toggleTerminalMessageMode
+  } = scope
+  const sendingMessageRef = useRef(false)
+  const TERMINAL_KEYBOARD_DISMISS_ACTION_SHEET_FALLBACK_MS = 450
+
+  const dismissSoftwareKeyboard = useCallback(() => {
+    dismissTerminalKeyboard({
+      clearPendingLiveInputFocus: () => clearTerminalLiveInputFocusTimer(liveInputFocusTimerRef),
+      dismissKeyboard: () => Keyboard.dismiss(),
+      liveInput: liveInputRef.current
+    })
+    messageInputRef.current?.blur()
+  }, [])
+  const dismissKeyboardAfterAgentSend = useAgentSendKeyboardDismissal(
+    dismissSoftwareKeyboard,
+    getSendCompletionGeneration
+  )
+
+  const submitLiveInput = useCallback(() => {
+    const submit = handleLiveInputSubmit()
+    const sendOrigin = {
+      tab: activeSessionTab,
+      generation: getSendCompletionGeneration(),
+      interaction: getLiveInteractionGeneration()
+    }
+    void submit.then((accepted) =>
+      dismissKeyboardAfterAgentSend(
+        sendOrigin,
+        accepted && sendOrigin.interaction === getLiveInteractionGeneration()
+      )
+    )
+  }, [activeSessionTab, dismissKeyboardAfterAgentSend, handleLiveInputSubmit])
+  const bindLiveInputField = useTerminalTextFieldSubmitBinding(
+    liveInputRef,
+    submitLiveInput,
+    (input) => {
+      if (!client || !activeHandle || !canSend) {
+        return false
+      }
+      void handleAccessoryKey(input)
+      return true
+    },
+    handleLiveInputCompositionEnd
+  )
+
+  // Message mode: the composed line plus Enter; a refused send keeps the text to retry.
+  async function handleSendTerminalMessage() {
+    const handle = activeHandle
+    const draft = terminalDraft
+    if (!client || !handle || !canSend || sendingMessageRef.current || !draft.trim()) {
+      return
+    }
+    sendingMessageRef.current = true
+    const sendOrigin = { tab: activeSessionTab, generation: getSendCompletionGeneration() }
+    try {
+      const response = await sendUserInput(
+        client,
+        buildTerminalSendParams({
+          terminal: handle,
+          text: normalizeTerminalTextInput(draft),
+          enter: true,
+          deviceToken: deviceTokenRef.current
+        }),
+        TERMINAL_INPUT_SEND_OPTIONS
+      )
+      const accepted = terminalInputSend.interpret(response) === true
+      if (accepted) {
+        terminalRefs.current.get(handle)?.scrollToBottom()
+        setTerminalDraft(handle, (current) => (current === draft ? '' : current))
+      } else {
+        triggerError()
+      }
+      dismissKeyboardAfterAgentSend(sendOrigin, accepted)
+    } catch {
+      triggerError()
+    } finally {
+      sendingMessageRef.current = false
+    }
+  }
+
+  const toggleInputMode = useCallback(() => {
+    if (!activeHandle) {
+      return
+    }
+    const keepKeyboard =
+      currentSoftKeyboardHeight() > 0 ||
+      liveInputRef.current?.isFocused() === true ||
+      messageInputRef.current?.isFocused() === true
+    clearTerminalLiveInputFocusTimer(liveInputFocusTimerRef)
+    const message = toggleTerminalMessageMode(activeHandle)
+    if (keepKeyboard) {
+      ;(message ? messageInputRef : liveInputRef).current?.focus()
+    }
+  }, [activeHandle, toggleTerminalMessageMode])
+
+  async function handleAccessoryKey(
+    input: ReturnType<typeof createTerminalLiveAccessoryInput>,
+    targetHandle = activeHandle,
+    isDeliveryTargetCurrent: () => boolean = () => true
+  ): Promise<boolean> {
+    if (
+      !client ||
+      !targetHandle ||
+      targetHandle !== activeHandle ||
+      !canSend ||
+      !isDeliveryTargetCurrent()
+    ) {
+      return false
+    }
+    // Encode first so the live-input commit sees the bytes the PTY will receive.
+    const encoded = {
+      ...input,
+      bytes: encodeTerminalKeyForModes(input.bytes, ptyModesRef.current.get(targetHandle))
+    }
+    const accessoryCommit = await handleLiveInputAccessoryBytes(encoded)
+    if (!isDeliveryTargetCurrent() || clientRef.current !== client) {
+      return false
+    }
+    if (accessoryCommit.kind !== 'allow-raw') {
+      return accessoryCommit.kind === 'handled'
+    }
+    return sendTerminalLiveAccessoryRawBytes({
+      client,
+      sendTerminalUserInput: sendUserInput,
+      targetHandle,
+      activeHandle: activeHandleRef.current,
+      activeSessionTabType: activeSessionTabTypeRef.current,
+      connState: connStateRef.current,
+      bytes: encoded.bytes,
+      deviceToken: deviceTokenRef.current
+    })
+  }
+
+  const sendLiveTerminalInput = useCallback<TerminalLiveInputSender>(
+    async (handle, bytes, origin, enqueue): Promise<boolean> => {
+      const text = encodeTerminalKeyForModes(
+        normalizeTerminalTextInput(bytes),
+        ptyModesRef.current.get(handle)
+      )
+      if (text.length === 0) {
+        return false
+      }
+      if (!isTerminalLiveInputWithinByteLimit(text)) {
+        triggerError()
+        showToast(
+          translate(
+            'session.useSessionTerminalSendActions.inputTooLarge',
+            'Input too large (max 256 KiB)'
+          ),
+          1500
+        )
+        return false
+      }
+      const rpc = clientRef.current
+      // Why: callers suppress follow-up controls/toasts when this live send is stale.
+      if (
+        !rpc ||
+        connStateRef.current !== 'connected' ||
+        handle !== activeHandleRef.current ||
+        activeSessionTabTypeRef.current !== 'terminal'
+      ) {
+        return false
+      }
+      // Discard live-mirror deltas behind a dying send so reconnect cannot replay stale bytes.
+      if (origin !== 'pointer') {
+        terminalRefs.current.get(handle)?.scrollToBottom()
+      }
+      return sendTerminalOrderedInput(
+        rpc,
+        buildTerminalSendParams({
+          terminal: handle,
+          text,
+          enter: false,
+          deviceToken: deviceTokenRef.current
+        }),
+        TERMINAL_INPUT_SEND_OPTIONS,
+        enqueue
+      ).then(
+        (response) => {
+          return terminalInputSend.interpret(response) === true
+        },
+        () => false
+      )
+    },
+    [sendTerminalOrderedInput, showToast, terminalRefs]
+  )
+  sendLiveTerminalInputRef.current = sendLiveTerminalInput
+
+  const clearSessionTabActionSheetKeyboardListener = useCallback(() => {
+    sessionTabActionSheetKeyboardHideSubRef.current?.remove()
+    sessionTabActionSheetKeyboardHideSubRef.current = null
+  }, [])
+
+  const openSessionTabActionSheet = useMobileSessionTabActionSheetOpener({
+    activeHandleRef,
+    setActionTarget,
+    setMarkdownActionTarget,
+    setFileActionTarget,
+    setBrowserActionTarget,
+    setAgentSessionActionTarget
+  })
+
+  const openSessionTabActionSheetAfterKeyboardDismiss = useCallback(
+    (tab: MobileSessionTab) => {
+      // Wait for keyboard dismissal before opening the sheet or queued refocus can race under it.
+      sessionTabActionSheetRequestSeqRef.current += 1
+      const requestSeq = sessionTabActionSheetRequestSeqRef.current
+      clearSessionTabActionSheetKeyboardListener()
+      let didOpen = false
+      const openAfterDismiss = () => {
+        if (didOpen || requestSeq !== sessionTabActionSheetRequestSeqRef.current) {
+          return
+        }
+        didOpen = true
+        clearSessionTabActionSheetKeyboardListener()
+        openSessionTabActionSheet(tab)
+      }
+
+      clearTerminalLiveInputFocusTimer(liveInputFocusTimerRef)
+
+      if (currentSoftKeyboardHeight() <= 0) {
+        liveInputRef.current?.blur()
+        Keyboard.dismiss()
+        openAfterDismiss()
+        return
+      }
+
+      sessionTabActionSheetKeyboardHideSubRef.current = Keyboard.addListener(
+        'keyboardDidHide',
+        openAfterDismiss
+      )
+      liveInputRef.current?.blur()
+      Keyboard.dismiss()
+      scheduleDelayedAction(openAfterDismiss, TERMINAL_KEYBOARD_DISMISS_ACTION_SHEET_FALLBACK_MS)
+    },
+    [clearSessionTabActionSheetKeyboardListener, openSessionTabActionSheet, scheduleDelayedAction]
+  )
+
+  return {
+    handleAccessoryKey,
+    handleSendTerminalMessage,
+    toggleInputMode,
+    sendLiveTerminalInput,
+    clearSessionTabActionSheetKeyboardListener,
+    openSessionTabActionSheet,
+    openSessionTabActionSheetAfterKeyboardDismiss,
+    dismissSoftwareKeyboard,
+    dismissKeyboardAfterAgentSend,
+    bindLiveInputField,
+    submitLiveInput
+  }
+}
+
+export type MobileSessionTerminalSendActionsModel = MobileSessionTerminalWebviewModel &
+  ReturnType<typeof useMobileSessionTerminalSendActions>

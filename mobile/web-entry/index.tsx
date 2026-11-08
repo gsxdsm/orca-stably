@@ -44,7 +44,7 @@ import { startIgnoringPressableIconHits } from '../src/platform/pressable-svg-hi
 import { SessionListLongPressProvider } from '../src/navigation/session-list-long-press'
 import { publishShellKeyboardSource } from '../src/platform/keyboard-occlusion.web'
 // Select the page-client provider explicitly; the builder aliases extensionless screen imports to this same web module.
-import { RpcClientProvider } from '../src/transport/client-context.web'
+import { RpcClientProvider } from '../src/transport/connection/client-context.web'
 import { OrcaQueryProvider } from '../src/query/orca-query-provider.web'
 import { createOrcaQueryClient } from '../src/query/orca-query-client'
 import {

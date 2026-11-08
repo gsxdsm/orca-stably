@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { act, create } from 'react-test-renderer'
 import { afterEach, expect, it, vi } from 'vitest'
-import type { RpcClient } from '../../../transport/rpc-client'
+import type { RpcClient } from '../../../transport/rpc/rpc-client-contract'
 import { useMobileNativeChatImageAttachments } from './use-mobile-native-chat-image-attachments'
 
 vi.mock('../../../platform/media-picker', () => ({

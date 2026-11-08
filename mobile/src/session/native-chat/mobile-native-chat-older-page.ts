@@ -1,6 +1,6 @@
 import type { NativeChatMessage } from '../../../../src/shared/native-chat/native-chat-types'
-import type { RpcClient } from '../../transport/rpc-client'
-import { nativeChatSessionPageRead } from '../mobile-session-read-operations'
+import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
+import { nativeChatSessionPageRead } from './agent-session/mobile-native-chat-page-read-operations'
 
 const PAGE = 60
 const MAX_MESSAGES = 2000

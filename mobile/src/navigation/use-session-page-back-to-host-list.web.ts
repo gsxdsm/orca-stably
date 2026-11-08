@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { usePageBridgeClientIfPresent } from '../transport/client-context.web'
+import { usePageBridgeClientIfPresent } from '../transport/connection/client-context.web'
 import { hostStackHostRoute } from './host-stack-navigation'
 import { firstParam } from './route-param-reader'
 import { useBackClaim } from './use-back-claim.web'

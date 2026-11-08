@@ -1,8 +1,8 @@
 import { useCallback } from 'react'
 import { resolveNativeChatTranscriptAgent } from '../../../../../src/shared/native-chat/native-chat-agent-support'
 import type { NativeChatMessage } from '../../../../../src/shared/native-chat/native-chat-types'
-import type { RpcClient } from '../../../transport/rpc-client'
-import { nativeChatSessionPageRead } from '../../mobile-session-read-operations'
+import type { RpcClient } from '../../../transport/rpc/rpc-client-contract'
+import { nativeChatSessionPageRead } from '../agent-session/mobile-native-chat-page-read-operations'
 import type { MobileNativeChatSubagentRead } from './use-mobile-native-chat-subagent-page'
 
 const PAGE_TIMEOUT_MS = 15_000

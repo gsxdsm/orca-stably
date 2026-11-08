@@ -4,7 +4,7 @@ import {
   type AgentSessionAccountHome
 } from '../../shared/agent-session/lifecycle/agent-session-account-home'
 import { resolveAbsoluteDirOverride } from '../../shared/absolute-dir-override'
-import type { AcpAccountBinding } from '../acp/acp-account-binding'
+import type { AcpAccountBinding } from '../acp/launch/acp-account-binding'
 import { resolveDefaultHermesHome } from './hermes-default-home'
 
 const HERMES_HOME_VARIABLE = 'HERMES_HOME'

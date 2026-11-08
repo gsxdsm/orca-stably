@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { stubRpcClient } from '../../../transport/rpc-client-test-stub'
+import { stubRpcClient } from '../../../transport/rpc/rpc-client-test-stub'
 import { MobileNativeChatRowOverlaysContext } from './mobile-native-chat-row-overlays'
 
 const readHostChatImage = vi.hoisted(() => vi.fn(async () => 'data:image/png;base64,thumb'))

@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { RpcClient } from '../../transport/rpc-client'
+import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
 import { useMobileTerminalChatQueue } from './use-mobile-terminal-chat-queue'
 import {
   NativeChatTerminalQueueRequest,

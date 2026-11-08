@@ -3,10 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AGENT_LAUNCH_SURFACE_RUNTIME_CAPABILITY } from '../../../src/shared/agent-launch/contracts/agent-launch-runtime-capability'
 import { STRUCTURED_AGENT_SESSION_REGISTERED_AGENTS_RUNTIME_CAPABILITY } from '../../../src/shared/agent-session/structured-agent-session-surface-capabilities'
 import type { TuiAgent } from '../../../src/shared/agent-launch/catalog/tui-agent'
-import type { RpcClient } from '../transport/rpc-client'
-import type { RpcResponse } from '../transport/types'
-import { launchNewTabAgentThroughHost } from './new-tab-agent-host-launch'
-import type { PendingSessionSelection } from './pending-session-selection'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
+import type { RpcResponse } from '../transport/rpc/rpc-wire-types'
+import { launchNewTabAgentThroughHost } from './agent-launch/new-tab-agent-host-launch'
+import type { PendingSessionSelection } from './tabs/pending-session-selection'
 
 vi.mock('@react-native-async-storage/async-storage', () => ({
   default: { getItem: vi.fn(async () => null), setItem: vi.fn(async () => undefined) }

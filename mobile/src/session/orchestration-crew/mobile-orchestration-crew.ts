@@ -21,7 +21,7 @@ import {
   isOrcaSessionId,
   parseOrcaSessionAddress
 } from '../../../../src/shared/orca-session-address'
-import { isMobileMethodUnavailableError } from '../../transport/mobile-method-unavailable'
+import { isMobileMethodUnavailableError } from '../../transport/rpc/mobile-method-unavailable'
 
 export type MobileCrewStatus = 'running' | 'waiting' | 'done' | 'failed'
 

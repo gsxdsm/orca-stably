@@ -12,8 +12,8 @@ import { MobileAgentIcon } from '../components/MobileAgentIcon'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
-import type { RpcClient } from '../transport/rpc-client'
-import { startRuntimeCapabilityProbe } from '../transport/runtime-capability-probe'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
+import { startRuntimeCapabilityProbe } from '../transport/connection/runtime-capability-probe'
 import {
   decodeAntigravityAccountState,
   type AntigravityAccountState

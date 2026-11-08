@@ -5,16 +5,19 @@ import {
   type StructuredAgentSessionState
 } from '../../../src/shared/agent-session/structured-agent-session-reducer'
 import { startStructuredAgentSessionLiveRead } from '../../../src/shared/agent-session/structured-agent-session-live-read'
-import type { RpcClient } from '../transport/rpc-client'
-import { subscribeConnectionRevival } from '../transport/connection-revival-signal'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
+import { subscribeConnectionRevival } from '../diagnostics/connection/connection-revival-signal'
 import {
   hostStatusProbe,
   readProbedHostCapabilities
-} from '../transport/host-status-probe-operations'
+} from '../transport/connection/host-status-probe-operations'
 import { structuredAgentSessionHostSupport } from '../session/mobile-structured-agent-session-host-support'
 import { callAgentSession } from '../session/mobile-structured-agent-session-rpc'
 import { sendMobileStructuredAgentSessionMessage } from '../session/mobile-structured-agent-session-send'
-import { mobileNativeChatFollowUpPreference } from '../session/mobile-native-chat-follow-up-preference'
+import {
+  mobileNativeChatHostPreference,
+  QUEUE_FOLLOW_UPS_PREFERENCE
+} from '../session/mobile-native-chat-host-preference'
 import { subscribeTranscriptAfterHold } from '../session/mobile-structured-transcript-subscription'
 import { structuredSessionOperationId } from '../session/structured-session-operation-id'
 import { watchStructuredChatDelivery } from './watch-structured-chat-delivery'
@@ -112,7 +115,10 @@ export async function sendWatchStructuredChat(input: {
     }
     const capabilities = await readHostCapabilities(input.client)
     const queueCapable = structuredAgentSessionHostSupport(capabilities).queuedMessages === true
-    const queueFollowUps = mobileNativeChatFollowUpPreference(input.client).getSnapshot()
+    const queueFollowUps = mobileNativeChatHostPreference(
+      input.client,
+      QUEUE_FOLLOW_UPS_PREFERENCE
+    ).getSnapshot()
     let detail: string | undefined
     const outcome = await sendMobileStructuredAgentSessionMessage({
       client: input.client,

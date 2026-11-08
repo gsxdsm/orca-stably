@@ -1,6 +1,6 @@
 import { useCallback, useSyncExternalStore } from 'react'
 import { decodeAccountsSnapshot, type AccountsSnapshot } from '../components/accounts-snapshot'
-import type { RpcClient } from '../transport/rpc-client'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 
 type Entry = {
   snapshot: AccountsSnapshot | null

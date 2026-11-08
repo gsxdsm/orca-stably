@@ -39,7 +39,7 @@ vi.mock('../layout/reserved-regions', () => ({
 vi.mock('./duo-chat-width', () => ({
   useDuoChatExpanded: () => scene.expanded
 }))
-vi.mock('../transport/client-context.web', () => ({
+vi.mock('../transport/connection/client-context.web', () => ({
   usePageBridgeClientIfPresent: () =>
     scene.pressBack === null ? null : { pressBack: scene.pressBack }
 }))
@@ -141,9 +141,7 @@ describe('the Duo rail back button', () => {
     expect(onBack).toHaveBeenCalledTimes(1)
 
     scene.expanded = true
-    expect(
-      backs(mount(railButton(true, onBack)))
-    ).toHaveLength(0)
+    expect(backs(mount(railButton(true, onBack)))).toHaveLength(0)
 
     scene.expanded = false
     scene.insets = { top: 0, right: 0, bottom: 34, left: 0 }

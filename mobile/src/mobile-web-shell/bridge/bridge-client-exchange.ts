@@ -1,5 +1,6 @@
-import type { RpcClient, SendRequestOptions } from '../../transport/rpc-client'
-import type { RpcResponse } from '../../transport/types'
+import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
+import type { SendRequestOptions } from '../../transport/rpc/unvalidated-rpc-request-port'
+import type { RpcResponse } from '../../transport/rpc/rpc-wire-types'
 import { BRIDGE_MAX_PENDING_REQUESTS, BRIDGE_MAX_SUBSCRIPTIONS } from './bridge-caps'
 import {
   BridgeClientCapExceededError,

@@ -18,7 +18,7 @@ import {
 } from '../../../../src/shared/native-chat/input/native-chat-claude-task-updates'
 import { readNativeChatSubagentActivities } from '../../../../src/shared/native-chat/input/native-chat-tool-subagents'
 import { buildNativeChatSubscriptionId } from '../../../../src/shared/native-chat/native-chat-stream-unsubscribe'
-import type { RpcClient } from '../../transport/rpc-client'
+import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
 import { readMobileNativeChatOlderPage } from './mobile-native-chat-older-page'
 import {
   applyMobileNativeChatStreamFrame,

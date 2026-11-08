@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the composer pane wires the fork's terminal message queue into upstream's send hooks. */
 import { useNativeChatComposerEditSession } from '../queue/editing/use-native-chat-composer-edit-session'
 import { useNativeChatComposerNotice } from './controls/use-native-chat-composer-notice'
 import { useNativeChatMobileHoldNotice } from '../host-access/use-native-chat-mobile-hold-notice'
@@ -409,7 +410,11 @@ export const NativeChatComposerPane = forwardRef<ComposerHandle, C.NativeChatCom
           launchPrompt={launchPrompt}
           workspaceFooter={
             !editSession && !launchPrompt ? (
-              <NativeChatComposerWorkspace {...{ terminalTabId, structuredTransport }} />
+              <NativeChatComposerWorkspace
+                terminalTabId={terminalTabId}
+                structuredTransport={structuredTransport}
+                isWorking={isWorking}
+              />
             ) : undefined
           }
           {...fieldOverrides}

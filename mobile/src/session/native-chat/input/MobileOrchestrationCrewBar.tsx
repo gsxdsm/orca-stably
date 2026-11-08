@@ -21,7 +21,7 @@ import {
   type MobileCrewStatus
 } from '../../orchestration-crew/mobile-orchestration-crew'
 import { useMobileOrchestrationCrew } from '../../orchestration-crew/use-mobile-orchestration-crew'
-import type { RpcClient } from '../../../transport/rpc-client'
+import type { RpcClient } from '../../../transport/rpc/rpc-client-contract'
 
 export function MobileOrchestrationCrewBar({
   client = null,

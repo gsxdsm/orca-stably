@@ -4,7 +4,7 @@ import { FolderOpen, FolderPlus, Globe, Plus } from 'lucide-react-native'
 import { ActionSheetContent } from '../components/ActionSheetModal'
 import { BottomDrawer } from '../components/bottom-drawer/BottomDrawer'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import type { RpcClient } from '../transport/rpc-client'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import { AddProjectFolderBrowser } from './AddProjectFolderBrowser'
 import {
   CloneProjectForm,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, type ReactNode, type RefObject } from 'react'
 import { useClipboardReader } from '../../../platform/clipboard'
-import { usePageBridgeClientIfPresent } from '../../../transport/client-context.web'
+import { usePageBridgeClientIfPresent } from '../../../transport/connection/client-context.web'
 import {
   mobileComposerPastedImageFromClipboardData,
   type MobileComposerPastedImage

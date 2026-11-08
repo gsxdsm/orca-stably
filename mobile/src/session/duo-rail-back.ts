@@ -7,9 +7,7 @@ export function duoRailBackVisible(args: {
   strip: SideRailStrip | null
   keyboardInset: number
 }): boolean {
-  return (
-    args.chatVisible && !args.expanded && args.strip !== null && !(args.keyboardInset > 0)
-  )
+  return args.chatVisible && !args.expanded && args.strip !== null && !(args.keyboardInset > 0)
 }
 
 /**

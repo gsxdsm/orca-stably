@@ -1,4 +1,4 @@
-import type { RpcClient } from '../transport/rpc-client'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import { mobileStructuredSessionStatusFeed } from '../session/mobile-structured-session-status-feed'
 import type { WatchFeedItem, WatchHost, WatchReply, WatchSnapshot } from './watch-contract'
 import { agentPromptRespond } from './watch-agent-prompt-operations'

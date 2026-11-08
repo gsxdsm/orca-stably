@@ -31,7 +31,7 @@ vi.mock('expo-router', () => ({
   })
 }))
 
-vi.mock('../transport/client-context.web', () => ({
+vi.mock('../transport/connection/client-context.web', () => ({
   usePageBridgeClientIfPresent: () =>
     page.client
       ? {

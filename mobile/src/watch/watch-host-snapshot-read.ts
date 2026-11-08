@@ -1,5 +1,5 @@
 import * as z from 'zod'
-import type { RpcClient } from '../transport/rpc-client'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import { worktreeCatalogRead } from '../worktree/worktree-catalog-operations'
 import { WORKTREE_PS_FULL_LIMIT } from '../worktree/worktree-catalog-snapshot-client'
 import { mobileStructuredSessionStatusFeed } from '../session/mobile-structured-session-status-feed'

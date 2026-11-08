@@ -1,7 +1,7 @@
 import { sidebarSessionTabForPane, sidebarSessionTabs } from '../host-screen/sidebar-session-tab'
-import { sessionTabsListRead } from '../session/mobile-session-read-operations'
-import { nativeChatTerminalWrite } from '../session/mobile-session-write-operations'
-import type { RpcClient } from '../transport/rpc-client'
+import { sessionTabsListRead } from '../session/tabs/mobile-session-tab-read-operations'
+import { nativeChatTerminalWrite } from '../terminal/session/mobile-session-terminal-operations'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 
 /** The phone session screen's handle: the ready terminal tab for this pane, never the pane key. */
 export function watchTerminalHandleFromSessionTabs(

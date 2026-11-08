@@ -61,12 +61,12 @@ vi.mock('lucide-react-native', () => ({
   User: 'User'
 }))
 
-vi.mock('../transport/host-store', () => ({
+vi.mock('../transport/hosts/host-store', () => ({
   loadHosts: async () => [{ id: 'host-1', name: 'Desk' }],
   peekHosts: () => null
 }))
 
-vi.mock('../transport/host-client-hooks', () => {
+vi.mock('../transport/connection/host-client-hooks', () => {
   const client = {
     sendRequest: async (method: string, params?: unknown) => {
       dependencies.requests.push({ method, params })

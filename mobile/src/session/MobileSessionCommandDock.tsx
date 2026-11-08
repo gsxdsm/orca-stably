@@ -6,24 +6,24 @@ import { MobileNativeChatStopButton } from './native-chat/input/MobileNativeChat
 import {
   isMobileTerminalTabRunningAgent,
   resolveMobileTerminalTabOwnedAgentId
-} from './mobile-terminal-tab-agent'
+} from '../terminal/session/mobile-terminal-tab-agent'
 import { Keyboard as KeyboardIcon } from 'lucide-react-native'
 import { composerInputStyles as inputStyles } from '../components/composer-input/composer-input-styles'
 import { TextField } from '../components/composer-input/TextField'
-import { MobileTerminalLiveInputStatus } from './MobileTerminalLiveInputStatus'
-import { MobileTerminalInputActions } from './MobileTerminalInputActions'
-import { MobileSessionAccessoryKeys } from './MobileSessionAccessoryKeys'
-import { MobileTerminalMoreKeysSheet } from './MobileTerminalMoreKeysSheet'
+import { MobileTerminalLiveInputStatus } from '../terminal/session/MobileTerminalLiveInputStatus'
+import { MobileTerminalInputActions } from '../terminal/session/MobileTerminalInputActions'
+import { MobileSessionAccessoryKeys } from '../terminal/session/MobileSessionAccessoryKeys'
+import { MobileTerminalMoreKeysSheet } from '../terminal/session/MobileTerminalMoreKeysSheet'
 import { sessionCommandDockShown } from './mobile-session-command-dock-shown'
-import { useSessionTerminalKeyRail } from './use-session-terminal-key-rail'
-import { terminalDockStyles as dockStyles } from './terminal-dock-styles'
+import { useSessionTerminalKeyRail } from '../terminal/session/use-session-terminal-key-rail'
+import { terminalDockStyles as dockStyles } from '../terminal/session/terminal-dock-styles'
 import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { styles } from './mobile-session-styles'
 import type { MobileSessionController } from './use-mobile-session-controller'
-import { useMobileSessionKeyboardLift } from './use-mobile-session-keyboard-lift'
-import { useLiveInputCaptureText } from './live-input-capture'
+import { useMobileSessionKeyboardLift } from '../terminal/session/use-mobile-session-keyboard-lift'
+import { useLiveInputCaptureText } from '../terminal/session/live-input-capture'
 
 const ESC = '\x1b'
 

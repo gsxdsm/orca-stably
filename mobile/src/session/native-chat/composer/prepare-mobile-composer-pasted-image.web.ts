@@ -1,8 +1,8 @@
 import {
   prepareMobileClipboardImageBase64,
   type MobileClipboardImage
-} from '../../mobile-clipboard-image'
-import { resizeMobileClipboardImage } from '../../mobile-clipboard-image-resize'
+} from '../../../files/attachments/mobile-clipboard-image'
+import { resizeMobileClipboardImage } from '../../../files/attachments/mobile-clipboard-image-resize'
 import type { MobileComposerPastedImage } from './mobile-native-chat-composer-image-paste'
 
 const DATA_URL_PREFIX_RE = /^data:image\/[a-z0-9.+-]+;base64,/i

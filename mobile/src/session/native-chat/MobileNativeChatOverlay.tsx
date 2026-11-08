@@ -25,7 +25,7 @@ import { MobileSessionCrewActivity } from './input/MobileSessionCrewActivity'
 import type { MobileNativeChatHostOutage } from './mobile-native-chat-host-outage'
 import { useMobileNativeChatMarkdownLinks } from './use-mobile-native-chat-markdown-links'
 import { MobileMarkdownLinksContext } from '../../components/mobile-markdown-links-context'
-import type { ConnectionState } from '../../transport/types'
+import type { ConnectionState } from '../../transport/connection/connection-state'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
 
 type Props = {
@@ -127,12 +127,17 @@ function MobileNativeChatOverlayContent({
     session.messages,
     controller.nativeChatItemSource
   )
-  const folded = useMobileNativeChatProjection(fullContent.messages, agent, [
-    sendSurfaceId,
-    sessionId,
-    controller.nativeChatItemSource?.client,
-    controller.nativeChatItemSource?.sessionId
-  ])
+  const folded = useMobileNativeChatProjection(
+    fullContent.messages,
+    agent,
+    [
+      sendSurfaceId,
+      sessionId,
+      controller.nativeChatItemSource?.client,
+      controller.nativeChatItemSource?.sessionId
+    ],
+    controller.nativeChatShowsCiResultLines
+  )
   const streaming = controller.nativeChatStreamingText ?? null
   const queued = controller.nativeChatQueued
   const composerTray = useMobileNativeChatComposerTray({

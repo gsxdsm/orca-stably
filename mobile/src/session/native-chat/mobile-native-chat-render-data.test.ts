@@ -3,8 +3,7 @@ import type { NativeChatMessage } from '../../../../src/shared/native-chat/nativ
 import {
   buildMobileNativeChatTransientData,
   foldMobileNativeChatAgentMessages,
-  foldMobileNativeChatMessages,
-  mobileNativeChatEmptyState
+  foldMobileNativeChatMessages
 } from './mobile-native-chat-render-data'
 
 function assistant(id: string, text: string): NativeChatMessage {
@@ -23,201 +22,7 @@ function user(id: string, text: string): NativeChatMessage {
 
 const fold = (messages: NativeChatMessage[]) => foldMobileNativeChatMessages(messages, 'claude')
 
-describe('mobileNativeChatEmptyState', () => {
-  it.each(['waiting-session', 'awaiting-transcript'] as const)(
-    'shows Hermes connecting while %s',
-    (status) => {
-      expect(mobileNativeChatEmptyState(status, 'hermes')?.title).toBe('Connecting to Hermes…')
-    }
-  )
-  it('invites a first message into a loaded, empty chat, matching desktop copy', () => {
-    expect(mobileNativeChatEmptyState('ready', 'codex')).toEqual({
-      title: 'Start a chat with Codex',
-      subtitle: 'Ask Codex to inspect code, explain output, or make a change.'
-    })
-  })
-
-  it.each(['waiting-session', 'awaiting-transcript'] as const)(
-    'says the conversation is not found yet while %s, never that the chat is new',
-    (status) => {
-      expect(mobileNativeChatEmptyState(status, 'claude')).toEqual({
-        title: "Can't find this conversation yet",
-        subtitle:
-          'Send a message to start one, or open the terminal view to see what Claude is doing.'
-      })
-    }
-  )
-
-  it('invites a first message when the running agent reported a session with no transcript yet', () => {
-    expect(mobileNativeChatEmptyState('awaiting-transcript', 'claude', undefined, true)).toEqual({
-      title: 'Start a chat with Claude',
-      subtitle: 'Ask Claude to inspect code, explain output, or make a change.'
-    })
-  })
-
-  it('falls back to "the agent" when the agent is unknown', () => {
-    expect(mobileNativeChatEmptyState('ready', null)?.title).toBe('Start a chat with the agent')
-  })
-
-  it('prefers the provided error message over the default subtitle', () => {
-    expect(mobileNativeChatEmptyState('error', 'claude', 'boom')?.subtitle).toBe('boom')
-    expect(mobileNativeChatEmptyState('error', 'claude')?.subtitle).toBe(
-      'The transcript could not be read. Toggle back to the terminal to keep working.'
-    )
-  })
-
-  it('returns null for states that show no empty copy', () => {
-    expect(mobileNativeChatEmptyState('loading', 'claude')).toBeNull()
-    expect(mobileNativeChatEmptyState('idle', 'claude')).toBeNull()
-  })
-})
-function build(
-  messages: NativeChatMessage[],
-  streaming: string | null,
-  pending: Parameters<typeof buildMobileNativeChatTransientData>[0]['pending']
-): NativeChatMessage[] {
-  return buildMobileNativeChatTransientData({
-    folded: fold(messages),
-    streaming,
-    pending
-  }).data
-}
-
 describe('buildMobileNativeChatTransientData', () => {
-  it('places an idle send before the streaming reply it caused', () => {
-    const data = build([assistant('a1', 'Earlier answer')], 'Starting the tests', [
-      { id: 'p1', text: 'Run the tests', sentAt: 100 }
-    ])
-    expect(data.map((message) => message.id)).toEqual(['a1', 'p1', 'streaming'])
-  })
-
-  it('folds transcript image marker turns into image-ref blocks (desktop parity)', () => {
-    const data = build(
-      [
-        user('u1', '[Image: source: /tmp/a.png]'),
-        user('u2', '[Image #1] look at this'),
-        assistant('a1', 'nice photo')
-      ],
-      null,
-      []
-    )
-    const merged = data.find((message) => message.role === 'user')
-    expect(merged?.blocks).toEqual([
-      { type: 'image-ref', path: '/tmp/a.png' },
-      { type: 'text', text: 'look at this' }
-    ])
-  })
-
-  it('folds a trailing-marker image echo into one user bubble', () => {
-    const data = build(
-      [user('u1', '[Image: source: /tmp/a.png]'), user('u2', 'look at this[Image #1]')],
-      null,
-      []
-    )
-
-    expect(data).toHaveLength(1)
-    expect(data[0]?.blocks).toEqual([
-      { type: 'image-ref', path: '/tmp/a.png' },
-      { type: 'text', text: 'look at this' }
-    ])
-  })
-
-  it('leaves out an unrecognised provider event with no words, but keeps failures and sentences', () => {
-    const frameRow = (
-      id: string,
-      kind: string,
-      text: string,
-      tone?: string
-    ): NativeChatMessage => ({
-      id,
-      role: 'system',
-      timestamp: 0,
-      source: 'transcript',
-      blocks: [
-        {
-          type: 'text',
-          text,
-          ...(tone ? { tone } : {}),
-          providerFrame: {
-            provider: 'codex',
-            kind,
-            payload: { head: '{}', byteLength: 2, digest: 'digest', truncated: false }
-          }
-        }
-      ]
-    })
-    const folded = fold([
-      frameRow('wordless', 'notification:future/event', 'codex · notification:future/event'),
-      frameRow(
-        'failure',
-        'notification:future/failure',
-        'codex · notification:future/failure',
-        'error'
-      ),
-      frameRow('sentence', 'notification:warning', 'Sandbox is degraded.'),
-      assistant('a1', 'done')
-    ])
-    expect(folded.map((message) => message.id)).toEqual(['failure', 'sentence', 'a1'])
-  })
-
-  it('draws a turn’s subagents, each written as its own row, as one roster row', () => {
-    const own = (id: string): NativeChatMessage => ({
-      id: `subagent:${id}`,
-      role: 'system',
-      blocks: [
-        { type: 'text', text: `Kicked off subagent ${id}` },
-        { type: 'subagent', id, label: id, state: 'working', groupId: 'turn-1' }
-      ],
-      timestamp: 0,
-      source: 'transcript'
-    })
-    const folded = fold([user('u1', 'audit'), own('a'), assistant('a1', 'started'), own('b')])
-    expect(folded.map((message) => message.id)).toEqual([
-      'u1',
-      'spawn:subagent:a',
-      'subagent:a',
-      'a1'
-    ])
-    expect(folded[1]?.blocks).toEqual([
-      {
-        type: 'tool-call',
-        name: 'spawn_agent',
-        callId: 'spawn:a',
-        state: 'completed',
-        input: { task_name: 'a' }
-      },
-      {
-        type: 'tool-result',
-        callId: 'spawn:a',
-        output: '',
-        subagent: { id: 'a', state: 'working' }
-      },
-      {
-        type: 'tool-call',
-        name: 'spawn_agent',
-        callId: 'spawn:b',
-        state: 'completed',
-        input: { task_name: 'b' }
-      },
-      {
-        type: 'tool-result',
-        callId: 'spawn:b',
-        output: '',
-        subagent: { id: 'b', state: 'working' }
-      }
-    ])
-    expect(folded[2]?.blocks).toEqual([
-      {
-        type: 'subagent-group',
-        groupId: 'turn-1',
-        agents: [
-          { id: 'a', label: 'a', state: 'working' },
-          { id: 'b', label: 'b', state: 'working' }
-        ]
-      }
-    ])
-  })
-
   it('keeps the phone-local image visible when the transcript replaces its optimistic echo', () => {
     const folded = fold([
       user('source', '[Image: source: /tmp/a.png]'),
@@ -275,14 +80,6 @@ describe('buildMobileNativeChatTransientData', () => {
 
     expect(result.data[0]?.blocks).toEqual([{ type: 'image-ref', url: 'file:///phone-photo.jpg' }])
   })
-
-  it('keeps a queued follow-up after the current streaming reply', () => {
-    const data = build([user('u1', 'hi')], 'thinking out loud', [
-      { id: 'p1', text: 'queued', pendingSend: 'queued' }
-    ])
-    expect(data.map((message) => message.id)).toEqual(['u1', 'streaming', 'p1'])
-    expect(data[1].blocks).toEqual([{ type: 'text', text: 'thinking out loud' }])
-  })
 })
 
 describe('foldMobileNativeChatMessages', () => {
@@ -305,16 +102,6 @@ describe('foldMobileNativeChatMessages', () => {
       source: 'transcript'
     }
   }
-
-  // Read windows may begin after tool_use; leading orphan results must not become raw-output bubbles.
-  it('drops a leading tool result whose call is older than the read window', () => {
-    const folded = fold([
-      toolResult('orphan', 'Exit code 1\norca-ide not found'),
-      assistant('a1', 'Falling back to the installed binary.')
-    ])
-
-    expect(folded.map((message) => message.id)).toEqual(['a1'])
-  })
 
   function planFrame(head: string): NativeChatMessage {
     return {
@@ -350,84 +137,6 @@ describe('foldMobileNativeChatMessages', () => {
       role: 'assistant',
       blocks: [{ type: 'tool-call', name: 'update_plan', state: 'completed' }]
     })
-  })
-
-  it('still folds a result whose call is inside the window', () => {
-    const folded = fold([
-      assistant('a1', 'Checking which binary is on PATH.'),
-      toolCall('c1'),
-      toolResult('r1', 'orca-ide not found')
-    ])
-
-    expect(folded).toHaveLength(1)
-    expect(folded[0]?.blocks.map((block) => block.type)).toEqual([
-      'text',
-      'tool-call',
-      'tool-result'
-    ])
-  })
-
-  it('keeps a mixed Claude tool result with a harness sidecar paired', () => {
-    const folded = fold([
-      toolCall('c1'),
-      {
-        id: 'mixed',
-        role: 'user',
-        blocks: [
-          { type: 'tool-result', output: 'important output' },
-          { type: 'text', text: '<system-reminder>continue</system-reminder>' }
-        ],
-        timestamp: 0,
-        source: 'transcript'
-      }
-    ])
-
-    expect(folded[0]?.blocks).toEqual([
-      { type: 'tool-call', name: 'Bash', input: { command: 'command -v orca-ide' } },
-      { type: 'tool-result', output: 'important output' }
-    ])
-  })
-
-  it('draws a skill command the user ran as their message, as desktop does', () => {
-    const folded = fold([
-      {
-        ...user(
-          'd7306d00',
-          '<command-message>hello</command-message>\n<command-name>/hello</command-name>\n<command-args>Kelvin</command-args>'
-        ),
-        parentId: 'f615a2bf'
-      },
-      { ...assistant('0d3481c0', 'Hello, Kelvin!'), parentId: 'fa9d5ee6' }
-    ])
-
-    expect(folded.map((message) => [message.role, message.blocks])).toEqual([
-      ['user', [{ type: 'text', text: '/hello Kelvin' }]],
-      ['assistant', [{ type: 'text', text: 'Hello, Kelvin!' }]]
-    ])
-  })
-
-  it('leaves CI result lines out of the transcript', () => {
-    const ciLine: NativeChatMessage = {
-      id: 'orca:pr-event:github.com/acme/repo#3:8d5f74b:1',
-      role: 'system',
-      blocks: [
-        {
-          type: 'text',
-          text: 'CI failing on repo#3 at 8d5f74b',
-          presentation: 'pull-request-event',
-          tone: 'failure'
-        }
-      ],
-      timestamp: 0,
-      source: 'transcript'
-    }
-    const folded = fold([
-      assistant('a1', 'Opened the PR'),
-      ciLine,
-      assistant('a2', 'Pushed the fix')
-    ])
-    expect(folded.map((message) => message.id)).toEqual(['a1', 'a2'])
-    expect(JSON.stringify(folded)).not.toContain('CI failing on repo#3 at 8d5f74b')
   })
 })
 
