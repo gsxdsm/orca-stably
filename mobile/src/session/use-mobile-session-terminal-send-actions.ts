@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { Keyboard } from 'react-native'
 import { translate } from '../i18n/mobile-i18n'
 import { triggerError } from '../platform/haptics'
@@ -55,8 +55,13 @@ export function useMobileSessionTerminalSendActions(scope: MobileSessionTerminal
     handleLiveInputSubmit,
     canSend,
     scheduleDelayedAction,
-    showToast
+    showToast,
+    messageInputRef,
+    terminalDraft,
+    setTerminalDraft,
+    toggleTerminalMessageMode
   } = scope
+  const sendingMessageRef = useRef(false)
   const TERMINAL_KEYBOARD_DISMISS_ACTION_SHEET_FALLBACK_MS = 450
 
   const dismissSoftwareKeyboard = useCallback(() => {
@@ -65,6 +70,7 @@ export function useMobileSessionTerminalSendActions(scope: MobileSessionTerminal
       dismissKeyboard: () => Keyboard.dismiss(),
       liveInput: liveInputRef.current
     })
+    messageInputRef.current?.blur()
   }, [])
   const dismissKeyboardAfterAgentSend = useAgentSendKeyboardDismissal(
     dismissSoftwareKeyboard,
@@ -97,6 +103,56 @@ export function useMobileSessionTerminalSendActions(scope: MobileSessionTerminal
     },
     handleLiveInputCompositionEnd
   )
+
+  // Message mode: the composed line plus Enter; a refused send keeps the text to retry.
+  async function handleSendTerminalMessage() {
+    const handle = activeHandle
+    const draft = terminalDraft
+    if (!client || !handle || !canSend || sendingMessageRef.current || !draft.trim()) {
+      return
+    }
+    sendingMessageRef.current = true
+    const sendOrigin = { tab: activeSessionTab, generation: getSendCompletionGeneration() }
+    try {
+      const response = await sendUserInput(
+        client,
+        buildTerminalSendParams({
+          terminal: handle,
+          text: normalizeTerminalTextInput(draft),
+          enter: true,
+          deviceToken: deviceTokenRef.current
+        }),
+        TERMINAL_INPUT_SEND_OPTIONS
+      )
+      const accepted = terminalInputSend.interpret(response) === true
+      if (accepted) {
+        terminalRefs.current.get(handle)?.scrollToBottom()
+        setTerminalDraft(handle, (current) => (current === draft ? '' : current))
+      } else {
+        triggerError()
+      }
+      dismissKeyboardAfterAgentSend(sendOrigin, accepted)
+    } catch {
+      triggerError()
+    } finally {
+      sendingMessageRef.current = false
+    }
+  }
+
+  const toggleInputMode = useCallback(() => {
+    if (!activeHandle) {
+      return
+    }
+    const keepKeyboard =
+      currentSoftKeyboardHeight() > 0 ||
+      liveInputRef.current?.isFocused() === true ||
+      messageInputRef.current?.isFocused() === true
+    clearTerminalLiveInputFocusTimer(liveInputFocusTimerRef)
+    const message = toggleTerminalMessageMode(activeHandle)
+    if (keepKeyboard) {
+      ;(message ? messageInputRef : liveInputRef).current?.focus()
+    }
+  }, [activeHandle, toggleTerminalMessageMode])
 
   async function handleAccessoryKey(
     input: ReturnType<typeof createTerminalLiveAccessoryInput>,
@@ -243,6 +299,8 @@ export function useMobileSessionTerminalSendActions(scope: MobileSessionTerminal
 
   return {
     handleAccessoryKey,
+    handleSendTerminalMessage,
+    toggleInputMode,
     sendLiveTerminalInput,
     clearSessionTabActionSheetKeyboardListener,
     openSessionTabActionSheet,

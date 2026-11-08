@@ -1883,7 +1883,9 @@
       "switchToPhoneMode": "In den Smartphone-Modus wechseln",
       "pasteFromClipboard": "Aus der Zwischenablage einfügen",
       "paste": "Einfügen",
-      "addCustomShortcut": "Benutzerdefiniertes Tastenkürzel hinzufügen"
+      "addCustomShortcut": "Benutzerdefiniertes Tastenkürzel hinzufügen",
+      "keysMode": "Tasten",
+      "messageMode": "Nachricht"
     },
     "activeContent": {
       "createTab": "Tab erstellen",
@@ -1990,7 +1992,11 @@
     },
     "commandDock": {
       "liveInputHint": "Eingegebener Text wird direkt an das aktive Terminal gesendet",
-      "liveInputLabel": "Live-Eingabe im Terminal"
+      "liveInputLabel": "Live-Eingabe im Terminal",
+      "sendCommand": "Befehl senden",
+      "messageAgentPlaceholder": "Nachricht an {{agent}}",
+      "theAgent": "dem Agenten",
+      "writeCommandPlaceholder": "Befehl schreiben und dann senden"
     },
     "contentRow": {
       "dismissCreationWarning": "Warnung zur Erstellung des Arbeitsbereichs ausblenden"

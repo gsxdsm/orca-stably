@@ -42,6 +42,33 @@ export const terminalDockStyles = themedStyleSheet(() => ({
     flex: 1,
     minWidth: 0
   },
+  composer: {
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.sm
+  },
+  composerStatus: {
+    flex: 1,
+    alignSelf: 'stretch'
+  },
+  // Kept mounted under the shown field so a mode switch can hand the keyboard over.
+  hiddenField: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    opacity: 0
+  },
+  modeKey: {
+    ...key,
+    paddingHorizontal: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.composerBorder,
+    backgroundColor: colors.composerSurface
+  },
+  modeKeyText: {
+    color: colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '600'
+  },
   keyRow: {
     height: KEY_ROW_HEIGHT,
     flexDirection: 'row',

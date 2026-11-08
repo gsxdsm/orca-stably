@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef } from 'react'
 import { AppState } from 'react-native'
 import { useFocusEffect } from 'expo-router'
 import { useMobileDictation } from '../hooks/use-mobile-dictation'
+import { insertDictationText } from '../dictation/mobile-dictation-text-insertion'
 import { usePhoneDictationReady } from '../hooks/use-phone-dictation-ready'
 import { triggerError } from '../platform/haptics'
 import { useClipboardWriter } from '../platform/clipboard'
@@ -56,7 +57,9 @@ export function useMobileSessionNativeChatDictation(
     canSend,
     canCompose,
     showToast,
-    resetLiveInputFocus
+    resetLiveInputFocus,
+    terminalMessageMode,
+    setTerminalDraft
   } = scope
   const nativeChatScopeKey = mobileNativeChatScopeKey(hostId, worktreeId, activeSessionTabId)
   const nativeChatSendError = useMobileNativeChatSendError({
@@ -148,6 +151,12 @@ export function useMobileSessionNativeChatDictation(
         }
         return
       }
+      const messageHandle = destination.messageHandle()
+      if (messageHandle) {
+        dictationRouteContextRef.current = null
+        setTerminalDraft(messageHandle, (current) => insertDictationText(current, text, null).text)
+        return
+      }
       const routeContext = dictationRouteContextRef.current
       dictationRouteContextRef.current = null
       const insertHandle = routeContext?.handle ?? activeHandleRef.current
@@ -187,7 +196,7 @@ export function useMobileSessionNativeChatDictation(
     }
     const routeContext = activeHandle ? { handle: activeHandle } : null
     dictationRouteContextRef.current = routeContext
-    destination.captureDestination(showNativeChat, activeHandle)
+    destination.captureDestination(showNativeChat, activeHandle, terminalMessageMode)
     void dictation.start().catch((err) => {
       if (dictationRouteContextRef.current === routeContext) {
         dictationRouteContextRef.current = null
@@ -202,7 +211,8 @@ export function useMobileSessionNativeChatDictation(
     phoneDictation.readyRef,
     reportDictationFailure,
     setShowDictationSetup,
-    showNativeChat
+    showNativeChat,
+    terminalMessageMode
   ])
 
   const stopDictation = useMobileDictationHaptics(dictation)

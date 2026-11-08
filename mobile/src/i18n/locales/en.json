@@ -2099,7 +2099,9 @@
       "switchToPhoneMode": "Switch to phone mode",
       "pasteFromClipboard": "Paste from clipboard",
       "paste": "Paste",
-      "addCustomShortcut": "Add custom shortcut"
+      "addCustomShortcut": "Add custom shortcut",
+      "keysMode": "Keys",
+      "messageMode": "Message"
     },
     "activeContent": {
       "noTabs": "No tabs in this session",
@@ -2113,7 +2115,11 @@
     "commandDock": {
       "liveInputLabel": "Live terminal input",
       "liveInputHint": "Typed text is sent directly to the active terminal",
-      "tapToShowKeyboard": "Tap to show keyboard"
+      "tapToShowKeyboard": "Tap to show keyboard",
+      "sendCommand": "Send command",
+      "messageAgentPlaceholder": "Message {{agent}}",
+      "theAgent": "the agent",
+      "writeCommandPlaceholder": "Write a command, then send"
     },
     "contentRow": {
       "dismissCreationWarning": "Dismiss workspace creation warning"

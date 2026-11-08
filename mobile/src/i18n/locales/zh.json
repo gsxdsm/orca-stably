@@ -1879,7 +1879,9 @@
       "switchToPhoneMode": "切换到手机模式",
       "pasteFromClipboard": "从剪贴板粘贴",
       "paste": "粘贴",
-      "addCustomShortcut": "添加自定义快捷键"
+      "addCustomShortcut": "添加自定义快捷键",
+      "keysMode": "按键",
+      "messageMode": "消息"
     },
     "activeContent": {
       "createTab": "创建标签页",
@@ -1986,7 +1988,11 @@
     },
     "commandDock": {
       "liveInputHint": "输入的文本会直接发送到当前终端",
-      "liveInputLabel": "终端实时输入"
+      "liveInputLabel": "终端实时输入",
+      "sendCommand": "发送命令",
+      "messageAgentPlaceholder": "向 {{agent}} 发送消息",
+      "theAgent": "智能体",
+      "writeCommandPlaceholder": "输入命令后发送"
     },
     "contentRow": {
       "dismissCreationWarning": "关闭工作区创建警告"

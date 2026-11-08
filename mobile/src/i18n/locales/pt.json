@@ -1933,7 +1933,9 @@
       "switchToPhoneMode": "Mudar para o modo celular",
       "pasteFromClipboard": "Colar da área de transferência",
       "paste": "Colar",
-      "addCustomShortcut": "Adicionar atalho personalizado"
+      "addCustomShortcut": "Adicionar atalho personalizado",
+      "keysMode": "Teclas",
+      "messageMode": "Mensagem"
     },
     "activeContent": {
       "createTab": "Criar Aba",
@@ -2056,7 +2058,11 @@
     },
     "commandDock": {
       "liveInputHint": "O texto digitado é enviado diretamente ao terminal ativo.",
-      "liveInputLabel": "Entrada em tempo real no terminal"
+      "liveInputLabel": "Entrada em tempo real no terminal",
+      "sendCommand": "Enviar comando",
+      "messageAgentPlaceholder": "Mensagem para {{agent}}",
+      "theAgent": "o agente",
+      "writeCommandPlaceholder": "Escreva um comando e envie"
     },
     "contentRow": {
       "dismissCreationWarning": "Dispensar aviso de criação do espaço de trabalho"

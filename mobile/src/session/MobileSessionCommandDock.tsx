@@ -1,5 +1,12 @@
-import type { ReactNode } from 'react'
+import { useLayoutEffect, type ReactNode } from 'react'
 import { View } from 'react-native'
+import { tuiAgentDisplayName } from '../../../src/shared/agent-launch/catalog/tui-agent-display-names'
+import { MessageBox } from '../components/composer-input/MessageBox'
+import { MobileNativeChatStopButton } from './native-chat/input/MobileNativeChatStopButton'
+import {
+  isMobileTerminalTabRunningAgent,
+  resolveMobileTerminalTabOwnedAgentId
+} from './mobile-terminal-tab-agent'
 import { Keyboard as KeyboardIcon } from 'lucide-react-native'
 import { composerInputStyles as inputStyles } from '../components/composer-input/composer-input-styles'
 import { TextField } from '../components/composer-input/TextField'
@@ -18,7 +25,9 @@ import type { MobileSessionController } from './use-mobile-session-controller'
 import { useMobileSessionKeyboardLift } from './use-mobile-session-keyboard-lift'
 import { useLiveInputCaptureText } from './live-input-capture'
 
-// The key row above one live field: every letter typed goes straight to the terminal, shell or agent.
+const ESC = '\x1b'
+
+// The key row above the input: Keys types straight into the terminal, Message writes a line and sends it.
 export function MobileSessionCommandDock({ controller }: { controller: MobileSessionController }) {
   useMobileColorScheme()
   const rail = useSessionTerminalKeyRail(controller)
@@ -35,11 +44,47 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
     handleDictationPressIn,
     handleDictationPressOut,
     isAttaching,
-    attachImage
+    attachImage,
+    terminalMessageMode,
+    liveInputRef,
+    messageInputRef,
+    messageDictationText
   } = controller
+  useLayoutEffect(() => {
+    // Switching to a terminal in the other mode moves the keyboard to the field that is shown.
+    const hidden = terminalMessageMode ? liveInputRef : messageInputRef
+    if (hidden.current?.isFocused()) {
+      ;(terminalMessageMode ? messageInputRef : liveInputRef).current?.focus()
+    }
+  }, [liveInputRef, messageInputRef, terminalMessageMode])
   if (!sessionCommandDockShown(controller)) {
     return null
   }
+  const inputActions = (
+    <MobileTerminalInputActions
+      canSend={canSend}
+      isAttaching={isAttaching}
+      dictation={dictation}
+      dictationMode={dictationMode}
+      dictationEnabled={dictationEnabled}
+      buttonStyle={inputStyles.controlButton}
+      activeButtonStyle={styles.dictationButtonActive}
+      disabledButtonStyle={inputStyles.disabled}
+      onAttachImage={() => void attachImage('library')}
+      onAttachFile={() => void attachImage('files')}
+      onDictationToggle={handleDictationToggle}
+      onDictationPressIn={handleDictationPressIn}
+      onDictationPressOut={handleDictationPressOut}
+      onDictationCancel={cancelDictation}
+    />
+  )
+  const shown = (visible: boolean) => ({
+    style: visible ? undefined : dockStyles.hiddenField,
+    pointerEvents: visible ? ('auto' as const) : ('none' as const),
+    'aria-hidden': !visible,
+    accessibilityElementsHidden: !visible,
+    importantForAccessibility: visible ? ('auto' as const) : ('no-hide-descendants' as const)
+  })
   return (
     <View
       style={[
@@ -56,37 +101,127 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
       ) : (
         <MobileSessionAccessoryKeys controller={controller} />
       )}
-      <View style={dockStyles.inputBar}>
-        <LiveInputField
-          controller={controller}
-          keysInRail={rail.keysInRail}
-          trailing={
-            <MobileTerminalLiveInputStatus
-              dictation={dictation}
-              dictationMode={dictationMode}
-              heard={liveDictationText}
-              isAttaching={isAttaching}
+      <View>
+        <View {...shown(!terminalMessageMode)}>
+          <View style={dockStyles.inputBar}>
+            <LiveInputField
+              controller={controller}
+              keysInRail={rail.keysInRail}
+              trailing={
+                <MobileTerminalLiveInputStatus
+                  dictation={dictation}
+                  dictationMode={dictationMode}
+                  heard={liveDictationText}
+                  isAttaching={isAttaching}
+                />
+              }
             />
-          }
-        />
-        <MobileTerminalInputActions
-          canSend={canSend}
-          isAttaching={isAttaching}
-          dictation={dictation}
-          dictationMode={dictationMode}
-          dictationEnabled={dictationEnabled}
-          buttonStyle={inputStyles.controlButton}
-          activeButtonStyle={styles.dictationButtonActive}
-          disabledButtonStyle={inputStyles.disabled}
-          onAttachImage={() => void attachImage('library')}
-          onAttachFile={() => void attachImage('files')}
-          onDictationToggle={handleDictationToggle}
-          onDictationPressIn={handleDictationPressIn}
-          onDictationPressOut={handleDictationPressOut}
-          onDictationCancel={cancelDictation}
-        />
+            {terminalMessageMode ? null : inputActions}
+          </View>
+        </View>
+        <View {...shown(terminalMessageMode)}>
+          <TerminalMessageField
+            controller={controller}
+            keysInRail={rail.keysInRail}
+            actions={terminalMessageMode ? inputActions : null}
+            status={
+              <MobileTerminalLiveInputStatus
+                dictation={dictation}
+                dictationMode={dictationMode}
+                heard={messageDictationText}
+                isAttaching={isAttaching}
+              />
+            }
+          />
+        </View>
       </View>
     </View>
+  )
+}
+
+// Message mode: a line written here goes to the terminal with Enter when Send is tapped.
+function TerminalMessageField({
+  controller,
+  keysInRail,
+  actions,
+  status
+}: {
+  controller: MobileSessionController
+  keysInRail: boolean
+  actions: ReactNode
+  status: ReactNode
+}) {
+  const t = useMobileTranslation()
+  const {
+    activeHandle,
+    activeSessionTab,
+    canCompose,
+    canSend,
+    terminalMessageMode,
+    terminalDraft,
+    setTerminalDraft,
+    messageInputRef,
+    handleSendTerminalMessage,
+    handleAccessoryKey,
+    dockKeys
+  } = controller
+  const terminalTab = activeSessionTab?.type === 'terminal' ? activeSessionTab : null
+  const runsAgent = terminalTab !== null && isMobileTerminalTabRunningAgent(terminalTab)
+  const agentId =
+    terminalTab && runsAgent ? resolveMobileTerminalTabOwnedAgentId(terminalTab) : null
+  const agentName = agentId ? tuiAgentDisplayName(agentId) : null
+  const showStop =
+    runsAgent && terminalTab?.agentStatus?.state === 'working' && terminalDraft.trim().length === 0
+  return (
+    <MessageBox
+      inputRef={messageInputRef}
+      monospace={!runsAgent}
+      style={dockStyles.composer}
+      value={terminalDraft}
+      onChangeText={(text) => {
+        if (!activeHandle) {
+          return
+        }
+        if (
+          !keysInRail ||
+          !dockKeys.interceptTypedCharacter(terminalDraft, text, messageInputRef)
+        ) {
+          setTerminalDraft(activeHandle, text)
+        }
+      }}
+      placeholder={
+        runsAgent
+          ? t('session.commandDock.messageAgentPlaceholder', 'Message {{agent}}', {
+              agent: agentName ?? t('session.commandDock.theAgent', 'the agent')
+            })
+          : t('session.commandDock.writeCommandPlaceholder', 'Write a command, then send')
+      }
+      autoCapitalize="none"
+      autoCorrect={false}
+      spellCheck={false}
+      smartInsertDelete={false}
+      // Why: not autofill content, but keyboard must stay default so non-Latin IMEs remain selectable.
+      autoComplete="off"
+      keyboardType="default"
+      // Composing is local, so an outage must not lock the field or drop typed text.
+      editable={canCompose}
+      tabIndex={terminalMessageMode ? 0 : -1}
+      middle={<View style={dockStyles.composerStatus}>{status}</View>}
+      trailing={
+        <>
+          {actions}
+          {showStop ? (
+            <MobileNativeChatStopButton
+              held={false}
+              onStop={() => void handleAccessoryKey({ bytes: ESC })}
+            />
+          ) : null}
+        </>
+      }
+      onSend={showStop ? undefined : () => void handleSendTerminalMessage()}
+      canSend={canSend && terminalDraft.trim().length > 0}
+      sendAccessibilityLabel={t('session.commandDock.sendCommand', 'Send command')}
+    />
   )
 }
 
