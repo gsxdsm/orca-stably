@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { ORCA_SIDEBAR_INPUTS_IS_MAIN } from '../../../src/shared/sidebar-inputs-switch'
 import type { useRouter } from 'expo-router'
 import { floatingWorkspaceSessionPath } from '../session/floating-workspace'
@@ -19,36 +20,13 @@ import { getWorktreeRowIdentity, isSameWorktreeRow } from '../worktree/worktree-
 import { noteLastVisitedWorktree } from '../worktree/last-visited-worktree-by-host'
 import { isWorktreePinned, type Worktree } from '../worktree/workspace-list-sections'
 import { homeWorktreeForAgentPane } from './agent-pane-home-worktree'
-import {
-  worktreeActivate,
-  worktreeDisplayNameWrite,
-  worktreePinWrite,
-  worktreeSleep
-} from './host-screen-operations'
+import { worktreeActivate, worktreePinWrite, worktreeSleep } from './host-screen-operations'
 import { setPendingSubagentFocus } from '../session/pending-subagent-focus'
 import { useHostNewWorkspaceActions } from './use-host-new-workspace-actions'
 import type { HostScreenState } from './use-host-screen-state'
 import { useHostWorktreeDelete } from './use-host-worktree-delete'
-import { defineHostMutation, useHostMutation, type HostMutationPhase } from '../query/host-mutation'
-
-async function sendWorkspaceRename(
-  client: RpcClient,
-  vars: { worktreeId: string; displayName: string }
-): Promise<void> {
-  worktreeDisplayNameWrite.interpret(
-    await worktreeDisplayNameWrite.request(client, {
-      worktree: `id:${vars.worktreeId}`,
-      displayName: vars.displayName
-    })
-  )
-}
-
-const workspaceRename = defineHostMutation({
-  offline: 'draft',
-  send: sendWorkspaceRename,
-  // Renaming is idempotent, so a lost reply is settled by sending the same name again.
-  confirm: sendWorkspaceRename
-})
+import { useHostMutation, type HostMutationPhase } from '../query/host-mutation'
+import { workspaceRename } from './host-workspace-rename'
 
 export function useHostWorktreeActions(args: {
   client: RpcClient | null
@@ -74,6 +52,7 @@ export function useHostWorktreeActions(args: {
     router,
     state
   } = args
+  const queryClient = useQueryClient()
   const {
     pinnedIds,
     setActionError,
@@ -219,7 +198,7 @@ export function useHostWorktreeActions(args: {
       return
     }
     try {
-      await removeHostAndCloseClient(hostId, forgetHostClient)
+      await removeHostAndCloseClient(hostId, forgetHostClient, queryClient)
       leaveHostRoute(router)
     } catch (error) {
       if (isPageHostRemovalUnavailable(error)) {
@@ -232,7 +211,7 @@ export function useHostWorktreeActions(args: {
       // React Native Web Alert is a no-op; show a dismissible action error while keeping the list, header and confirm usable.
       setActionError('Could not remove host. Please try again.')
     }
-  }, [hostId, router, forgetHostClient, setActionError, setConfirmRemoveHost])
+  }, [hostId, router, forgetHostClient, queryClient, setActionError, setConfirmRemoveHost])
 
   // beforeNavigate runs unless the open session holds the leave, so a held tap leaves the target untouched.
   const navigateFromHostList = useCallback(

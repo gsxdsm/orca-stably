@@ -1,4 +1,4 @@
-import { useLayoutEffect, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import { View } from 'react-native'
 import { tuiAgentDisplayName } from '../../../src/shared/agent-launch/catalog/tui-agent-display-names'
 import { MessageBox } from '../components/composer-input/MessageBox'
@@ -20,7 +20,6 @@ import { terminalDockStyles as dockStyles } from '../terminal/session/terminal-d
 import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { styles } from './mobile-session-styles'
 import type { MobileSessionController } from './use-mobile-session-controller'
 import { useMobileSessionKeyboardLift } from '../terminal/session/use-mobile-session-keyboard-lift'
 import { useLiveInputCaptureText } from '../terminal/session/live-input-capture'
@@ -32,6 +31,8 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
   useMobileColorScheme()
   const rail = useSessionTerminalKeyRail(controller)
   const keyboardLift = useMobileSessionKeyboardLift(controller.dockBottomInset)
+  // The field's ✕, which the held mic may be released over.
+  const dictationCancelRef = useRef<View>(null)
   const {
     insets,
     dictationMode,
@@ -68,7 +69,7 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
       dictationMode={dictationMode}
       dictationEnabled={dictationEnabled}
       buttonStyle={inputStyles.controlButton}
-      activeButtonStyle={styles.dictationButtonActive}
+      dictationCancelRef={dictationCancelRef}
       disabledButtonStyle={inputStyles.disabled}
       onAttachImage={() => void attachImage('library')}
       onAttachFile={() => void attachImage('files')}
@@ -110,6 +111,7 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
               trailing={
                 <MobileTerminalLiveInputStatus
                   dictation={dictation}
+                  cancelRef={dictationCancelRef}
                   dictationMode={dictationMode}
                   heard={liveDictationText}
                   isAttaching={isAttaching}
@@ -127,6 +129,7 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
             status={
               <MobileTerminalLiveInputStatus
                 dictation={dictation}
+                cancelRef={dictationCancelRef}
                 dictationMode={dictationMode}
                 heard={messageDictationText}
                 isAttaching={isAttaching}

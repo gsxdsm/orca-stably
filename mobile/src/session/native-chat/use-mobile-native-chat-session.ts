@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  EMPTY_NATIVE_CHAT_TRANSCRIPT,
-  encodeNativeChatTranscriptIdentity
-} from '../../../../src/shared/native-chat/transcript/native-chat-transcript-retention'
+import { EMPTY_NATIVE_CHAT_TRANSCRIPT } from '../../../../src/shared/native-chat/transcript/native-chat-transcript-retention'
 import {
   createNativeChatMerger,
   replaceList
@@ -28,9 +25,13 @@ import { randomV4Uuid } from '../../platform/random-v4-uuid'
 import { useMobileOlderPageLoader, type OlderPagePhase } from '../use-mobile-older-page-loader'
 import {
   cacheMobileNativeChatTranscript,
+  heldMobileNativeChatTranscript,
   mobileNativeChatResumePoint,
   mobileNativeChatTranscriptCache
 } from './mobile-native-chat-transcript-cache'
+import { terminalChatTranscriptIdentity } from './mobile-native-chat-transcript-store'
+import { noteChatTranscript } from './mobile-native-chat-transcript-writer'
+import { useStoredChatTranscript } from './use-stored-chat-transcript'
 
 import type { MobileNativeChatStatus } from './mobile-native-chat-session-status'
 export type { MobileNativeChatStatus } from './mobile-native-chat-session-status'
@@ -57,6 +58,8 @@ export type MobileNativeChatSession = {
   taskList?: NativeChatTaskSeedList | null
   /** Children from history outside the loaded tail. */
   subagentSeed?: readonly NativeChatSubagentActivity[] | null
+  /** When the rows on screen were saved, while they are an earlier launch's copy no read has confirmed. */
+  savedAt?: number | null
 }
 
 const INITIAL_LIMIT = 40
@@ -73,12 +76,7 @@ export function useMobileNativeChatSession(args: {
 }): MobileNativeChatSession {
   const { client, sourceIdentity, agent, sessionId, transcriptPath } = args
   const [messages, setMessages] = useState<NativeChatMessage[]>([])
-  const identity = encodeNativeChatTranscriptIdentity([
-    sourceIdentity,
-    agent,
-    sessionId,
-    transcriptPath
-  ])
+  const identity = terminalChatTranscriptIdentity(sourceIdentity, agent, sessionId, transcriptPath)
   // Derive pre-read status from props now; a passive effect would lag one commit.
   const initialStatus: MobileNativeChatStatus =
     !client || !agent ? 'idle' : !sessionId ? 'waiting-session' : 'loading'
@@ -122,13 +120,23 @@ export function useMobileNativeChatSession(args: {
   const settledReady = settled?.status === 'ready'
   useEffect(() => {
     if (settledReady) {
-      cacheMobileNativeChatTranscript(identity, {
+      const beforeOffset = beforeOffsetRef.current
+      cacheMobileNativeChatTranscript(identity, { messages, hasMore, beforeOffset })
+      noteChatTranscript(
+        identity,
         messages,
-        hasMore,
-        beforeOffset: beforeOffsetRef.current
-      })
+        () => client?.getState() === 'connected',
+        (savedAt) => ({ kind: 'terminal', savedAt, messages, hasMore, beforeOffset })
+      )
     }
-  }, [identity, messages, hasMore, settledReady])
+  }, [client, identity, messages, hasMore, settledReady])
+  const readingStore = useStoredChatTranscript({
+    // A tab that names no session (or a structured one) has no copy of its own.
+    identity: agent && sessionId ? identity : null,
+    read: !mobileNativeChatTranscriptCache.has(identity),
+    turnSettled:
+      settledReady && (lifecycle?.identity !== identity || lifecycle.lifecycle?.state !== 'working')
+  })
 
   const setList = useCallback((next: readonly NativeChatMessage[]) => {
     replaceList(mergerRef.current, next)
@@ -141,14 +149,17 @@ export function useMobileNativeChatSession(args: {
     supersede()
     limitRef.current = INITIAL_LIMIT
     snapshotSeenRef.current = false
-    const cached = mobileNativeChatTranscriptCache.get(identity)
+    const cached = readingStore ? undefined : heldMobileNativeChatTranscript(identity)
+    if (cached && !mobileNativeChatTranscriptCache.has(identity)) {
+      cacheMobileNativeChatTranscript(identity, cached)
+    }
     const resumeAfter = cached ? mobileNativeChatResumePoint(cached.messages) : null
     const holdsCachedRows = Boolean(cached?.messages.length)
     setList(cached?.messages ?? EMPTY_NATIVE_CHAT_TRANSCRIPT)
     setError(undefined)
     setHasMore(cached?.hasMore ?? false)
     beforeOffsetRef.current = cached?.beforeOffset ?? null
-    if (!client || !agent) {
+    if (!client || !agent || readingStore) {
       return
     }
     if (!sessionId) {
@@ -250,7 +261,7 @@ export function useMobileNativeChatSession(args: {
       supersede()
       unsubscribe()
     }
-  }, [client, agent, sessionId, transcriptPath, identity, setList, supersede])
+  }, [client, agent, sessionId, transcriptPath, identity, readingStore, setList, supersede])
 
   const loadEarlier = useCallback(() => {
     if (!client || !agent || !sessionId || !hasMore) {
@@ -295,17 +306,19 @@ export function useMobileNativeChatSession(args: {
   }, [client, agent, sessionId, transcriptPath, hasMore, setList, loadOlderPages])
 
   // Show the cached rows through any unsettled read: a reopen paints at once, and a disconnect or error can't blank the conversation.
-  const visibleMessages = settledReady
-    ? messages
-    : (mobileNativeChatTranscriptCache.get(identity)?.messages ?? EMPTY_NATIVE_CHAT_TRANSCRIPT)
+  const held = settledReady ? undefined : heldMobileNativeChatTranscript(identity)
+  const visibleMessages = settledReady ? messages : (held?.messages ?? EMPTY_NATIVE_CHAT_TRANSCRIPT)
 
   return {
     // Withhold rows until they belong to this identity; passive reset otherwise exposes previous-tab history for one commit.
     messages: visibleMessages,
     status,
-    // Rows left from an earlier visit can't answer "is this ask still open?" until a read confirms them.
+    // Rows left from an earlier visit or launch can't answer "is this ask still open?" until a read confirms them.
     transcriptLoading:
-      status === 'loading' || status === 'awaiting-transcript' || settled?.rowsUnconfirmed === true,
+      status === 'loading' ||
+      status === 'awaiting-transcript' ||
+      settled?.rowsUnconfirmed === true ||
+      held?.savedAt !== undefined,
     error,
     hasMore,
     loadingEarlier: olderPages === 'loading',
@@ -313,6 +326,7 @@ export function useMobileNativeChatSession(args: {
     loadEarlier,
     transcriptLifecycle: lifecycle?.identity === identity ? lifecycle.lifecycle : undefined,
     taskList: taskSeed?.identity === identity ? taskSeed.taskList : undefined,
-    subagentSeed: taskSeed?.identity === identity ? taskSeed.subagents : undefined
+    subagentSeed: taskSeed?.identity === identity ? taskSeed.subagents : undefined,
+    savedAt: held?.savedAt ?? null
   }
 }

@@ -20,6 +20,8 @@ import {
   sideStripPadding,
   useSessionSideStripInset
 } from './session-side-strip-inset'
+import { MobileDictationLiveContext } from '../dictation/mobile-dictation-live-context'
+import { useMobileDictationLive } from '../dictation/use-mobile-dictation-live'
 
 export function MobileSessionContentRow({ controller }: { controller: MobileSessionController }) {
   useMobileColorScheme()
@@ -35,10 +37,12 @@ export function MobileSessionContentRow({ controller }: { controller: MobileSess
     setCreateWarningState,
     createWarning,
     dictation,
+    cancelDictation,
     handleSessionContentRowLayout,
     client,
     connState
   } = controller
+  const dictationLive = useMobileDictationLive(dictation, cancelDictation, hostId)
   const tabAgent =
     (controller.activeSessionTab &&
       getMobileTerminalTabHostAgentIdentity(controller.activeSessionTab, controller.terminals)) ??
@@ -69,11 +73,13 @@ export function MobileSessionContentRow({ controller }: { controller: MobileSess
         ) : null}
         <ComposerUsageClientContext.Provider value={connState === 'connected' ? client : null}>
           <ComposerUsageTabAgentContext.Provider value={tabAgent}>
-            <MobileSessionActiveContent controller={controller} />
-            {/* Why: translate instead of resize so keyboard toggles don't trigger a server-side PTY viewport change. */}
-            <View style={sideStripMargin(strip.main)}>
-              <MobileSessionCommandDock controller={controller} />
-            </View>
+            <MobileDictationLiveContext.Provider value={dictationLive}>
+              <MobileSessionActiveContent controller={controller} />
+              {/* Why: translate instead of resize so keyboard toggles don't trigger a server-side PTY viewport change. */}
+              <View style={sideStripMargin(strip.main)}>
+                <MobileSessionCommandDock controller={controller} />
+              </View>
+            </MobileDictationLiveContext.Provider>
           </ComposerUsageTabAgentContext.Provider>
         </ComposerUsageClientContext.Provider>
         <MobileDictationStatusAnnouncement dictation={dictation} />
