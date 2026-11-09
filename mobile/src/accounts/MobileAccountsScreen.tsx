@@ -289,7 +289,7 @@ export function MobileAccountsScreen() {
               snapshot={snapshot}
               now={now}
               client={client}
-              connected={connState === 'connected'}
+              connected={live}
               reloadKey={providerAccountReload}
               busyAccountId={busyAccountId}
               disabled={busyAccountId !== null || resettingCodex || connState !== 'connected'}
