@@ -1,14 +1,10 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { ChevronLeft, RefreshCw, User } from 'lucide-react-native'
 import { loadHosts, peekHosts } from '../transport/hosts/host-store'
 import { useForceReconnect, useHostClient } from '../transport/connection/host-client-hooks'
-import { useHostConnectionInputs } from '../transport/connection/client-context-connection-metrics'
-import { classifyConnection, isConnectionOutage } from '../transport/connection/connection-health'
-import { HostOfflineBanner, useHostOfflineBanner } from '../components/HostOfflineBanner'
-import { useRefreshHint } from '../query/refresh-hint'
 import { useHostConnectionInputs } from '../transport/connection/client-context-connection-metrics'
 import { classifyConnection, isConnectionOutage } from '../transport/connection/connection-health'
 import { HostOfflineBanner, useHostOfflineBanner } from '../components/HostOfflineBanner'
@@ -218,7 +214,6 @@ export function MobileAccountsScreen() {
         title={t('accounts.screen.title', 'Accounts')}
         subtitle={hostName || undefined}
         refreshing={showRefreshLine}
-        refreshing={showRefreshLine}
         trailing={
           <NavBarButton
             icon={refreshing ? RefreshingIcon : RefreshCw}
@@ -247,12 +242,22 @@ export function MobileAccountsScreen() {
           />
         ) : (
           <>
+            {offlineBanner ? (
+              <View style={styles.offlineBanner}>
+                <HostOfflineBanner
+                  hostName={hostName}
+                  offline={offlineBanner.offline}
+                  asOf={offlineBanner.asOf}
+                  onRetry={offlineBanner.retry}
+                />
+              </View>
+            ) : null}
             <ClaudeCodexAccountSections
               snapshot={snapshot}
               now={now}
               busyAccountId={busyAccountId}
               resettingCodex={resettingCodex}
-              connected={connState === 'connected'}
+              connected={live}
               codexResetSupported={codexResetSupported}
               resetScope={resetScope}
               resetScopeLabel={resetScopeLabel}

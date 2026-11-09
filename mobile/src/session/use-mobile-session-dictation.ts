@@ -236,7 +236,10 @@ export function useMobileSessionDictation(
           ? target.scope === null
             ? null
             : { field: 'chat', scope: target.scope }
-          : target,
+          : target?.field === 'message'
+            ? // A terminal's message draft lives on its screen; away, the words fall back to the clipboard.
+              null
+            : target,
       title: activeSessionTab?.title ?? '',
       paneKey,
       href: workspaceRouteHref(

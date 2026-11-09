@@ -1,12 +1,26 @@
 import { createElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { createOrcaQueryClient } from '../query/orca-query-client'
 import { MobileAccountsScreen } from './MobileAccountsScreen'
 import { findAllByHostType } from '../test-support/react-test-renderer-host-nodes'
 
 const dependencies = vi.hoisted(() => ({
   snapshot: null as unknown
 }))
+
+const queryClient = createOrcaQueryClient()
+beforeEach(() => queryClient.clear())
+
+vi.mock('../transport/connection/client-context-connection-metrics', () => ({
+  useHostConnectionInputs: () => ({ lastConnectedAt: 1 })
+}))
+vi.mock('../components/HostOfflineBanner', () => ({
+  HostOfflineBanner: () => null,
+  useHostOfflineBanner: () => null
+}))
+vi.mock('../query/refresh-hint', () => ({ useRefreshHint: () => false }))
 
 vi.mock('react-native', () => ({
   ActivityIndicator: 'ActivityIndicator',
@@ -121,7 +135,13 @@ function visibleText(renderer: ReactTestRenderer): string[] {
 async function renderAccounts(): Promise<ReactTestRenderer> {
   let renderer: ReactTestRenderer | null = null
   await act(async () => {
-    renderer = create(createElement(MobileAccountsScreen))
+    renderer = create(
+      createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        createElement(MobileAccountsScreen)
+      )
+    )
     await Promise.resolve()
   })
   if (!renderer) {
