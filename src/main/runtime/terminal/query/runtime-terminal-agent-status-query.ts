@@ -23,7 +23,7 @@ import {
 import { detectTerminalWaitBlockedReason } from '../wait/terminal-wait-detection'
 import { getTerminalState } from '../wait/terminal-wait-results'
 import { buildTerminalWaitText } from '../wait/terminal-wait-tail-state'
-import { hermesNativeTitleStatus } from '../../../../shared/hermes-terminal-title'
+import { hermesNativeTitleStatus } from '../../../../shared/agent-status/title/providers/hermes-terminal-title'
 
 export type RuntimeTerminalAgentStatusSnapshot = {
   waitText: string

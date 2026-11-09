@@ -66,6 +66,7 @@ export function useMobileStructuredSendWithOutcome(args: {
   reject: MobileStructuredSends['reject']
   holdUnconfirmed: MobileStructuredSends['holdUnconfirmed']
   commandPending: { current: boolean }
+  onClearSent: () => () => void
   /** This chat's message sends still out, which a command waits behind as on desktop. */
   sendsOut: MobileStructuredSendsOut
   controller: Pick<
@@ -102,6 +103,7 @@ export function useMobileStructuredSendWithOutcome(args: {
     commandsWait,
     controller,
     enabled,
+    onClearSent,
     reject,
     holdUnconfirmed,
     onSendError,
@@ -196,6 +198,7 @@ export function useMobileStructuredSendWithOutcome(args: {
                 selectAgentSessionCurrentRequests(stateRef.current)
               ),
             onError: onSendError,
+            onClearSent,
             timeoutMs
           })
       if (commandOutcome !== null) {
@@ -281,6 +284,7 @@ export function useMobileStructuredSendWithOutcome(args: {
       commandsWait,
       controller,
       enabled,
+      onClearSent,
       reject,
       holdUnconfirmed,
       onSendError,

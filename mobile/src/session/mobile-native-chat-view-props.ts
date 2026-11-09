@@ -50,6 +50,8 @@ type ChatViewProps = MobileNativeChatSendProps & {
   error?: string
   // Permanent read failure replaces the pane because further chat actions cannot succeed.
   readFailedFinally?: boolean
+  /** A sent /clear hid the old rows: show a blank list until its divider lands, not the new-chat copy. */
+  clearing?: boolean
   agent?: string | null
   sessionLive?: boolean
   /** The turn is live: working, or waiting on the reader. */

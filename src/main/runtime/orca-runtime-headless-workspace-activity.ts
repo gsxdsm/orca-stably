@@ -3,7 +3,10 @@ import { ORCA_SIDEBAR_INPUTS_IS_MAIN } from '../../shared/sidebar-inputs-switch'
 import { HEADLESS_RUNTIME_WINDOW_ID } from '../../shared/runtime-session-contracts'
 import { agentPhaseTransition } from '../../shared/agent-status/lifecycle/agent-transitions'
 import { RECENT_STAMP_THROTTLE_MS } from '../../shared/sidebar-list/sort-stamps'
-import type { AgentPaneChange, AgentPaneWorkspace } from '../agent-hooks/agent-transition-detector'
+import type {
+  AgentPaneChange,
+  AgentPaneWorkspace
+} from '../agent-hooks/observations/agent-transition-detector'
 import { readWorkspaceRecord, writeWorkspaceRecord } from './sidebar-inputs/sort-stamp-records'
 import {
   isWslMoveProjectBlocked,

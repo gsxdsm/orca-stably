@@ -55,6 +55,7 @@ export function MobileNativeChatView({
   status,
   error,
   readFailedFinally = false,
+  clearing = false,
   agent,
   sessionLive,
   agentWorking,
@@ -173,7 +174,6 @@ export function MobileNativeChatView({
       : (ask ?? permission ?? question ?? collapsedPrompt ?? awaitingInput) != null,
     send: onSend
   })
-  const { lockReason } = offlineQueue
   const handleSend = useCallback(
     async (...send: Parameters<typeof onSend>): Promise<boolean> => {
       // Retire the previous notice before this action can report a new one.
@@ -257,11 +257,11 @@ export function MobileNativeChatView({
   const layoutKey = `${fontScale}`
   useMobileNativeChatPreviousStops(tail, turns, rowKeys.keyOf, layoutKey)
   const footer = mobileNativeChatListFooter(liveStatus, turns.waitingRows, renderItem)
-  const emptyState = mobileNativeChatEmptyState(status, agent ?? null, error, sessionLive)
+  const emptyState = mobileNativeChatEmptyState(status, agent, error, sessionLive, clearing)
   const suppressEmptyState = subagent.focusedId != null && !readFailedFinally
 
   const composerPlaceholder = mobileNativeChatComposerPlaceholder(
-    lockReason,
+    offlineQueue.lockReason,
     turnIndicator?.afterStop
   )
   const promptOwnsInput = useMobileNativeChatPromptInputOwner(
@@ -297,7 +297,7 @@ export function MobileNativeChatView({
         collapsedPrompt={collapsedPrompt}
       />
       <MobileNativeChatInputLockStatus
-        lockReason={lockReason}
+        lockReason={offlineQueue.lockReason}
         waitingText={composerPlaceholder}
         hostOutage={hostOutage}
       />
