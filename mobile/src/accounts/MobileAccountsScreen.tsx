@@ -5,17 +5,21 @@ import { useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { ChevronLeft, RefreshCw, User } from 'lucide-react-native'
 import { loadHosts, peekHosts } from '../transport/hosts/host-store'
 import { useForceReconnect, useHostClient } from '../transport/connection/host-client-hooks'
+import { useHostConnectionInputs } from '../transport/connection/client-context-connection-metrics'
+import { classifyConnection, isConnectionOutage } from '../transport/connection/connection-health'
+import { HostOfflineBanner, useHostOfflineBanner } from '../components/HostOfflineBanner'
+import { useRefreshHint } from '../query/refresh-hint'
+import { useHostConnectionInputs } from '../transport/connection/client-context-connection-metrics'
+import { classifyConnection, isConnectionOutage } from '../transport/connection/connection-health'
+import { HostOfflineBanner, useHostOfflineBanner } from '../components/HostOfflineBanner'
+import { useRefreshHint } from '../query/refresh-hint'
 import { MobileAccountsLoadState } from './MobileAccountsLoadState'
 import { colors, spacing } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { styles } from './mobile-accounts-screen-styles'
 import { useNow } from '../hooks/use-now'
-import {
-  AccountsSnapshotError,
-  decodeAccountsSnapshot,
-  type AccountsSnapshot
-} from '../components/accounts-snapshot'
+import type { AccountsSnapshot } from '../components/accounts-snapshot'
 import type { ProviderKey } from '../components/account-usage-state'
 import { useCodexResetCreditAction } from '../components/use-codex-reset-credit-action'
 import { ConfirmModal } from '../components/ConfirmModal'
@@ -35,7 +39,7 @@ import { MobileAgentIcon } from '../components/MobileAgentIcon'
 import { getProviderDisplayName } from '../../../src/shared/usage-provider-windows'
 import { ProviderUsageWindows } from './ProviderUsageWindows'
 import { ListGroup, SectionHeader, ListRow } from '../components/list/ListGroup'
-import { subscribeAccountsSnapshots } from './accounts-snapshot-stream'
+import { useMobileAccountsSnapshot } from './use-mobile-accounts-snapshot'
 
 type AccountsNotice = { title: string; message: string }
 
@@ -46,11 +50,6 @@ export function MobileAccountsScreen() {
   const router = useRouteHandoff()
   const insets = useSafeAreaInsets()
   const { hostId } = useLocalSearchParams<{ hostId: string }>()
-  const currentHost = useRef({ hostId })
-  if (currentHost.current.hostId !== hostId) {
-    currentHost.current = { hostId }
-  }
-  const hostScope = currentHost.current
 
   // Why: shared client per host. See docs/mobile-shared-client-per-host.md.
   const { client, state: connState } = useHostClient(hostId)
@@ -58,39 +57,46 @@ export function MobileAccountsScreen() {
   const [hostName, setHostName] = useState(
     () => peekHosts()?.find((host) => host.id === hostId)?.name ?? ''
   )
-  const [snapshot, setSnapshot] = useState<AccountsSnapshot | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [refreshing, setRefreshing] = useState(false)
+  const [hostError, setHostError] = useState<string | null>(null)
   const [busyAccountId, setBusyAccountId] = useState<string | null>(null)
   const [clockEnabled, setClockEnabled] = useState(false)
   const [notice, setNotice] = useState<AccountsNotice | null>(null)
   const [providerAccountReload, setProviderAccountReload] = useState(0)
 
   useEffect(() => {
-    setSnapshot(null)
-    setError(null)
-    setRefreshing(false)
+    setHostError(null)
     setBusyAccountId(null)
     setNotice(null)
   }, [hostId])
 
-  const acceptSnapshot = useCallback(
-    (nextSnapshot: AccountsSnapshot) => {
-      if (currentHost.current === hostScope) {
-        setSnapshot(nextSnapshot)
-        setError(null)
-      }
-    },
-    [hostScope]
-  )
-  const rejectInvalidSnapshot = useCallback(() => {
-    if (currentHost.current !== hostScope) {
-      return
-    }
-    // Fail closed on unrecognized snapshot: stale data can expose finite reset for wrong account.
-    setSnapshot(null)
-    setError(t('accounts.screen.invalidSnapshot', 'Invalid accounts snapshot from host'))
-  }, [hostScope, t])
+  const connectionInputs = useHostConnectionInputs(hostId)
+  const accounts = useMobileAccountsSnapshot({
+    hostId,
+    client,
+    connState,
+    lastConnectedAt: connectionInputs.lastConnectedAt
+  })
+  const { snapshot, live, refreshing, acceptSnapshot } = accounts
+  const refresh = useCallback(async () => {
+    setProviderAccountReload((value) => value + 1)
+    await accounts.refresh()
+  }, [accounts.refresh])
+  const error = accounts.error ?? hostError
+  // Stored accounts stay up while connecting or offline; re-pair and a failed read on a live connection say so instead.
+  const showsAccounts =
+    snapshot !== null &&
+    (live || (connState !== 'auth-failed' && !(connState === 'connected' && error)))
+  const offlineBanner = useHostOfflineBanner({
+    client,
+    connState,
+    lastConnectedAt: connectionInputs.lastConnectedAt,
+    outage: isConnectionOutage(classifyConnection({ state: connState, ...connectionInputs })),
+    forceReconnect: hostId && forceReconnect ? () => void forceReconnect(hostId) : null,
+    hasData: showsAccounts,
+    asOf: accounts.readAt
+  })
+  // Stored accounts wait on the stream's first answer for their usage.
+  const showRefreshLine = useRefreshHint(showsAccounts && !live && offlineBanner === null)
   const {
     supported: codexResetSupported,
     resetting: resettingCodex,
@@ -129,7 +135,7 @@ export function MobileAccountsScreen() {
       }
       const host = hosts.find((h) => h.id === hostId)
       if (!host) {
-        setError(t('accounts.screen.hostNotFound', 'Host not found'))
+        setHostError(t('accounts.screen.hostNotFound', 'Host not found'))
         return
       }
       setHostName(host.name)
@@ -138,50 +144,6 @@ export function MobileAccountsScreen() {
       stale = true
     }
   }, [hostId, t])
-
-  const refresh = useCallback(async () => {
-    if (!client || currentHost.current !== hostScope) {
-      return
-    }
-    setRefreshing(true)
-    setProviderAccountReload((value) => value + 1)
-    try {
-      const res = await client.sendRequest('accounts.list')
-      if (currentHost.current !== hostScope) {
-        return
-      }
-      if (res.ok) {
-        acceptSnapshot(decodeAccountsSnapshot(res.result))
-      } else {
-        setError(res.error.message)
-      }
-    } catch (e) {
-      if (currentHost.current !== hostScope) {
-        return
-      }
-      if (e instanceof AccountsSnapshotError) {
-        rejectInvalidSnapshot()
-      } else {
-        setError(e instanceof Error ? e.message : String(e))
-      }
-    } finally {
-      if (currentHost.current === hostScope) {
-        setRefreshing(false)
-      }
-    }
-  }, [acceptSnapshot, client, hostScope, rejectInvalidSnapshot])
-
-  // Stream desktop poll/account-switch updates, falling back to one-shot accounts.list on subscription error.
-  useEffect(() => {
-    if (!client || connState !== 'connected') {
-      return
-    }
-    return subscribeAccountsSnapshots(client, {
-      onSnapshot: acceptSnapshot,
-      onInvalidSnapshot: rejectInvalidSnapshot,
-      onStreamError: () => void refresh()
-    })
-  }, [acceptSnapshot, client, connState, refresh, rejectInvalidSnapshot])
 
   const selectAccount = useCallback(
     async (provider: ProviderKey, accountId: string | null) => {
@@ -255,6 +217,8 @@ export function MobileAccountsScreen() {
         }
         title={t('accounts.screen.title', 'Accounts')}
         subtitle={hostName || undefined}
+        refreshing={showRefreshLine}
+        refreshing={showRefreshLine}
         trailing={
           <NavBarButton
             icon={refreshing ? RefreshingIcon : RefreshCw}
@@ -268,11 +232,11 @@ export function MobileAccountsScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          !snapshot && { flexGrow: 1 },
+          !showsAccounts && { flexGrow: 1 },
           { paddingBottom: insets.bottom + spacing.xl }
         ]}
       >
-        {!snapshot ? (
+        {!showsAccounts ? (
           <MobileAccountsLoadState
             connState={connState}
             hostName={hostName}

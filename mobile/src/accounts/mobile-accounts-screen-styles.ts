@@ -14,6 +14,9 @@ export const styles = themedStyleSheet(() => ({
   section: {
     marginBottom: spacing.xl
   },
+  offlineBanner: {
+    paddingBottom: spacing.sm
+  },
   // On a screen, not a sheet: one step above the page, as the other screen groups are.
   group: {
     backgroundColor: colors.bgPanel
