@@ -55,7 +55,7 @@ import {
   resetHostStructuredAgentsForTests
 } from './native-chat/agent-catalogs/host-structured-agents'
 import { installHostStructuredAgentsSync } from './native-chat/agent-catalogs/host-structured-agents-sync'
-import { chatProviderAgents } from '@/lib/chat-provider-agents'
+import { chatProviderAgents } from './native-chat/agent-catalogs/chat-provider-agents'
 import { buildNewTabAgentMenuRows } from '../../../shared/agent-launch/picker/agent-launch-picker-rows'
 
 const REGISTERED: RuntimeCapability[] = [
