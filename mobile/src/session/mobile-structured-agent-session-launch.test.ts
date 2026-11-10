@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import { markRpcDeliveryUnknown } from '../transport/rpc/rpc-delivery-ambiguity'
 import { createMobileStructuredAgentSession } from './mobile-structured-agent-session-launch'
-import './mobile-created-structured-sessions'
+import { mobileCreatedStructuredSession } from './mobile-created-structured-sessions'
 
 function clientReturning(
   ...responses: unknown[]
@@ -11,6 +11,31 @@ function clientReturning(
   const sendRequest = vi.fn(async () => responses[responseIndex++])
   return { sendRequest } as unknown as RpcClient & { sendRequest: ReturnType<typeof vi.fn> }
 }
+
+const acceptedCreateResult = {
+  ok: true,
+  replayed: false,
+  fence: 1,
+  cursor: { epoch: 'epoch-1', sequence: 0 },
+  value: {
+    sessionId: 'codex_session_1',
+    fence: 1,
+    page: {
+      sessionId: 'codex_session_1',
+      epoch: 'epoch-1',
+      direction: 'tail',
+      items: [],
+      removedItemIds: [],
+      submissions: [],
+      window: { oldest: null, newest: null, nextCursor: { epoch: 'epoch-1', sequence: 0 } },
+      liveCursor: { epoch: 'epoch-1', sequence: 0 },
+      hasOlder: false,
+      hasNewer: false
+    },
+    unconfirmedClientMessageIds: []
+  }
+}
+const acceptedCreate = { ok: true, result: acceptedCreateResult }
 
 describe('mobile structured agent-session launch', () => {
   it.each([false, true])(

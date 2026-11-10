@@ -11,7 +11,6 @@ import { createDeferredStructuredAgentSessionEventSink } from '../../native-chat
 import { testEventSinkLogging } from '../../native-chat/agent-session-wire/host/testing/structured-agent-session-logger-test-support'
 import type { AcpScriptedAgent } from '../process/testing/acp-scripted-agent.test-support'
 import { acpLaunchSpecFor } from '../launch/acp-launch-registry'
-import { ACP_REOPEN_FAILED } from './start/acp-session-reopen-failure'
 import {
   GROK_CONFIG_OPTIONS,
   openAcpAdapterRig,
