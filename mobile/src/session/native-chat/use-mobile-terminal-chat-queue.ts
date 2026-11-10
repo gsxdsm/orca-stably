@@ -14,7 +14,7 @@ import { NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY } from '../../../../src/shared/na
 import { mobileTerminalChatQueueSend } from './mobile-terminal-chat-queue-send'
 import type { MobileNativeChatSendOutcome } from './mobile-native-chat-send'
 import { isRpcDeliveryUnknown } from '../../transport/rpc/rpc-delivery-ambiguity'
-import { isLogicalClientCutoverError } from '../../transport/connection/stable-logical-rpc-client'
+import { isLogicalClientCutoverError } from '../../transport/connection/logical-client-cutover-error'
 import { UNCONFIRMED_SEND_MESSAGE } from './use-mobile-native-chat-unconfirmed-sends'
 
 export function useMobileTerminalChatQueue(args: {

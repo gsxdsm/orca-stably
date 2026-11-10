@@ -70,7 +70,7 @@ describe('mobile Hermes terminal queue', () => {
     function Harness({ enabled = true }: { enabled?: boolean }) {
       api = useMobileTerminalChatQueue({
         client,
-        terminal: 'term',
+        activeHandleRef: { current: 'term' },
         enabled,
         hostCapabilities: [NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY],
         appendText
@@ -130,7 +130,7 @@ describe('mobile Hermes terminal queue', () => {
     function Harness() {
       api = useMobileTerminalChatQueue({
         client,
-        terminal: 'term',
+        activeHandleRef: { current: 'term' },
         enabled: true,
         hostCapabilities: [NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY],
         appendText: () => true,
@@ -197,7 +197,7 @@ describe('mobile Hermes terminal queue', () => {
     function Harness({ enabled = true }: { enabled?: boolean }) {
       api = useMobileTerminalChatQueue({
         client,
-        terminal: 'term',
+        activeHandleRef: { current: 'term' },
         enabled,
         hostCapabilities: [NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY],
         appendText: () => true
@@ -279,7 +279,7 @@ describe('mobile Hermes terminal queue', () => {
     function Harness({ enabled = true }: { enabled?: boolean }) {
       api = useMobileTerminalChatQueue({
         client,
-        terminal: 'term',
+        activeHandleRef: { current: 'term' },
         enabled,
         hostCapabilities: [NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY],
         appendText: () => true
@@ -370,7 +370,7 @@ describe('mobile Hermes terminal queue', () => {
     function Harness({ enabled = true }: { enabled?: boolean }) {
       api = useMobileTerminalChatQueue({
         client,
-        terminal: 'term',
+        activeHandleRef: { current: 'term' },
         enabled,
         hostCapabilities: [NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY],
         appendText: () => true,
