@@ -23,7 +23,9 @@ import {
 import { useMobileDictationLeaveHold } from '../dictation/mobile-dictation-leave-hold'
 import { useMobileDictationHost } from '../dictation/mobile-dictation-host'
 import { mobileDictationShownOnScreen } from '../dictation/mobile-dictation-shown'
+import { useDictationComputerName } from '../dictation/use-mobile-dictation-live'
 import { nativeChatDictationCopy } from '../dictation/mobile-session-native-chat-dictation-copy'
+import { dictationAnnounceCopy } from '../dictation/mobile-dictation-announce-copy'
 import {
   useWorkspaceExecutionHost,
   workspaceRouteHref
@@ -57,6 +59,7 @@ export function useMobileSessionDictation(
   } = scope
   const { showNativeChat, showNativeChatRef } = nativeChatController
   const host = useMobileDictationHost()
+  const computerName = useDictationComputerName(hostId)
   const { start: startHost } = host
   const executionHost = useWorkspaceExecutionHost()
   const sessionKey = JSON.stringify([hostId, executionHost ?? null, worktreeId])
@@ -96,12 +99,17 @@ export function useMobileSessionDictation(
   )
 
   const clipboard = useClipboardWriter()
+  // The screen's toast is not read on the page, so where the words went is also spoken.
+  const tell = (message: string) => {
+    showToast(message)
+    host.announce(message)
+  }
   // A transcript its target refused must not vanish: keep it on the clipboard and say so.
   const keepUndeliveredDictation = (text: string) => {
     triggerError()
     void clipboard.writeText(text).then(
-      () => showToast(nativeChatDictationCopy.insertFailedCopied()),
-      () => showToast(nativeChatDictationCopy.insertFailed())
+      () => tell(nativeChatDictationCopy.insertFailedCopied()),
+      () => tell(nativeChatDictationCopy.insertFailed())
     )
   }
 
@@ -109,7 +117,9 @@ export function useMobileSessionDictation(
   // Chat dictation is inserted locally; a terminal's words are typed into it live, while it is the active one.
   const insertHere = (text: string): boolean => {
     if (destination.landsInChat(showNativeChatRef.current)) {
-      if (!destination.insertInChat(text)) {
+      if (destination.insertInChat(text)) {
+        host.announce(dictationAnnounceCopy.inserted())
+      } else {
         keepUndeliveredDictation(text)
       }
       return true
@@ -133,7 +143,7 @@ export function useMobileSessionDictation(
         (await sendLiveTerminalInput(insertHandle, text))
       // Live input lands in a terminal the keyboard may cover, so say where the words went.
       if (sent) {
-        showToast(nativeChatDictationCopy.inserted())
+        tell(nativeChatDictationCopy.inserted())
       } else {
         keepUndeliveredDictation(text)
       }
@@ -195,6 +205,7 @@ export function useMobileSessionDictation(
     phoneDictation,
     removeFillerWords,
     dictationTerms,
+    silenceSeconds,
     dictationNeedsSetupRef,
     closeDictationSetup,
     refreshDictationMode
@@ -247,11 +258,14 @@ export function useMobileSessionDictation(
         executionHost
       ),
       dictationMode: scope.dictationMode,
+      silenceSeconds,
       removeFillerWords,
       dictationTerms,
-      worktreeId
+      worktreeId,
+      computerName
     })
   }, [
+    computerName,
     activeHandle,
     activeSessionTab,
     busyElsewhere,
@@ -266,6 +280,7 @@ export function useMobileSessionDictation(
     phoneDictation.readyRef,
     removeFillerWords,
     dictationTerms,
+    silenceSeconds,
     scope.dictationMode,
     sessionKey,
     setShowDictationSetup,

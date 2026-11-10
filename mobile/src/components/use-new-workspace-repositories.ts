@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import type { ExecutionHostId } from '../../../src/shared/execution-host'
+import { getRepoExecutionHostId, type ExecutionHostId } from '../../../src/shared/execution-host'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import { cachedHostRepos } from '../host-screen/host-list-queries'
 import { listHostRepos } from '../worktree/server-repos'
@@ -21,7 +21,8 @@ export function useNewWorkspaceRepositories(args: {
   serverClients?: ReadonlyMap<ExecutionHostId, RpcClient>
   hostId?: string
   visible: boolean
-  initialRepoId?: string | null
+  /** Picked once it is listed, in place of the last visited repo. */
+  initialRepo?: { id: string; executionHostId?: ExecutionHostId }
 }): {
   repos: MobileWorkspaceRepo[]
   allRepos: MobileWorkspaceRepo[]
@@ -32,7 +33,7 @@ export function useNewWorkspaceRepositories(args: {
   loadError: string | null
   retryLoad: () => void
 } {
-  const { client, serverClients = NO_SERVER_CLIENTS, hostId, visible, initialRepoId } = args
+  const { client, serverClients = NO_SERVER_CLIENTS, hostId, visible, initialRepo } = args
   const queryClient = useQueryClient()
   // The host list's repos, so the form opens with them while repo.list answers.
   const [initialRepos] = useState(() => cachedHostRepos<MobileWorkspaceRepo>(queryClient, hostId))
@@ -40,8 +41,6 @@ export function useNewWorkspaceRepositories(args: {
   const serverRepos = useServerRepos<MobileWorkspaceRepo>(serverClients, visible)
   const [pickedRepo, setSelectedRepo] = useState<MobileWorkspaceRepo | null>(null)
   const [loading, setLoading] = useState(initialRepos == null)
-  // The cached list predates a just-added project, so a preferred pick waits for a fresh one.
-  const [listedFresh, setListedFresh] = useState(false)
   // Null until a read fails; an empty string is a refusal with no reason to show.
   const [loadError, setLoadError] = useState<string | null>(null)
   const [loadAttempt, setLoadAttempt] = useState(0)
@@ -54,7 +53,15 @@ export function useNewWorkspaceRepositories(args: {
         : [...desktopRepos, ...[...serverRepos.values()].flat()],
     [desktopRepos, serverRepos]
   )
-  const repos = useMemo(() => getNewWorkspaceDialogEligibleRepos(allRepos), [allRepos])
+  const initialRepoId = initialRepo?.id
+  const initialRepoHost = initialRepo?.executionHostId
+  // Opened for one host's folder: every picker offers only that host, whose store holds the folder.
+  const repos = useMemo(() => {
+    const eligible = getNewWorkspaceDialogEligibleRepos(allRepos)
+    return initialRepoHost
+      ? eligible.filter((repo) => getRepoExecutionHostId(repo) === initialRepoHost)
+      : eligible
+  }, [allRepos, initialRepoHost])
   // Derive the pick so it follows updated listings and disappears when its host stops listing it.
   const selectedRepo = useMemo(
     () => refreshMobileNewWorkspaceDialogSelectedRepo(repos, pickedRepo),
@@ -62,21 +69,30 @@ export function useNewWorkspaceRepositories(args: {
   )
 
   useEffect(() => {
-    if (!visible || !lastVisitedRepo.loaded || selectedRepo) {
+    if (!visible || selectedRepo || !initialRepoId) {
       return
     }
-    if (initialRepoId) {
-      // Repo ids are unique per host; the just-added project lives on the focused host.
-      const initialRepo = desktopRepos.find((repo) => repo.id === initialRepoId)
-      if (initialRepo) {
-        setSelectedRepo(initialRepo)
-        return
-      }
-      if (!listedFresh) {
-        return
-      }
+    // Waits for its host's listing: a same-id repo on another host is a different repo.
+    // Without a host (a just-added project) the id is looked up on the focused host's own listing.
+    const initial = repos.find((repo) =>
+      repo.id === initialRepoId &&
+      (initialRepoHost
+        ? getRepoExecutionHostId(repo) === initialRepoHost
+        : desktopRepos.some((desktop) => desktop.id === repo.id))
+    )
+    if (initial) {
+      setSelectedRepo(initial)
     }
-    if (repos.length === 0) {
+  }, [desktopRepos, initialRepoHost, initialRepoId, repos, selectedRepo, visible])
+
+  useEffect(() => {
+    if (
+      !visible ||
+      initialRepoId ||
+      !lastVisitedRepo.loaded ||
+      selectedRepo ||
+      repos.length === 0
+    ) {
       return
     }
     const preferredRepoId = resolveNewWorkspaceDialogRepoId({
@@ -87,16 +103,7 @@ export function useNewWorkspaceRepositories(args: {
     if (preferredRepo) {
       setSelectedRepo(preferredRepo)
     }
-  }, [
-    lastVisitedRepo.loaded,
-    lastVisitedRepo.repoId,
-    desktopRepos,
-    initialRepoId,
-    listedFresh,
-    repos,
-    selectedRepo,
-    visible
-  ])
+  }, [initialRepoId, lastVisitedRepo.loaded, lastVisitedRepo.repoId, repos, selectedRepo, visible])
 
   useEffect(() => {
     if (!visible || !client) {
@@ -115,8 +122,6 @@ export function useNewWorkspaceRepositories(args: {
           return
         }
         setDesktopRepos(listed)
-        // A failed listing keeps a just-added project's pick pending instead of preselecting another repo.
-        setListedFresh(true)
       })
       .catch((err: unknown) => {
         if (!stale) {

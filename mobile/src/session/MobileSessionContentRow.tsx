@@ -9,7 +9,6 @@ import { styles } from './mobile-session-styles'
 import type { MobileSessionController } from './use-mobile-session-controller'
 import { MobileSessionActiveContent } from './MobileSessionActiveContent'
 import { MobileSessionCommandDock } from './MobileSessionCommandDock'
-import { MobileDictationStatusAnnouncement } from '../dictation/MobileDictationStatusAnnouncement'
 import {
   ComposerUsageClientContext,
   ComposerUsageTabAgentContext
@@ -82,7 +81,6 @@ export function MobileSessionContentRow({ controller }: { controller: MobileSess
             </MobileDictationLiveContext.Provider>
           </ComposerUsageTabAgentContext.Provider>
         </ComposerUsageClientContext.Provider>
-        <MobileDictationStatusAnnouncement dictation={dictation} />
       </View>
       {canDockPanel && activePanel !== null && (
         <SessionDockColumn

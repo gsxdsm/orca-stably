@@ -2,7 +2,6 @@ import { HERMES_ACP_DIALECT } from '../acp-dialects/hermes-dialect'
 import { hermesAcpAccountBinding } from '../../hermes/hermes-acp-account'
 import { HERMES_SESSION_HISTORY } from '../../hermes/hermes-session-history'
 import type { AcpLaunchSpec } from './acp-launch-contract'
-import { agentSessionSignInFor } from '../../../shared/agent-session/lifecycle/agent-session-sign-in'
 
 // `hermes acp --yolo` is rejected; the parent CLI consumes `--yolo` before `acp`.
 export const HERMES_LAUNCH_SPEC: AcpLaunchSpec = {
@@ -11,7 +10,7 @@ export const HERMES_LAUNCH_SPEC: AcpLaunchSpec = {
   args: ({ fullAccess }) => (fullAccess ? ['--yolo', 'acp'] : ['acp']),
   env: { HERMES_YOLO_MODE: '0' },
   dialect: HERMES_ACP_DIALECT,
-  loginCommand: agentSessionSignInFor('hermes')?.loginCommand ?? [],
+  loginCommand: ['hermes', 'model'],
   // `hermes-setup` is interactive and authenticates only after credentials exist.
   authMethod: ({ advertised }) => advertised.find((id) => id !== 'hermes-setup'),
   account: hermesAcpAccountBinding(),

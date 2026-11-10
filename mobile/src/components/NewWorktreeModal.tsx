@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Keyboard } from 'react-native'
 import { getComposerRepoWorktreeBranches } from '../../../src/shared/composer-branch-selection'
 import { getRepoExecutionHostId, parseExecutionHostId } from '../../../src/shared/execution-host'
@@ -72,7 +72,8 @@ function NewWorktreeModalContent(props: NewWorktreeModalProps) {
     existingWorktrees,
     openExternalUrl,
     onCreated,
-    onClose
+    onClose,
+    folderLaunch
   } = props
   const { repos, allRepos, selectedRepo, setSelectedRepo, loading, loadError, retryLoad } =
     useNewWorkspaceRepositories({
@@ -80,7 +81,13 @@ function NewWorktreeModalContent(props: NewWorktreeModalProps) {
       serverClients,
       hostId,
       visible,
-      initialRepoId
+      ...(folderLaunch
+        ? {
+            initialRepo: { id: folderLaunch.repoId, executionHostId: folderLaunch.executionHostId }
+          }
+        : initialRepoId
+          ? { initialRepo: { id: initialRepoId } }
+          : {})
     })
   // Route picked-repo operations to its host; desktop settings/accounts stay on desktop.
   const repoServer = selectedRepo ? serverOf(selectedRepo) : undefined
@@ -128,6 +135,14 @@ function NewWorktreeModalContent(props: NewWorktreeModalProps) {
     worktreeBranches: selectedRepoWorktreeBranches,
     onError: setError
   })
+  // The folder's name, seeded once per opening; the user's edits stand.
+  const seededFolderName = useRef(false)
+  useEffect(() => {
+    if (folderLaunch && !seededFolderName.current) {
+      seededFolderName.current = true
+      composer.setName(folderLaunch.name)
+    }
+  }, [composer, folderLaunch])
   const selectedRepoIsGit = selectedRepo ? selectedRepo.kind !== 'folder' : true
   useWorktreeCreateBasePrefetch({
     client: visible ? client : null,
@@ -181,7 +196,19 @@ function NewWorktreeModalContent(props: NewWorktreeModalProps) {
       setNote((current) => (current === note ? '' : current))
       onCreated(worktreeId, name, warning, repoServer)
     },
-    onClose
+    onClose,
+    ...(folderLaunch
+      ? {
+          folderLaunch: {
+            ...folderLaunch.submit,
+            executionHostId: folderLaunch.executionHostId,
+            parent: {
+              parentWorkspace: folderLaunch.parentWorkspace,
+              parentWorkspaceOrigin: 'manual' as const
+            }
+          }
+        }
+      : {})
   })
 
   const sourceAvailability: SmartModeAvailabilityInput = {

@@ -3,9 +3,9 @@ import { chatFontSizeActionForEvent } from './native-chat-font-size'
 import { writeNativeChatFontSize } from './native-chat-font-size-write'
 import { noteChatWheelPinch } from '../native-chat-wheel-pinch'
 import { isWebClientLocation } from '@/lib/web-client-location'
-import { getShortcutPlatform } from '@/lib/shortcut-platform'
+import { getShortcutPlatform } from '@/lib/keyboard/shortcut-platform'
 import { useAppStore } from '../../../store/index'
-import { addAppKeyListener, removeAppKeyListener } from '@/lib/app-keyboard-router'
+import { addAppKeyListener, removeAppKeyListener } from '@/lib/keyboard/app-keyboard-router'
 
 // Trackpad pinch emits many small deltas; one font-size step needs this much travel.
 const PINCH_STEP_DELTA = 12

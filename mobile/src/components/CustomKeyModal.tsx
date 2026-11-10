@@ -20,6 +20,7 @@ import { useSessionListLongPressProps } from '../navigation/session-list-long-pr
 import { MobileSwitch } from './MobileSwitch'
 import { ListGroup, ListRow } from './list/ListGroup'
 import { FieldTextInput } from './composer-input/FieldTextInput'
+import { SmartRailRow } from './SmartRailRow'
 
 type Step = 'choose-type' | 'shortcut-combo' | 'special-keys' | 'text-macro'
 
@@ -63,9 +64,11 @@ type Props = {
   onClose: () => void
   onKeysChanged: (keys: CustomKey[]) => void
   onManageShortcuts?: () => void
+  smartRail?: { enabled: boolean; onChange: (enabled: boolean) => void }
 }
 
-export function CustomKeyModal({ visible, onClose, onKeysChanged, onManageShortcuts }: Props) {
+export function CustomKeyModal(props: Props) {
+  const { visible, onClose, onKeysChanged, onManageShortcuts, smartRail } = props
   useMobileColorScheme()
   const t = useMobileTranslation()
   const sessionListLongPress = useSessionListLongPressProps()
@@ -238,6 +241,11 @@ export function CustomKeyModal({ visible, onClose, onKeysChanged, onManageShortc
           ) : null}
         </ListGroup>
       )}
+      {step === 'choose-type' && smartRail ? (
+        <ListGroup style={styles.smartRailGroup}>
+          <SmartRailRow {...smartRail} />
+        </ListGroup>
+      ) : null}
 
       {step === 'shortcut-combo' && (
         <View style={styles.shortcutForm}>

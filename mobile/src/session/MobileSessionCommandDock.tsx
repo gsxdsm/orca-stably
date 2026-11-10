@@ -107,7 +107,6 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
           <View style={dockStyles.inputBar}>
             <LiveInputField
               controller={controller}
-              keysInRail={rail.keysInRail}
               trailing={
                 <MobileTerminalLiveInputStatus
                   dictation={dictation}
@@ -124,7 +123,6 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
         <View {...shown(terminalMessageMode)}>
           <TerminalMessageField
             controller={controller}
-            keysInRail={rail.keysInRail}
             actions={terminalMessageMode ? inputActions : null}
             status={
               <MobileTerminalLiveInputStatus
@@ -145,12 +143,10 @@ export function MobileSessionCommandDock({ controller }: { controller: MobileSes
 // Message mode: a line written here goes to the terminal with Enter when Send is tapped.
 function TerminalMessageField({
   controller,
-  keysInRail,
   actions,
   status
 }: {
   controller: MobileSessionController
-  keysInRail: boolean
   actions: ReactNode
   status: ReactNode
 }) {
@@ -185,10 +181,7 @@ function TerminalMessageField({
         if (!activeHandle) {
           return
         }
-        if (
-          !keysInRail ||
-          !dockKeys.interceptTypedCharacter(terminalDraft, text, messageInputRef)
-        ) {
+        if (!dockKeys.interceptTypedCharacter(terminalDraft, text, messageInputRef)) {
           setTerminalDraft(activeHandle, text)
         }
       }}
@@ -231,11 +224,9 @@ function TerminalMessageField({
 // Only this field reads the typed text, so a keystroke re-renders it and not the dock or session.
 function LiveInputField({
   controller,
-  keysInRail,
   trailing
 }: {
   controller: MobileSessionController
-  keysInRail: boolean
   trailing: ReactNode
 }) {
   const t = useMobileTranslation()
@@ -260,11 +251,8 @@ function LiveInputField({
       trailing={trailing}
       value={text}
       onChange={(event) => {
-        // A ctrl/alt/shift held on the Duo rail turns the next typed letter into a combo, while the rail shows it.
-        if (
-          !keysInRail ||
-          !dockKeys.interceptTypedCharacter(text, event.nativeEvent.text, liveInputRef)
-        ) {
+        // A held Shift, Ctrl or Alt on the key row or the Duo rail turns the next typed letter into a combo.
+        if (!dockKeys.interceptTypedCharacter(text, event.nativeEvent.text, liveInputRef)) {
           handleLiveInputChange(event)
         }
       }}
