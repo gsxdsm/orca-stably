@@ -11,7 +11,7 @@ import { projectNativeChatTranscript } from '../../shared/native-chat/transcript
 import { foldToolMessages } from '../../shared/native-chat/tools/native-chat-tool-fold'
 import { resolveSessionFilePath } from './session-file-resolver'
 import { readNativeChatTranscript } from './transcript-reader'
-import { transcriptFileStat } from './wsl-transcript-fs-access'
+import { transcriptFileStat } from './transcript-filesystem/wsl-transcript-fs-access'
 import { fillSubagentRosterActivity } from './transcript-subagent-roster-activity'
 
 export type NativeChatTranscriptActivitySeed = {

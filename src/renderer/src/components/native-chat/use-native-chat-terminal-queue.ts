@@ -1,11 +1,11 @@
 import { RuntimeRpcCallError } from '@/runtime/rpc/calls/runtime-rpc-result'
 import { isRecoverableRemoteRuntimeConnectionError } from '../../../../shared/remote-runtime/remote-runtime-client-error-classification'
-import { createNonSecureContextUuid as createBrowserUuid } from '../../../../shared/non-secure-context-uuid'
+import { createNonSecureContextUuid as createBrowserUuid } from '../../../../shared/identifiers/non-secure-context-uuid'
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { callRuntimeRpc } from '@/runtime/rpc/calls/runtime-rpc-call'
 import { getRemoteRuntimePtyOwner } from '@/runtime/hosted-terminals/identity/remote-runtime-pty-owner'
 import { toHostSessionPaneKey } from '../../../../shared/workspace-layout/terminal-surface-id'
-import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
+import type { RuntimeClientTarget } from '../../../../shared/remote-runtime/host-catalog/runtime-client-target'
 import {
   NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY,
   NativeChatTerminalQueueSnapshotSchema,

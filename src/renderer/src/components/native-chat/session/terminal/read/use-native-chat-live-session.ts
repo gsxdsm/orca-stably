@@ -8,9 +8,9 @@ import {
   boundNativeChatWindow,
   createNativeChatMerger,
   replaceList
-} from '../../../../../../../shared/native-chat/native-chat-merge'
+} from '../../../../../../../shared/native-chat/transcript/streaming/native-chat-merge'
 import type { NativeChatTaskSeedList } from '../../../../../../../shared/native-chat/input/native-chat-claude-task-updates'
-import { mergeNativeChatLiveSession } from '../../../../../../../shared/native-chat/native-chat-live-status'
+import { mergeNativeChatLiveSession } from '../../../../../../../shared/native-chat/transcript/streaming/native-chat-live-status'
 import {
   hasMoreNativeChatHistory,
   NATIVE_CHAT_INITIAL_LIMIT

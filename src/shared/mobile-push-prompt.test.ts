@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { MobilePushPrompt } from './mobile-push-contract'
+import type { MobilePushPrompt } from './notifications/mobile-push-contract'
 import { attachMobilePushPrompt } from './mobile-push-prompt'
 
 const small: MobilePushPrompt = {

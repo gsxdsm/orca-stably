@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseScheduledWaitUntil } from './orchestration-scheduled-wait'
-import { getOptionalStructuredMessagePayload } from '../cli/handlers/orchestration/message-payload'
+import { getOptionalStructuredMessagePayload } from '../cli/orchestration/messages/message-payload'
 
 const NOW = Date.parse('2026-11-03T12:00:00Z')
 

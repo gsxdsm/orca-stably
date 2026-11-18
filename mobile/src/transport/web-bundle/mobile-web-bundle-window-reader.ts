@@ -1,4 +1,4 @@
-import { errorMessage } from '../../../../src/shared/error-message'
+import { errorMessage } from '../../../../src/shared/errors/error-message'
 import { decodeBase64Bytes } from '../encryption/base64-byte-codec'
 import { pairedE2EENativeCodec } from '../encryption/paired-e2ee-native-codec'
 import {
@@ -7,9 +7,10 @@ import {
   mobileWebBundleRangeRead
 } from './mobile-web-bundle-operations'
 import { decodeMobileWebBundleRange } from './mobile-web-bundle-range-decode'
-import type {
-  MobileWebBundleAssetRead,
-  MobileWebBundleManifestReply
+import {
+  shellDownloadedAssets,
+  type MobileWebBundleAssetRead,
+  type MobileWebBundleManifestReply
 } from './mobile-web-bundle-reply-schemas'
 import { MobileWebBundleFetchError } from './mobile-web-bundle-fetch-refusal'
 import type { RpcClient } from '../rpc/rpc-client-contract'
@@ -121,7 +122,7 @@ export function mobileWebBundleStreamBytes(
   opened: Pick<MobileWebBundleManifestReply, 'rangeBytes' | 'manifest'>
 ): number {
   const brotliLengths = brotliStreamLengths(opened)
-  return opened.manifest.assets.reduce(
+  return shellDownloadedAssets(opened.manifest).reduce(
     (sum, asset) => sum + (brotliLengths.get(asset.path) ?? asset.byteLength),
     0
   )

@@ -9,7 +9,7 @@ import {
   claudeToolResults,
   readClaudeMessageEnvelope
 } from '../claude/structured/journal/claude-structured-item-translation'
-import { decodeClaudeTranscriptLine } from './transcript-line-decoders-claude'
+import { decodeClaudeTranscriptLine } from './transcript-decoding/transcript-line-decoders-claude'
 import { readNativeChatTranscript } from './transcript-reader'
 import { attachResolvedToolImages, resolveToolResultImageRefs } from './tool-result-images'
 

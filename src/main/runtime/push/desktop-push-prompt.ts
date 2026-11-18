@@ -1,4 +1,4 @@
-import type { MobilePushPrompt } from '../../../shared/mobile-push-contract'
+import type { MobilePushPrompt } from '../../../shared/notifications/mobile-push-contract'
 import { pushPromptForPane } from '../agent-prompt/agent-prompt-sources'
 import type { OrcaRuntimeService } from '../orca-runtime'
 import type { MobileNotificationEvent } from './notifications/runtime-mobile-notification-controller'

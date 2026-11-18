@@ -1,6 +1,6 @@
 // A headless server has no window store to stamp Recent, so the host stamps terminal starts and exits itself.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { HEADLESS_RUNTIME_WINDOW_ID } from '../../shared/runtime-session-contracts'
+import { HEADLESS_RUNTIME_WINDOW_ID } from '../../shared/remote-runtime/session-graph/runtime-session-contracts'
 import type { WorktreeMeta } from '../../shared/worktree/meta-types'
 import type { HostWorktreeTarget } from '../../shared/worktree/host-qualified-identity'
 import { AgentHookServer } from '../agent-hooks/server/agent-hook-server'
@@ -9,7 +9,7 @@ import {
   partialRuntimeStore,
   storeRepo,
   storeWorktreeMeta
-} from './orca-runtime-tests/runtime-store-partial-fixture'
+} from './construction/test-context/runtime-store-partial-fixture'
 
 vi.mock('electron', () => ({
   BrowserWindow: { fromId: vi.fn(() => ({ isDestroyed: () => false })) },

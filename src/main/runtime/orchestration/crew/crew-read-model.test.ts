@@ -8,8 +8,8 @@ import { crewRowStatus } from './crew-rules'
 import { createCrewPartyRegistry } from './crew-parties'
 import type { FleetAgentStatusEvidence } from '../../../../shared/orchestration/fleet/orchestration-fleet-agent-status-evidence'
 import { subscribeCrew } from './crew-stream'
-import { agentSessionRecordFixture } from '../../../native-chat/agent-session-record-test-fixture'
-import { agentSessionConversationView } from '../../../../shared/agent-session/lifecycle/agent-session-conversation-view'
+import { agentSessionRecordFixture } from '../../../native-chat/testing/agent-session-record-test-fixture'
+import { agentSessionConversationView } from '../../../../shared/agent-session/lifecycle/leases/agent-session-conversation-view'
 
 import { fixture } from './crew-read-model.test-fixture'
 

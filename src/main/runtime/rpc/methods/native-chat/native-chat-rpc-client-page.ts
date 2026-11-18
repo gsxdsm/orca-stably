@@ -1,11 +1,11 @@
 import type { NativeChatMessage } from '../../../../../shared/native-chat/native-chat-types'
-import type { NativeChatTranscriptPage } from '../../../../../shared/native-chat/native-chat-transcript-frames'
+import type { NativeChatTranscriptPage } from '../../../../../shared/native-chat/transcript/streaming/native-chat-transcript-frames'
 import { resolveNativeChatTranscriptAgent } from '../../../../../shared/native-chat/native-chat-agent-support'
 import { windowNativeChatWithChildren } from '../../../../native-chat/transcript-subagent-children'
 import type { RpcContext } from '../../core'
 import { sanitizeNativeChatRpcMessage } from './native-chat-rpc-block-sanitize'
 import { boundNativeChatRpcPageByBytes } from './native-chat-rpc-page-bounds'
-import { MOBILE_NATIVE_CHAT_MAX_WINDOW } from '../../../../../shared/rpc-contract/native-chat-params'
+import { MOBILE_NATIVE_CHAT_MAX_WINDOW } from '../../../../../shared/rpc-contract/native-chat/native-chat-params'
 
 // Default to a small transcript tail for fast paired-client paint; clients page older history, while local IPC stays virtualized.
 export const MOBILE_NATIVE_CHAT_DEFAULT_WINDOW = 40

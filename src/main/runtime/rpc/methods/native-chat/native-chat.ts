@@ -6,7 +6,7 @@ import {
 } from './native-chat-rpc-client-page'
 import { NATIVE_CHAT_TERMINAL_QUEUE_METHODS } from './native-chat-terminal-queue'
 import { recordMobileViewOpened } from '../../../../telemetry/mobile-client-telemetry'
-import type { NativeChatTranscriptFrame } from '../../../../../shared/native-chat/native-chat-transcript-frames'
+import type { NativeChatTranscriptFrame } from '../../../../../shared/native-chat/transcript/streaming/native-chat-transcript-frames'
 import { resolveNativeChatTranscriptAgent } from '../../../../../shared/native-chat/native-chat-agent-support'
 import {
   readNativeChatTranscriptTail,
@@ -15,8 +15,8 @@ import {
 import type {
   NativeChatTranscriptSubscription,
   SubscribeNativeChatTranscriptArgs
-} from '../../../../native-chat/transcript-watch-contract'
-import { nativeChatTranscriptPathOnExecutionHost } from '../../../../native-chat/ssh-transcript-path'
+} from '../../../../native-chat/transcript-watching/transcript-watch-contract'
+import { nativeChatTranscriptPathOnExecutionHost } from '../../../../native-chat/transcript-filesystem/ssh-transcript-path'
 import { defineMethod, defineStreamingMethod } from '../../core'
 import {
   publishTranscriptTaskList,
@@ -28,7 +28,7 @@ import {
   NativeChatSession,
   NativeChatUnsubscribe,
   type NativeChatResumePoint
-} from '../../../../../shared/rpc-contract/native-chat-params'
+} from '../../../../../shared/rpc-contract/native-chat/native-chat-params'
 
 /** Where the first page starts for a client holding `resumeAfter`; its offset and timestamp catch a rewritten file. */
 function resumeIndex(

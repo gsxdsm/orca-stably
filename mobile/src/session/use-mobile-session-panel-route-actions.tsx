@@ -7,7 +7,7 @@ import {
   shouldShowSessionHeaderChecksAction,
   panelRouteDescriptor
 } from './session-panel-host'
-import { MobileAgentIcon } from '../components/MobileAgentIcon'
+import type { ActionSheetAction } from '../components/sheets/ActionSheetModal'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import {
   useWorkspaceExecutionHost,
@@ -51,132 +51,81 @@ export function useMobileSessionPanelRouteActions(scope: MobileSessionPresentati
     quickCommandsSupported,
     showToast
   } = scope
-  const otherRuntimeAgentRow = {
-    id: 'otherServerAgents',
-    label: t('session.usePanelRouteActions.otherServerAgents', 'Agents on Another Server'),
-    hint: t('session.usePanelRouteActions.pairServerHint', 'Pair that server directly'),
-    icon: Bot,
-    disabled: true,
-    onPress: () => {}
-  }
-  const createTabAgentActions =
+  const agentStatusRow = (errorHint: string): ActionSheetAction | null =>
     createTabAgentLoadState === 'loading'
-      ? [
-          {
-            id: 'detectingAgents',
-            label: t('session.usePanelRouteActions.detectingAgents', 'Detecting Agents'),
-            icon: Bot,
-            disabled: true,
-            loading: true,
-            onPress: () => {}
-          }
-        ]
+      ? {
+          id: 'detectingAgents',
+          label: t('session.usePanelRouteActions.detectingAgents', 'Detecting Agents'),
+          icon: Bot,
+          disabled: true,
+          loading: true,
+          onPress: () => {}
+        }
       : createTabAgentOptions.length > 0
-        ? createTabAgentOptions.map((option) => ({
-            id: `agent:${option.agent}`,
-            label: option.label,
-            ...(option.opensAsChat
-              ? { hint: t('session.usePanelRouteActions.opensAsChat', 'Opens in Chat') }
-              : {}),
-            renderIcon: () => <MobileAgentIcon agentId={option.agent} size={16} />,
-            onPress: () => {
-              setShowCreateTabDrawer(false)
-              void handleCreateTerminal(option.agent)
-            }
-          }))
+        ? null
         : createTabAgentLoadState === 'loaded'
-          ? [
-              {
-                id: 'noEnabledAgents',
-                label: t('session.usePanelRouteActions.noEnabledAgents', 'No Enabled Agents'),
+          ? {
+              id: 'noEnabledAgents',
+              label: t('session.usePanelRouteActions.noEnabledAgents', 'No Enabled Agents'),
+              icon: Bot,
+              disabled: true,
+              onPress: () => {}
+            }
+          : createTabAgentLoadState === 'other-runtime'
+            ? {
+                id: 'otherServerAgents',
+                label: t(
+                  'session.usePanelRouteActions.otherServerAgents',
+                  'Agents on Another Server'
+                ),
+                hint: t('session.usePanelRouteActions.pairServerHint', 'Pair that server directly'),
                 icon: Bot,
                 disabled: true,
                 onPress: () => {}
               }
-            ]
-          : createTabAgentLoadState === 'other-runtime'
-            ? [otherRuntimeAgentRow]
             : createTabAgentLoadState === 'error'
-              ? [
-                  {
-                    id: 'presetsUnavailable',
-                    label: t(
-                      'session.usePanelRouteActions.presetsUnavailable',
-                      'Agent Presets Unavailable'
-                    ),
-                    hint: t(
-                      'session.usePanelRouteActions.checkHostHint',
-                      'Check the host connection'
-                    ),
-                    icon: Bot,
-                    disabled: true,
-                    onPress: () => {}
-                  }
-                ]
-              : []
-  const sendDiffNotesAgentActions =
-    pendingDiffNotesDelivery === null
-      ? []
-      : createTabAgentLoadState === 'loading'
-        ? [
-            {
-              id: 'detectingAgents',
-              label: t('session.usePanelRouteActions.detectingAgents', 'Detecting Agents'),
-              icon: Bot,
-              disabled: true,
-              loading: true,
-              onPress: () => {}
-            }
-          ]
-        : createTabAgentOptions.length > 0
-          ? createTabAgentOptions.map((option) => ({
-              id: `agent:${option.agent}`,
-              label: option.label,
-              hint: option.opensAsChat
-                ? t('session.usePanelRouteActions.opensAsChat', 'Opens in Chat')
-                : t('session.usePanelRouteActions.newSessionHint', 'New agent session'),
-              icon: Bot,
-              onPress: () => {
-                const delivery = pendingDiffNotesDelivery
-                setPendingDiffNotesDelivery(null)
-                if (!delivery) {
-                  return
-                }
-                void sendDiffNotesToNewAgent(delivery, async () => {
-                  await handleCreateTerminal(option.agent, {
-                    initialPrompt: delivery.prompt,
-                    onPromptSent: () => void clearDeliveredDiffComments(delivery.comments)
-                  })
-                })
-              }
-            }))
-          : createTabAgentLoadState === 'loaded'
-            ? [
-                {
-                  id: 'noEnabledAgents',
-                  label: t('session.usePanelRouteActions.noEnabledAgents', 'No Enabled Agents'),
+              ? {
+                  id: 'presetsUnavailable',
+                  label: t(
+                    'session.usePanelRouteActions.presetsUnavailable',
+                    'Agent Presets Unavailable'
+                  ),
+                  hint: errorHint,
                   icon: Bot,
                   disabled: true,
                   onPress: () => {}
                 }
-              ]
-            : createTabAgentLoadState === 'other-runtime'
-              ? [otherRuntimeAgentRow]
-              : createTabAgentLoadState === 'error'
-                ? [
-                    {
-                      id: 'presetsUnavailable',
-                      label: t(
-                        'session.usePanelRouteActions.presetsUnavailable',
-                        'Agent Presets Unavailable'
-                      ),
-                      hint: t('session.usePanelRouteActions.copyNotesHint', 'Copy notes instead'),
-                      icon: Bot,
-                      disabled: true,
-                      onPress: () => {}
-                    }
-                  ]
-                : []
+              : null
+  const createTabAgentStatusRow = agentStatusRow(
+    t('session.usePanelRouteActions.checkHostHint', 'Check the host connection')
+  )
+  const sendDiffNotesStatusRow = agentStatusRow(
+    t('session.usePanelRouteActions.copyNotesHint', 'Copy notes instead')
+  )
+  const sendDiffNotesAgentActions: ActionSheetAction[] =
+    pendingDiffNotesDelivery === null
+      ? []
+      : sendDiffNotesStatusRow
+        ? [sendDiffNotesStatusRow]
+        : createTabAgentOptions.map((option) => ({
+            id: `agent:${option.agent}`,
+            label: option.label,
+            hint: t('session.usePanelRouteActions.newSessionHint', 'New agent session'),
+            icon: Bot,
+            onPress: () => {
+              const delivery = pendingDiffNotesDelivery
+              setPendingDiffNotesDelivery(null)
+              if (!delivery) {
+                return
+              }
+              void sendDiffNotesToNewAgent(delivery, async () => {
+                await handleCreateTerminal(option.agent, {
+                  initialPrompt: delivery.prompt,
+                  onPromptSent: () => void clearDeliveredDiffComments(delivery.comments)
+                })
+              })
+            }
+          }))
 
   // Why: the released strip is never dock space, whether the row or the chat pads for it.
   const handleSessionContentRowLayout = useCallback(
@@ -246,7 +195,7 @@ export function useMobileSessionPanelRouteActions(scope: MobileSessionPresentati
     )
   }
   return {
-    createTabAgentActions,
+    createTabAgentStatusRow,
     sendDiffNotesAgentActions,
     handleSessionContentRowLayout,
     handlePanelTap,

@@ -10,7 +10,7 @@ import {
   boundNativeChatWindow,
   replaceList,
   type NativeChatMerger
-} from '../../../../shared/native-chat/native-chat-merge'
+} from '../../../../shared/native-chat/transcript/streaming/native-chat-merge'
 import type { ReadState } from './session/terminal/read/native-chat-live-session-contract'
 import type { NativeChatReadRetryTimer } from './session/terminal/read/native-chat-read-retry-timer'
 

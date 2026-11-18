@@ -1,11 +1,12 @@
+/* eslint-disable max-lines -- Why: the service wires the fork push prompt beside upstream delivery modes. */
 // Push authenticates with host keys, independent of cloud sign-in; retain gateway registrations and durable cleanup for accountless hosts too.
 import { randomUUID } from 'node:crypto'
 import type {
   MobilePushTestResult,
   MobilePushRegisterInput,
   MobilePushRegisterResult
-} from '../../../shared/mobile-push-contract'
-import { runKeyedSerializedOperation } from '../../cli/keyed-promise-queue'
+} from '../../../shared/notifications/mobile-push-contract'
+import { runKeyedSerializedOperation } from '../../../shared/concurrency/keyed-serialized-operations'
 import type { DeviceRegistry } from '../rpc/server/pairing/device-registry'
 import type { OrcaRuntimeService } from '../orca-runtime'
 import type { OrcaRuntimeRpcServer } from '../rpc/server/runtime-rpc'
@@ -14,6 +15,10 @@ import { desktopPushPrompt } from './desktop-push-prompt'
 import { PushGatewayClient } from './push-gateway-client'
 import type { PushPromptCategoryGate } from './push-prompt-category-gate'
 import { PushRegisterThrottle } from './push-register-throttle'
+import {
+  readMobilePushDeliveryMode,
+  type MobilePushDeliveryMode
+} from './mobile-push-delivery-policy'
 import type { PushUnregisterOutbox } from './push-unregister-outbox'
 
 const OUTBOX_RETRY_BASE_MS = 30_000
@@ -41,6 +46,7 @@ export class DesktopPushService {
   private readonly client: PushGatewayClient
   private readonly dispatcher: PushDispatcher
   private readonly promptCategory: PushPromptCategoryGate
+  private readonly deliveryMode: MobilePushDeliveryMode
   private readonly registerThrottle: PushRegisterThrottle
   private readonly scheduleRetry: (run: () => void, delayMs: number) => void
   private unsubscribe: (() => void) | null = null
@@ -63,9 +69,11 @@ export class DesktopPushService {
     this.outbox = options.runtimeRpc.getPushUnregisterOutbox()
     const prompt = desktopPushPrompt(this.runtime, client)
     this.promptCategory = prompt.gate
+    this.deliveryMode = readMobilePushDeliveryMode()
     this.dispatcher = new PushDispatcher({
       client,
       registry,
+      deliveryMode: this.deliveryMode,
       promptCategory: prompt.gate,
       promptFor: prompt.promptFor
     })
@@ -121,7 +129,7 @@ export class DesktopPushService {
     if (device?.scope !== 'mobile' || !registration || registration.expiresAt <= Date.now()) {
       return { accepted: false, reason: 'not_registered' }
     }
-    if (this.stopped) {
+    if (this.stopped || this.deliveryMode === 'disabled') {
       return { accepted: false, reason: 'unavailable' }
     }
     // Explicit tests target only the caller and bypass automatic activity filters.
@@ -163,6 +171,9 @@ export class DesktopPushService {
   }
 
   async register(input: MobilePushRegisterInput): Promise<MobilePushRegisterResult> {
+    if (this.deliveryMode === 'disabled') {
+      return { registered: false, reason: 'gateway_rejected' }
+    }
     if (this.registry.getDevice(input.deviceId)?.scope !== 'mobile') {
       return { registered: false, reason: 'not_mobile' }
     }

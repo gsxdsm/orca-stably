@@ -1,5 +1,5 @@
 import type { ComponentType, Ref } from 'react'
-import { Pressable, type View } from 'react-native'
+import { Pressable, type HostInstance } from 'react-native'
 import { ChevronLeft } from 'lucide-react-native'
 import { colors, feedback, radii } from '../../theme/mobile-theme'
 import { themedStyleSheet } from '../../theme/themed-styles'
@@ -11,7 +11,7 @@ export const NAV_BAR_BUTTON_SIZE = 36
 type IconProps = { size?: number; color?: string; strokeWidth?: number }
 
 type NavBarButtonProps = {
-  ref?: Ref<View>
+  ref?: Ref<HostInstance>
   icon: ComponentType<IconProps>
   accessibilityLabel: string
   onPress: () => void
@@ -22,6 +22,8 @@ type NavBarButtonProps = {
   disabled?: boolean
   /** Drawn size. The header stays at 36; a Duo rail control passes the 44pt target. */
   size?: number
+  /** The icon's colour while not active, e.g. a PR state's. */
+  iconColor?: string
 }
 
 // A round top-bar button; the bar floats over content like the composer, so its buttons are round too.
@@ -33,7 +35,8 @@ export function NavBarButton({
   onLongPress,
   active = false,
   disabled = false,
-  size = NAV_BAR_BUTTON_SIZE
+  size = NAV_BAR_BUTTON_SIZE,
+  iconColor
 }: NavBarButtonProps) {
   useMobileColorScheme()
   const sessionListLongPress = useSessionListLongPressProps(onLongPress)
@@ -56,7 +59,11 @@ export function NavBarButton({
       accessibilityState={{ disabled, selected: active }}
       {...longPress}
     >
-      <Icon size={size / 2} color={active ? colors.bgBase : colors.textPrimary} strokeWidth={2.1} />
+      <Icon
+        size={size / 2}
+        color={active ? colors.bgBase : (iconColor ?? colors.textPrimary)}
+        strokeWidth={2.1}
+      />
     </Pressable>
   )
 }

@@ -11,8 +11,8 @@ import { useFocusEffect, useNavigation } from 'expo-router'
 import { HOST_SESSION_ROUTE } from '../navigation/host-stack-navigation'
 import { insertDictationText } from '../dictation/mobile-dictation-text-insertion'
 import { useMobileSessionDictationSetup } from './use-mobile-session-dictation-setup'
-import { triggerError } from '../platform/haptics'
-import { useClipboardWriter } from '../platform/clipboard'
+import { triggerError } from '../platform/haptics/haptics'
+import { useClipboardWriter } from '../platform/clipboard/clipboard'
 import {
   useMobileDictationDestination,
   useMobileDictationPreviews

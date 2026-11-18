@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { MobilePushPrompt } from '../../../shared/mobile-push-contract'
+import type { MobilePushPrompt } from '../../../shared/notifications/mobile-push-contract'
 import type { PushGatewayClient } from './push-gateway-client'
 import { PushDispatcher } from './push-dispatcher'
-import { mapPushAgentState } from '../../../shared/mobile-push-alert'
+import { mapPushAgentState } from '../../../shared/notifications/mobile-push-alert'
 import {
   createHarness,
   flush,

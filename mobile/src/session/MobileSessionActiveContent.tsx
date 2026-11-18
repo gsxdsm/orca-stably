@@ -1,45 +1,46 @@
 /* eslint-disable max-lines -- Why: the active-content switch keeps every surface's props wiring in one place. */
 import { useMemo, useState } from 'react'
-import { computeActiveTerminalKeyboardLift } from '../terminal/terminal-keyboard-avoidance-lift'
+import { computeActiveTerminalKeyboardLift } from '../terminal/keyboard/terminal-keyboard-avoidance-lift'
 import {
   terminalPaneDirection,
   terminalPaneKeyboardLayout
-} from '../terminal/session/mobile-terminal-pane-layout'
-import { Animated, View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native'
+} from '../terminal/session/pane-layout/mobile-terminal-pane-layout'
+import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native'
 import {
   sideStripMargin,
   sideStripOffset,
   useSessionSideStripInset
 } from './session-side-strip-inset'
-import { saveTerminalTextScale } from '../storage/preferences'
 import { MobileBrowserPane } from '../browser/MobileBrowserPane'
-import { TerminalPaneView } from '../terminal/session/TerminalPaneView'
-import { MountedTerminalPanes } from '../terminal/session/mounted-terminal-lru'
+import { TerminalPaneView } from '../terminal/session/pane-layout/TerminalPaneView'
+import { MountedTerminalPanes } from '../terminal/session/pane-layout/mounted-terminal-lru'
 import { MobileNativeChatOverlay } from './native-chat/MobileNativeChatOverlay'
-import { mobileSessionNativeChatHostOutage } from './native-chat/mobile-native-chat-host-outage'
-import { MobileAgentMessageProvider } from './native-chat/transcript/MobileAgentMessageProvider'
+import { mobileSessionNativeChatHostOutage } from './native-chat/status/mobile-native-chat-host-outage'
+import { MobileAgentMessageProvider } from './native-chat/transcript/agent-messages/MobileAgentMessageProvider'
 import { MobileNativeChatForkProvider } from './MobileNativeChatForkProvider'
 import { useMobileAgentMessageNavigation } from './use-mobile-agent-message-navigation'
 import { mobileCrewTerminal, useMobileSenderRoute } from './mobile-session-crew-route'
-import { MobileNativeChatDictationPreviewContext } from './native-chat/composer/mobile-native-chat-dictation-preview-context'
-import { resolveMobileNativeChatSessionId } from './native-chat/mobile-native-chat-eligibility'
+import { MobileNativeChatDictationPreviewContext } from './native-chat/composer/dictation/mobile-native-chat-dictation-preview-context'
+import { resolveMobileNativeChatSessionId } from './native-chat/conversation/mobile-native-chat-eligibility'
 import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { styles } from './mobile-session-styles'
+import { renderAnimatedToast } from '../components/feedback/TransientToast'
 import type { MobileSessionController } from './use-mobile-session-controller'
-import { useMobileSessionContentKeyboardLift } from '../terminal/session/use-mobile-session-keyboard-lift'
-import { useOpenUrlInOrca } from '../browser/use-open-url-in-orca'
+import { useMobileSessionContentKeyboardLift } from '../terminal/session/input-controls/use-mobile-session-keyboard-lift'
+import { useOpenUrlInOrca } from '../browser/tab-navigation/use-open-url-in-orca'
+import { useMobileTerminalLinkOpen } from '../terminal/session/links/use-mobile-terminal-link-open'
 import { useWorkspaceExecutionHost } from '../navigation/workspace-execution-host'
 import { useOpenHostAccounts } from '../accounts/use-open-mobile-accounts'
-import { useHostProfile } from '../transport/hosts/use-host-profile'
-import { useHostDisplay } from '../transport/hosts/use-host-display'
+import { useHostProfile } from '../host-catalog/use-host-profile'
+import { useHostDisplay } from '../host-descriptors/use-host-display'
 import { FileReader } from '../files/session-documents/MobileSessionFileReader'
 import { MobileSessionContentState } from './MobileSessionContentState'
 import { MarkdownReader } from '../files/session-documents/MobileSessionMarkdownReader'
 import { markdownTabDraftKey } from '../drafts/document-edit-draft-rows'
 import { workspaceDraftRowKey } from '../drafts/durable-draft-rows'
-import { loadMarkdownPreviewImage } from '../files/mobile-markdown-image-source'
+import { loadMarkdownPreviewImage } from '../files/markdown/mobile-markdown-image-source'
 
 export function MobileSessionActiveContent({
   controller
@@ -60,8 +61,8 @@ export function MobileSessionActiveContent({
     client,
     terminals,
     terminalTextScale,
-    setTerminalTextScale,
-    terminalTextScaleRevisionRef,
+    commitPinchedTextScale,
+    terminalFontStyle,
     activeHandle,
     terminalSplitActive,
     visibleTerminalHandles,
@@ -106,7 +107,6 @@ export function MobileSessionActiveContent({
     notifyTerminalCellBoxChange,
     handleFileTap,
     handleNativeChatFileTap,
-    handleTerminalOpenUrl,
     handleTerminalInput,
     handleTerminalQueryReply,
     handleSelectionMode,
@@ -131,6 +131,7 @@ export function MobileSessionActiveContent({
   const { keyboardLift, activeTerminalKeyboardLift, toastAnimatedStyle } =
     useMobileSessionContentKeyboardLift(controller)
   const openUrlInOrca = useOpenUrlInOrca(controller)
+  const terminalLinks = useMobileTerminalLinkOpen(controller, openUrlInOrca)
   const hostProfile = useHostProfile(hostId)
   const hostTitle = useHostDisplay(hostProfile).title
   const nativeChatHostOutage = mobileSessionNativeChatHostOutage(controller, hostTitle, t)
@@ -160,11 +161,7 @@ export function MobileSessionActiveContent({
   // Review notes are for working-tree diffs only.
   const fileTabTakesNotes =
     activeFileTab?.diffSource === 'staged' || activeFileTab?.diffSource === 'unstaged'
-  const toast = toastMessage ? (
-    <Animated.View pointerEvents="none" style={[styles.toast, toastAnimatedStyle]}>
-      <Text style={styles.toastText}>{toastMessage}</Text>
-    </Animated.View>
-  ) : null
+  const toast = renderAnimatedToast(toastMessage, toastAnimatedStyle)
   const content =
     showLoadingState || showEmptyState || showOfflineState ? (
       <MobileSessionContentState
@@ -325,12 +322,8 @@ export function MobileSessionActiveContent({
                 }
                 terminalTheme={terminal.terminalTheme}
                 textScale={terminalTextScale}
-                onTextScaleChange={(scale) => {
-                  // Why: pinch-to-zoom reports a new preset; persist it so the size sticks across panes and launches.
-                  terminalTextScaleRevisionRef.current += 1
-                  setTerminalTextScale(scale)
-                  void saveTerminalTextScale(scale)
-                }}
+                fontStyle={terminalFontStyle}
+                onTextScaleChange={commitPinchedTextScale}
                 onRef={setTerminalWebViewRef}
                 onDocumentReleased={releaseTerminalDocument}
                 onWebReady={handleTerminalWebReady}
@@ -350,7 +343,7 @@ export function MobileSessionActiveContent({
                 // The terminal owns its touches, so the stack's swipe-back never sees them; it reports the swipe instead.
                 onTerminalSwipeBack={requestLeaveSession}
                 onFileTap={handleFileTap}
-                onOpenUrl={handleTerminalOpenUrl}
+                onOpenUrl={terminalLinks.handleTerminalOpenUrl}
               />
             )}
           </MountedTerminalPanes>
@@ -393,6 +386,7 @@ export function MobileSessionActiveContent({
                 // A workspace routed to another server stops with that server, whose name the phone lacks.
                 hostName={executionHost === undefined && hostProfile ? hostTitle : null}
                 onOpenUrlInOrca={openUrlInOrca}
+                linkOpenMode={controller.linkOpenMode}
                 hostOutage={nativeChatHostOutage}
                 onRunInTerminal={(command) =>
                   void controller.handleCreateTerminal(undefined, {
@@ -407,6 +401,7 @@ export function MobileSessionActiveContent({
             </MobileNativeChatForkProvider>
           </MobileAgentMessageProvider>
         </MobileNativeChatDictationPreviewContext.Provider>
+        {terminalLinks.terminalLinkSheet}
         {toast}
       </View>
     )

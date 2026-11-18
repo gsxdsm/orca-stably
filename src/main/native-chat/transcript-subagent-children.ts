@@ -4,19 +4,21 @@ import {
   findGrokChatHistoryBySessionId,
   GROK_CHAT_HISTORY_FILE,
   isSafeGrokSessionId
-} from '../../shared/grok-session-paths'
+} from '../../shared/agent-hook-listener/providers/grok/grok-session-paths'
 import type { NativeChatMessage } from '../../shared/native-chat/native-chat-types'
 import {
   SUBAGENT_TRANSCRIPT_PREFIX,
   subagentTranscriptsDirFor
 } from '../ai-vault/scanners/claude/session-scanner-subagent-transcripts'
-import { asRecord, extractString, parseJsonObject } from '../ai-vault/session-scanner-values'
+import { asRecord } from '../ai-vault/parsing/session-record-fields'
+import { extractString } from '../../shared/text/trimmed-string'
+import { parseJsonObject } from '../ai-vault/parsing/session-json-object'
 import { BOUNDED_FRAME_CONTENT_BUDGET_BYTES } from './agent-session-wire/publication/history/agent-session-history-page-bounds'
-import { decodeClaudeTranscriptLine } from './transcript-line-decoders-claude'
-import { decodeCodexTranscriptLine } from './transcript-line-decoders-codex'
-import { decodeGrokTranscriptLine } from './transcript-line-decoders-grok'
-import { splitTranscriptStreamLines } from './transcript-stream-lines'
-import { openTranscriptReadStream, wslGatedReaddir } from './wsl-transcript-fs-access'
+import { decodeClaudeTranscriptLine } from './transcript-decoding/transcript-line-decoders-claude'
+import { decodeCodexTranscriptLine } from './transcript-decoding/transcript-line-decoders-codex'
+import { decodeGrokTranscriptLine } from './transcript-decoding/transcript-line-decoders-grok'
+import { splitTranscriptStreamLines } from './transcript-streaming/transcript-stream-lines'
+import { openTranscriptReadStream, wslGatedReaddir } from './transcript-filesystem/wsl-transcript-fs-access'
 
 type NativeChatLineDecoder = (line: string, fallbackId: string) => NativeChatMessage | null
 

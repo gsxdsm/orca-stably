@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react'
 import { Keyboard, Platform } from 'react-native'
-import { useClipboardWriter } from '../../platform/clipboard'
+import { useClipboardWriter } from '../../platform/clipboard/clipboard'
 import { translate } from '../../i18n/mobile-i18n'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
 import { useBackClaim } from '../../navigation/use-back-claim'
@@ -9,10 +9,10 @@ import { useWorkspaceExecutionHost } from '../../navigation/workspace-execution-
 import { useSessionLeaveGuard } from '../../session/session-leave-guard'
 import { markdownTabSave } from './mobile-markdown-tab-operations'
 import { dropDocumentEditDraft, markdownTabDraftKey } from '../../drafts/document-edit-draft-rows'
-import { triggerEdgeBump, triggerSuccess, triggerError } from '../../platform/haptics'
+import { triggerEdgeBump, triggerSuccess, triggerError } from '../../platform/haptics/haptics'
 import type { DirtyMarkdownDraft } from './session-document-state'
 import type { MobileSessionTab } from '../../session/tabs/mobile-session-tabs'
-import type { MobileSessionDiffCommentsModel } from '../../source-control/review/use-mobile-session-diff-comments'
+import type { MobileSessionDiffCommentsModel } from '../../source-control/review/review-notes/use-mobile-session-diff-comments'
 
 // Depend on the action’s narrow scope so Back behavior can be tested without constructing the whole session model.
 export type MobileSessionMarkdownActionsScope = Pick<
@@ -20,6 +20,7 @@ export type MobileSessionMarkdownActionsScope = Pick<
   | 'hostId'
   | 'worktreeId'
   | 'router'
+  | 'standalone'
   | 'client'
   | 'sessionTabs'
   | 'setMarkdownDocs'
@@ -40,6 +41,7 @@ export function useMobileSessionMarkdownActions(scope: MobileSessionMarkdownActi
     hostId,
     worktreeId,
     router,
+    standalone,
     client,
     sessionTabs,
     setMarkdownDocs,
@@ -131,13 +133,14 @@ export function useMobileSessionMarkdownActions(scope: MobileSessionMarkdownActi
       returnToHostSessionList(router, hostId)
       return
     }
-    if (router.canGoBack()) {
+    // A standalone session has no list beneath; the page's Back hands the exit to the shell.
+    if (router.canGoBack() || standalone) {
       router.back()
       return
     }
     // Why: Android back can fire at the root route; replace avoids React Navigation's dev-only GO_BACK warning.
     router.replace(`/h/${hostId}`)
-  }, [hostId, router])
+  }, [hostId, router, standalone])
 
   const requestLeave = useCallback(
     (destination: 'step' | 'list') => {

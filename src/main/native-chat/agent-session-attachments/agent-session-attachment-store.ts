@@ -15,7 +15,7 @@ import { readAuthorizedDocPreviewFile } from '../../../shared/document-preview/d
 import {
   renameFileWithWindowsRetry,
   renameFileWithWindowsRetryAsync
-} from '../../../shared/windows-retry-file-operations'
+} from '../../../shared/file-write/windows-retry-file-operations'
 import { IMAGE_FILE_MIME_TYPES } from '../../../shared/file-preview/image-mime-types'
 import {
   LOCAL_PREVIEWABLE_BINARY_MAX_BYTES,

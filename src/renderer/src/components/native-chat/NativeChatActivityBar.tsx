@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Ban, ChevronLeft, ListChecks, Users, X } from 'lucide-react'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { translate } from '@/i18n/i18n'
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/class-names'
 import {
   nativeChatListedSubagents,
   nativeChatSubagentActivities,
@@ -11,7 +11,7 @@ import {
 } from '../../../../shared/native-chat/input/native-chat-activity'
 import { nativeChatSubagentDismissible } from '../../../../shared/native-chat/input/native-chat-subagent-dismissals'
 import { NativeChatCompletedSubagents } from './NativeChatCompletedSubagents'
-import { nativeChatCompletedTaskCount } from '../../../../shared/native-chat/input/native-chat-task-list'
+import { nativeChatCompletedTaskCount } from '../../../../shared/native-chat/input/task-lists/native-chat-task-list'
 import type { NativeChatTaskSeedList } from '../../../../shared/native-chat/input/native-chat-claude-task-updates'
 import type { NativeChatSubagentRow } from '../../../../shared/native-chat/transcript/native-chat-transcript-projection'
 import type {

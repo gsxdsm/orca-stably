@@ -1,8 +1,8 @@
-import { OrcaRuntimeWithWindowlessTerminalActivity } from './sidebar-inputs/orca-runtime-windowless-terminal-activity'
-import { ORCA_SIDEBAR_INPUTS_IS_MAIN } from '../../shared/sidebar-inputs-switch'
-import { HEADLESS_RUNTIME_WINDOW_ID } from '../../shared/runtime-session-contracts'
+import { OrcaRuntimeWithWindowlessTerminalActivity } from './sidebar-inputs/temporal/orca-runtime-windowless-terminal-activity'
+import { ORCA_SIDEBAR_INPUTS_IS_MAIN } from '../../shared/sidebar-list/feed/sidebar-inputs-switch'
+import { HEADLESS_RUNTIME_WINDOW_ID } from '../../shared/remote-runtime/session-graph/runtime-session-contracts'
 import { agentPhaseTransition } from '../../shared/agent-status/lifecycle/agent-transitions'
-import { RECENT_STAMP_THROTTLE_MS } from '../../shared/sidebar-list/sort-stamps'
+import { RECENT_STAMP_THROTTLE_MS } from '../../shared/sidebar-list/sorting/sort-stamps'
 import type {
   AgentPaneChange,
   AgentPaneWorkspace
@@ -11,7 +11,7 @@ import { readWorkspaceRecord, writeWorkspaceRecord } from './sidebar-inputs/sort
 import {
   isWslMoveProjectBlocked,
   wslMoveProjectRefForWorkspace
-} from '../persistence/moving-wsl-projects/wsl-move-scope-guard'
+} from '../persistence/moving-wsl-projects/quiescence/wsl-move-scope-guard'
 
 /** Terminal start and exit stamps come from the upstream windowless owner. Agent turns are this fork's extra. */
 export abstract class OrcaRuntimeWithHeadlessWorkspaceActivity extends OrcaRuntimeWithWindowlessTerminalActivity {

@@ -1,5 +1,5 @@
 import { isNativeChatSupportedAgent } from '../../../../src/shared/native-chat/native-chat-agent-support'
-import type { MobileQuickCommandLaunch } from '../../terminal/quick-commands'
+import type { MobileQuickCommandLaunch } from '../../terminal/quick-commands/quick-commands'
 import type { MobileSessionTab } from '../tabs/mobile-session-tabs'
 import type { TuiAgent } from '../../../../src/shared/agent-launch/catalog/tui-agent'
 import {
@@ -7,13 +7,12 @@ import {
   AGENT_LAUNCH_SURFACE_RUNTIME_CAPABILITY
 } from '../../../../src/shared/agent-launch/contracts/agent-launch-runtime-capability'
 import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
-import { triggerError, triggerSuccess } from '../../platform/haptics'
-import {
-  launchAgentInExistingWorkspace,
-  reserveMobileAgentLaunch
-} from './mobile-existing-agent-launch'
-import { agentPromptNotSentMessage } from '../../source-control/review/pr-ai-triage-launch'
-import { readAgentLaunchNotice } from '../../tasks/agent-launch-request'
+import { triggerError, triggerSuccess } from '../../platform/haptics/haptics'
+import { launchAgentInExistingWorkspace } from './mobile-existing-agent-launch'
+import { reserveMobileAgentLaunch } from './mobile-agent-launch-reservation'
+import { randomV4Uuid } from '../../platform/random-v4-uuid'
+import { agentPromptNotSentMessage } from '../../source-control/review/agent-launch/pr-ai-triage-launch'
+import { readAgentLaunchNotice } from './agent-launch-request'
 import { translate } from '../../i18n/mobile-i18n'
 import {
   isLaunchedSurfaceListed,
@@ -60,6 +59,8 @@ export async function launchNewTabAgentThroughHost(args: {
   worktreeId: string
   agent: TuiAgent
   options: NewTabAgentLaunchOptions | undefined
+  /** Chat or CLI from the New Tab sheet; a chat that can't open here starts the CLI. */
+  nativeChatDefault?: boolean
   lock: string
   activeSessionTabId?: string | null
   pendingSelectionRef: { current: PendingSessionSelection | null }
@@ -77,7 +78,7 @@ export async function launchNewTabAgentThroughHost(args: {
   }
   const { options, pendingSelectionRef, showToast } = args
   const prompt = options?.agentPrompt ?? options?.initialPrompt
-  const reservation = reserveMobileAgentLaunch(args.agent)
+  const reservation = reserveMobileAgentLaunch(args.agent, args.hostCapabilities, randomV4Uuid)
   // Chat UI lives on the phone. A headless host keeps its terminal default unless the launch asks for chat.
   // Overlay agents never request a surface, so only the others pay for the registry and status reads.
   const launchContext = isNativeChatSupportedAgent(args.agent)
@@ -99,6 +100,7 @@ export async function launchNewTabAgentThroughHost(args: {
     worktreeId: args.worktreeId,
     agent: args.agent,
     ...(surface ? { surface } : {}),
+    nativeChatDefault: args.nativeChatDefault,
     reservation,
     ...(afterTabId ? { placement: { afterTabId } } : {}),
     ...(prompt?.trim() ? { prompt: { text: prompt, delivery: 'submit' as const } } : {}),

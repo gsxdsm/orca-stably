@@ -1,11 +1,11 @@
-import { isENOENT } from '../ipc/filesystem/access/filesystem-path-containment'
+import { isENOENT } from '../filesystem/local-file-io/filesystem-path-containment'
 import type { AgentType } from '../../shared/agent-status/contracts/agent-status-types'
 import type {
   NativeChatMessage,
   NativeChatTurnLifecycle
 } from '../../shared/native-chat/native-chat-types'
 import { resolveNativeChatTranscriptAgent } from '../../shared/native-chat/native-chat-agent-support'
-import { readOpenCodeNativeChatTranscriptTail } from './transcript-opencode'
+import { readOpenCodeNativeChatTranscriptTail } from './transcript-history/opencode/transcript-opencode'
 import { canReadHermesTranscriptHere, hermesTranscriptDeps } from './transcript-hermes'
 import { resolveSessionFilePath, type ResolveSessionFileOptions } from './session-file-resolver'
 import {
@@ -20,8 +20,8 @@ import {
 import {
   nativeChatTurnLifecycleDecoderForAgent,
   type NativeChatTurnLifecycleDecoder
-} from './transcript-turn-lifecycle'
-import { wslTranscriptFsRefusal } from './wsl-transcript-fs-gate'
+} from './transcript-decoding/transcript-turn-lifecycle'
+import { wslTranscriptFsRefusal } from './transcript-filesystem/wsl-transcript-fs-gate'
 
 type LiveTailPage = {
   messages: NativeChatMessage[]

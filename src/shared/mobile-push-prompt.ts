@@ -3,7 +3,7 @@ import {
   MOBILE_PUSH_PROMPT_ROLES,
   type MobilePushPrompt,
   type MobilePushPromptOption
-} from './mobile-push-contract'
+} from './notifications/mobile-push-contract'
 
 /** Gateway `/v1/send` rejects a notification JSON larger than this. */
 export const MOBILE_PUSH_NOTIFICATION_MAX_BYTES = 3000

@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { STRUCTURED_AGENT_SESSION_REGISTERED_AGENTS_RUNTIME_CAPABILITY } from '../../../shared/agent-session/structured-agent-session-surface-capabilities'
-import { STRUCTURED_AGENT_SESSION_RUNTIME_CAPABILITY } from '../../../shared/agent-session/agent-session-runtime-capabilities'
+import { STRUCTURED_AGENT_SESSION_REGISTERED_AGENTS_RUNTIME_CAPABILITY } from '../../../shared/agent-session/capabilities/structured-agent-session-surface-capabilities'
+import { STRUCTURED_AGENT_SESSION_RUNTIME_CAPABILITY } from '../../../shared/agent-session/capabilities/agent-session-runtime-capabilities'
 import type { RuntimeEnvironmentStatus } from '../../../shared/remote-runtime/host-status/runtime-host-status'
-import type { RuntimeCapability } from '../../../shared/protocol-version'
+import type { RuntimeCapability } from '../../../shared/remote-runtime/protocol/protocol-version'
 
-import type { NativeChatDefaultSettings } from '../../../shared/structured-native-chat-launch-route'
+import type { NativeChatDefaultSettings } from '../../../shared/agent-launch/choices/structured-native-chat-launch-route'
 
 type Statuses = Map<string, RuntimeEnvironmentStatus>
 type StoreState = {

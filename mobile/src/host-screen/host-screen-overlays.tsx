@@ -1,30 +1,31 @@
 import { useSharedNow } from '../hooks/use-now'
 import { useState } from 'react'
-import { openExternalLink } from '../platform/external-link'
+import { openExternalLink } from '../platform/external-links/external-link'
 import { Pressable, Text, View } from 'react-native'
 import { Edit3, Moon, Pin, PinOff } from 'lucide-react-native'
 import { buildWorktreeNavigationActions } from '../agent-history/worktree-navigation-actions'
 import { workspaceRouteHref } from '../navigation/workspace-execution-host'
-import { useWorkspaceServer } from '../worktree/workspace-server'
-import { ActionSheetContent } from '../components/ActionSheetModal'
+import { useWorkspaceServer } from '../worktree/execution-hosts/workspace-server'
+import { ActionSheetContent } from '../components/sheets/ActionSheetModal'
 import { BottomDrawer } from '../components/bottom-drawer/BottomDrawer'
 import { AddProjectSheet } from '../add-project/AddProjectSheet'
 import { BottomDrawerModalHost } from '../components/bottom-drawer/bottom-drawer-modal-host'
-import { ConfirmModal } from '../components/ConfirmModal'
-import { OrcaHookTrustDrawer } from '../components/OrcaHookTrustDrawer'
-import { NewWorktreeModalController } from '../components/NewWorktreeModalController'
+import { ConfirmModal } from '../components/sheets/ConfirmModal'
+import { OrcaHookTrustDrawer } from '../components/hook-trust/OrcaHookTrustDrawer'
+import { NewWorktreeModalController } from '../new-workspace/creation/modal/NewWorktreeModalController'
 import { hostNewWorktreeSessionRoute } from '../host-new-worktree-session-route'
-import { isWorktreePinned, type Worktree } from '../worktree/workspace-list-sections'
+import { isWorktreePinned } from '../worktree/workspace-list/workspace-list-sections'
+import type { Worktree } from '../worktree/workspace-list/workspace-list-types'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { hostScreenStyles as styles } from './host-screen-styles'
-import { WorkspaceOptionsSheet } from './workspace-options-sheet'
-import { WorkspaceDetailsSheet } from './workspace-details-sheet'
+import { WorkspaceOptionsSheet } from './workspace-options/workspace-options-sheet'
+import { WorkspaceDetailsSheet } from './workspace-actions/workspace-details-sheet'
 import { setSelectedSidebarSession } from './selected-sidebar-session'
 import { SidebarSessionActionSheet } from './SidebarSessionActionSheet'
 import { closeHostSidebarSession } from './sidebar-session-close'
 import { clearClosedSidebarSession } from './sidebar-session-action'
 import { WorkspaceSessionJumpList } from './WorkspaceSessionJumpList'
-import { WorkspaceRenameSheet } from './workspace-rename-sheet'
+import { WorkspaceRenameSheet } from './workspace-actions/workspace-rename-sheet'
 import type { HostScreenController } from './use-host-screen-controller'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 
@@ -70,9 +71,7 @@ export function HostScreenOverlays({ controller }: { controller: HostScreenContr
           {state.confirmDelete ? (
             <View>
               <View style={styles.confirmContent}>
-                <Text style={styles.confirmTitle}>
-                  {t('hostScreen.hostScreenOverlays.deleteWorktree', 'Delete Worktree')}
-                </Text>
+                <Text style={styles.confirmTitle}>{t('common.delete', 'Delete')}</Text>
                 <Text style={styles.confirmMessage}>
                   {t(
                     'hostScreen.hostScreenOverlays.deleteConfirmMessage',
@@ -245,7 +244,7 @@ export function HostScreenOverlays({ controller }: { controller: HostScreenContr
               actions.archiveHookFailure?.item.displayName || actions.archiveHookFailure?.item.repo
           })}
           message={actions.archiveHookFailure?.message}
-          confirmLabel={t('hostScreen.hostScreenOverlays.deleteAnyway', 'Delete Anyway')}
+          confirmLabel={t('common.delete', 'Delete')}
           destructive
           onConfirm={actions.deleteDespiteArchiveHookFailure}
           onCancel={actions.dismissArchiveHookFailure}

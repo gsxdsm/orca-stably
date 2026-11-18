@@ -8,15 +8,15 @@ import type {
   NativeChatImageRefBlock
 } from '../../../../shared/native-chat/native-chat-types'
 import { journalPayload } from '../../../native-chat/agent-session-journal/item-lifecycle/journal-payload-bounds'
-import { collectToolResultImageSources } from '../../../native-chat/transcript-record-blocks'
-import type { ToolResultImageSource } from '../../../native-chat/transcript-record-blocks'
-import { isClaudeInjectedUserMessage } from '../../claude-internal-message-content'
+import { collectToolResultImageSources } from '../../../native-chat/transcript-decoding/transcript-record-blocks'
+import type { ToolResultImageSource } from '../../../native-chat/transcript-decoding/transcript-record-blocks'
+import { isClaudeInjectedUserMessage } from './claude-internal-message-content'
 import {
   isClaudeToolUseContent,
   isClaudeToolResultContent,
   claudeToolResultText,
   claudeToolResultFailed
-} from '../../../../shared/claude-tool-content'
+} from '../../../../shared/agent-hook-listener/providers/claude/transcripts/claude-tool-content'
 
 export type ClaudeMessageEnvelope = {
   sessionId: string

@@ -1,4 +1,4 @@
-import { computeAgentSessionPayloadFingerprint } from '../../../shared/agent-session/lifecycle/agent-session-mutation-envelope'
+import { computeAgentSessionPayloadFingerprint } from '../../../shared/agent-session/lifecycle/operations/agent-session-mutation-envelope'
 import type { AgentSessionMutationEnvelope } from '../../../shared/agent-session/agent-session-wire'
 import type { AgentSessionPromptRequest } from '../../native-chat/agent-session-wire/operations/structured-agent-session-turns-prompt'
 import {

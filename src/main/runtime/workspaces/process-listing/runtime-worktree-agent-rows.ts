@@ -3,10 +3,11 @@ import {
   isAgentStatusFresh
 } from '../../../../shared/agent-status/contracts/agent-status-freshness'
 
+import { runtimeWorktreeAgentRowForked } from './runtime-worktree-agent-row-fork'
 import type {
   RuntimeWorktreeAgentRow,
   RuntimeWorktreePsSummary
-} from '../../../../shared/runtime-worktree-contracts'
+} from '../../../../shared/worktree/catalog/runtime-worktree-contracts'
 import type {
   AgentListPublication,
   AgentListVerdict
@@ -134,6 +135,25 @@ function agentListVerdict(
   )
 }
 
+/** A row's names as `worktree.ps` lists them. `parent`: the listed pane its orchestration names
+ *  as parent, if any. */
+export function runtimeWorktreeAgentRowNames<T extends Pick<RuntimeWorktreeAgentSource, 'tabId'>>(
+  source: T,
+  orchestration: OrchestrationDisplay | undefined,
+  parent: Pick<RuntimeWorktreeAgentSource, 'tabId'> | undefined,
+  conversationName: ((source: T) => string | null) | undefined
+): Pick<RuntimeWorktreeAgentRow, 'taskTitle' | 'displayName'> & {
+  conversationName: string | null
+} {
+  return {
+    taskTitle: orchestration?.taskTitle ?? null,
+    displayName: orchestration?.displayName ?? null,
+    // Like desktop lineage, a listed child running in its parent's tab does not own that tab's name.
+    conversationName:
+      parent && parent.tabId === source.tabId ? null : (conversationName?.(source) ?? null)
+  }
+}
+
 export function attachRuntimeWorktreeAgentRows(args: {
   summaries: Map<string, RuntimeWorktreePsSummary>
   rowSources: ReadonlyMap<string, RuntimeWorktreeAgentSource>
@@ -150,6 +170,7 @@ export function attachRuntimeWorktreeAgentRows(args: {
   const { rowSources } = args
   const now = Date.now()
   const rowsBySummary = new Map<RuntimeWorktreePsSummary, RuntimeWorktreeAgentRow[]>()
+  const forked = runtimeWorktreeAgentRowForked()
   for (const source of rowSources.values()) {
     const { worktreeId } = source
     if (!worktreeId) {
@@ -161,13 +182,16 @@ export function attachRuntimeWorktreeAgentRows(args: {
     }
     const orchestration = args.orchestrationByPaneKey?.[source.paneKey]
     const parentPaneKey = visibleParentPaneKey(source, orchestration, rowSources)
-    // Like desktop lineage, a listed child running in its parent's tab does not own that tab's name.
-    const parent = parentPaneKey ? rowSources.get(parentPaneKey) : undefined
-    const conversationName =
-      parent && parent.tabId === source.tabId ? null : args.conversationName?.(source)
+    const { taskTitle, displayName, conversationName } = runtimeWorktreeAgentRowNames(
+      source,
+      orchestration,
+      parentPaneKey ? rowSources.get(parentPaneKey) : undefined,
+      args.conversationName
+    )
     const row: RuntimeWorktreeAgentRow = {
       paneKey: source.paneKey,
       ...(source.terminalHandle ? { terminalHandle: source.terminalHandle } : {}),
+      ...(source.orcaSessionId ? { orcaSessionId: source.orcaSessionId } : {}),
       parentPaneKey,
       homeWorktreeId: summary.worktreeId,
       ...(summary.hostId ? { homeHostId: summary.hostId } : {}),
@@ -175,9 +199,10 @@ export function attachRuntimeWorktreeAgentRows(args: {
       ...(source.workingMode ? { workingMode: source.workingMode } : {}),
       agentType: source.agentType,
       prompt: source.prompt,
-      taskTitle: orchestration?.taskTitle ?? null,
-      displayName: orchestration?.displayName ?? null,
+      taskTitle,
+      displayName,
       ...(conversationName ? { conversationName } : {}),
+      ...(conversationName && forked(source.tabId) ? { conversationForked: true as const } : {}),
       lastAssistantMessage: source.lastAssistantMessage,
       toolName: source.toolName,
       toolInput: source.toolInput,

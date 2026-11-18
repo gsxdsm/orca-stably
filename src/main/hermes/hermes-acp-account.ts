@@ -2,8 +2,8 @@ import { homedir } from 'node:os'
 import {
   isLegacyAgentSessionAccountHome,
   type AgentSessionAccountHome
-} from '../../shared/agent-session/lifecycle/agent-session-account-home'
-import { resolveAbsoluteDirOverride } from '../../shared/absolute-dir-override'
+} from '../../shared/agent-session/lifecycle/accounts/agent-session-account-home'
+import { resolveAbsoluteDirOverride } from '../../shared/file-access/absolute-dir-override'
 import type { AcpAccountBinding } from '../acp/launch/acp-account-binding'
 import { resolveDefaultHermesHome } from './hermes-default-home'
 

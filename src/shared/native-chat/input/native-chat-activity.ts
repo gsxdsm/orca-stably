@@ -3,14 +3,14 @@
 
 import { agentJournalItemSubagentId } from '../../agent-session/journal/agent-session-journal-producer'
 import type { NativeChatMessage, NativeChatSubagentState } from '../native-chat-types'
-import { namedSubagents } from '../transcript/native-chat-subagent-items'
+import { namedSubagents } from '../transcript/subagents/native-chat-subagent-items'
 import {
   canReplaceSubagentState,
   isSubagentGroupFallbackText,
   normalizeSubagentState
-} from '../transcript/native-chat-subagent-summary'
+} from '../transcript/subagents/native-chat-subagent-summary'
 import { nativeChatToolSubagentActivities } from './native-chat-tool-subagents'
-import { CODEX_PLAN_UPDATED_FRAME_KIND } from '../native-chat-provider-frame-summary'
+import { CODEX_PLAN_UPDATED_FRAME_KIND } from '../transcript/notices/native-chat-provider-frame-summary'
 import { pairToolBlocks } from '../tools/native-chat-tool-pairs'
 import {
   applyNativeChatTaskListCall,
@@ -19,7 +19,7 @@ import {
   type NativeChatTask,
   type NativeChatTaskList,
   type NativeChatTaskStatus
-} from './native-chat-task-list'
+} from './task-lists/native-chat-task-list'
 import {
   createNativeChatTaskBook,
   type NativeChatTaskBook,
