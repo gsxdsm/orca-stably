@@ -3,7 +3,7 @@ import {
   type AccountsSnapshot,
   type ProviderRateLimits,
   type RateLimitWindow
-} from '../components/accounts-snapshot'
+} from '../accounts/accounts-snapshot'
 
 /** `snapshot.rateLimits` keys whose quota a coding agent draws on. */
 export type UsageProviderKey =

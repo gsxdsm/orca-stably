@@ -22,7 +22,13 @@ import {
   type MobileNativeChatSendIntent,
   type MobileNativeChatSendOutcome
 } from '../delivery/mobile-native-chat-send'
-import { clearMobileNativeChatInputStale, healMobileNativeChatStaleInput, isMobileNativeChatInputStale, markMobileNativeChatInputStale, markMobileNativeChatInputStaleIfStarted } from '../delivery/mobile-native-chat-stale-input'
+import {
+  clearMobileNativeChatInputStale,
+  healMobileNativeChatStaleInput,
+  isMobileNativeChatInputStale,
+  markMobileNativeChatInputStale,
+  markMobileNativeChatInputStaleIfStarted
+} from '../delivery/mobile-native-chat-stale-input'
 import {
   acquireMobileNativeChatTerminalWrite,
   releaseMobileNativeChatTerminalWrite

@@ -18,7 +18,7 @@ import {
 } from '../../transcript/tool-results/mobile-native-chat-tool-styles'
 import { useMobileNativeChatDisclosure } from '../../transcript/viewport/mobile-native-chat-disclosure-store'
 import { useMobileColorScheme } from '../../../../theme/use-mobile-color-scheme'
-import { ListGroup } from '../../../components/list/ListGroup'
+import { ListGroup } from '../../../../components/list/ListGroup'
 
 const groupedTaskRow = {
   paddingHorizontal: spacing.md,

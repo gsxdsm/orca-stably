@@ -12,7 +12,7 @@ import {
 import { projectNativeChatTaskListFrames } from '../../../../../../src/shared/native-chat/input/task-lists/native-chat-task-list-frames'
 import { foldSubagentItems } from '../../../../../../src/shared/native-chat/transcript/subagents/native-chat-subagent-items'
 import { prepareNativeChatMessages } from '../../../../../../src/shared/native-chat/transcript/messages/native-chat-message-preparation'
-import { linkUnrecordedSubagentSpawns } from '../../../../src/shared/native-chat/input/native-chat-unlinked-subagent-spawn'
+import { linkUnrecordedSubagentSpawns } from '../../../../../../src/shared/native-chat/input/native-chat-unlinked-subagent-spawn'
 import {
   isImageRefBlock,
   type NativeChatMessage

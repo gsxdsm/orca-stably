@@ -1,38 +1,38 @@
-import type { MobilePastedImages } from './native-chat/composer/mobile-native-chat-composer-paste'
+import type { MobilePastedImages } from './native-chat/composer/attachments/mobile-native-chat-composer-paste'
 import type { NativeChatContextUsageSummary } from '../../../src/shared/native-chat/native-chat-context-usage-summary'
-import type { NativeChatSkillDiscoverySnapshot } from '../../../src/shared/native-chat/input/native-chat-picker-items'
+import type { NativeChatSkillDiscoverySnapshot } from '../../../src/shared/native-chat/input/composer/native-chat-picker-items'
 import type {
   AskAnswerSelection,
   NativeChatAnswerSource
-} from '../../../src/shared/native-chat/input/native-chat-ask-answer'
-import type { AskPrompt } from '../../../src/shared/native-chat/input/native-chat-ask-types'
+} from '../../../src/shared/native-chat/input/questions/native-chat-ask-answer'
+import type { AskPrompt } from '../../../src/shared/native-chat/input/questions/native-chat-ask-types'
 import type { NativeChatMessage } from '../../../src/shared/native-chat/native-chat-types'
 import type {
   NativeChatLiveTurnIndicator,
   NativeChatSettledTurns
-} from '../../../src/shared/native-chat/transcript/native-chat-turn-status'
-import type { NativeChatTurnJournal } from '../../../src/shared/native-chat/transcript/native-chat-turn-membership'
-import type { NativeChatResolvedPrompt } from '../../../src/shared/native-chat/native-chat-resolution-receipt'
-import type { NativeChatAwaitingInput } from '../../../src/shared/native-chat/native-chat-terminal-turn'
-import type { PendingNativeChatImage } from './native-chat/composer/mobile-native-chat-image-attachment'
+} from '../../../src/shared/native-chat/transcript/turns/native-chat-turn-status'
+import type { NativeChatTurnJournal } from '../../../src/shared/native-chat/transcript/turns/native-chat-turn-membership'
+import type { NativeChatResolvedPrompt } from '../../../src/shared/native-chat/input/questions/native-chat-resolution-receipt'
+import type { NativeChatAwaitingInput } from '../../../src/shared/native-chat/transcript/turns/native-chat-terminal-turn'
+import type { PendingNativeChatImage } from './native-chat/composer/attachments/mobile-native-chat-image-attachment'
 import type {
   MobileNativeChatSendProps,
   MobileNativeChatStructuredComposer
 } from './native-chat/composer/MobileNativeChatComposer'
-import type { MobileNativeChatMicProps } from './native-chat/composer/MobileNativeChatComposerMic'
-import type { ComposerTrayProps } from './native-chat/composer/use-mobile-native-chat-composer-tray'
-import type { MobileChatPermission } from './native-chat/input/mobile-native-chat-permission'
-import type { MobileChatQuestion } from './native-chat/input/mobile-native-chat-question'
-import type { MobileNativeChatSessionOptionPickersProps } from './native-chat/input/MobileNativeChatSessionOptionPickers'
-import type { MobileNativeChatPendingItem } from './native-chat/mobile-native-chat-render-data'
-import type { MobileNativeChatStatus } from './native-chat/use-mobile-native-chat-session'
+import type { MobileNativeChatMicProps } from './native-chat/composer/dictation/MobileNativeChatComposerMic'
+import type { ComposerTrayProps } from './native-chat/composer/menus/use-mobile-native-chat-composer-tray'
+import type { MobileChatPermission } from './native-chat/input/prompts/mobile-native-chat-permission'
+import type { MobileChatQuestion } from './native-chat/input/prompts/mobile-native-chat-question'
+import type { MobileNativeChatSessionOptionPickersProps } from './native-chat/input/session-options/MobileNativeChatSessionOptionPickers'
+import type { MobileNativeChatPendingItem } from './native-chat/transcript/projection/mobile-native-chat-render-data'
+import type { MobileNativeChatStatus } from './native-chat/conversation/use-mobile-native-chat-session'
 import type { NativeChatSubagentActivity } from '../../../src/shared/native-chat/input/native-chat-activity'
 import type { NativeChatTaskSeedList } from '../../../src/shared/native-chat/input/native-chat-claude-task-updates'
-import type { OlderPagePhase } from './use-mobile-older-page-loader'
+import type { OlderPagePhase } from './native-chat/transcript/ingestion/use-mobile-older-page-loader'
 import type { MobileNativeChatSubagentRead } from './native-chat/input/use-mobile-native-chat-subagent-page'
 import type { MobileDismissedSubagentScope } from './native-chat/input/use-mobile-dismissed-subagents'
 import type { ComponentProps, ReactNode } from 'react'
-import type { MobileNativeChatInputLockStatus } from './native-chat/composer/MobileNativeChatInputLockStatus'
+import type { MobileNativeChatInputLockStatus } from './native-chat/composer/field/MobileNativeChatInputLockStatus'
 
 export type MobileNativeChatInputLockReason = 'disconnected' | 'waiting'
 

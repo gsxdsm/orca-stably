@@ -1,6 +1,6 @@
 import type { AgentSessionConversationCommand } from '../../../../../../src/shared/agent-session/conversation-context/agent-session-conversation-command'
 import type { AgentSessionSlashCommand } from '../../../../../../src/shared/agent-session/agent-session-wire'
-import type { PendingNativeChatFile } from './mobile-native-chat-file-attachment'
+import type { PendingNativeChatFile } from '../attachments/mobile-native-chat-file-attachment'
 import {
   getAgentAnsweredNativeChatCommands,
   getNativeChatAgentProfile,

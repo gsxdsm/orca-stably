@@ -8,9 +8,9 @@ import { useMobileStructuredAgentSession } from '../agent-session/use-mobile-str
 import { useMobileStructuredSessionCommands } from '../composer/commands/use-mobile-structured-session-commands'
 import type { MobileNativeChatResolution } from './mobile-native-chat-eligibility'
 import type { MobileNativeChatSendErrorReporter } from '../composer/delivery/use-mobile-native-chat-send-error'
-import type { MobileNativeChatShownSession } from './mobile-native-chat-controller-contract'
-import { useMobileTranscriptTaskList } from './use-mobile-transcript-task-list'
-import { useMobileNativeChatSubagentReader } from './input/read-mobile-native-chat-subagent-page'
+import type { MobileNativeChatShownSession } from '../mobile-native-chat-controller-contract'
+import { useMobileTranscriptTaskList } from '../use-mobile-transcript-task-list'
+import { useMobileNativeChatSubagentReader } from '../input/read-mobile-native-chat-subagent-page'
 
 // Run both hooks in fixed order and starve the inactive lane’s identity so flips preserve cached transcripts.
 export function useMobileNativeChatSessionLane({

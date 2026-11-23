@@ -4,7 +4,7 @@ import { ChevronLeft, ListChecks, Users } from 'lucide-react-native'
 import {
   nativeChatCompletedTaskCount,
   type NativeChatTaskList
-} from '../../../../../src/shared/native-chat/input/native-chat-task-list'
+} from '../../../../../src/shared/native-chat/input/task-lists/native-chat-task-list'
 import {
   nativeChatListedSubagents,
   type NativeChatSubagentActivity
@@ -14,7 +14,7 @@ import { useMobileTranslation } from '../../../i18n/use-mobile-translation'
 import { colors, radii, spacing, typography } from '../../../theme/mobile-theme'
 import { themedStyleSheet } from '../../../theme/themed-styles'
 import { useMobileColorScheme } from '../../../theme/use-mobile-color-scheme'
-import { MobileNativeChatTaskList } from './MobileNativeChatTaskList'
+import { MobileNativeChatTaskList } from './tasks/MobileNativeChatTaskList'
 import { MobileNativeChatSubagentSheet } from './MobileNativeChatSubagentSheet'
 import {
   useMobileDismissedSubagents,

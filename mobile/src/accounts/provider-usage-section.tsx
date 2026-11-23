@@ -11,8 +11,8 @@ import {
   type UsageMeter
 } from '../components/account-usage-state'
 import { UsageBar } from '../components/AccountUsage'
-import { MiniMaxIcon, OpenCodeGoIcon } from '../components/AgentIcons'
-import { MobileAgentIcon } from '../components/MobileAgentIcon'
+import { MiniMaxIcon, OpenCodeGoIcon } from '../components/icons/AgentIcons'
+import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { styles } from './mobile-accounts-screen-styles'

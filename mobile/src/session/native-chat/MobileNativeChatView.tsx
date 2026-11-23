@@ -35,7 +35,7 @@ import { MobileNativeChatActivityBar } from './input/MobileNativeChatActivityBar
 import { useMobileNativeChatSubagentTranscript } from './input/use-mobile-native-chat-subagent-transcript'
 import { useChatBottomFit } from './composer/use-chat-bottom-fit'
 import type { MobileNativeChatViewProps } from '../mobile-native-chat-view-props'
-import { MobileNativeChatOpenFileContext } from './mobile-native-chat-open-file-context'
+import { MobileNativeChatOpenFileContext } from './links/mobile-native-chat-open-file-context'
 import { DuoRailComposerTop, MobileNativeChatJumpControls } from '../duo-rail-jump-controls'
 import { useMobileNativeChatPreviousStops } from './transcript/use-mobile-native-chat-previous-stops'
 import { MobileNativeChatRowList } from './transcript/MobileNativeChatRowList'

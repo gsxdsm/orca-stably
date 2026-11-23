@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY } from '../../../mobile-web-shell/page-storage-keys'
+import { NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY } from '../../../mobile-web-shell/page-storage/page-storage-keys'
 import { quantizeFontScale } from './mobile-native-chat-message-text'
 
 export const NATIVE_CHAT_TEXT_SCALE_KEY = NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY

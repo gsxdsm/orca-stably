@@ -4,7 +4,7 @@ import {
   MobileNativeChatSessionOptionPickers,
   type MobileNativeChatPickerPresentation,
   type MobileNativeChatSessionOptionPickersProps
-} from '../input/MobileNativeChatSessionOptionPickers'
+} from '../input/session-options/MobileNativeChatSessionOptionPickers'
 
 /** Owns which session-option page is open, including a page the host asked to open. */
 export function MobileNativeChatComposerSessionPickers({

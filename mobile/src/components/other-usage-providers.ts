@@ -1,9 +1,9 @@
-import { hasUsageData } from '../../../src/shared/usage-provider-windows'
+import { hasUsageData } from '../../../src/shared/agent-usage/display/usage-provider-windows'
 import {
   ProviderRateLimitsSchema,
   type AccountsSnapshot,
   type ProviderRateLimits
-} from './accounts-snapshot'
+} from '../accounts/accounts-snapshot'
 
 /** Every other provider the host reports usage for, in the host's order. Claude and Codex have their own sections. */
 export function getOtherUsageProviders(snapshot: AccountsSnapshot): ProviderRateLimits[] {

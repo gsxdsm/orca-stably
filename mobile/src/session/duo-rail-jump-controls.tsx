@@ -15,7 +15,7 @@ import { getSideRailStrip } from '../layout/side-rail-strip'
 import { useWindowSafeAreaInsets } from '../layout/side-safe-area'
 import { useDuoChatExpanded } from './duo-chat-width'
 import { duoRailJumpPlacement } from './duo-rail-jump'
-import { MobileNativeChatFloatingControls } from './native-chat/MobileNativeChatFloatingControls'
+import { MobileNativeChatFloatingControls } from './native-chat/lower-region/MobileNativeChatFloatingControls'
 
 type JumpActions = {
   showJumpToTail: boolean

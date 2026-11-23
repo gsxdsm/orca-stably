@@ -76,7 +76,7 @@ export function getWindowResetLabel(
   return formatResetCountdown(resetsAt - at)
 }
 
-export { getOtherUsageProviders } from './other-usage-providers'
+export { getOtherUsageProviders } from '../../components/other-usage-providers'
 
 // Show provider with managed accounts or active system-default quota; management is not required for usage UI.
 export function hasRenderableUsage(snapshot: AccountsSnapshot, provider: ProviderKey): boolean {

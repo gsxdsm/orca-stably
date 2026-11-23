@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { MOBILE_ADD_PROJECT_RUNTIME_CAPABILITY } from '../../../src/shared/protocol-version'
+import { MOBILE_ADD_PROJECT_RUNTIME_CAPABILITY } from '../../../src/shared/remote-runtime/protocol/protocol-version'
 
 export function useHostNewWorkspaceActions(args: {
   hostCapabilities: readonly string[]

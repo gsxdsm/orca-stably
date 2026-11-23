@@ -5,7 +5,7 @@ import {
   nativeChatVisibleTaskList,
   type NativeChatSubagentActivity
 } from '../../../../../src/shared/native-chat/input/native-chat-activity'
-import type { NativeChatTaskList } from '../../../../../src/shared/native-chat/input/native-chat-task-list'
+import type { NativeChatTaskList } from '../../../../../src/shared/native-chat/input/task-lists/native-chat-task-list'
 import type { NativeChatTaskSeedList } from '../../../../../src/shared/native-chat/input/native-chat-claude-task-updates'
 import { projectNativeChatTranscript } from '../../../../../src/shared/native-chat/transcript/native-chat-transcript-projection'
 import { frameNativeChatSubagentTranscript } from '../../../../../src/shared/native-chat/input/native-chat-subagent-brief'
@@ -13,8 +13,8 @@ import type { NativeChatMessage } from '../../../../../src/shared/native-chat/na
 import {
   foldMobileNativeChatAgentMessages,
   type MobileNativeChatPendingItem
-} from '../mobile-native-chat-render-data'
-import type { OlderPagePhase } from '../../use-mobile-older-page-loader'
+} from '../transcript/projection/mobile-native-chat-render-data'
+import type { OlderPagePhase } from '../transcript/ingestion/use-mobile-older-page-loader'
 import {
   useMobileNativeChatSubagentPage,
   type MobileNativeChatSubagentRead

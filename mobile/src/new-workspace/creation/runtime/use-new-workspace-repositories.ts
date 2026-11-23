@@ -77,11 +77,12 @@ export function useNewWorkspaceRepositories(args: {
     }
     // Waits for its host's listing: a same-id repo on another host is a different repo.
     // Without a host (a just-added project) the id is looked up on the focused host's own listing.
-    const initial = repos.find((repo) =>
-      repo.id === initialRepoId &&
-      (initialRepoHost
-        ? getRepoExecutionHostId(repo) === initialRepoHost
-        : desktopRepos.some((desktop) => desktop.id === repo.id))
+    const initial = repos.find(
+      (repo) =>
+        repo.id === initialRepoId &&
+        (initialRepoHost
+          ? getRepoExecutionHostId(repo) === initialRepoHost
+          : desktopRepos.some((desktop) => desktop.id === repo.id))
     )
     if (initial) {
       setSelectedRepo(initial)

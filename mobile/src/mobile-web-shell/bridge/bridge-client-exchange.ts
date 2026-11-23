@@ -1,17 +1,20 @@
 import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
 import type { SendRequestOptions } from '../../transport/rpc/unvalidated-rpc-request-port'
 import type { RpcResponse } from '../../transport/rpc/rpc-wire-types'
-import { BRIDGE_MAX_PENDING_REQUESTS, BRIDGE_MAX_SUBSCRIPTIONS } from './bridge-caps'
+import { BRIDGE_MAX_PENDING_REQUESTS, BRIDGE_MAX_SUBSCRIPTIONS } from './protocol/bridge-caps'
 import {
   BridgeClientCapExceededError,
   BridgeClientClosedError,
   BridgeRequestOversizedError,
   BridgeSendFailedError
-} from './bridge-client-errors'
-import type { BridgeClientRequests } from './bridge-client-requests'
-import { readBridgeRequestFrameOptions, readBridgeRpcEnvelope } from './bridge-client-rpc-envelope'
-import type { BridgeClientSubscriptions } from './bridge-client-subscriptions'
-import { BRIDGE_PROTOCOL_VERSION, type BridgeClientMessage } from './bridge-envelope'
+} from './client-state/bridge-client-errors'
+import type { BridgeClientRequests } from './client-state/bridge-client-requests'
+import {
+  readBridgeRequestFrameOptions,
+  readBridgeRpcEnvelope
+} from './client-state/bridge-client-rpc-envelope'
+import type { BridgeClientSubscriptions } from './client-state/bridge-client-subscriptions'
+import { BRIDGE_PROTOCOL_VERSION, type BridgeClientMessage } from './protocol/bridge-envelope'
 
 type BridgeFrameSendOutcome = 'sent' | 'oversized' | 'port-failed'
 

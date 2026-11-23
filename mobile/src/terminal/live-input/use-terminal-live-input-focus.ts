@@ -7,7 +7,7 @@ import {
   type TerminalLiveInputFocusTarget,
   type TerminalLiveInputFocusTimerRef
 } from './terminal-live-input'
-import { dismissTerminalKeyboard } from './terminal-keyboard-dismiss'
+import { dismissTerminalKeyboard } from '../keyboard/terminal-keyboard-dismiss'
 
 type TerminalLiveInputFocusContext = {
   readonly canSend: boolean

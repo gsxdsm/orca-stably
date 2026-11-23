@@ -7,15 +7,15 @@ import {
   type NativeChatTerminalQueueSnapshot,
   type NativeChatTerminalQueueRequest
 } from '../../../../src/shared/native-chat/native-chat-terminal-queue'
-import type { MobileStructuredQueuedMessageControls } from '../use-mobile-structured-queued-message-controls'
-import { mobileQueuedMessageCards } from '../mobile-structured-queued-message-cards'
+import type { MobileStructuredQueuedMessageControls } from './input/queued-messages/use-mobile-structured-queued-message-controls'
+import { mobileQueuedMessageCards } from './input/queued-messages/mobile-structured-queued-message-cards'
 import type { z } from 'zod'
 import { NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY } from '../../../../src/shared/native-chat/native-chat-terminal-queue-capability'
 import { mobileTerminalChatQueueSend } from './mobile-terminal-chat-queue-send'
-import type { MobileNativeChatSendOutcome } from './mobile-native-chat-send'
+import type { MobileNativeChatSendOutcome } from './composer/delivery/mobile-native-chat-send'
 import { isRpcDeliveryUnknown } from '../../transport/rpc/rpc-delivery-ambiguity'
 import { isLogicalClientCutoverError } from '../../transport/connection/logical-client-cutover-error'
-import { UNCONFIRMED_SEND_MESSAGE } from './use-mobile-native-chat-unconfirmed-sends'
+import { UNCONFIRMED_SEND_MESSAGE } from './composer/delivery/use-mobile-native-chat-unconfirmed-sends'
 
 export function useMobileTerminalChatQueue(args: {
   client: RpcClient | null

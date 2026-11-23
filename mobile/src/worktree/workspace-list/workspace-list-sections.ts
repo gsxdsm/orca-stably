@@ -21,7 +21,7 @@ import {
   PR_GROUP_ORDER
 } from '../../../../src/shared/workspace-view/workspace-pr-groups'
 import type { FilterState, Section, SectionRepo, Worktree } from './workspace-list-types'
-import { makeSection, type PlannedSection } from './workspace-list-planned-section'
+import { makeSection, type PlannedSection } from '../workspace-list-planned-section'
 import type {
   WorkspaceGroupBy,
   WorkspaceSortBy

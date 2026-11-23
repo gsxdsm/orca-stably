@@ -17,8 +17,8 @@ import { nativeChatToolLineView } from '../../../../../../src/shared/native-chat
 import {
   nativeChatSpawnedSubagentId,
   nativeChatSubagentCallTitle
-} from '../../../../../src/shared/native-chat/input/native-chat-subagent-brief'
-import { useMobileNativeChatOpenSubagent } from '../input/mobile-native-chat-open-subagent'
+} from '../../../../../../src/shared/native-chat/input/native-chat-subagent-brief'
+import { useMobileNativeChatOpenSubagent } from '../../input/mobile-native-chat-open-subagent'
 import type {
   NativeChatToolCallBlock,
   NativeChatToolResultBlock

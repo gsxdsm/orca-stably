@@ -5,7 +5,7 @@ import { themedStyleSheet } from '../../../../theme/themed-styles'
 import type {
   MobileComposerImagePasteHandler,
   MobileComposerPastedImage
-} from './mobile-native-chat-composer-image-paste'
+} from '../mobile-native-chat-composer-image-paste'
 
 export type MobileNativeChatComposerFieldProps = Omit<
   TextInputProps,

@@ -1,5 +1,5 @@
 import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
-import { sendMobileNativeChatMessageWithOutcome } from './mobile-native-chat-send'
+import { sendMobileNativeChatMessageWithOutcome } from './composer/delivery/mobile-native-chat-send'
 
 const normalize = (text: string): string => text.replace(/\r\n?/g, '\n')
 

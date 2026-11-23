@@ -39,7 +39,7 @@ import {
 import {
   setSelectableSidebarSessions,
   useSelectableSidebarSessions
-} from './selectable-sidebar-sessions'
+} from '../selectable-sidebar-sessions'
 
 function workspaceOptionLabels(t: Translate): Record<WorkspaceViewOptionKey, string> {
   return {

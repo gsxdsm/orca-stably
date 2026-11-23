@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native'
-import { formatResetDuration } from '../../../src/shared/rate-limit-reset-format'
+import { formatResetDuration } from '../../../src/shared/agent-usage/rate-limits/rate-limit-reset-format'
 import { UsageBar } from '../components/AccountUsage'
 import type { Translate } from '../i18n/mobile-i18n'
 import { getUiIntlLocale } from '../i18n/ui-intl-locale'

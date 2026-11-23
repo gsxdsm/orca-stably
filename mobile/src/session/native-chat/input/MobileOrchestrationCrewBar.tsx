@@ -6,12 +6,12 @@ import type {
   OrchestrationCrewSnapshot
 } from '../../../../../src/shared/orchestration/orchestration-crew'
 import { BottomDrawer } from '../../../components/bottom-drawer/BottomDrawer'
-import { MobileAgentIcon } from '../../../components/MobileAgentIcon'
+import { MobileAgentIcon } from '../../../components/icons/MobileAgentIcon'
 import { useMobileTranslation } from '../../../i18n/use-mobile-translation'
 import { colors, radii, spacing, typography } from '../../../theme/mobile-theme'
 import { themedStyleSheet } from '../../../theme/themed-styles'
 import { useMobileColorScheme } from '../../../theme/use-mobile-color-scheme'
-import { MobileAgentMessageOpenContext } from '../transcript/mobile-agent-message-context'
+import { MobileAgentMessageOpenContext } from '../transcript/agent-messages/mobile-agent-message-context'
 import {
   crewOpenSender,
   crewRowSubtitle,

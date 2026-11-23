@@ -8,7 +8,7 @@ import { withoutNativeChatVisualDirectiveLines } from '../../../../../src/shared
 import { colors, spacing, pressedStyle } from '../../../theme/mobile-theme'
 import { themedStyleSheet } from '../../../theme/themed-styles'
 import { useMobileColorScheme } from '../../../theme/use-mobile-color-scheme'
-import { useMobileTranslation } from '../i18n/use-mobile-translation'
+import { useMobileTranslation } from '../../../i18n/use-mobile-translation'
 import {
   agentDisplayForkedLead,
   agentDisplayLabel,

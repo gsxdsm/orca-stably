@@ -35,7 +35,7 @@ import { structuredSessionOperationId } from '../../agent-session/structured-ses
 import { UNCONFIRMED_SEND_MESSAGE } from './use-mobile-native-chat-unconfirmed-sends'
 import { timeoutForDeadline } from '../../agent-session/mobile-structured-agent-session-rpc'
 import { nativeChatTextWithFileReferences } from '../attachments/mobile-native-chat-file-attachment'
-import { projectMobileCrewMentions } from './orchestration-crew/mobile-orchestration-crew'
+import { projectMobileCrewMentions } from '../../../orchestration-crew/mobile-orchestration-crew'
 import {
   actionableStructuredApproval,
   actionableStructuredQuestion

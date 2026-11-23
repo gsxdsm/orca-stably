@@ -1,6 +1,6 @@
 import { agentSessionForkSourceFailureWords } from '../../../../../src/shared/agent-session/failures/agent-session-failure-copy'
 import { sayMobileAgentSessionFailure } from './agent-session-failure-copy'
-import type { StructuredAgentId } from '../../../src/shared/agent-session/lifecycle/agent-session-provider-handle'
+import type { StructuredAgentId } from '../../../../../src/shared/agent-session/lifecycle/provider-handles/agent-session-provider-handle'
 import type {
   AgentSessionAttachResult,
   AgentSessionMutationResult

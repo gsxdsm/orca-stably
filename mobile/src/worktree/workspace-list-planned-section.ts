@@ -1,4 +1,4 @@
-import type { Section, SectionRepo, Worktree } from './workspace-list-types'
+import type { Section, SectionRepo, Worktree } from './workspace-list/workspace-list-types'
 
 // A section before lineage expansion: host rows only, no per-row view yet.
 export type PlannedSection = Omit<Section, 'data'> & { data: Worktree[] }

@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { Check } from 'lucide-react-native'
-import { ANTIGRAVITY_ACCOUNTS_RUNTIME_CAPABILITY } from '../../../src/shared/account-runtime-capabilities'
+import { ANTIGRAVITY_ACCOUNTS_RUNTIME_CAPABILITY } from '../../../src/shared/remote-runtime/protocol/account-runtime-capabilities'
 import {
   collectProviderUsageMeters,
   hasRenderableProviderUsage,
   providerUsagePlaceholder,
   type AccountsSnapshot
 } from '../components/account-usage-state'
-import { MobileAgentIcon } from '../components/MobileAgentIcon'
+import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'

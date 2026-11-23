@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native'
 import { colors, feedback, radii, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
-import { WORKTREE_ROW_LAYOUT } from './worktree-list-row-layout'
+import { WORKTREE_ROW_LAYOUT } from '../worktree/row-presentation/worktree-list-row-layout'
 
 // Grows the 20 pt pill to a 44 pt target without pushing the row apart.
 export const LINEAGE_TOGGLE_HIT_SLOP = { top: 12, bottom: 12, left: 8, right: 8 } as const

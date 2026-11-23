@@ -21,7 +21,7 @@ import { deriveNativeChatStreamingText } from '../../../../../../src/shared/nati
 import { useThrottledLatestValue } from './use-throttled-latest-value'
 import type { MobileNativeChatSession } from '../../conversation/use-mobile-native-chat-session'
 import type { MobileNativeChatResolution } from '../../conversation/mobile-native-chat-eligibility'
-import type { NativeChatTerminalActivity } from '../../../src/shared/native-chat/native-chat-terminal-queue'
+import type { NativeChatTerminalActivity } from '../../../../../../src/shared/native-chat/native-chat-terminal-queue'
 
 import {
   pendingSendsAsMessages,

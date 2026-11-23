@@ -1,5 +1,5 @@
 /* eslint-disable max-lines -- Why: the list keeps selectable session rows beside upstream workspace rows. */
-import { useSharedNow } from '../hooks/use-now'
+import { useSharedNow } from '../../hooks/use-now'
 import { memo, useCallback, useEffect, useMemo, type ReactElement } from 'react'
 import {
   ActivityIndicator,

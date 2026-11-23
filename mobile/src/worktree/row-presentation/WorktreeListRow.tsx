@@ -20,9 +20,12 @@ import { MobileRepoIcon } from '../../components/icons/MobileRepoIcon'
 import { WorktreeAgentList } from '../agent-lineage/presentation/WorktreeAgentList'
 import { WorktreeMetaGlyphs, prStateColor } from './WorktreeMetaGlyphs'
 import { PrStateIcon } from '../../source-control/review/status/PrStateIcon'
-import { LINEAGE_TOGGLE_HIT_SLOP, styles } from './worktree-list-row-styles'
+import { LINEAGE_TOGGLE_HIT_SLOP, styles } from '../../components/worktree-list-row-styles'
 import { WorktreeUnsavedName } from './WorktreeUnsavedName'
-import { useWorktreeRowSession, workspaceCardActivation } from './worktree-session-press'
+import {
+  useWorktreeRowSession,
+  workspaceCardActivation
+} from '../../components/worktree-session-press'
 
 // Match desktop formatBranchName by hiding refs/heads/ prefix.
 function displayBranch(branch: string): string {

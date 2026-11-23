@@ -5,9 +5,13 @@ import { SHEET_CURVE } from '../../../components/motion/sheet-motion-values'
 import { useReducedMotionEnabled } from '../../../platform/accessibility/use-reduced-motion'
 import { colors, feedback, radii } from '../../../theme/mobile-theme'
 import { useMobileColorScheme } from '../../../theme/use-mobile-color-scheme'
-import { styles, NATIVE_CHAT_FAB_GAP, NATIVE_CHAT_FAB_SIZE } from '../mobile-native-chat-view-styles'
+import {
+  styles,
+  NATIVE_CHAT_FAB_GAP,
+  NATIVE_CHAT_FAB_SIZE
+} from '../mobile-native-chat-view-styles'
 import { useMobileTranslation } from '../../../i18n/use-mobile-translation'
-import type { DuoRailControlFrame, DuoRailJumpFrames } from '../../layout/duo-status-row'
+import type { DuoRailControlFrame, DuoRailJumpFrames } from '../../../layout/duo-status-row'
 
 const FAB_LIFT = NATIVE_CHAT_FAB_SIZE + NATIVE_CHAT_FAB_GAP
 const RAIL_ICON_STROKE = 2.1

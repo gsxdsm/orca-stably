@@ -29,7 +29,7 @@ import {
   type MobileNativeChatScrollNode
 } from './mobile-native-chat-reading-place'
 import type { MobileNativeChatListHandle } from './use-mobile-native-chat-tail-follow'
-import { useMobileNativeChatPreviousAlign } from './use-mobile-native-chat-previous-align'
+import { useMobileNativeChatPreviousAlign } from '../use-mobile-native-chat-previous-align'
 import type { MobileNativeChatScrollRoots } from './mobile-native-chat-scroll-roots'
 import { scrollWritesStopMomentum } from './mobile-native-chat-scroll-motion'
 import {

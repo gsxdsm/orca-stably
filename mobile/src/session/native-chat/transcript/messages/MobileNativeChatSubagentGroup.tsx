@@ -21,8 +21,8 @@ import { useNow } from '../../../../hooks/use-now'
 import { colors, radii, spacing, typography } from '../../../../theme/mobile-theme'
 import { themedStyleSheet } from '../../../../theme/themed-styles'
 import { useMobileColorScheme } from '../../../../theme/use-mobile-color-scheme'
-import { useMobileTranslation } from '../../../i18n/use-mobile-translation'
-import { useMobileNativeChatOpenSubagent } from '../input/mobile-native-chat-open-subagent'
+import { useMobileTranslation } from '../../../../i18n/use-mobile-translation'
+import { useMobileNativeChatOpenSubagent } from '../../input/mobile-native-chat-open-subagent'
 
 function stateDotStyle(state: NativeChatSubagentState): ViewStyle {
   switch (state) {

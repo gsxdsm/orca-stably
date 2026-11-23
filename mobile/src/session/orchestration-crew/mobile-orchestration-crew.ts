@@ -15,12 +15,12 @@ import {
 import type {
   AgentMessageSender,
   AgentMessageSource
-} from '../../../../src/shared/agent-session/agent-session-message-source'
+} from '../../../../src/shared/agent-session/journal/agent-session-message-source'
 import {
   formatOrcaSessionAddress,
   isOrcaSessionId,
   parseOrcaSessionAddress
-} from '../../../../src/shared/orca-session-address'
+} from '../../../../src/shared/agent-session/identity/orca-session-address'
 import { isMobileMethodUnavailableError } from '../../transport/rpc/mobile-method-unavailable'
 
 export type MobileCrewStatus = 'running' | 'waiting' | 'done' | 'failed'

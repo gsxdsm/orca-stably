@@ -1,8 +1,8 @@
 import * as z from 'zod'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
-import { worktreeCatalogRead } from '../worktree/worktree-catalog-operations'
-import { WORKTREE_PS_FULL_LIMIT } from '../worktree/worktree-catalog-snapshot-client'
-import { mobileStructuredSessionStatusFeed } from '../session/mobile-structured-session-status-feed'
+import { worktreeCatalogRead } from '../worktree/catalog/worktree-catalog-operations'
+import { WORKTREE_PS_FULL_LIMIT } from '../worktree/catalog/worktree-catalog-snapshot-client'
+import { mobileStructuredSessionStatusFeed } from '../session/native-chat/agent-session/mobile-structured-session-status-feed'
 import { agentPromptListPending } from './watch-agent-prompt-operations'
 import type { WatchFeedItem, WatchPrompt } from './watch-contract'
 import {

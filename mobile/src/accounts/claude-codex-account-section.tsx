@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { Check } from 'lucide-react-native'
-import type { CodexResetCreditExpectedScope } from '../../../src/shared/codex-reset-credit-scope'
-import { ClaudeIcon, OpenAIIcon } from '../components/AgentIcons'
+import type { CodexResetCreditExpectedScope } from '../../../src/shared/agent-accounts/codex/codex-reset-credit-scope'
+import { ClaudeIcon, OpenAIIcon } from '../components/icons/AgentIcons'
 import { UsageBar } from '../components/AccountUsage'
 import {
   getActiveProviderRateLimits,
@@ -15,8 +15,8 @@ import {
 import {
   getActiveCodexAccountIdForRateLimitTarget,
   getCodexResetCreditSummary
-} from '../components/codex-reset-credit'
-import { CodexResetCreditAction } from '../components/CodexResetCreditAction'
+} from './usage/codex-reset-credit'
+import { CodexResetCreditAction } from './usage/CodexResetCreditAction'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'

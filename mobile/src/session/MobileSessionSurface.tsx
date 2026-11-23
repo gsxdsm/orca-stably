@@ -20,7 +20,7 @@ import { useReleasedSideInset } from '../layout/released-side-inset'
 import { sideStripPadding } from './session-side-strip-inset'
 import { DuoRailBackButton } from './DuoRailBackButton'
 import { DuoRailJumpHost, DuoRailJumpOverlay } from './duo-rail-jump-controls'
-import { useKeyboardOcclusion } from '../platform/keyboard-occlusion'
+import { useKeyboardOcclusion } from '../platform/keyboard/keyboard-occlusion'
 import { useSessionRailBack } from './use-duo-rail-back'
 
 // Read the keyboard here, so a keyboard change re-renders only these shells and not the whole session.

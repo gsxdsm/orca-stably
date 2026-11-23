@@ -20,7 +20,7 @@ import { MobileSwitch } from '../../../components/controls/MobileSwitch'
 import { ListGroup, ListRow } from '../../../components/list/ListGroup'
 import { FieldTextInput } from '../../../components/composer-input/FieldTextInput'
 import { SmartRailRow } from '../../../components/list/SmartRailRow'
-import { useSessionListLongPressProps } from '../navigation/session-list-long-press-props'
+import { useSessionListLongPressProps } from '../../../navigation/session-list-long-press-props'
 
 type Step = 'choose-type' | 'shortcut-combo' | 'special-keys' | 'text-macro'
 

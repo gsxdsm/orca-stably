@@ -10,13 +10,13 @@ import type {
 } from '../../../../../src/shared/native-chat/native-chat-types'
 import { buildNativeChatSubscriptionId } from '../../../../../src/shared/native-chat/transcript/streaming/native-chat-stream-unsubscribe'
 import type { RpcClient } from '../../../transport/rpc/rpc-client-contract'
-import type { NativeChatSubagentActivity } from '../../../../src/shared/native-chat/input/native-chat-activity'
+import type { NativeChatSubagentActivity } from '../../../../../src/shared/native-chat/input/native-chat-activity'
 import {
   readNativeChatTaskSeedList,
   type NativeChatTaskSeedList
-} from '../../../../src/shared/native-chat/input/native-chat-claude-task-updates'
-import { readNativeChatSubagentActivities } from '../../../../src/shared/native-chat/input/native-chat-tool-subagents'
-import { readMobileNativeChatOlderPage } from './mobile-native-chat-older-page'
+} from '../../../../../src/shared/native-chat/input/native-chat-claude-task-updates'
+import { readNativeChatSubagentActivities } from '../../../../../src/shared/native-chat/input/native-chat-tool-subagents'
+import { readMobileNativeChatOlderPage } from '../mobile-native-chat-older-page'
 import {
   applyMobileNativeChatStreamFrame,
   type MobileNativeChatStreamFrame

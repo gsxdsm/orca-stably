@@ -13,7 +13,7 @@ import {
   ComposerUsageClientContext,
   ComposerUsageTabAgentContext
 } from '../composer-usage/composer-usage-client-context'
-import { getMobileTerminalTabHostAgentIdentity } from '../terminal/session/mobile-terminal-tab-agent'
+import { getMobileTerminalTabHostAgentIdentity } from './tabs/mobile-terminal-tab-agent'
 import {
   sideStripMargin,
   sideStripPadding,

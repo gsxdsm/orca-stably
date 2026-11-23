@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, type MutableRefObject } from 'react'
 import { encodeNativeChatTranscriptIdentity } from '../../../../../src/shared/native-chat/transcript/messages/native-chat-transcript-retention'
-import { HERMES_TRANSCRIPT_RUNTIME_CAPABILITY } from '../../../../src/shared/native-chat/native-chat-hermes-capability'
+import { HERMES_TRANSCRIPT_RUNTIME_CAPABILITY } from '../../../../../src/shared/native-chat/native-chat-hermes-capability'
 import { resolveMobileNativeChat, type MobileNativeChatTab } from './mobile-native-chat-eligibility'
 import {
   useMobileSessionViewMode,

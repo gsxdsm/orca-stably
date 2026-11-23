@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import {
   mobileNativeChatRowViewportTops,
   type MobileNativeChatScrollNode
-} from '../../mobile-native-chat-reading-place'
+} from './viewport/mobile-native-chat-reading-place'
 import {
   endAnchoredScrollTopForRow,
   previousMessageChained,

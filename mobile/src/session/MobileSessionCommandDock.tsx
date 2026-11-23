@@ -6,7 +6,7 @@ import { MobileNativeChatStopButton } from './native-chat/input/MobileNativeChat
 import {
   isMobileTerminalTabRunningAgent,
   resolveMobileTerminalTabOwnedAgentId
-} from '../terminal/session/mobile-terminal-tab-agent'
+} from './tabs/mobile-terminal-tab-agent'
 import { Keyboard as KeyboardIcon } from 'lucide-react-native'
 import { composerInputStyles as inputStyles } from '../components/composer-input/composer-input-styles'
 import { TextField } from '../components/composer-input/TextField'
