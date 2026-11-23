@@ -4,6 +4,7 @@ import { terminalSafe } from '../../../../shared/terminal/output/terminal-safe-t
 import type { TuiAgent } from '../../../../shared/agent-launch/catalog/tui-agent'
 import type { OrcaRuntimeService } from '../../orca-runtime'
 import { applyTerminalLineControls } from '../output/tail/terminal-tail-line-controls'
+import { replaceDispatchCapabilities } from '../../orchestration/terminal-authority/views/worker-terminal-redaction'
 
 const COMMAND_STARTED_MARK = '\x1b]133;C'
 const COMMAND_FINISHED_MARK = '\x1b]133;D'
@@ -39,14 +40,15 @@ export function readLaunchCommandOutput(
   }
   // A launch that printed past the buffer's limit has lost its start, not the end that names the error.
   const started = Math.max(0, recentOutput.lastIndexOf(COMMAND_STARTED_MARK, finished))
-  return recentOutput
+  const lines = recentOutput
     .slice(started, finished)
     .replace(ZSH_PROMPT_SP, '')
     .split(/\r*\n/)
     .map((line) => terminalSafe(applyTerminalLineControls(line).text).trim())
     .filter(Boolean)
     .join('\n')
-    .slice(-LAUNCH_OUTPUT_MAX_CHARS)
+  // Redact before the cut: truncation can strip a token's dcap_ prefix and defeat the pattern.
+  return replaceDispatchCapabilities(lines).value.slice(-LAUNCH_OUTPUT_MAX_CHARS)
 }
 
 export function launchedAgentExitMessage(output: string): string {
