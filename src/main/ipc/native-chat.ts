@@ -9,7 +9,7 @@ import type { NativeChatSubagentActivity } from '../../shared/native-chat/input/
 import type { NativeChatTaskSeedList } from '../../shared/native-chat/input/native-chat-claude-task-updates'
 import { clearNativeChatTranscriptCache } from '../native-chat/transcript-read-cache'
 import { nativeChatReadSessionBounds } from './native-chat-read-bounds'
-import { readNativeChatTranscriptTail } from '../native-chat/transcript-tail-reader'
+import { readNativeChatTranscriptTail } from '../native-chat/transcript-live-tail'
 import { getStructuredAgentSessionHost } from '../native-chat/agent-session-wire/host/structured-agent-session-registry'
 import { openNativeChatTranscript } from '../native-chat/transcript-discovery/native-chat-open-wake'
 import {

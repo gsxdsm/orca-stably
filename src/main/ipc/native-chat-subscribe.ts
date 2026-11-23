@@ -1,10 +1,10 @@
 import type { IpcMainEvent, WebContents } from 'electron'
 import { DESKTOP_READ_WINDOW } from '../native-chat/transcript-watching/transcript-watch-contract'
-import {
-  subscribeNativeChatTranscript,
-  type NativeChatTranscriptSubscription,
-  type SubscribeNativeChatTranscriptArgs
-} from '../native-chat/transcript-watch'
+import { subscribeNativeChatTranscript } from '../native-chat/transcript-watch'
+import type {
+  NativeChatTranscriptSubscription,
+  SubscribeNativeChatTranscriptArgs
+} from '../native-chat/transcript-watching/transcript-watch-contract'
 import { abortWhenRendererGone } from './renderer-requests/renderer-lifetime-abort'
 import { openNativeChatTranscript } from '../native-chat/transcript-discovery/native-chat-open-wake'
 import { publishTranscriptTaskList } from '../native-chat/native-chat-transcript-task-scan'

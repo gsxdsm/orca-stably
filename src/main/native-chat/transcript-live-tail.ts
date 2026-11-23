@@ -21,7 +21,7 @@ import {
   nativeChatTurnLifecycleDecoderForAgent,
   type NativeChatTurnLifecycleDecoder
 } from './transcript-decoding/transcript-turn-lifecycle'
-import { wslTranscriptFsRefusal } from './transcript-filesystem/wsl-transcript-fs-gate'
+import { wslTranscriptFsRefusal } from './transcript-filesystem/wsl-transcript-fs-error'
 
 type LiveTailPage = {
   messages: NativeChatMessage[]

@@ -69,8 +69,7 @@ function createRuntimeNativeChatTransport(environmentId: string): NativeChatSess
             limit,
             transcriptPath,
             capabilities: { transcriptSourceOrder: 1 },
-            ...(options?.beforeOffset !== undefined ? { beforeOffset: options.beforeOffset } : {}),
-            ...(options?.subagentId ? { subagentId: options.subagentId } : {})
+            ...(options?.beforeOffset !== undefined ? { beforeOffset: options.beforeOffset } : {})
           },
           { timeoutMs: 15_000 }
         )

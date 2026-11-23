@@ -7,7 +7,10 @@ import type {
   AgentPaneChange,
   AgentPaneWorkspace
 } from '../agent-hooks/observations/agent-transition-detector'
-import { readWorkspaceRecord, writeWorkspaceRecord } from './sidebar-inputs/sort-stamp-records'
+import {
+  readWorkspaceRecord,
+  writeWorkspaceRecord
+} from './workspaces/metadata/workspace-activity-records'
 import {
   isWslMoveProjectBlocked,
   wslMoveProjectRefForWorkspace

@@ -1,4 +1,4 @@
-import type { NativeChatSubscriptionFrame } from '../../../../preload/api-types'
+import type { NativeChatSubscriptionFrame } from '../../../../preload/api/native-chat/native-chat-api'
 import type {
   NativeChatMessage,
   NativeChatTurnLifecycle

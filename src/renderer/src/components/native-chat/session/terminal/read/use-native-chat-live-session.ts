@@ -31,7 +31,6 @@ import {
   applyNativeChatLiveFrame,
   type NativeChatSubagentSeed
 } from '../../../native-chat-live-frame'
-import { useSubagentPageRead } from '../../../native-chat-subagent-page-read'
 import { nextNativeChatSubscriptionId } from '../../../native-chat-subscription-id'
 
 // Keep the base axis stable through non-ready reads.
@@ -274,8 +273,6 @@ export function useNativeChatLiveSession(
     }
   }, [read, sessionId, transport])
 
-  const readSubagentPage = useSubagentPageRead(transport, agent, sessionId, transcriptPath)
-
   // Keep status-only hook updates from rerunning the assembler.
   const baseMessages = read.phase === 'ready' ? read.messages : EMPTY_MESSAGES
   const { assembledMessages, normalizedMessages } = useNativeChatAssembledMessages({
@@ -308,8 +305,7 @@ export function useNativeChatLiveSession(
       trimHistory,
       readPhase: read.phase,
       taskList,
-      subagentSeed,
-      readSubagentPage
+      subagentSeed
     }
   }, [
     normalizedMessages,
@@ -328,7 +324,6 @@ export function useNativeChatLiveSession(
     trimHistory,
     appended,
     taskList,
-    subagentSeed,
-    readSubagentPage
+    subagentSeed
   ])
 }
