@@ -6,11 +6,7 @@ import { asRecord } from '../../ai-vault/parsing/session-record-fields'
 import { extractString } from '../../../shared/text/trimmed-string'
 import { parseJsonObject } from '../../ai-vault/parsing/session-json-object'
 import { timestampMs } from '../../ai-vault/parsing/session-record-time'
-import {
-  claudeContentBlocks,
-  toolResultBlocks,
-  toolResultOutput
-} from './transcript-record-blocks'
+import { claudeContentBlocks, toolResultBlocks, toolResultOutput } from './transcript-record-blocks'
 import { AGENT_SESSION_PASTED_IMAGE_SUFFIX_SOURCE } from '../../../shared/agent-session/agent-session-attachments'
 
 export function decodeGrokTranscriptLine(

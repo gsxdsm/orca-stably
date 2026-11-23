@@ -8,7 +8,10 @@ import { columnExists, tableExists } from '../opencode-usage/schema-helpers'
 import type { NativeChatBlock, NativeChatMessage } from '../../shared/native-chat/native-chat-types'
 import { openCodeTranscriptPageLimit } from '../../shared/agent-session/lifecycle/provider-handles/opencode-transcript-page-limit'
 import { agentSessionHostStatusBody } from '../../shared/agent-session/view/agent-session-host-status-rows'
-import { claudeContentBlocks, toolResultOutput } from './transcript-decoding/transcript-record-blocks'
+import {
+  claudeContentBlocks,
+  toolResultOutput
+} from './transcript-decoding/transcript-record-blocks'
 import { OPENCODE_TRANSCRIPT_MAX_ROW_BYTES } from './transcript-history/opencode/transcript-opencode-part-blocks'
 import { rowsOf } from './transcript-history/opencode/transcript-opencode-row-budget'
 import type {

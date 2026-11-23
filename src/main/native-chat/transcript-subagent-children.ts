@@ -18,7 +18,10 @@ import { decodeClaudeTranscriptLine } from './transcript-decoding/transcript-lin
 import { decodeCodexTranscriptLine } from './transcript-decoding/transcript-line-decoders-codex'
 import { decodeGrokTranscriptLine } from './transcript-decoding/transcript-line-decoders-grok'
 import { splitTranscriptStreamLines } from './transcript-streaming/transcript-stream-lines'
-import { openTranscriptReadStream, wslGatedReaddir } from './transcript-filesystem/wsl-transcript-fs-access'
+import {
+  openTranscriptReadStream,
+  wslGatedReaddir
+} from './transcript-filesystem/wsl-transcript-fs-access'
 
 type NativeChatLineDecoder = (line: string, fallbackId: string) => NativeChatMessage | null
 

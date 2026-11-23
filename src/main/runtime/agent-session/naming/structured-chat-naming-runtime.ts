@@ -103,13 +103,7 @@ export function structuredChatNamingDeps(
           throw new Error('The naming agent returned an empty title')
         } catch (error) {
           logger.warn('Native chat naming failed', { ...log, error })
-          return chatNamingFailure(
-            record.provider === 'grok'
-              ? 'grokFailed'
-              : record.provider === 'hermes'
-                ? 'hermesFailed'
-                : 'antigravityFailed'
-          )
+          return chatNamingFailure(record.provider === 'grok' ? 'grokFailed' : 'antigravityFailed')
         }
       }
       const settings = resolveTextGenerationParams(

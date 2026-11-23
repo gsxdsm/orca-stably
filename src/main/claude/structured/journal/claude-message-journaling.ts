@@ -19,7 +19,10 @@ import {
   readClaudeMessageEnvelope,
   type ClaudeToolUse
 } from './claude-structured-item-translation'
-import { resolveToolResultImageRefs, toolInputFilePath } from '../../../native-chat/tool-result-images'
+import {
+  resolveToolResultImageRefs,
+  toolInputFilePath
+} from '../../../native-chat/tool-result-images'
 import { claudeEnvelopeStopHookFeedbackRow } from './claude-stop-hook-feedback'
 import {
   appendUnmodeledContent,

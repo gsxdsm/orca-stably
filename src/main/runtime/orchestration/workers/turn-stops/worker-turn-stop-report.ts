@@ -113,10 +113,10 @@ function describeStop(stop: WorkerTurnStop, context: StopContext): string {
       : stop.reason === 'wait-expired'
         ? `Worker ${stop.from} missed its declared scheduled-wait deadline for task ${task}.`
         : stop.reason === 'exited'
-        ? `Worker ${stop.from} exited (${cause ?? 'process ended'}) without sending worker_done for task ${task}.`
-        : stop.reason === 'lost'
-          ? `Worker ${stop.from} is gone (${cause ?? 'cause unknown'}) without sending worker_done for task ${task}.`
-          : `Worker ${stop.from} ended its turn ${stop.reason === 'errored' ? 'on an error ' : ''}without sending worker_done for task ${task}.`
+          ? `Worker ${stop.from} exited (${cause ?? 'process ended'}) without sending worker_done for task ${task}.`
+          : stop.reason === 'lost'
+            ? `Worker ${stop.from} is gone (${cause ?? 'cause unknown'}) without sending worker_done for task ${task}.`
+            : `Worker ${stop.from} ended its turn ${stop.reason === 'errored' ? 'on an error ' : ''}without sending worker_done for task ${task}.`
   const output = redact(stop.lastOutput)?.trim()
   return [
     what,

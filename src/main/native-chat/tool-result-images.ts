@@ -11,7 +11,10 @@ import { extractString } from '../../shared/text/trimmed-string'
 import { parseJsonObject } from '../ai-vault/parsing/session-json-object'
 import { RUNTIME_PREVIEWABLE_BINARY_MAX_BYTES } from '../runtime/files/file-preview-budget'
 import { getAgentSessionAttachmentStore } from './agent-session-attachments/agent-session-attachment-store-registry'
-import { takePendingToolResultImages, type ToolResultImageSource } from './transcript-decoding/transcript-record-blocks'
+import {
+  takePendingToolResultImages,
+  type ToolResultImageSource
+} from './transcript-decoding/transcript-record-blocks'
 
 const SPOOL_BASE64_MAX_CHARS = Math.ceil(RUNTIME_PREVIEWABLE_BINARY_MAX_BYTES / 3) * 4 + 8
 
