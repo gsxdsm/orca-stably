@@ -2469,12 +2469,6 @@
       "keywordSignIn": "sign in"
     },
     "native-chat": {
-      "activity": {
-        "subagentsLabel_one": "{{count}} subagent",
-        "subagentsLabel_other": "{{count}} subagents",
-        "tasks_one": "{{completed}}/{{count}} task",
-        "tasks_other": "{{completed}}/{{count}} tasks"
-      },
       "approval": {
         "allow": "Allow",
         "deny": "Deny",

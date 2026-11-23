@@ -2,8 +2,8 @@
   "v": 1,
   "generatedAt": 1762272000000,
   "hosts": [
-    {"hostId": "host-a", "name": "Studio", "connection": "connected"},
-    {"hostId": "host-b", "name": "Travel", "connection": "offline"}
+    { "hostId": "host-a", "name": "Studio", "connection": "connected" },
+    { "hostId": "host-b", "name": "Travel", "connection": "offline" }
   ],
   "sessions": [
     {
@@ -73,10 +73,10 @@
       "title": "Edit the login title",
       "detail": "Edit adds a title label",
       "options": [
-        {"optionId": "allow", "label": "Approve", "role": "approve"},
-        {"optionId": "always", "label": "Always", "role": "approve-always"},
-        {"optionId": "deny", "label": "Deny", "role": "deny"},
-        {"optionId": "other", "label": "Not now", "role": "other"}
+        { "optionId": "allow", "label": "Approve", "role": "approve" },
+        { "optionId": "always", "label": "Always", "role": "approve-always" },
+        { "optionId": "deny", "label": "Deny", "role": "deny" },
+        { "optionId": "other", "label": "Not now", "role": "other" }
       ],
       "createdAt": 1762272000000
     }
