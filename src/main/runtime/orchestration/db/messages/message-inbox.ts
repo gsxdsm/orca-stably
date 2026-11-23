@@ -152,6 +152,7 @@ export function markAsDelivered(this: OrchestrationDb, ids: string[], mailboxHan
            pointer_pty_id = NULL, pointer_process_incarnation = NULL
        WHERE to_handle = ? AND id IN (${placeholders})`,
     [mailboxHandle],
+    undefined,
     true
   )
 }
