@@ -20,7 +20,7 @@ import type { LocatedAgentPrompt } from './located-agent-prompt'
 
 type ChatPromptHost = Pick<
   StructuredAgentSessionHost,
-  'loadedSessionIds' | 'currentWork' | 'deps' | 'respondToPrompt'
+  'loadedSessionIds' | 'publishedActionablePrompts' | 'deps' | 'respondToPrompt'
 >
 
 export function agentPromptResultFromRefusal(
@@ -96,7 +96,7 @@ export function listChatPrompts(host: ChatPromptHost | null): LocatedAgentPrompt
     if (!record || !worktreeId || !record.provider) {
       continue
     }
-    const items = host.currentWork(sessionId)?.actionablePrompts() ?? []
+    const items = host.publishedActionablePrompts(sessionId)
     for (const item of items) {
       const prompt = mapChatPrompt({
         sessionId,

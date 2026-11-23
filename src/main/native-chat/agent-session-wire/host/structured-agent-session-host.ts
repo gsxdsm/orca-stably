@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the fork's additions sit beside upstream's in this owner after the upstream merge. */
 import * as usageLimit from '../recovery/structured-agent-session-host-background'
 import { createStructuredAgentSessionConversationReads } from './structured-agent-session-conversation-reads'
 import { continuationContextReader as contextReader } from '../recovery/structured-agent-session-continuation-context'
@@ -317,6 +318,8 @@ export class StructuredAgentSessionHost {
   appendAgentStart = this.startJournal.appendAgentStart
 
   currentWork = this.clientDelivery.readCurrentWork
+  // Agent prompts and their pushes read synchronously what the status feed last published.
+  publishedActionablePrompts = this.clientDelivery.publishedActionablePrompts
   currentWorkAtRest = this.reads.currentWorkAtRest
   readCurrentRequests: Background['currentRequests'] = (req) => this.background.currentRequests(req)
 
