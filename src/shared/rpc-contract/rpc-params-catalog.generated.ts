@@ -46,6 +46,7 @@ import {
 } from '../browser/client-hosting/desktop-browser-bridge-protocol'
 import { MobileWebBundleChunkParamsSchema } from '../mobile-web-bundle/bundle-rpc-contract'
 import { MobileWebBundleLocaleCatalogParamsSchema } from '../mobile-web-bundle/locale-catalog-contract'
+import { NativeChatTerminalQueueRequest } from '../native-chat/native-chat-terminal-queue'
 import { OrcadMigrationBlobChunkRequestSchema } from '../orcad-migration/orcad-migration-blob-transfer'
 import { OrcadMigrationSnapshotChunkRequestSchema } from '../orcad-migration/orcad-migration-scrollback'
 import {
@@ -117,6 +118,7 @@ import {
 import { AgentListParams, AgentReadParams, AgentShowParams } from './agent-conversation-params'
 import { AgentLaunch, AgentLaunchReplay } from './agent-launch/agent-launch-params'
 import { AgentLaunchSettingsMutation } from './agent-launch/agent-launch-settings-params'
+import { AgentPromptListPendingParams, AgentPromptRespondParams } from './agent-prompt-params'
 import {
   AiVaultDeleteSessionParams,
   AiVaultListSessionsParams,

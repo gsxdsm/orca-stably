@@ -3,15 +3,20 @@ import type {
   NativeChatTerminalActivity,
   NativeChatTerminalQueueSnapshot
 } from '../../shared/native-chat/native-chat-terminal-queue'
+import type { AgentSessionQueuedMessage } from '../../shared/agent-session/requests/agent-session-queued-message-wire'
 import { agentSessionSendBodyFingerprint } from '../../shared/agent-session/requests/structured-agent-session-send-mutation'
-import { QUEUED_MESSAGE_PAUSED_SEND_FAILED } from '../../shared/agent-session/requests/agent-session-queued-message-wire'
-import { readPublishedQueuedMessages } from './agent-session-wire/delivery/structured-agent-session-queued-publication'
+import { computePublishedQueuedMessages } from './agent-session-wire/delivery/structured-agent-session-queued-publication'
 import type { AgentSessionJournal } from './agent-session-journal/journal-store'
 import { agentSessionFailureFact } from '../../shared/agent-session/failures/agent-session-failure'
 import { agentSessionFailureWords } from '../../shared/agent-session/failures/agent-session-failure-words'
 import { queuedMessagesPublishedBytesRefusal } from './agent-session-wire/delivery/structured-agent-session-queued-published-bytes'
 import type { AgentJournalMessageItem } from '../../shared/agent-session/journal/agent-session-journal-types'
 
+async function publishedQueue(journal: AgentSessionJournal): Promise<AgentSessionQueuedMessage[]> {
+  return computePublishedQueuedMessages(await journal.queuedMessages.list())
+}
+
+/** A terminal chat's queue: cards wait in the journal and go to the terminal one at a time when it is idle. */
 export class TerminalChatQueue {
   private draining: Promise<void> | null = null
   private submittedSequence: number | null = null
@@ -23,12 +28,12 @@ export class TerminalChatQueue {
     private readonly send: (text: string) => Promise<boolean>
   ) {}
 
-  snapshot(): NativeChatTerminalQueueSnapshot {
+  async snapshot(): Promise<NativeChatTerminalQueueSnapshot> {
     const cursor = this.journal.cursor()
     return {
       revision: `${cursor.epoch}:${cursor.sequence}`,
       activity: this.activity(),
-      queuedMessages: readPublishedQueuedMessages(this.journal)
+      queuedMessages: await publishedQueue(this.journal)
     }
   }
 
@@ -39,14 +44,14 @@ export class TerminalChatQueue {
   }
 
   private async enqueueOne(messageId: string, text: string): Promise<void> {
-    const existing = this.journal.queuedMessages.get(messageId)
+    const existing = await this.journal.queuedMessages.get(messageId)
     if (existing) {
       if (existing.body.blocks.some((block) => block.type === 'text' && block.text !== text)) {
         throw new Error('terminal_chat_queue_payload_changed')
       }
       return
     }
-    if (readPublishedQueuedMessages(this.journal).length >= 100) {
+    if ((await publishedQueue(this.journal)).length >= 100) {
       throw new Error('terminal_chat_queue_full')
     }
     const body: AgentJournalMessageItem = {
@@ -54,7 +59,7 @@ export class TerminalChatQueue {
       role: 'user',
       blocks: [{ type: 'text', text }]
     }
-    const refusal = queuedMessagesPublishedBytesRefusal(this.journal, body, true)
+    const refusal = await queuedMessagesPublishedBytesRefusal(this.journal, body, true)
     if (refusal) {
       throw new Error(refusal.message)
     }
@@ -75,7 +80,7 @@ export class TerminalChatQueue {
   }
 
   async cancel(messageIds: string[]): Promise<void> {
-    const head = readPublishedQueuedMessages(this.journal)[0]
+    const head = (await publishedQueue(this.journal))[0]
     await this.journal.queuedMessages.withdraw(messageIds)
     if (head?.paused && messageIds.includes(head.messageId)) {
       this.submittedSequence = null
@@ -83,7 +88,7 @@ export class TerminalChatQueue {
   }
 
   private async drainOne(): Promise<void> {
-    const first = readPublishedQueuedMessages(this.journal)[0]
+    const first = (await publishedQueue(this.journal))[0]
     if (!first || first.paused || first.state !== 'waiting') {
       return
     }
@@ -95,23 +100,24 @@ export class TerminalChatQueue {
     ) {
       return
     }
-    const card = this.journal.queuedMessages.nextInputCard()
+    const card = await this.journal.queuedMessages.nextInputCard()
     if (card?.messageId !== first.messageId) {
       return
     }
     const id = randomUUID()
+    // The journal hands the card off with the submission and settles it back when the dispatch fails.
     await this.journal.appendSubmission(
       {
         clientMessageId: id,
         payloadFingerprint: agentSessionSendBodyFingerprint(
-          this.journal.queuedMessages.sessionId,
+          this.journal.identity.sessionId,
           card.body
         ),
         body: card.body,
         fence: 0,
         handoverRecorded: true
       },
-      { messageId: card.messageId, expect: 'waiting', yieldsToPause: true }
+      { messageId: card.messageId, expect: 'waiting' }
     )
     this.submittedSequence = activity.workingSequence
     const text = card.body.blocks
@@ -120,28 +126,14 @@ export class TerminalChatQueue {
     const sent = await this.send(text).catch(() => null)
     if (sent === false) {
       this.submittedSequence = null
-      await this.journal.resolveDispatch(
-        {
-          clientMessageId: id,
-          state: 'rejected',
-          fence: 0,
-          ...agentSessionFailureWords(agentSessionFailureFact('writeFailed'), {
-            surface: 'rejection'
-          })
-        },
-        () =>
-          this.journal.queuedMessages.plan([
-            {
-              messageId: card.messageId,
-              change: {
-                op: 'queued',
-                body: card.body,
-                position: card.position,
-                queuedAt: card.queuedAt
-              }
-            }
-          ])
-      )
+      await this.journal.resolveDispatch({
+        clientMessageId: id,
+        state: 'rejected',
+        fence: 0,
+        ...agentSessionFailureWords(agentSessionFailureFact('writeFailed'), {
+          surface: 'rejection'
+        })
+      })
       return
     }
     if (sent === true) {
@@ -153,26 +145,11 @@ export class TerminalChatQueue {
       })
       return
     }
-    await this.journal.resolveDispatch(
-      {
-        clientMessageId: id,
-        state: 'unknown',
-        reason: 'Message delivery could not be confirmed',
-        fence: 0
-      },
-      () =>
-        this.journal.queuedMessages.plan([
-          {
-            messageId: card.messageId,
-            change: {
-              op: 'queued',
-              body: card.body,
-              position: card.position,
-              queuedAt: card.queuedAt,
-              holdReason: QUEUED_MESSAGE_PAUSED_SEND_FAILED
-            }
-          }
-        ])
-    )
+    await this.journal.resolveDispatch({
+      clientMessageId: id,
+      state: 'unknown',
+      reason: 'Message delivery could not be confirmed',
+      fence: 0
+    })
   }
 }
