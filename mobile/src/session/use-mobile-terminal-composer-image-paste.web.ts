@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import type { TextInput } from 'react-native'
+import type { TextInputInstance } from 'react-native'
 import { claimMobileComposerImagePaste } from './native-chat/composer/mobile-native-chat-composer-image-paste-claim.web'
 
-function textareaFrom(node: TextInput | null): HTMLTextAreaElement | HTMLInputElement | null {
+function textareaFrom(
+  node: TextInputInstance | null
+): HTMLTextAreaElement | HTMLInputElement | null {
   if (node instanceof HTMLTextAreaElement || node instanceof HTMLInputElement) {
     return node
   }
@@ -12,7 +14,7 @@ function textareaFrom(node: TextInput | null): HTMLTextAreaElement | HTMLInputEl
 // Image-only pastes follow More Keys. Text pastes stay in the field, including a caption beside an image.
 export function useMobileTerminalComposerImagePaste(args: {
   readonly enabled: boolean
-  readonly fieldRefs: readonly RefObject<TextInput | null>[]
+  readonly fieldRefs: readonly RefObject<TextInputInstance | null>[]
   readonly onImagePaste: (mode?: 'image') => void | Promise<void>
   readonly readClipboardImage: () => Promise<{ base64: string } | null>
 }): boolean {

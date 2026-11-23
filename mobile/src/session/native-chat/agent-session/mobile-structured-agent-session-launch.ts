@@ -102,7 +102,7 @@ function classifyCreateRefusal(
 async function createSupportRefusal(
   client: RpcClient,
   worktree: string,
-  agent: TuiAgent
+  agent: StructuredAgentId
 ): Promise<Extract<MobileStructuredAgentLaunchResult, { kind: 'unsupported' }> | null> {
   let supportResponse
   for (let attempt = 0; ; attempt += 1) {
@@ -147,7 +147,7 @@ async function createSupportRefusal(
 export async function createMobileStructuredAgentSession(
   client: RpcClient,
   worktreeId: string,
-  agent: TuiAgent
+  agent: StructuredAgentId
 ): Promise<MobileStructuredAgentLaunchResult> {
   const worktree = `id:${worktreeId}`
   return (
@@ -160,7 +160,7 @@ export async function createMobileStructuredAgentSession(
 export function forkMobileStructuredAgentSession(
   client: RpcClient,
   worktreeId: string,
-  agent: TuiAgent,
+  agent: StructuredAgentId,
   forkFrom: StructuredAgentSessionForkSource,
   /** Sent only to a host advertising create placement; the replay keeps it. */
   tabPlacement?: StructuredAgentSessionCreateParams['tabPlacement']
@@ -177,7 +177,7 @@ export function forkMobileStructuredAgentSession(
 async function requestStructuredAgentSessionCreate(
   client: RpcClient,
   worktree: string,
-  agent: TuiAgent,
+  agent: StructuredAgentId,
   forkFrom?: StructuredAgentSessionForkSource,
   tabPlacement?: StructuredAgentSessionCreateParams['tabPlacement']
 ): Promise<MobileStructuredAgentCreateResult> {

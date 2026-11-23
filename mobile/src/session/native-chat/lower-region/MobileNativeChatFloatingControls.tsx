@@ -121,14 +121,14 @@ function railFrame(
 export function MobileNativeChatFloatingControls({
   showJumpToTail,
   onJumpToTail,
-  showPreviousMessage,
+  showPreviousMessage = false,
   onJumpToPrevious,
   rail
 }: {
   showJumpToTail: boolean
   onJumpToTail: () => void
-  showPreviousMessage: boolean
-  onJumpToPrevious: (animated: boolean) => void
+  showPreviousMessage?: boolean
+  onJumpToPrevious?: (animated: boolean) => void
   rail?: DuoRailJumpFrames | null
 }): React.JSX.Element {
   useMobileColorScheme()
@@ -176,7 +176,7 @@ export function MobileNativeChatFloatingControls({
           previousTop === null || rail == null ? undefined : railFrame(previousTop, rail.previous)
         }
         label={t('session.nativeChatFloatingControls.previousMessage', 'Previous message')}
-        onPress={() => onJumpToPrevious(!reducedMotion)}
+        onPress={() => onJumpToPrevious?.(!reducedMotion)}
         icon={<ArrowUp size={iconSize} color={colors.textPrimary} strokeWidth={iconStroke} />}
       />
       <ChatJumpButton

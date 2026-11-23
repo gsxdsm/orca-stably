@@ -2,10 +2,7 @@ import { useCallback } from 'react'
 import { AppState } from 'react-native'
 import { useFocusEffect } from 'expo-router'
 import { subscribeMirroredKey } from '../../storage/mirrored-storage-keys'
-import {
-  NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY,
-  TERMINAL_SETTINGS_STORAGE_KEYS
-} from './page-storage-keys'
+import { NATIVE_CHAT_TEXT_STORAGE_KEY, TERMINAL_SETTINGS_STORAGE_KEYS } from './page-storage-keys'
 
 export function useShellPageStorageRefresh(refresh: () => Promise<unknown>, publish: () => void) {
   useFocusEffect(
@@ -35,7 +32,7 @@ export function useShellPageStorageRefresh(refresh: () => Promise<unknown>, publ
           }
         }),
         // A pinch writes from the page. Other open chats have to see it without a reload.
-        subscribeMirroredKey(NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY, () => {
+        subscribeMirroredKey(NATIVE_CHAT_TEXT_STORAGE_KEY, () => {
           if (focused) {
             publish()
           }

@@ -2,7 +2,7 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { Check } from 'lucide-react-native'
 import type { CodexResetCreditExpectedScope } from '../../../src/shared/agent-accounts/codex/codex-reset-credit-scope'
 import { ClaudeIcon, OpenAIIcon } from '../components/icons/AgentIcons'
-import { UsageBar } from '../components/AccountUsage'
+import { UsageBar } from './usage/UsageBar'
 import {
   getActiveProviderRateLimits,
   getInactiveProviderUsage,
@@ -11,7 +11,7 @@ import {
   hasActiveProviderUsage,
   type AccountsSnapshot,
   type ProviderKey
-} from '../components/account-usage-state'
+} from './usage/usage-selectors'
 import {
   getActiveCodexAccountIdForRateLimitTarget,
   getCodexResetCreditSummary

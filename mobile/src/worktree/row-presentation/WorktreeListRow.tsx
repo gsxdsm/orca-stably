@@ -163,7 +163,7 @@ function WorktreeListRowComponent({
         view={view}
         isReadOnly={isReadOnly}
         onPress={() => onPress(item)}
-        onLongPress={openActions}
+        onLongPress={handleLongPress}
         onToggle={onToggleLineage ? () => onToggleLineage({ row: item, view }) : undefined}
       />
     )

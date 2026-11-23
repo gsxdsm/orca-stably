@@ -57,7 +57,7 @@ export function usageBandColor(usedPercent: number | null): string {
   if (usedPercent == null || !Number.isFinite(usedPercent)) {
     return colors.textMuted
   }
-  return usageBarFill(usedPercent, false).color
+  return usageBarFill(usedPercent, false, 'used').color
 }
 
 // Match desktop/harness consumption meters: fresh empty/green, depleted full/red.

@@ -1,5 +1,5 @@
 import { useState, type RefObject } from 'react'
-import type { TextInput } from 'react-native'
+import type { TextInputInstance } from 'react-native'
 import {
   MobileNativeChatSessionOptionPickers,
   type MobileNativeChatPickerPresentation,
@@ -16,7 +16,7 @@ export function MobileNativeChatComposerSessionPickers({
   sessionOptions: MobileNativeChatSessionOptionPickersProps
   sendInFlight: boolean
   focused: boolean
-  fieldRef: RefObject<TextInput | null>
+  fieldRef: RefObject<TextInputInstance | null>
 }): React.JSX.Element {
   const [picker, setPicker] = useState<MobileNativeChatPickerPresentation | null>(null)
   const request = sessionOptions.controller.optionPickerRequest

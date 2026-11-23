@@ -14,7 +14,8 @@ import {
   readBridgeRpcEnvelope
 } from './client-state/bridge-client-rpc-envelope'
 import type { BridgeClientSubscriptions } from './client-state/bridge-client-subscriptions'
-import { BRIDGE_PROTOCOL_VERSION, type BridgeClientMessage } from './protocol/bridge-envelope'
+import { BRIDGE_PROTOCOL_VERSION } from './protocol/bridge-frame-fields'
+import type { BridgeClientMessage } from './protocol/bridge-envelope'
 
 type BridgeFrameSendOutcome = 'sent' | 'oversized' | 'port-failed'
 

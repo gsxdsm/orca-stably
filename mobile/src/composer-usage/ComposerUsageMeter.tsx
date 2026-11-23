@@ -1,6 +1,6 @@
 import { useContext, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
-import { usageBandColor } from '../components/AccountUsage'
+import { usageBandColor } from '../accounts/usage/UsageBar'
 import { composerInputStyles } from '../components/composer-input/composer-input-styles'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'

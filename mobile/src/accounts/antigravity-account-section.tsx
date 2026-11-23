@@ -7,7 +7,7 @@ import {
   hasRenderableProviderUsage,
   providerUsagePlaceholder,
   type AccountsSnapshot
-} from '../components/account-usage-state'
+} from './usage/usage-selectors'
 import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { colors } from '../theme/mobile-theme'

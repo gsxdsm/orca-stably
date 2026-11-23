@@ -286,7 +286,7 @@ export function MobileSessionActiveContent({
     ) : (
       <View style={styles.terminalFrame}>
         {/* Terminals keep clear of a released strip; the chat overlay below fills it. */}
-        <View style={[StyleSheet.absoluteFillObject, sideStripOffset(stripInset)]}>
+        <View style={[StyleSheet.absoluteFill, sideStripOffset(stripInset)]}>
           <MountedTerminalPanes terminals={terminals} visibleHandles={visibleTerminalHandles}>
             {(terminal) => (
               <TerminalPaneView

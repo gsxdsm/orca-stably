@@ -43,7 +43,11 @@ import {
   useMobileWorkerApprovalReceiptPlacement
 } from './transcript/messages/MobileNativeChatWorkerApprovalReceipts'
 import { useMobileNativeChatPromptInputOwner } from './input/prompts/use-mobile-native-chat-prompt-input-owner'
-import { NO_COMPOSER_TRAY } from './composer/menus/use-mobile-native-chat-composer-tray'
+import {
+  NO_COMPOSER_TRAY,
+  type ComposerTrayProps
+} from './composer/menus/use-mobile-native-chat-composer-tray'
+import type { MobileNativeChatMicProps } from './composer/dictation/MobileNativeChatComposerMic'
 import { MobileNativeChatScrollRootsBoundary } from './transcript/viewport/MobileNativeChatScrollRootsBoundary'
 import { MobileNativeChatActivityBar } from './input/MobileNativeChatActivityBar'
 import { useMobileNativeChatSubagentTranscript } from './input/use-mobile-native-chat-subagent-transcript'

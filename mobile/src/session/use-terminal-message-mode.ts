@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { TextInput } from 'react-native'
+import type { TextInputInstance } from 'react-native'
 import {
   loadTerminalMessageModeHandles,
   saveTerminalMessageModeHandles
@@ -22,7 +22,7 @@ export function useTerminalMessageMode({
   const hydratedRef = useRef(false)
   const pendingEditsRef = useRef(new Map<string, boolean>())
   const [terminalDrafts, setTerminalDrafts] = useState<ReadonlyMap<string, string>>(() => new Map())
-  const messageInputRef = useRef<TextInput | null>(null)
+  const messageInputRef = useRef<TextInputInstance | null>(null)
 
   const commit = useCallback((next: ReadonlySet<string>) => {
     messageHandlesRef.current = next

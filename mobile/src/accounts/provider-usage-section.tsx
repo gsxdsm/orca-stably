@@ -9,8 +9,8 @@ import {
   type AccountsSnapshot,
   type MobileUsageProviderId,
   type UsageMeter
-} from '../components/account-usage-state'
-import { UsageBar } from '../components/AccountUsage'
+} from './usage/usage-selectors'
+import { UsageBar } from './usage/UsageBar'
 import { MiniMaxIcon, OpenCodeGoIcon } from '../components/icons/AgentIcons'
 import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'

@@ -43,12 +43,13 @@ export function isNativePagePreferenceKey(key: string): boolean {
   return NATIVE_PAGE_STORAGE_REFRESH_KEYS.some((item) => item === key)
 }
 
-export const NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY = 'orca:nativeChatTextScale'
+/** Chat text size, font and spacing; a pinch in one chat must reach the others. */
+export const NATIVE_CHAT_TEXT_STORAGE_KEY = 'orca:nativeChatText'
 
 // Off is the string 'terminal'. An omitted refresh is an older shell that did not copy this key, not a cleared setting.
 // A pinch has no clear action, so an older shell that omits the chat size must not wipe it.
 export function pageRefreshKeepsStoredValue(key: string): boolean {
-  return key === 'orca:defaultSessionView' || key === NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY
+  return key === 'orca:defaultSessionView' || key === NATIVE_CHAT_TEXT_STORAGE_KEY
 }
 
 // Terminal settings, Chat UI, the device-wide Duo chat width, and the pinched chat text size.
@@ -56,7 +57,7 @@ export const LIVE_PAGE_STORAGE_KEYS = [
   ...TERMINAL_SETTINGS_STORAGE_KEYS,
   'orca:defaultSessionView',
   'orca:duoChatExpanded',
-  NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY
+  NATIVE_CHAT_TEXT_STORAGE_KEY
 ] as const
 
 export const PAGE_STORAGE_EXACT_KEYS = [
@@ -82,7 +83,6 @@ export const PAGE_STORAGE_EXACT_KEYS = [
   'orca:selectableSidebarSessions',
   /** Whether every Duo chat runs across the status column. */
   'orca:duoChatExpanded',
-  NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY,
   /** Terminal font, line spacing and weight. */
   'orca:terminalFontStyle',
   /** Chat text size, font and spacing; a pinch in a chat saves here. */
@@ -104,7 +104,6 @@ export const NEGOTIATED_PAGE_STORAGE_KEYS = [
   'orca:composerUsageDisplay',
   'orca:selectableSidebarSessions',
   'orca:duoChatExpanded',
-  NATIVE_CHAT_TEXT_SCALE_STORAGE_KEY,
   'orca:terminalFontStyle',
   'orca:nativeChatText',
   'orca:newAgentSurface',

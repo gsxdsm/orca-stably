@@ -327,3 +327,4 @@ function windowChip(windowMinutes: number): string {
   }
   return `${windowMinutes}m`
 }
+export type { AccountsSnapshot } from '../accounts-snapshot'
