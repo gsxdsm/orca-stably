@@ -2,7 +2,8 @@ import type { OrchestrationDb } from './db/orchestration-db'
 import type { WorkerScheduledWait } from './db/worker-scheduled-waits'
 import { clearWorkerScheduledWait, isWorkerScheduledWaitCurrent } from './db/worker-scheduled-waits'
 import {
-  reportWorkerTurnStop,
+  sendWorkerReport,
+  stopReportId,
   type WorkerTurnStopReportDeps
 } from './workers/turn-stops/worker-turn-stop-report'
 
@@ -45,16 +46,17 @@ export function reportExpiredWorkerWaits(
       clearWorkerScheduledWait(db, wait.dispatch_id)
       continue
     }
-    const reported = reportWorkerTurnStop(
+    // Expiry is news on its own: no rest can hold it back, and its stable id sends it once.
+    const reported = sendWorkerReport(
       db,
       target,
       {
         from: wait.from_handle,
-        stopKey: `scheduled-wait:${wait.message_id}`,
         reason: 'wait-expired',
         lastOutput: `Scheduled wait expired at ${new Date(wait.until_ms).toISOString()} without progress: ${wait.reason}`
       },
-      { ...deps, isWaitingForMail: () => false }
+      stopReportId(wait.dispatch_id, `scheduled-wait:${wait.message_id}`),
+      deps
     )
     if (reported) {
       db.db

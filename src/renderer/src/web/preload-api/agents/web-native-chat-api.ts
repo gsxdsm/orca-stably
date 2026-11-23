@@ -25,9 +25,8 @@ export function createWebNativeChatApi(): NativeChatApi {
           sessionId,
           limit,
           transcriptPath,
-          capabilities: { transcriptSourceOrder: 1 },
-          ...(options?.beforeOffset !== undefined ? { beforeOffset: options.beforeOffset } : {}),
-          ...(options?.subagentId ? { subagentId: options.subagentId } : {})
+          beforeOffset: options?.beforeOffset,
+          capabilities: { transcriptSourceOrder: 1 }
         })
       ),
     subscribe: (args, onFrame) => {

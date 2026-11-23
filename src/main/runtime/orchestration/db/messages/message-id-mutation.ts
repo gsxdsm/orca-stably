@@ -9,6 +9,7 @@ export function runBatchedMessageMutation(
   ids: string[],
   sqlForPlaceholders: (placeholders: string) => string,
   leadingBindings: string[] = [],
+  beforeBatch: (batch: string[]) => void = () => {},
   progress = false
 ): void {
   if (ids.length === 0) {
@@ -19,6 +20,7 @@ export function runBatchedMessageMutation(
     for (let offset = 0; offset < ids.length; offset += MESSAGE_ID_UPDATE_BATCH_SIZE) {
       const batch = ids.slice(offset, offset + MESSAGE_ID_UPDATE_BATCH_SIZE)
       const placeholders = batch.map(() => '?').join(',')
+      beforeBatch(batch)
       db.db.prepare(sqlForPlaceholders(placeholders)).run(...leadingBindings, ...batch)
       if (progress) {
         clearWorkerScheduledWaitForMessages(db, batch)

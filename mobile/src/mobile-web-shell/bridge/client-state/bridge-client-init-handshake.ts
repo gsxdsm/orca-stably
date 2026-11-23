@@ -51,6 +51,8 @@ export function createPageReadyFrame(): Extract<BridgeClientMessage, { type: 're
     type: 'ready',
     storageKeys: [...NEGOTIATED_PAGE_STORAGE_KEYS, ...NEGOTIATED_PAGE_STORAGE_PREFIXES],
     connectionPathFrames: true,
-    appInactiveFrames: true
+    appInactiveFrames: true,
+    appResumedFrames: true,
+    botItemLinks: true
   }
 }

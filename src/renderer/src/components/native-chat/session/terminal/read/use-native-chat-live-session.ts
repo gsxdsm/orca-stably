@@ -223,6 +223,8 @@ export function useNativeChatLiveSession(
     transport,
     hasMore,
     read,
+    liveTailRef: appendMergerRef,
+    olderHistoryGeneration,
     transcriptLifecycleControl,
     limitRef,
     latestEnabled,

@@ -1,5 +1,5 @@
 import type { ComponentType, Ref } from 'react'
-import { Pressable, type HostInstance } from 'react-native'
+import { Pressable, Text, View, type HostInstance } from 'react-native'
 import { ChevronLeft } from 'lucide-react-native'
 import { colors, feedback, radii } from '../../theme/mobile-theme'
 import { themedStyleSheet } from '../../theme/themed-styles'
@@ -24,6 +24,8 @@ type NavBarButtonProps = {
   size?: number
   /** The icon's colour while not active, e.g. a PR state's. */
   iconColor?: string
+  /** A count on the button's corner, e.g. items that need you; nothing at 0. */
+  badge?: { count: number; color: string }
 }
 
 // A round top-bar button; the bar floats over content like the composer, so its buttons are round too.
@@ -36,7 +38,8 @@ export function NavBarButton({
   active = false,
   disabled = false,
   size = NAV_BAR_BUTTON_SIZE,
-  iconColor
+  iconColor,
+  badge
 }: NavBarButtonProps) {
   useMobileColorScheme()
   const sessionListLongPress = useSessionListLongPressProps(onLongPress)
@@ -64,6 +67,11 @@ export function NavBarButton({
         color={active ? colors.bgBase : (iconColor ?? colors.textPrimary)}
         strokeWidth={2.1}
       />
+      {badge && badge.count > 0 ? (
+        <View style={[styles.badge, { backgroundColor: badge.color }]}>
+          <Text style={styles.badgeText}>{badge.count > 99 ? '99+' : badge.count}</Text>
+        </View>
+      ) : null}
     </Pressable>
   )
 }
@@ -85,5 +93,19 @@ const styles = themedStyleSheet(() => ({
   },
   disabled: {
     opacity: feedback.disabledOpacity
-  }
+  },
+  badge: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.bgBase
+  },
+  badgeText: { fontSize: 10, fontWeight: '700', color: '#ffffff', lineHeight: 12 }
 }))

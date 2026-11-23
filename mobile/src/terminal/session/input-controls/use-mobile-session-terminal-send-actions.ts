@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the fork's additions sit beside upstream's in this owner after the upstream merge. */
 import { useCallback, useRef } from 'react'
 import { Keyboard } from 'react-native'
 import { translate } from '../../../i18n/mobile-i18n'
@@ -23,6 +24,7 @@ import type { MobileSessionTab } from '../../../session/tabs/mobile-session-tabs
 import { useMobileSessionTabActionSheetOpener } from '../../../session/tabs/use-mobile-session-tab-action-targets'
 import type { MobileSessionTerminalWebviewModel } from '../use-mobile-session-terminal-webview'
 import type { TerminalLiveInputSender } from '../../live-input/terminal-live-input-sender'
+import { useOptionalHostProtocolGates } from '../../../components/host-connection/host-protocol-gates-context'
 
 export function useMobileSessionTerminalSendActions(scope: MobileSessionTerminalWebviewModel) {
   const {
@@ -62,6 +64,7 @@ export function useMobileSessionTerminalSendActions(scope: MobileSessionTerminal
     toggleTerminalMessageMode
   } = scope
   const sendingMessageRef = useRef(false)
+  const hostPlatform = useOptionalHostProtocolGates()?.hostPlatform
   const TERMINAL_KEYBOARD_DISMISS_ACTION_SHEET_FALLBACK_MS = 450
 
   const dismissSoftwareKeyboard = useCallback(() => {
@@ -171,7 +174,11 @@ export function useMobileSessionTerminalSendActions(scope: MobileSessionTerminal
     // Encode first so the live-input commit sees the bytes the PTY will receive.
     const encoded = {
       ...input,
-      bytes: encodeTerminalKeyForModes(input.bytes, ptyModesRef.current.get(targetHandle))
+      bytes: encodeTerminalKeyForModes(
+        input.bytes,
+        ptyModesRef.current.get(targetHandle),
+        hostPlatform
+      )
     }
     const accessoryCommit = await handleLiveInputAccessoryBytes(encoded)
     if (!isDeliveryTargetCurrent() || clientRef.current !== client) {
@@ -196,7 +203,8 @@ export function useMobileSessionTerminalSendActions(scope: MobileSessionTerminal
     async (handle, bytes, origin, enqueue): Promise<boolean> => {
       const text = encodeTerminalKeyForModes(
         normalizeTerminalTextInput(bytes),
-        ptyModesRef.current.get(handle)
+        ptyModesRef.current.get(handle),
+        hostPlatform
       )
       if (text.length === 0) {
         return false
@@ -243,7 +251,7 @@ export function useMobileSessionTerminalSendActions(scope: MobileSessionTerminal
         () => false
       )
     },
-    [sendTerminalOrderedInput, showToast, terminalRefs]
+    [hostPlatform, sendTerminalOrderedInput, showToast, terminalRefs]
   )
   sendLiveTerminalInputRef.current = sendLiveTerminalInput
 

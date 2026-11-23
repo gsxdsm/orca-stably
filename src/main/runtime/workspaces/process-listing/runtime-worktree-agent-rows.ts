@@ -23,6 +23,11 @@ import {
 } from './runtime-worktree-summary-paths'
 import type { RuntimeTerminalTitleEvidence } from './runtime-worktree-ps-activity'
 import type { RuntimeWorktreeAgentSource } from './runtime-worktree-agent-source'
+import { structuredAgentSessionIdFromTabId } from '../../../../shared/agent-session/view/structured-agent-session-tab-id'
+import {
+  formatOrcaSessionAddress,
+  isOrcaSessionId
+} from '../../../../shared/agent-session/identity/orca-session-address'
 
 type OrchestrationDisplay = {
   taskTitle?: string | null
@@ -122,6 +127,16 @@ function mirrorCrossWorkspaceChildren(
   }
 }
 
+/** A terminal agent by its handle; a chat by its Orca session address. */
+function agentAddress(source: RuntimeWorktreeAgentSource): string | undefined {
+  if (source.terminalHandle) {
+    return source.terminalHandle
+  }
+  const sessionId =
+    source.structuredHost && source.tabId ? structuredAgentSessionIdFromTabId(source.tabId) : null
+  return sessionId && isOrcaSessionId(sessionId) ? formatOrcaSessionAddress(sessionId) : undefined
+}
+
 const UNLISTED: AgentListVerdict = { listed: false }
 
 /** A pane the window gave no verdict is not in its list, unless it changed after the window last looked. */
@@ -188,9 +203,11 @@ export function attachRuntimeWorktreeAgentRows(args: {
       parentPaneKey ? rowSources.get(parentPaneKey) : undefined,
       args.conversationName
     )
+    const address = agentAddress(source)
     const row: RuntimeWorktreeAgentRow = {
       paneKey: source.paneKey,
       ...(source.terminalHandle ? { terminalHandle: source.terminalHandle } : {}),
+      ...(address ? { address } : {}),
       ...(source.orcaSessionId ? { orcaSessionId: source.orcaSessionId } : {}),
       parentPaneKey,
       homeWorktreeId: summary.worktreeId,

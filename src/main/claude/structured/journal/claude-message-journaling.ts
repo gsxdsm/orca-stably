@@ -24,6 +24,7 @@ import {
   toolInputFilePath
 } from '../../../native-chat/tool-result-images'
 import { claudeEnvelopeStopHookFeedbackRow } from './claude-stop-hook-feedback'
+import { AGENT_SESSION_GOAL_CHECK_PRESENTATION } from '../../../../shared/agent-session/thread-goals/agent-session-goal-check-display'
 import {
   appendUnmodeledContent,
   type ClaudeProviderFrameFallback
@@ -158,6 +159,11 @@ export function journalClaudeMessage(
   }
   const stopHookFeedback = claudeEnvelopeStopHookFeedbackRow(envelope)
   if (stopHookFeedback) {
+    const goalCheck = ctx.threadGoal.goalCheckText(envelope)
+    if (goalCheck !== null) {
+      stopHookFeedback.presentation = AGENT_SESSION_GOAL_CHECK_PRESENTATION
+      stopHookFeedback.text = `Stop hook feedback: ${goalCheck}`
+    }
     ctx.turn.ensureOpen(message, source, observedAt)
     ctx.sink.appendItem(identity, stopHookFeedback, {
       ...stamp(identity, stopHookFeedback),

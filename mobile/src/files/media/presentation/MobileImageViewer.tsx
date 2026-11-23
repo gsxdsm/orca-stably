@@ -9,7 +9,7 @@ import {
   type ViewStyle,
   useWindowDimensions
 } from 'react-native'
-import { X } from 'lucide-react-native'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react-native'
 import { useWindowSafeAreaInsets } from '../../../layout/side-safe-area'
 import { colors, feedback, radii, spacing } from '../../../theme/mobile-theme'
 import { themedStyleSheet } from '../../../theme/themed-styles'
@@ -51,6 +51,8 @@ export function MobileImageViewer({
   size,
   upscale,
   actions: Actions,
+  onPrevious,
+  onNext,
   onClose
 }: {
   uri: string
@@ -61,6 +63,9 @@ export function MobileImageViewer({
   upscale?: boolean
   /** A button beside Close; passed in so diagrams don't pull the share sheet into their bundle. */
   actions?: ComponentType<ImageViewerActionsProps>
+  /** In a set of images: steps back or on. Null at that end; both omitted for a lone image. */
+  onPrevious?: (() => void) | null
+  onNext?: (() => void) | null
   onClose: () => void
 }): React.JSX.Element {
   useMobileColorScheme()
@@ -78,6 +83,7 @@ export function MobileImageViewer({
         <Animated.View pointerEvents="none" style={[styles.backdrop, backdropStyle]} />
         <Animated.View style={[styles.stage, stageStyle]}>
           <MobilePanZoomImage
+            key={uri}
             uri={uri}
             label={label}
             size={size}
@@ -86,6 +92,25 @@ export function MobileImageViewer({
           />
         </Animated.View>
         <Animated.View pointerEvents="box-none" style={[styles.chrome, chromeStyle]}>
+          {onPrevious !== undefined || onNext !== undefined ? (
+            <>
+              <StepButton
+                icon={ChevronLeft}
+                label={t('chat.nativeChatImageViewer.previousImage', 'Previous image')}
+                onPress={onPrevious ?? null}
+                style={{ top: insets.top + spacing.sm, left: insets.left + spacing.lg }}
+              />
+              <StepButton
+                icon={ChevronRight}
+                label={t('chat.nativeChatImageViewer.nextImage', 'Next image')}
+                onPress={onNext ?? null}
+                style={{
+                  top: insets.top + spacing.sm,
+                  left: insets.left + spacing.lg + BUTTON_SIZE + spacing.sm
+                }}
+              />
+            </>
+          ) : null}
           <Pressable
             style={({ pressed }) => [
               styles.close,
@@ -118,6 +143,36 @@ export function MobileImageViewer({
 }
 
 const NATIVE_DRIVER = Platform.OS !== 'web'
+
+function StepButton({
+  icon: Icon,
+  label,
+  onPress,
+  style
+}: {
+  icon: typeof ChevronLeft
+  label: string
+  onPress: (() => void) | null
+  style: ViewStyle
+}): React.JSX.Element {
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.close,
+        style,
+        !onPress && { opacity: feedback.disabledOpacity },
+        pressed && { opacity: feedback.pressedOpacity }
+      ]}
+      onPress={onPress ?? undefined}
+      disabled={!onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !onPress }}
+    >
+      <Icon size={22} color={colors.textPrimary} strokeWidth={2} />
+    </Pressable>
+  )
+}
 
 function viewerTiming(value: Animated.Value, toValue: number, ms: number, reducedMotion: boolean) {
   return Animated.timing(value, {

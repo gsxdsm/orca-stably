@@ -1,4 +1,4 @@
-import { OrcaRuntimeWithWindowlessTerminalActivity } from './sidebar-inputs/temporal/orca-runtime-windowless-terminal-activity'
+import { OrcaRuntimeWithTerminalWorkerRestartResume } from './construction/orca-runtime-terminal-worker-restart-resume'
 import { ORCA_SIDEBAR_INPUTS_IS_MAIN } from '../../shared/sidebar-list/feed/sidebar-inputs-switch'
 import { HEADLESS_RUNTIME_WINDOW_ID } from '../../shared/remote-runtime/session-graph/runtime-session-contracts'
 import { agentPhaseTransition } from '../../shared/agent-status/lifecycle/agent-transitions'
@@ -14,7 +14,7 @@ import {
 } from '../persistence/moving-wsl-projects/quiescence/wsl-move-scope-guard'
 
 /** Terminal start and exit stamps come from the upstream windowless owner. Agent turns are this fork's extra. */
-export abstract class OrcaRuntimeWithHeadlessWorkspaceActivity extends OrcaRuntimeWithWindowlessTerminalActivity {
+export abstract class OrcaRuntimeWithHeadlessWorkspaceActivity extends OrcaRuntimeWithTerminalWorkerRestartResume {
   /** Agents work for hours in one terminal: their prompts, finishes and input requests are its activity too. */
   protected noteHeadlessAgentChange(change: AgentPaneChange): void {
     // The same turn edges main's sort stamps count for Recent.

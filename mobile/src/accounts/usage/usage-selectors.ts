@@ -2,6 +2,7 @@
 import { isCursorUsageBucket } from '../../../../src/shared/agent-usage/rate-limits/cursor-usage-buckets'
 import { formatResetCountdown } from '../../../../src/shared/agent-usage/rate-limits/rate-limit-reset-format'
 import { hasUsageData } from '../../../../src/shared/agent-usage/display/usage-provider-windows'
+import { CLAUDE_HOST_SYSTEM_DEFAULT_USAGE_ID } from '../../../../src/shared/agent-accounts/claude/claude-system-default-usage'
 import type {
   AccountsSnapshot,
   InactiveAccountUsage,
@@ -36,6 +37,24 @@ export function getInactiveProviderUsage(
       ? snapshot.rateLimits.inactiveClaudeAccounts
       : snapshot.rateLimits.inactiveCodexAccounts
   return list.find((u) => u.accountId === accountId) ?? null
+}
+
+/** System default's reading: live while it is selected, else the one the host keeps under the shared key (Claude). */
+export function getSystemDefaultProviderUsage(
+  snapshot: AccountsSnapshot,
+  provider: ProviderKey,
+  activeAccountId: string | null
+): { limits: ProviderRateLimits | null; isFetching: boolean } {
+  if (activeAccountId === null) {
+    const limits = getActiveProviderRateLimits(snapshot, provider)
+    return { limits, isFetching: limits?.status === 'fetching' }
+  }
+  // A host re-reading an unselected login flags the entry, not the reading's status.
+  const entry =
+    provider === 'claude'
+      ? getInactiveProviderUsage(snapshot, provider, CLAUDE_HOST_SYSTEM_DEFAULT_USAGE_ID)
+      : null
+  return { limits: entry?.rateLimits ?? null, isFetching: entry?.isFetching === true }
 }
 
 // System-default logins still fetch quota without managed accounts. Show successful provider or any window data; empty unavailable/error means no credentials.

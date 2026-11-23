@@ -8,6 +8,7 @@ import type {
 import { OrchestrationError } from '../orchestration-error'
 import { generateId } from '../db/generated-id'
 import type { OrchestrationDb } from '../db/orchestration-db'
+import { runLifecycleWriteTransaction } from '../db/lifecycle-write-transaction-runner'
 import {
   isWorkerStateIn,
   SETTLEABLE_WORKER_STATES
@@ -37,8 +38,8 @@ export function enqueueFederationRelay(
       'A federated orchestration message cannot exceed 64 KiB.'
     )
   }
-  this.db.exec('BEGIN IMMEDIATE')
-  try {
+  // Nests as a savepoint, so a caller can commit its own record of the report with it.
+  return runLifecycleWriteTransaction(this.db, 'federation_relay_enqueue', () => {
     // A stable message id makes a repeated report a no-op.
     const queued =
       params.messageId &&
@@ -51,7 +52,6 @@ export function enqueueFederationRelay(
         | FederationRelayItemRow
         | undefined)
     if (queued) {
-      this.db.exec('COMMIT')
       return queued
     }
     if (params.settleRemoteOutcome) {
@@ -80,7 +80,6 @@ export function enqueueFederationRelay(
              WHERE dispatch_id = ? AND direction = ? AND sequence = ?`
           )
           .run(params.payload, byteCount, params.dispatchId, params.direction, heartbeat.sequence)
-        this.db.exec('COMMIT')
         return this.getFederationRelayItem(
           params.dispatchId,
           params.direction,
@@ -101,7 +100,6 @@ export function enqueueFederationRelay(
         | undefined
       if (identicalReport) {
         this.settleRemoteAttachmentInRelayTransaction(params.dispatchId, params.settleRemoteOutcome)
-        this.db.exec('COMMIT')
         return identicalReport
       }
     }
@@ -143,7 +141,6 @@ export function enqueueFederationRelay(
             params.dispatchId,
             params.settleRemoteOutcome
           )
-          this.db.exec('COMMIT')
           return this.getFederationRelayItem(
             params.dispatchId,
             params.direction,
@@ -199,16 +196,12 @@ export function enqueueFederationRelay(
         clearWorkerScheduledWait(this, params.dispatchId)
       }
     }
-    this.db.exec('COMMIT')
     return this.getFederationRelayItem(
       params.dispatchId,
       params.direction,
       sequence
     ) as FederationRelayItemRow
-  } catch (error) {
-    this.db.exec('ROLLBACK')
-    throw error
-  }
+  })
 }
 
 export type FederationRelayEnqueueMethods = {

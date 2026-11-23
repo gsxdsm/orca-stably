@@ -1,14 +1,12 @@
 import type { OrchestrationCompatibilityEvidence } from '../../../../../../shared/orchestration/orchestration-compatibility-evidence'
 import type { OrchestrationDb } from '../../../../orchestration/db/orchestration-db'
 import type { OrcaRuntimeService } from '../../../../orca-runtime'
-import { OrchestrationError } from '../../../../orchestration/orchestration-error'
 import {
   assertScheduledWaitSender,
   type ScheduledWaitMessage
 } from '../../../../orchestration/scheduled-wait-message'
 import { clearWorkerScheduledWait } from '../../../../orchestration/db/worker-scheduled-waits'
 import { assertLifecycleCallerIsNotAnotherParty } from './lifecycle-caller-fence'
-import { isWorkerReportOutcome, parseRemoteWorkerPayload } from './message-payload'
 
 export type MessageProgressCaller = {
   evidence?: OrchestrationCompatibilityEvidence
@@ -24,15 +22,6 @@ export function assertSendLifecycleAdmission(args: {
   scheduledWait: ScheduledWaitMessage | undefined
   resolveProcessIncarnation: () => string | undefined
 }): void {
-  if (
-    args.params.type === 'worker_done' &&
-    !isWorkerReportOutcome(parseRemoteWorkerPayload(args.params.payload).outcome)
-  ) {
-    throw new OrchestrationError(
-      'invalid_argument',
-      'worker_done requires outcome=succeeded|failed for a current Dispatch.'
-    )
-  }
   if (args.scheduledWait) {
     assertScheduledWaitSender(args.db, args.params, args.dispatchId, {
       from: args.from,

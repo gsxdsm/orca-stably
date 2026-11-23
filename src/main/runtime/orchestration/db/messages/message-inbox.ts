@@ -1,3 +1,4 @@
+import { noteQuestionEdge } from './question-edges'
 import { MESSAGE_ID_UPDATE_BATCH_SIZE, runBatchedMessageMutation } from './message-id-mutation'
 import type { MessageType, MessageRow } from '../orchestration-records'
 import { exposeMessageTimestamps, exposeMessageListTimestamps } from '../utc-timestamp'
@@ -5,6 +6,7 @@ import { addLifecycleRejectionMarker } from '../lifecycle-rejection-marker'
 import type { OrchestrationDb } from '../orchestration-db'
 import { MESSAGE_COLUMN_LIST } from '../row-column-lists'
 import { runOwnsDirectMessageSql } from '../runs/run-coordinator-mail-routing'
+import { stampQuestionTakes, type MailTaker } from './mail-taker'
 
 export function getUnreadMessages(
   this: OrchestrationDb,
@@ -134,22 +136,13 @@ export function getMessageById(this: OrchestrationDb, id: string): MessageRow | 
   return message ? exposeMessageTimestamps(message) : undefined
 }
 
-export function markAsRead(this: OrchestrationDb, ids: string[]): void {
-  runBatchedMessageMutation(
-    this,
-    ids,
-    (placeholders) =>
-      `UPDATE messages
-       SET read = 1, pointer_enter_pending = 0, pointer_pty_id = NULL,
-           pointer_process_incarnation = NULL
-       WHERE id IN (${placeholders})`,
-    [],
-    true
-  )
+/** `taker` is who this read hands any agent question to, stamped in the same write. */
+export function markAsRead(this: OrchestrationDb, ids: string[], taker: MailTaker): void {
+  markRead(this, ids, taker, '')
 }
 
-// Use the table's UTC timestamp format and mailbox-fence late delivery stamps.
 export function markAsDelivered(this: OrchestrationDb, ids: string[], mailboxHandle: string): void {
+  noteQuestionEdge({ kind: 'mail', ids })
   runBatchedMessageMutation(
     this,
     ids,
@@ -193,17 +186,22 @@ export function areUnreadMessages(this: OrchestrationDb, toHandle: string, ids: 
 }
 
 // Superseded lifecycle mail must not be consumed or injected after Dispatch settlement.
-export function markAsReadAndDelivered(this: OrchestrationDb, ids: string[]): void {
+export function markAsReadAndDelivered(this: OrchestrationDb, ids: string[], taker: MailTaker) {
+  markRead(this, ids, taker, "delivered_at = COALESCE(delivered_at, datetime('now')),")
+}
+
+function markRead(db: OrchestrationDb, ids: string[], taker: MailTaker, delivered: string): void {
+  noteQuestionEdge({ kind: 'mail', ids })
   runBatchedMessageMutation(
-    this,
+    db,
     ids,
     (placeholders) =>
       `UPDATE messages
-       SET read = 1, delivered_at = COALESCE(delivered_at, datetime('now')),
-           pointer_enter_pending = 0, pointer_pty_id = NULL,
+       SET read = 1, ${delivered} pointer_enter_pending = 0, pointer_pty_id = NULL,
            pointer_process_incarnation = NULL
        WHERE id IN (${placeholders})`,
     [],
+    (batch) => stampQuestionTakes(db, batch, taker),
     true
   )
 }
@@ -211,11 +209,12 @@ export function markAsReadAndDelivered(this: OrchestrationDb, ids: string[]): vo
 export function getInbox(this: OrchestrationDb, limit = 20, runId?: string): MessageRow[] {
   return exposeMessageListTimestamps(
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: SELECT * over messages returns the row shape its schema and MessageRow define, like every row cast in db/.
-    this.db
-      .prepare(
-        'SELECT * FROM messages WHERE (?1 IS NULL OR run_id = ?1) ORDER BY sequence DESC LIMIT ?2'
-      )
-      .all(runId ?? null, limit) as MessageRow[]
+    (runId === undefined
+      ? this.db.prepare('SELECT * FROM messages ORDER BY sequence DESC LIMIT ?').all(limit)
+      : // Why: an `(? IS NULL OR run_id = ?)` predicate hides idx_messages_run_sequence and scans the table.
+        this.db
+          .prepare('SELECT * FROM messages WHERE run_id = ? ORDER BY sequence DESC LIMIT ?')
+          .all(runId, limit)) as MessageRow[]
   )
 }
 

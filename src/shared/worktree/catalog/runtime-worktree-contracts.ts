@@ -39,6 +39,8 @@ export type RuntimeWorktreeAgentRow = {
   paneKey: string
   /** Issued `terminal.send` handle. Older hosts omit it. */
   terminalHandle?: string
+  /** What `worker-start --terminal` takes for this agent: its terminal handle, or a chat's session address. Old hosts omit it. */
+  address?: string
   /** The host's Orca id for this agent's conversation (a chat's /clear root); old hosts omit it. */
   orcaSessionId?: string
   parentPaneKey: string | null
@@ -158,6 +160,10 @@ export type RuntimeWorktreePsSummary = {
    * Older hosts omit these facts. */
   defaultBranch?: boolean
   automationCreated?: true
+  /** The bot this workspace is under (its workers made it, or it was handed to it). Old hosts omit it. */
+  bot?: string
+  /** A bot's own home folder, not a workspace of work. Old hosts omit it. */
+  botHome?: true
   /** The automation's name when it made the row; older hosts send only `automationCreated`. */
   automationName?: string
   cliCreated?: true
@@ -244,6 +250,9 @@ export type RuntimeWorktreePsResult = {
   truncated: boolean
   /** Absent from hosts that predate the field; treat that scope as unverifiable. */
   hostScope?: RuntimeListingHostScope
+  /** This host's store identity, so a reader of several hosts can join their cross-machine parents.
+   *  Absent from older hosts. */
+  installationId?: string
 }
 
 export type RuntimeRepoList = { repos: Repo[] }

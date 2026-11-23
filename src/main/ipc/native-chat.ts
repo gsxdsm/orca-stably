@@ -9,7 +9,6 @@ import type { NativeChatSubagentActivity } from '../../shared/native-chat/input/
 import type { NativeChatTaskSeedList } from '../../shared/native-chat/input/native-chat-claude-task-updates'
 import { clearNativeChatTranscriptCache } from '../native-chat/transcript-read-cache'
 import { nativeChatReadSessionBounds } from './native-chat-read-bounds'
-import type { ReadTranscriptResult } from '../native-chat/transcript-reader'
 import { readNativeChatTranscriptTail } from '../native-chat/transcript-tail-reader'
 import { getStructuredAgentSessionHost } from '../native-chat/agent-session-wire/host/structured-agent-session-registry'
 import { openNativeChatTranscript } from '../native-chat/transcript-discovery/native-chat-open-wake'
@@ -43,9 +42,7 @@ export type NativeChatReadSessionArgs = {
   subagentId?: string
 }
 
-// Bound parsing and rendering to the recent window; pagination raises the limit.
-
-async function readSession(args: NativeChatReadSessionArgs): Promise<ReadTranscriptResult> {
+async function readSession(args: NativeChatReadSessionArgs) {
   const { agent, sessionId } = args
   const limit = args.limit && args.limit > 0 ? Math.floor(args.limit) : DESKTOP_READ_WINDOW
   const wake = args.wakeWslDistro === true

@@ -4,6 +4,7 @@ import {
   CalendarClock,
   ChevronLeft,
   Gauge,
+  Link,
   List,
   MoreHorizontal,
   PanelLeftClose,
@@ -29,6 +30,8 @@ import {
   type ConnectionVerdict
 } from '../transport/connection/connection-health'
 import type { HostScreenController } from './use-host-screen-controller'
+import { HostSharedLinksSheet } from './host-shared-links-sheet'
+import { LOCAL_EXECUTION_HOST_ID } from '../../../src/shared/execution-host/execution-host'
 
 function isErrorVerdict(v: ConnectionVerdict): boolean {
   return isConnectionOutage(v) || v.kind === 'auth-failed'
@@ -98,6 +101,11 @@ export function HostScreenHeader({
   } = controller
   const moreRef = useRef<HostInstance>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [sharedLinksOpen, setSharedLinksOpen] = useState(false)
+  // The computer's own bot links, once it lists bots; a server's live under that server's account.
+  const listsBots = controller.bots.some(
+    (entry) => entry.kind === 'listed' && entry.hostId === LOCAL_EXECUTION_HOST_ID
+  )
   const showRefreshLine = useRefreshHint(controller.catalog.revalidating)
   const disconnected = connState !== 'connected'
   const hostPath = `/h/${encodeURIComponent(hostId)}`
@@ -135,6 +143,18 @@ export function HostScreenHeader({
       closeBeforePress: true,
       onPress: () => actions.navigateFromHostList(`${hostPath}/resources`)
     },
+    ...(listsBots
+      ? [
+          {
+            id: 'shared-links',
+            label: t('hostScreen.hostScreenHeader.sharedLinks', 'Shared links'),
+            icon: Link,
+            disabled: disconnected,
+            closeBeforePress: true,
+            onPress: () => setSharedLinksOpen(true)
+          }
+        ]
+      : []),
     ...(floatingWorkspaceEnabled
       ? [
           {
@@ -193,6 +213,13 @@ export function HostScreenHeader({
         groups={[navigationGroup, hostGroup]}
         onClose={() => setMenuOpen(false)}
       />
+      {listsBots ? (
+        <HostSharedLinksSheet
+          controller={controller}
+          visible={sharedLinksOpen}
+          onClose={() => setSharedLinksOpen(false)}
+        />
+      ) : null}
     </>
   )
 }
