@@ -143,6 +143,17 @@ afterEach(() => {
   setStructuredAgentSessionHost(null)
 })
 
+// The host answers prompts from what its status feed last published: here, the fake's current work.
+function withPublishedPrompts<T extends { currentWork: (sessionId: string) => unknown }>(host: T) {
+  return {
+    ...host,
+    publishedActionablePrompts: (sessionId: string) =>
+      (
+        host.currentWork(sessionId) as { actionablePrompts: () => unknown[] } | null
+      )?.actionablePrompts() ?? []
+  }
+}
+
 describe('agent prompt sources', () => {
   it('lists an ssh pane and a folder pane and skips an agent without a transcript', () => {
     const harness = terminalRuntime()
@@ -272,54 +283,56 @@ describe('agent prompt sources', () => {
   it('answers a loaded folder chat and reports a stale revision separately from a missing session', async () => {
     const seen: unknown[] = []
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the fake host implements loadedSessionIds, currentWork, deps, and respondToPrompt.
-    setStructuredAgentSessionHost({
-      loadedSessionIds: () => ['session01', 'session02'],
-      currentWork: (sessionId: string) =>
-        sessionId === 'session01'
-          ? {
-              actionablePrompts: () => [
-                {
-                  itemId: 'item:1',
-                  revision: 4,
-                  observedAt: 80,
-                  body: {
-                    kind: 'approval',
-                    title: 'Run Bash',
-                    displayName: 'Bash',
-                    detail: 'ls',
-                    options: [
-                      { id: 'allow', label: 'Allow' },
-                      { id: 'reject_once', label: 'Reject' }
-                    ],
-                    resolution: {
-                      state: 'pending',
-                      selectedOptionId: null,
-                      resolvedBy: null,
-                      resolvedAt: null
+    setStructuredAgentSessionHost(
+      withPublishedPrompts({
+        loadedSessionIds: () => ['session01', 'session02'],
+        currentWork: (sessionId: string) =>
+          sessionId === 'session01'
+            ? {
+                actionablePrompts: () => [
+                  {
+                    itemId: 'item:1',
+                    revision: 4,
+                    observedAt: 80,
+                    body: {
+                      kind: 'approval',
+                      title: 'Run Bash',
+                      displayName: 'Bash',
+                      detail: 'ls',
+                      options: [
+                        { id: 'allow', label: 'Allow' },
+                        { id: 'reject_once', label: 'Reject' }
+                      ],
+                      resolution: {
+                        state: 'pending',
+                        selectedOptionId: null,
+                        resolvedBy: null,
+                        resolvedAt: null
+                      }
                     }
                   }
-                }
-              ]
+                ]
+              }
+            : null,
+        deps: {
+          store: {
+            getConversation: (sessionId: string) => {
+              if (sessionId === 'session02') {
+                throw new Error('unreadable')
+              }
+              if (sessionId === 'session01') {
+                return { location: { workspaceId: 'folder-notes' }, provider: 'claude' }
+              }
+              return null
             }
-          : null,
-      deps: {
-        store: {
-          getConversation: (sessionId: string) => {
-            if (sessionId === 'session02') {
-              throw new Error('unreadable')
-            }
-            if (sessionId === 'session01') {
-              return { location: { workspaceId: 'folder-notes' }, provider: 'claude' }
-            }
-            return null
           }
+        },
+        respondToPrompt: async (_caller: unknown, params: unknown) => {
+          seen.push(params)
+          return { ok: true, replayed: false, fence: 1, cursor: 1, value: null }
         }
-      },
-      respondToPrompt: async (_caller: unknown, params: unknown) => {
-        seen.push(params)
-        return { ok: true, replayed: false, fence: 1, cursor: 1, value: null }
-      }
-    } as never)
+      }) as never
+    )
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the fake runtime implements the pane, handle, and send methods this test calls.
     const directory = createAgentPromptDirectory({
       agentTransitions: { trackedPanes: () => [], latestRow: () => null },
@@ -357,42 +370,47 @@ describe('agent prompt sources', () => {
 
   it('maps a thrown session refusal to stale', async () => {
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the fake host implements loadedSessionIds, currentWork, deps, and respondToPrompt.
-    setStructuredAgentSessionHost({
-      loadedSessionIds: () => ['session01'],
-      currentWork: () => ({
-        actionablePrompts: () => [
-          {
-            itemId: 'item:1',
-            revision: 4,
-            observedAt: 80,
-            body: {
-              kind: 'approval',
-              title: 'Run Bash',
-              displayName: 'Bash',
-              detail: 'ls',
-              options: [{ id: 'allow', label: 'Allow' }],
-              resolution: {
-                state: 'pending',
-                selectedOptionId: null,
-                resolvedBy: null,
-                resolvedAt: null
+    setStructuredAgentSessionHost(
+      withPublishedPrompts({
+        loadedSessionIds: () => ['session01'],
+        currentWork: () => ({
+          actionablePrompts: () => [
+            {
+              itemId: 'item:1',
+              revision: 4,
+              observedAt: 80,
+              body: {
+                kind: 'approval',
+                title: 'Run Bash',
+                displayName: 'Bash',
+                detail: 'ls',
+                options: [{ id: 'allow', label: 'Allow' }],
+                resolution: {
+                  state: 'pending',
+                  selectedOptionId: null,
+                  resolvedBy: null,
+                  resolvedAt: null
+                }
               }
             }
+          ]
+        }),
+        deps: {
+          store: {
+            getConversation: () => ({
+              location: { workspaceId: 'folder-notes' },
+              provider: 'claude'
+            })
           }
-        ]
-      }),
-      deps: {
-        store: {
-          getConversation: () => ({ location: { workspaceId: 'folder-notes' }, provider: 'claude' })
+        },
+        respondToPrompt: async () => {
+          // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the mapper reads only the refusal code.
+          throw new AgentSessionRefusalError({
+            code: 'agent_session_item_revision_stale'
+          } as AgentSessionWireRefusal)
         }
-      },
-      respondToPrompt: async () => {
-        // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the mapper reads only the refusal code.
-        throw new AgentSessionRefusalError({
-          code: 'agent_session_item_revision_stale'
-        } as AgentSessionWireRefusal)
-      }
-    } as never)
+      }) as never
+    )
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the fake runtime implements the pane, handle, and send methods this test calls.
     const directory = createAgentPromptDirectory({
       agentTransitions: { trackedPanes: () => [], latestRow: () => null },

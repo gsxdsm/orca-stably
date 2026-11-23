@@ -3,7 +3,9 @@ import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
 import { retryHeldHermesSubmit } from './mobile-hermes-held-submit'
 
 const send = vi.hoisted(() => vi.fn())
-vi.mock('./mobile-native-chat-send', () => ({ sendMobileNativeChatMessageWithOutcome: send }))
+vi.mock('./composer/delivery/mobile-native-chat-send', () => ({
+  sendMobileNativeChatMessageWithOutcome: send
+}))
 afterEach(() => {
   vi.useRealTimers()
   send.mockReset()

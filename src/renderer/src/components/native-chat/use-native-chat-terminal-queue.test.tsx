@@ -8,11 +8,11 @@ import { useNativeChatTerminalQueue } from './use-native-chat-terminal-queue'
 import type { NativeChatComposerHandle } from './composer/native-chat-composer-types'
 
 const rpc = vi.hoisted(() => vi.fn())
-vi.mock('@/runtime/rpc/calls/runtime-rpc-client', () => ({ callRuntimeRpc: rpc }))
-vi.mock('@/runtime/hosted-terminals/streams/runtime-terminal-stream', () => ({
+vi.mock('@/runtime/rpc/calls/runtime-rpc-call', () => ({ callRuntimeRpc: rpc }))
+vi.mock('@/runtime/hosted-terminals/identity/remote-runtime-pty-owner', () => ({
   getRemoteRuntimePtyOwner: () => ({ target: { kind: 'local' }, terminal: 'term' })
 }))
-vi.mock('@/runtime/structured-agent-session-host-capability', () => ({
+vi.mock('@/runtime/native-chat/host-capabilities/structured-agent-session-host-capability', () => ({
   useStructuredAgentSessionHostCapabilityState: () => 'supported'
 }))
 afterEach(() => rpc.mockReset())

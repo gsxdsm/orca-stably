@@ -14,7 +14,10 @@ import { asRecord } from '../ai-vault/parsing/session-record-fields'
 import { extractString } from '../../shared/text/trimmed-string'
 import { parseJsonObject } from '../ai-vault/parsing/session-json-object'
 import { BOUNDED_FRAME_CONTENT_BUDGET_BYTES } from './agent-session-wire/publication/history/agent-session-history-page-bounds'
-import { decodeClaudeTranscriptLine } from './transcript-decoding/transcript-line-decoders-claude'
+import {
+  decodeClaudeChatTranscriptLine,
+  decodeClaudeTranscriptLine
+} from './transcript-decoding/transcript-line-decoders-claude'
 import { decodeCodexTranscriptLine } from './transcript-decoding/transcript-line-decoders-codex'
 import { decodeGrokTranscriptLine } from './transcript-decoding/transcript-line-decoders-grok'
 import { splitTranscriptStreamLines } from './transcript-streaming/transcript-stream-lines'
@@ -93,7 +96,11 @@ async function childTranscriptPath(args: {
   agentId: string
   signal?: AbortSignal
 }): Promise<string | null> {
-  if (args.decode === decodeClaudeTranscriptLine) {
+  // The tail reader hands chats the wrapper that also decodes Claude's own command rows.
+  if (
+    args.decode === decodeClaudeTranscriptLine ||
+    args.decode === decodeClaudeChatTranscriptLine
+  ) {
     return claudeChildPath(args.parentPath, args.agentId)
   }
   if (args.decode === decodeCodexTranscriptLine) {

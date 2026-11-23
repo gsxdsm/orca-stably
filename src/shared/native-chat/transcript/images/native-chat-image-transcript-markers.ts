@@ -144,6 +144,10 @@ export function nativeChatImageTranscriptUnits(
         if (next.source !== first.source || !isImageSourceUserTurn(next)) {
           break
         }
+        // Companions Claude writes after the prompt share its clock. A missing clock is not that clock.
+        if (!sourceFirst && (first.timestamp == null || next.timestamp !== first.timestamp)) {
+          break
+        }
         members.push(next)
         index += 1
       }

@@ -3,8 +3,6 @@ import {
   AGENT_SESSION_AGENTS_METHOD,
   decodeAgentSessionAgentsResult
 } from '../../../src/shared/agent-session/agent-discovery/agent-session-registered-agents'
-import { isNativeChatSupportedAgent } from '../../../src/shared/native-chat/native-chat-agent-support'
-import { HERMES_TRANSCRIPT_RUNTIME_CAPABILITY } from '../../../src/shared/native-chat/native-chat-hermes-capability'
 import { STRUCTURED_AGENT_SESSION_REGISTERED_AGENTS_RUNTIME_CAPABILITY } from '../../../src/shared/agent-session/capabilities/structured-agent-session-surface-capabilities'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import {
@@ -41,61 +39,6 @@ function publishMobileStructuredChatLaunch(context: MobileStructuredChatLaunchCo
   for (const listener of listeners) {
     listener()
   }
-}
-
-// Registered agents the transcript overlay can't cover follow Chat UI like the others, via an explicit chat launch.
-export function mobileStructuredChatLaunchSurface(
-  agent: string,
-  context: MobileStructuredChatLaunchContext | null
-): 'chat' | undefined {
-  if (!context?.canRequestSurface || context.defaultView !== 'chat') {
-    return undefined
-  }
-  if (isNativeChatSupportedAgent(agent) || !context.registeredAgents.includes(agent)) {
-    return undefined
-  }
-  return 'chat'
-}
-
-// Native-chat agents open in the phone's Chat view when Chat UI is the default.
-// Hermes stays a terminal until the host can serve its transcript.
-export function mobileNewTabOpensInChat(
-  agent: string,
-  context: MobileStructuredChatLaunchContext | null
-): boolean {
-  if (mobileStructuredChatLaunchSurface(agent, context) === 'chat') {
-    return true
-  }
-  if (!context || context.defaultView !== 'chat') {
-    return false
-  }
-  if (!isNativeChatSupportedAgent(agent)) {
-    return false
-  }
-  if (agent === 'hermes') {
-    return context.hostCapabilities?.includes(HERMES_TRANSCRIPT_RUNTIME_CAPABILITY) === true
-  }
-  return true
-}
-
-// Host launch surface. Native-chat agents are not asked for a chat surface; the phone view above covers them.
-export function mobileNewTabHostLaunchSurface(
-  agent: string,
-  context: MobileStructuredChatLaunchContext | null
-): 'chat' | 'terminal' | undefined {
-  if (agent === 'hermes') {
-    return 'terminal'
-  }
-  return mobileStructuredChatLaunchSurface(agent, context)
-}
-
-export function withMobileStructuredChatLaunch<T extends { agent: string }>(
-  options: readonly T[],
-  context: MobileStructuredChatLaunchContext | null
-): Array<T & { opensAsChat?: true }> {
-  return options.map((option) =>
-    mobileNewTabOpensInChat(option.agent, context) ? { ...option, opensAsChat: true } : option
-  )
 }
 
 // The new-tab sheet stays open on the gate's empty placeholder and then caches "not chat".

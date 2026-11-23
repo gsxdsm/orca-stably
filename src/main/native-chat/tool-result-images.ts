@@ -145,15 +145,14 @@ export function acpToolImageRefs(update: {
     if (block.type !== 'content' || block.content?.type !== 'image') {
       continue
     }
-    const data = block.content.data
     const uri = block.content.uri
     const path = typeof uri === 'string' && isAbsolute(uri) ? uri : undefined
-    if (!data && !path) {
+    // Inline image bytes are stored by the ACP timeline itself (outputImagePaths); only file images are ours.
+    if (block.content.data || !path) {
       continue
     }
     sources.push({
-      ...(path ? { path } : {}),
-      ...(data ? { base64: data } : {}),
+      path,
       ...(block.content.mimeType ? { mediaType: block.content.mimeType } : {})
     })
   }

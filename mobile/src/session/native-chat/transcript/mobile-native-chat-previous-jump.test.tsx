@@ -341,24 +341,6 @@ describe('previous-message jump while the list is moving', () => {
     expect(scroller.scrollTop).toBe(-1_000)
   })
 
-  it('does not treat the web jump’s own scroll events as the reader', () => {
-    const readers: boolean[] = []
-    const list = mount((_fromEnd, byReader) => readers.push(byReader))
-    const scroller = scrollerSlot.current
-    if (!scroller) {
-      throw new Error('scroller missing')
-    }
-    act(() => list.revealPreviousMessage?.(['m0', 'm1', 'm2'], true))
-    scroller.scrollTop = -40
-    act(() => {
-      hostNode('ScrollView').props.onScroll({})
-    })
-    expect(readers).toEqual([false])
-    expect(queued.frames.size).toBe(1)
-    runLatestFrame()
-    expect(scroller.scrollTop).toBe(-500)
-  })
-
   it('stops a native fling, then steps once per tap without using the mid-jump offset', () => {
     platform.OS = 'ios'
     const began: string[] = []

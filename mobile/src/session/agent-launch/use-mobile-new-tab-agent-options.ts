@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { hashKey, useQueryClient } from '@tanstack/react-query'
 import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
 import { hostConnectionEpoch } from '../../query/host-status-query'
@@ -12,11 +12,6 @@ import {
   type MobileDetectedAgents
 } from './mobile-agent-launch-queries'
 import { newTabAgentOptionsFrom } from './mobile-new-tab-agent-loader'
-import {
-  loadMobileStructuredChatLaunchContext,
-  withMobileStructuredChatLaunch,
-  type MobileStructuredChatLaunchContext
-} from '../mobile-structured-chat-launch'
 import type { MobileNewTabAgentOption } from './mobile-new-tab-agent-options'
 import type { MobileNewTabAgentLoadState } from './mobile-agent-load-state'
 import type { AgentLaunchSurface } from '../../../../src/shared/agent-launch/contracts/agent-launch-surface'
@@ -132,38 +127,12 @@ export function useMobileNewTabAgentOptions(args: {
         : detection.isError || settings.isError
           ? 'error'
           : 'loading'
-  const [launchContext, setLaunchContext] = useState<MobileStructuredChatLaunchContext | null>(null)
-  const capabilitiesRef = useRef(args.hostCapabilities)
-  capabilitiesRef.current = args.hostCapabilities
-  const capabilitiesKey = args.hostCapabilities?.join('\0') ?? null
-  useEffect(() => {
-    if (!client || !connected || loadState !== 'loaded') {
-      return
-    }
-    let stale = false
-    void loadMobileStructuredChatLaunchContext({
-      client,
-      hostCapabilities: capabilitiesRef.current
-    })
-      .catch(() => null)
-      .then((context) => {
-        if (!stale) {
-          setLaunchContext(context)
-        }
-      })
-    return () => {
-      stale = true
-    }
-  }, [capabilitiesKey, client, connected, loadState])
   const listed = useMemo(
     () =>
       loadState === 'loaded' && detected?.kind === 'detected'
-        ? withMobileStructuredChatLaunch(
-            newTabAgentOptionsFrom(settings.data?.settings, detected.detectedAgents),
-            launchContext
-          )
+        ? newTabAgentOptionsFrom(settings.data?.settings, detected.detectedAgents)
         : NO_OPTIONS,
-    [detected, launchContext, loadState, settings.data]
+    [detected, loadState, settings.data]
   )
   // The host runs an agent as a chat only when its agents list has it.
   const structuredHost =
