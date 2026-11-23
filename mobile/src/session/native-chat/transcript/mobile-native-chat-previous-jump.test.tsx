@@ -2,13 +2,13 @@ import { createElement as h, useRef, type ReactElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NativeChatMessage } from '../../../../../src/shared/native-chat/native-chat-types'
-import type { MobileNativeChatScrollNode } from '../../mobile-native-chat-reading-place'
+import type { MobileNativeChatScrollNode } from './viewport/mobile-native-chat-reading-place'
 import { MobileNativeChatRowList } from './MobileNativeChatRowList'
-import type { MobileNativeChatRowKeys } from './mobile-native-chat-row-keys'
+import type { MobileNativeChatRowKeys } from './projection/mobile-native-chat-row-keys'
 import type {
   MobileNativeChatListHandle,
   MobileNativeChatTailFollow
-} from './use-mobile-native-chat-tail-follow'
+} from './viewport/use-mobile-native-chat-tail-follow'
 
 const platform = vi.hoisted(() => ({ OS: 'web' }))
 const scrollerSlot = vi.hoisted(() => ({ current: null as ScrollNode | null }))
@@ -184,7 +184,12 @@ function tailOf(
 ): MobileNativeChatTailFollow {
   return {
     listProps: { ref: listRef },
-    pageListProps: { ref: listRef, isFollowing: () => false, onEndDistance },
+    pageListProps: {
+      ref: listRef,
+      isFollowing: () => false,
+      onEndDistance,
+      onPlaceRestored: () => {}
+    },
     showJumpToTail: false,
     showPreviousMessage: true,
     previousStopsRef: { current: ['m0', 'm1', 'm2'] },
@@ -193,6 +198,8 @@ function tailOf(
     pinToTail: () => {},
     pinToTailAfterContentResize: () => {},
     jumpToTail: () => {},
+    releaseFollow: () => {},
+    scrollRowToTop: () => {},
     beginUserScroll,
     endUserDrag: () => {},
     beginMomentum: () => {},

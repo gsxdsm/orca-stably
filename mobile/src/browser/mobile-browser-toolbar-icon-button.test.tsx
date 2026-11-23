@@ -18,7 +18,7 @@ vi.mock('../navigation/session-list-long-press-props', () => ({
     longPress.go ? { onLongPress: longPress.go, delayLongPress: 500 } : {}
 }))
 
-import { MobileBrowserToolbarIconButton } from './MobileBrowserToolbarIconButton'
+import { MobileBrowserToolbarIconButton } from './pane-view/MobileBrowserToolbarIconButton'
 
 function mount(disabled: boolean, toSessionList = true) {
   const onPress = vi.fn()

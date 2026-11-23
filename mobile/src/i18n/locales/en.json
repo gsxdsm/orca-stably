@@ -1021,7 +1021,6 @@
       "activeFilters_one": "Workspace options ({{count}} filter active)",
       "activeFilters_other": "Workspace options ({{count}} filters active)",
       "search": "Search",
-      "searchWorkspaces": "Search workspaces",
       "newWorkspace": "New workspace",
       "create": "Create"
     },
@@ -2958,7 +2957,6 @@
       "presetsUnavailable": "Agent Presets Unavailable",
       "checkHostHint": "Check the host connection",
       "newSessionHint": "New agent session",
-      "opensAsChat": "Opens in Chat",
       "copyNotesHint": "Copy notes instead"
     },
     "useStartup": {

@@ -2,7 +2,7 @@
 import { createElement, useRef, type RefObject } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { describe, expect, it } from 'vitest'
-import type { TextInput } from 'react-native'
+import type { TextInputInstance } from 'react-native'
 import { useMobileTerminalComposerImagePaste } from './use-mobile-terminal-composer-image-paste.web'
 
 function Harness(props: {
@@ -11,10 +11,10 @@ function Harness(props: {
   readClipboardImage: () => Promise<{ base64: string } | null>
   onPending: (pending: boolean) => void
 }) {
-  const ref = useRef<TextInput | null>(props.field as unknown as TextInput)
+  const ref = useRef<TextInputInstance | null>(props.field as unknown as TextInputInstance)
   const pending = useMobileTerminalComposerImagePaste({
     enabled: true,
-    fieldRefs: [ref as RefObject<TextInput | null>],
+    fieldRefs: [ref as RefObject<TextInputInstance | null>],
     onImagePaste: props.onImagePaste,
     readClipboardImage: props.readClipboardImage
   })

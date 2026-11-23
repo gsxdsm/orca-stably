@@ -2,7 +2,7 @@ import { createElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AgentStatusEntry } from '../../../src/shared/agent-status/contracts/agent-status-types'
-import { useMobileNativeChatTerminalTurn } from './use-mobile-native-chat-terminal-turn'
+import { useMobileNativeChatTerminalTurn } from './native-chat/transcript/ingestion/use-mobile-native-chat-terminal-turn'
 
 const status: AgentStatusEntry = {
   state: 'working',

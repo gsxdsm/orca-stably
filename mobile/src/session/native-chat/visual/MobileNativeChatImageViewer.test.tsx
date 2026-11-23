@@ -5,9 +5,9 @@ import {
   IMAGE_VIEWER_DISMISS_DISTANCE,
   IMAGE_VIEWER_DISMISS_VELOCITY
 } from '../../../components/image-viewer-swipe'
-import type { MobilePanZoomDismiss } from '../../../components/use-mobile-pan-zoom'
+import type { MobilePanZoomDismiss } from '../../../files/media/presentation/use-mobile-pan-zoom'
 import { spacing } from '../../../theme/mobile-theme'
-import { MobileNativeChatImageViewer } from './MobileNativeChatImageViewer'
+import { MobileImageViewer as MobileNativeChatImageViewer } from '../../../files/media/presentation/MobileImageViewer'
 
 const scene = vi.hoisted(() => ({
   width: 951,

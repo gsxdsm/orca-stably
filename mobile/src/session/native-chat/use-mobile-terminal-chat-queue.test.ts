@@ -8,7 +8,7 @@ import {
   type NativeChatTerminalQueueSnapshot
 } from '../../../../src/shared/native-chat/native-chat-terminal-queue'
 import { NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY } from '../../../../src/shared/native-chat/native-chat-terminal-queue-capability'
-import { UNCONFIRMED_SEND_MESSAGE } from './use-mobile-native-chat-unconfirmed-sends'
+import { UNCONFIRMED_SEND_MESSAGE } from './composer/delivery/use-mobile-native-chat-unconfirmed-sends'
 
 describe('mobile Hermes terminal queue', () => {
   let renderer: ReactTestRenderer | null = null

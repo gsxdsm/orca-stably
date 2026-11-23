@@ -1,7 +1,7 @@
 import { createElement, type ReactNode } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Worktree } from '../worktree/workspace-list-types'
+import type { Worktree } from '../worktree/workspace-list/workspace-list-types'
 import { SidebarSessionActionSheet } from './SidebarSessionActionSheet'
 import { clearClosedSidebarSession, sidebarSessionAction } from './sidebar-session-action'
 import { getSelectedSidebarSession, setSelectedSidebarSession } from './selected-sidebar-session'
