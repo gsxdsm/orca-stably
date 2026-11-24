@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { usePathname, useRouter } from 'expo-router'
+import { useRouter } from 'expo-router'
 import {
   BRIDGE_MAX_ROUTE_HREF_CHARS,
   BRIDGE_ROUTE_HREF_PATTERN
@@ -9,7 +9,6 @@ import { matchesRoutePattern } from '../mobile-web-shell/routing/page-route-poli
 import type { BridgeRpcClient } from '../mobile-web-shell/bridge/client-state/bridge-rpc-client-contract'
 import { usePageBridgeClient } from '../transport/connection/client-context.web'
 import { stringifyRouteHref, type RouterHref } from './route-href'
-import { useBackClaim } from './use-back-claim.web'
 import type { RouteHandoff, ShellSessionHandoff } from './route-handoff'
 
 function pathnameOf(href: string): string {
@@ -119,20 +118,6 @@ function postRouteToShell(
 export function useRouteHandoff(): RouteHandoff {
   const client = usePageBridgeClient()
   const router = useRouter()
-  // Subscribe for rerenders when committed navigation changes; canGoBack otherwise has no reactive reader here.
-  usePathname()
-  // Recheck at the press because claim and Back cross separately; false returns a stale claim’s press to native.
-  useBackClaim(
-    router.canGoBack()
-      ? () => {
-          if (!router.canGoBack()) {
-            return false
-          }
-          router.back()
-          return true
-        }
-      : null
-  )
 
   return useMemo<RouteHandoff>(() => {
     const report = createRefusalReporter()

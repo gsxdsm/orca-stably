@@ -1,6 +1,28 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeEach, expect, it } from 'vitest'
-import { createPageBackConsumers } from './page-back-consumers'
+import { createElement } from 'react'
+import { act, create } from 'react-test-renderer'
+import { StackRouter } from 'expo-router/build/react-navigation/routers/StackRouter'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { createPageBackConsumers, type PageBackConsumer } from './page-back-consumers'
+import { useRouteHandoff } from '../../../navigation/route-handoff.web'
+
+const navigation = vi.hoisted(() => ({
+  router: { canGoBack: (): boolean => false, back: () => {} },
+  client: {
+    claimBack:
+      (_consumer: PageBackConsumer): (() => void) =>
+      () => {},
+    getShellSession: () => null
+  }
+}))
+vi.mock('expo-router', () => ({
+  useRouter: () => navigation.router,
+  usePathname: () => '/h/host/session/workspace'
+}))
+vi.mock('../../../transport/connection/client-context.web', () => ({
+  usePageBridgeClient: () => navigation.client,
+  usePageBridgeClientIfPresent: () => navigation.client
+}))
 
 const cleanup: (() => void)[] = []
 beforeEach(() => {
@@ -140,4 +162,81 @@ it('never commits a drag after the app leaves or the touch is cancelled', () => 
   touch('touchend', 300, 900)
   expect(cancelled).toBe(2)
   expect(committed).toBe(0)
+})
+
+it('keeps the stack gesture owner when nested components mount navigation facades', async () => {
+  const router = StackRouter({})
+  let state: Parameters<typeof router.getStateForAction>[0] = {
+    stale: false,
+    type: 'stack',
+    key: 'host-stack',
+    routeKeySeq: 2,
+    index: 1,
+    routeNames: ['host', 'session'],
+    routes: [
+      { key: 'host', name: 'host' },
+      { key: 'session', name: 'session' }
+    ]
+  }
+  const pop = () => {
+    const result = router.getStateForAction(
+      state,
+      { type: 'POP', payload: { count: 1 } },
+      {
+        routeNames: ['host', 'session'],
+        routeGetIdList: {}
+      }
+    )
+    if (typeof result !== 'string') {
+      state = result.state
+    }
+  }
+  let progress = 0
+  const back = createPageBackConsumers({ publishClaim: () => {}, onUnclaimed: () => {} })
+  cleanup.push(back.clear)
+  navigation.router = { canGoBack: () => state.index > 0, back: pop }
+  navigation.client.claimBack = back.claim
+  back.claim(
+    Object.assign(
+      () => {
+        pop()
+        return true
+      },
+      {
+        beginBackSwipe: () => ({
+          update: (value: number) => {
+            progress = value
+          },
+          finish: (commit: boolean) => {
+            if (commit) {
+              pop()
+            }
+          },
+          cancel: () => {}
+        })
+      }
+    )
+  )
+  function NavigationReaders() {
+    useRouteHandoff()
+    useRouteHandoff()
+    return null
+  }
+  await act(() => {
+    const view = create(createElement(NavigationReaders))
+    cleanup.push(() => {
+      act(() => view.unmount())
+    })
+  })
+  touch('touchstart', 100, 0)
+  touch('touchmove', 200, 200)
+  expect(progress).toBe(0.25)
+  expect(state.routes.map((route) => route.name)).toEqual(['host', 'session'])
+  touch('touchend', 200, 400)
+  expect(state.routes.map((route) => route.name)).toEqual(['host', 'session'])
+  touch('touchstart', 20, 500)
+  touch('touchmove', 260, 800)
+  expect(state.routes.map((route) => route.name)).toEqual(['host', 'session'])
+  touch('touchend', 260, 1000)
+  expect(state.routes.map((route) => route.name)).toEqual(['host'])
 })
