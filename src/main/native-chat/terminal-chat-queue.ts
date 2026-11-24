@@ -10,6 +10,7 @@ import type { AgentSessionJournal } from './agent-session-journal/journal-store'
 import { agentSessionFailureFact } from '../../shared/agent-session/failures/agent-session-failure'
 import { agentSessionFailureWords } from '../../shared/agent-session/failures/agent-session-failure-words'
 import { queuedMessagesPublishedBytesRefusal } from './agent-session-wire/delivery/structured-agent-session-queued-published-bytes'
+import { QUEUED_MESSAGE_PAUSED_SEND_FAILED } from '../../shared/agent-session/requests/agent-session-queued-message-wire'
 import type { AgentJournalMessageItem } from '../../shared/agent-session/journal/agent-session-journal-types'
 
 async function publishedQueue(journal: AgentSessionJournal): Promise<AgentSessionQueuedMessage[]> {
@@ -105,7 +106,6 @@ export class TerminalChatQueue {
       return
     }
     const id = randomUUID()
-    // The journal hands the card off with the submission and settles it back when the dispatch fails.
     await this.journal.appendSubmission(
       {
         clientMessageId: id,
@@ -130,9 +130,13 @@ export class TerminalChatQueue {
         clientMessageId: id,
         state: 'rejected',
         fence: 0,
-        ...agentSessionFailureWords(agentSessionFailureFact('writeFailed'), {
-          surface: 'rejection'
-        })
+        // Nothing reached the terminal, so the journal puts the card back in the queue to retry.
+        ...agentSessionFailureWords(
+          agentSessionFailureFact('notDelivered', { neverReachedAgent: true }),
+          {
+            surface: 'rejection'
+          }
+        )
       })
       return
     }
@@ -145,11 +149,18 @@ export class TerminalChatQueue {
       })
       return
     }
+    // Delivery is uncertain: keep the card first in the queue, held until the person deletes it.
     await this.journal.resolveDispatch({
       clientMessageId: id,
-      state: 'unknown',
-      reason: 'Message delivery could not be confirmed',
-      fence: 0
+      state: 'rejected',
+      fence: 0,
+      ...agentSessionFailureWords(agentSessionFailureFact('unconfirmed'), {
+        surface: 'rejection'
+      })
+    })
+    await this.journal.queuedMessages.hold({
+      messageIds: [card.messageId],
+      reason: QUEUED_MESSAGE_PAUSED_SEND_FAILED
     })
   }
 }
