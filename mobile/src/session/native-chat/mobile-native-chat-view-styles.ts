@@ -64,6 +64,9 @@ export const styles = themedStyleSheet(() => ({
     justifyContent: 'center',
     padding: spacing.xl
   },
+  emptyPicture: {
+    marginBottom: spacing.sm
+  },
   emptyTitle: {
     color: colors.textSecondary,
     fontSize: typography.bodySize,

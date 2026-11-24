@@ -1,4 +1,4 @@
-import type { ComponentType, Ref } from 'react'
+import { createContext, useContext, type ComponentType, type Ref } from 'react'
 import { Pressable, Text, View, type HostInstance } from 'react-native'
 import { ChevronLeft } from 'lucide-react-native'
 import { colors, feedback, radii } from '../../theme/mobile-theme'
@@ -7,6 +7,9 @@ import { useMobileColorScheme } from '../../theme/use-mobile-color-scheme'
 import { useSessionListLongPressProps } from '../../navigation/session-list-long-press-props'
 
 export const NAV_BAR_BUTTON_SIZE = 36
+
+/** Set by a sheet's header: bgRaised is the light sheet's own colour, so its buttons take a fill that reads on it. */
+export const NavBarButtonOnSheetContext = createContext(false)
 
 type IconProps = { size?: number; color?: string; strokeWidth?: number }
 
@@ -44,12 +47,14 @@ export function NavBarButton({
   useMobileColorScheme()
   const sessionListLongPress = useSessionListLongPressProps(onLongPress)
   const longPress = Icon === ChevronLeft || onLongPress ? sessionListLongPress : undefined
+  const onSheet = useContext(NavBarButtonOnSheetContext)
   return (
     <Pressable
       ref={ref}
       style={({ pressed }) => [
         styles.button,
         { width: size, height: size },
+        onSheet && styles.onSheet,
         active && styles.active,
         pressed && styles.pressed,
         disabled && styles.disabled
@@ -85,6 +90,7 @@ const styles = themedStyleSheet(() => ({
     justifyContent: 'center',
     backgroundColor: colors.bgRaised
   },
+  onSheet: { backgroundColor: colors.cardPillFill },
   active: {
     backgroundColor: colors.surfaceBright
   },

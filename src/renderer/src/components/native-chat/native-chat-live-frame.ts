@@ -21,6 +21,7 @@ export type NativeChatLiveFrameSink = {
   setSubagents: (agents: NativeChatSubagentSeed) => void
   epochRef: { current: number }
   setOlderHistoryGeneration: (generation: number) => void
+  setTranscriptSnapshot: (generation: number) => void
   setLoadingEarlier: (loading: boolean) => void
   setRead: (read: ReadState) => void
   setAppended: (messages: NativeChatMessage[]) => void
@@ -67,6 +68,7 @@ export function applyNativeChatLiveFrame(
       return
     }
     sink.flags.frameArrived = true
+    sink.setTranscriptSnapshot(sink.epochRef.current)
     sink.lifecycle.replace(frame.lifecycle)
     const messages = boundNativeChatWindow(frame.messages, sink.limitRef.current)
     replaceList(sink.appendMerger, messages)

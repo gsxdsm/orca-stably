@@ -54,6 +54,7 @@ export function useNativeChatLiveSession(
   const [subagentSeed, setSubagents] = useState<NativeChatSubagentSeed>(null)
   const [loadingEarlier, setLoadingEarlier] = useState(false)
   const [olderHistoryGeneration, setOlderHistoryGeneration] = useState(0)
+  const [transcriptSnapshot, setTranscriptSnapshot] = useState(0)
   const [transcriptLifecycle, transcriptLifecycleControl] = useNativeChatTranscriptLifecycle()
   const limitRef = useRef(NATIVE_CHAT_INITIAL_LIMIT)
 
@@ -98,9 +99,11 @@ export function useNativeChatLiveSession(
     setSubagents(null)
     const sourceChanged = retainedSourceKeyRef.current !== sourceKey
     retainedSourceKeyRef.current = sourceKey
+    if (sourceChanged) {
+      limitRef.current = NATIVE_CHAT_INITIAL_LIMIT
+    }
     if (!enabled) {
       if (sourceChanged) {
-        limitRef.current = NATIVE_CHAT_INITIAL_LIMIT
         transcriptLifecycleControl.reset()
         setRead({ phase: 'loading' })
         replaceList(appendMergerRef.current, [])
@@ -124,10 +127,6 @@ export function useNativeChatLiveSession(
     const retryTimer = createNativeChatReadRetryTimer()
     const retryStartedAt = Date.now()
     const activeSessionId = sessionId
-    // Reveals retain the paged window; only a new source resets it.
-    if (sourceChanged) {
-      limitRef.current = NATIVE_CHAT_INITIAL_LIMIT
-    }
     setRead({ phase: 'loading' })
     replaceList(appendMergerRef.current, [])
     setAppended([])
@@ -147,15 +146,13 @@ export function useNativeChatLiveSession(
             return
           }
           if (result && 'error' in result) {
-            if (result.notFound) {
-              // The live stream owns confirmed missing-file recovery; older hosts need bounded seed retries.
-              if (streamFlags.transcriptPending) {
-                return
-              }
-              if (Date.now() - retryStartedAt < NOTFOUND_RETRY_WINDOW_MS) {
-                retryTimer.schedule(attempt, () => loadSession(attempt + 1))
-                return
-              }
+            // The live stream owns confirmed missing-file recovery; older hosts need bounded seed retries.
+            if (result.notFound && streamFlags.transcriptPending) {
+              return
+            }
+            if (result.notFound && Date.now() - retryStartedAt < NOTFOUND_RETRY_WINDOW_MS) {
+              retryTimer.schedule(attempt, () => loadSession(attempt + 1))
+              return
             }
             setRead({ phase: 'error', error: result.error })
             return
@@ -195,6 +192,7 @@ export function useNativeChatLiveSession(
           setSubagents,
           epochRef: transcriptEpochRef,
           setOlderHistoryGeneration,
+          setTranscriptSnapshot,
           setLoadingEarlier,
           setRead,
           setAppended,
@@ -301,6 +299,7 @@ export function useNativeChatLiveSession(
       hasMore,
       loadingEarlier,
       olderHistoryGeneration,
+      transcriptIdentity: `${sourceKey}:${transcriptSnapshot}`,
       loadEarlier,
       trimHistory,
       readPhase: read.phase,
@@ -320,6 +319,8 @@ export function useNativeChatLiveSession(
     hasMore,
     loadingEarlier,
     olderHistoryGeneration,
+    sourceKey,
+    transcriptSnapshot,
     loadEarlier,
     trimHistory,
     appended,

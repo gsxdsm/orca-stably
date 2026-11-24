@@ -12,6 +12,9 @@ import {
 import { createMembershipStore } from '../../../../../../src/shared/collections/membership-store'
 import type { TextInputInstance } from 'react-native'
 import { MobileNativeChatBackgroundTasks } from '../../input/tasks/MobileNativeChatBackgroundTasks'
+import { MobileNativeChatWorkerDock } from '../../input/tasks/MobileNativeChatWorkerDock'
+import type { WorkerDockEntry } from '../../../../../../src/shared/orchestration/dock/worker-dock'
+import type { MobileWorkerApproval } from '../../input/prompts/use-mobile-worker-approvals'
 import type { NativeChatMessage } from '../../../../../../src/shared/native-chat/native-chat-types'
 import {
   MobileNativeChatQueuedMessages,
@@ -57,7 +60,9 @@ export const NO_COMPOSER_TRAY: MobileNativeChatComposerTray = {}
 
 export function useMobileNativeChatComposerTray({
   queued,
-  backgroundTasks
+  backgroundTasks,
+  workerDock,
+  workerApprovals
 }: {
   queued: MobileNativeChatQueuedMessagesProps & {
     /** One card list per conversation: a pending action in one never disables another's. */
@@ -67,6 +72,9 @@ export function useMobileNativeChatComposerTray({
     agentMailEditable?: (messageId: string) => boolean
   }
   backgroundTasks: MobileStructuredBackgroundTasks | null
+  workerDock: readonly WorkerDockEntry[]
+  /** Open worker approvals, which mark their workers in the strip as waiting on you. */
+  workerApprovals: readonly MobileWorkerApproval[]
 }): MobileNativeChatComposerTray {
   const { composerInputRef, editQueuedMessage } = useMobileNativeChatQueuedEditFocus(queued.onEdit)
   // Held here, not in the list, so a chat switch mid-preview mounts the new list already lit.
@@ -140,6 +148,11 @@ export function useMobileNativeChatComposerTray({
               tasks: backgroundTasks
             })
           : null,
+        createElement(MobileNativeChatWorkerDock, {
+          key: `${sessionKey}:worker-dock`,
+          rows: workerDock,
+          approvals: workerApprovals
+        }),
         createElement(MobileNativeChatQueuedMessages, {
           key: sessionKey,
           actions,
@@ -183,6 +196,8 @@ export function useMobileNativeChatComposerTray({
     }),
     [
       backgroundTasks,
+      workerDock,
+      workerApprovals,
       cards,
       steerOrder,
       composerInputRef,
