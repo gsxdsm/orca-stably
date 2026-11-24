@@ -24,7 +24,7 @@ import {
 import { noteLastVisitedWorktree } from '../../worktree/navigation/last-visited-worktree-by-host'
 import { isWorktreePinned } from '../../worktree/workspace-list/workspace-list-sections'
 import type { Worktree } from '../../worktree/workspace-list/workspace-list-types'
-import { homeWorktreeForAgentPane } from '../agent-pane-home-worktree'
+import { agentPaneHomeLoaded, homeWorktreeForAgentPane } from '../agent-pane-home-worktree'
 import { worktreeActivate, worktreePinWrite, worktreeSleep } from '../host-screen-operations'
 import { setPendingSubagentFocus } from '../../session/pending-subagent-focus'
 import { useHostNewWorkspaceActions } from '../use-host-new-workspace-actions'
@@ -270,9 +270,12 @@ export function useHostWorktreeActions(args: {
       paneKey?: string,
       childId?: string
     ) => {
-      const home = paneKey
-        ? homeWorktreeForAgentPane([...worktrees, ...serverWorkspaces.worktrees], paneKey, item)
-        : item
+      const allWorktrees = [...worktrees, ...serverWorkspaces.worktrees]
+      const home = paneKey ? homeWorktreeForAgentPane(allWorktrees, paneKey, item) : item
+      // Never open the coordinator's mirrored copy while the stamped home card is still loading.
+      if (paneKey && !agentPaneHomeLoaded(allWorktrees, paneKey, home)) {
+        return
+      }
       const server = serverWorkspaces.hosts.find((host) => host.hostId === home.hostId)
       if (server?.relay === 'update-needed') {
         setServerNotice(serverUpdateNeededNotice(server.label))
