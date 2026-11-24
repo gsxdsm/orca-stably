@@ -194,6 +194,7 @@ export function HostWorkspaceList({
           onSessionLongPress={openSessionMenu}
           onToggleLineage={toggleWorktreeLineage}
           unsavedName={unsavedRename(renameDrafts, hostId, item)}
+          pairedHostId={hostId ?? null}
         />
       ),
     [

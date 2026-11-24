@@ -14,7 +14,7 @@ import {
   sideStripOffset,
   useSessionSideStripInset
 } from './session-side-strip-inset'
-import { MobileBrowserPane } from '../browser/MobileBrowserPane'
+import { MobileBrowserTabBody } from '../browser/MobileBrowserTabBody'
 import { TerminalPaneView } from '../terminal/session/pane-layout/TerminalPaneView'
 import { MountedTerminalPanes } from '../terminal/session/pane-layout/mounted-terminal-lru'
 import { MobileNativeChatOverlay } from './native-chat/MobileNativeChatOverlay'
@@ -239,7 +239,7 @@ export function MobileSessionActiveContent({
     ) : activeBrowserTab ? (
       <View style={styles.browserFrame}>
         {/* Why: pane owns imperative frame refs; don't render a stale frame while the old stream effect cleans up. */}
-        <MobileBrowserPane
+        <MobileBrowserTabBody
           key={activeBrowserTab.browserPageId ?? activeBrowserTab.id}
           client={client}
           worktreeId={worktreeId}

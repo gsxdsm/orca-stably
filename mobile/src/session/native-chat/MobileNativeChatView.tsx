@@ -1,4 +1,5 @@
 /* eslint-disable max-lines -- Why: the fork's additions sit beside upstream's in this owner after the upstream merge. */
+import { mobileWaitingAgentMailRows } from './transcript/agent-messages/MobileWaitingAgentMailRows'
 import { MobileBotFirstScreen, useMobileBotFirstScreen } from './MobileBotFirstScreen'
 import { MobileBotCardSendContext } from './transcript/bot-cards/mobile-bot-card-host'
 import { mobileNativeChatOtherBotCard } from './transcript/bot-cards/mobile-native-chat-bot-cards'
@@ -22,6 +23,7 @@ import { useMobileTranslation } from '../../i18n/use-mobile-translation'
 import { MobileNativeChatInputLockStatus } from './composer/field/MobileNativeChatInputLockStatus'
 import { useMobileColorScheme } from '../../theme/use-mobile-color-scheme'
 import { styles } from './mobile-native-chat-view-styles'
+import { MobileNativeChatComposerMenuHost } from './composer/menus/MobileNativeChatComposerMenuHost'
 import { MobileNativeChatEmptyStateView } from './transcript/viewport/MobileNativeChatEmptyStateView'
 import { mobileNativeChatListFooter } from './transcript/viewport/mobile-native-chat-list-footer'
 import { mobileNativeChatListHeader } from './transcript/viewport/mobile-native-chat-list-header'
@@ -151,7 +153,7 @@ export function MobileNativeChatView({
   workerApprovals,
   promptKey,
   onRespondPermission,
-  composerTray: { content: trayContent, composerInputRef: inputRef, steerHead } = NO_COMPOSER_TRAY,
+  composerTray: { content: trayContent, composerInputRef: inputRef, ...tray } = NO_COMPOSER_TRAY,
   onOpenFile,
   dismissalScope = null,
   keyboardInset = 0,
@@ -160,6 +162,7 @@ export function MobileNativeChatView({
   useMobileColorScheme()
   const t = useMobileTranslation()
   const { bottomPad, composerFit, transcriptInset } = useChatBottomFit(keyboardInset)
+  const rootStyle = [styles.root, { paddingBottom: bottomPad }]
   const { fontScale, pinchGesture } = useMobileNativeChatPinchGesture()
   const subagent = useMobileNativeChatSubagentTranscript({
     messages,
@@ -320,7 +323,8 @@ export function MobileNativeChatView({
   // Changing text size, face or spacing relays out every row, so preserve the page’s reading anchor.
   const layoutKey = `${fontScale}:${font}:${lineSpacing}`
   useMobileNativeChatPreviousStops(tail, turns, rowKeys.keyOf, layoutKey)
-  const footer = mobileNativeChatListFooter(liveStatus, turns.waitingRows, renderItem)
+  const mailRows = mobileWaitingAgentMailRows(tray.waitingAgentMail, fontScale, tail.viewport)
+  const footer = mobileNativeChatListFooter(liveStatus, turns.waitingRows, renderItem, mailRows)
   const emptyState = mobileNativeChatEmptyState(status, agent, error, sessionLive, clearing)
   const suppressEmptyState = subagent.focusedId != null && !readFailedFinally
 
@@ -393,13 +397,8 @@ export function MobileNativeChatView({
           onChangeText={onComposerTextChange}
           onSend={handleSend}
           sendSurfaceId={sendSurfaceId}
-          {...{
-            getSendCompletionGeneration,
-            getComposerEditGeneration,
-            inputRef,
-            sendFollowUp,
-            steerHead
-          }}
+          {...{ getSendCompletionGeneration, getComposerEditGeneration, inputRef, sendFollowUp }}
+          steerHead={tray.steerHead}
           {...{ agent, sessionOptions, contextUsage }}
           {...{ onAttachImage, onPasteImages, attachments, onRemoveAttachment }}
           {...{ isAttaching, onMicPress, micActive, micStarting, micProcessing }}
@@ -415,19 +414,19 @@ export function MobileNativeChatView({
   )
 
   if (readFailedFinally && emptyStateView) {
-    return <View style={[styles.root, { paddingBottom: bottomPad }]}>{emptyStateView}</View>
+    return <View style={rootStyle}>{emptyStateView}</View>
   }
 
   return (
     <MobileNativeChatOpenFileContext value={onOpenFile}>
-      <View testID="native-chat-view" style={[styles.root, { paddingBottom: bottomPad }]}>
+      <MobileNativeChatComposerMenuHost testID="native-chat-view" style={rootStyle}>
         {status === 'loading' && messages.length === 0 ? (
           <MobileStateView
             loading
             title={t('session.nativeChatView.loading', 'Loading conversation…')}
           />
         ) : firstScreen ? (
-          <MobileBotFirstScreen firstScreen={firstScreen} />
+          <MobileBotFirstScreen firstScreen={firstScreen} after={mailRows} />
         ) : (
           <GestureHandlerRootView style={[styles.listWrap, transcriptInset]}>
             <MobileNativeChatDisclosureContext.Provider value={disclosures}>
@@ -479,7 +478,7 @@ export function MobileNativeChatView({
         <MobileNativeChatLowerRegion scopeKey={sendSurfaceId} composerPresent={!promptOwnsInput}>
           {lowerContent}
         </MobileNativeChatLowerRegion>
-      </View>
+      </MobileNativeChatComposerMenuHost>
     </MobileNativeChatOpenFileContext>
   )
 }

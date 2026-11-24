@@ -68,6 +68,8 @@ type Props = {
   onToggleLineage?: (item: WorkspaceListItem) => void
   /** A rename the desktop hasn't taken yet; the row keeps its real name and points to this one. */
   unsavedName?: string
+  /** The paired computer, for a bot row's usage-limit stops. */
+  pairedHostId?: string | null
 }
 
 function WorktreeListRowComponent({
@@ -87,7 +89,8 @@ function WorktreeListRowComponent({
   onLongPress,
   onSessionLongPress,
   onToggleLineage,
-  unsavedName
+  unsavedName,
+  pairedHostId = null
 }: Props) {
   useMobileColorScheme()
   const t = useMobileTranslation()
@@ -162,6 +165,7 @@ function WorktreeListRowComponent({
         item={item}
         view={view}
         isReadOnly={isReadOnly}
+        pairedHostId={pairedHostId}
         onPress={() => onPress(item)}
         onLongPress={handleLongPress}
         onToggle={onToggleLineage ? () => onToggleLineage({ row: item, view }) : undefined}
