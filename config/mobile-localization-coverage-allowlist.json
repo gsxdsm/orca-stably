@@ -742,5 +742,61 @@
     "text": "files.readDir refused",
     "dynamic": false,
     "count": 1
+  },
+  {
+    "filePath": "mobile/src/accounts/accounts-snapshot.ts",
+    "kind": "object-property:message",
+    "text": "limits use the wrong provider identity",
+    "dynamic": true,
+    "count": 1
+  },
+  {
+    "filePath": "mobile/src/accounts/claude-codex-account-section.tsx",
+    "kind": "jsx-attribute:title",
+    "text": "Claude",
+    "dynamic": false,
+    "count": 1
+  },
+  {
+    "filePath": "mobile/src/accounts/claude-codex-account-section.tsx",
+    "kind": "jsx-attribute:title",
+    "text": "Codex",
+    "dynamic": false,
+    "count": 1
+  },
+  {
+    "filePath": "mobile/src/add-project/AddProjectForms.tsx",
+    "kind": "jsx-attribute:placeholder",
+    "text": "my-project",
+    "dynamic": false,
+    "count": 1
+  },
+  {
+    "filePath": "mobile/src/add-project/AddProjectForms.tsx",
+    "kind": "jsx-attribute:placeholder",
+    "text": "https://github.com/owner/repo.git",
+    "dynamic": false,
+    "count": 1
+  },
+  {
+    "filePath": "mobile/src/add-project/AddProjectForms.tsx",
+    "kind": "jsx-attribute:placeholder",
+    "text": "~/code/project",
+    "dynamic": false,
+    "count": 1
+  },
+  {
+    "filePath": "mobile/src/add-project/AddProjectForms.tsx",
+    "kind": "jsx-attribute:placeholder",
+    "text": "~/orca/projects",
+    "dynamic": false,
+    "count": 1
+  },
+  {
+    "filePath": "mobile/src/session/native-chat/input/read-mobile-native-chat-subagent-page.ts",
+    "kind": "object-property:error",
+    "text": "Transcript unavailable",
+    "dynamic": false,
+    "count": 6
   }
 ]

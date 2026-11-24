@@ -46,6 +46,7 @@
 8 src/main/native-chat/agent-session-journal/writing/command-receipt-table.ts
 2 src/main/native-chat/agent-session-journal/writing/journal-goal-attachment-inverse.ts
 4 src/main/native-chat/agent-session-journal/writing/mail-withdrawal-receipts.ts
+5 src/main/native-chat/transcript-hermes-sqlite.ts # fork-only (gsxdsm/orca), not for upstream
 10 src/main/native-chat/transcript-history/opencode/transcript-opencode-sqlite-query.ts
 14 src/main/native-chat/transcript-history/opencode/transcript-opencode2-fork-coverage.ts
 10 src/main/native-chat/transcript-history/opencode/transcript-opencode2-sqlite.ts
