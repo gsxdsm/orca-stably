@@ -216,7 +216,8 @@ export default function RootLayout() {
                     headerTintColor: colors.textPrimary,
                     headerTitleStyle: { fontSize: 16, fontWeight: '600' },
                     contentStyle: { backgroundColor: colors.bgBase },
-                    headerShadowVisible: false
+                    headerShadowVisible: false,
+                    fullScreenGestureEnabled: true
                     // Leave orientation unset: react-native-screens overrides rotation lock even for default; Android manifest fullUser honors the user’s setting.
                   }}
                 >

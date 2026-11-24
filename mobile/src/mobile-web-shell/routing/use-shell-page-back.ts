@@ -5,7 +5,7 @@ type GestureOptions = { setOptions: (options: { gestureEnabled: boolean }) => vo
 
 const parentClaims = new WeakMap<GestureOptions, number>()
 
-// Android intercepts/posts hardware Back; iOS disables the stack swipe while claimed so it cannot pop the page (the shell's edge swipe sends Back instead). No live claim leaves navigation unchanged.
+// Android posts hardware Back; iOS disables the native swipe while claimed so the page's gesture cannot pop its containing document.
 export function useShellPageBack(args: {
   claimed: boolean
   isFocused: () => boolean

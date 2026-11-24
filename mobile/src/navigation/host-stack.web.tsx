@@ -8,6 +8,9 @@ import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { HOST_STACK_SCREENS, type HostStackAnimation } from './host-stack-screens'
 import { isOverlayPageRoute } from '../new-workspace/overlay-page-route'
 import { runStackMotion } from './host-stack-motion.web'
+import { BackSwipeContext } from './back-swipe-context'
+import type { InteractiveBackSwipe } from './back-swipe'
+import { useBackClaim } from './use-back-claim.web'
 import { useShellOpenTarget } from './use-shell-open-target.web'
 import { useReportedPageLocation } from './use-reported-page-location.web'
 import {
@@ -79,10 +82,12 @@ function transitionBetween(previous: Shown, next: Routes): Transition | null {
 
 function HostStackView({ animation }: { animation: HostStackAnimation }) {
   useMobileColorScheme()
-  const { state, descriptors } = Navigator.useContext()
+  const { state, descriptors, navigation } = Navigator.useContext()
   const { routes } = state
   const [shown, setShown] = useState<Shown>({ routes, descriptors, transition: null })
   const nodes = useRef(new Map<string, HTMLElement>())
+  const interactive = useRef<(() => void) | null>(null)
+  const committedSwipe = useRef<string | null>(null)
   // A stack that starts with a route beneath the top (the host list under a shell-opened target) draws only the top until a screen paints, so the two don't compete.
   const [released, setReleased] = useState(routes.length === 1)
   const release = useCallback(() => setReleased(true), [])
@@ -90,7 +95,8 @@ function HostStackView({ animation }: { animation: HostStackAnimation }) {
   // Derive during render so a pop’s first frame still contains its outgoing screen.
   if (shown.routes !== routes) {
     const moved = shown.routes.at(-1)?.key !== routes.at(-1)?.key
-    const slides = moved && animation !== 'none'
+    const slides =
+      moved && animation !== 'none' && committedSwipe.current !== shown.routes.at(-1)?.key
     setShown({
       routes,
       descriptors,
@@ -106,12 +112,61 @@ function HostStackView({ animation }: { animation: HostStackAnimation }) {
   const slots = transition?.kind === 'pop' ? [...routes, transition.leaving] : routes
   // A Back before the gate releases still slides the leaving screen off, so the motion settles and taps come back.
   const leavingKey = transition?.kind === 'pop' ? transition.leaving.key : null
+  const beginBackSwipe = useCallback((): InteractiveBackSwipe | null => {
+    if (interactive.current || transition || !released || routes.length < 2) {
+      return null
+    }
+    const moving = nodes.current.get(routes.at(-1)!.key)
+    const under = nodes.current.get(routes.at(-2)!.key)
+    if (!moving || !under) {
+      return null
+    }
+    const display = under.style.display
+    under.style.display = 'flex'
+    let swipe: InteractiveBackSwipe | null = null
+    const clean = runStackMotion({
+      kind: 'pop',
+      moving,
+      under,
+      reducedMotion: prefersReducedMotion(),
+      onSettled: () => {
+        committedSwipe.current = routes.at(-1)!.key
+        navigation.goBack()
+      },
+      interactive: {
+        ready: (value) => {
+          swipe = value
+        },
+        cancelled: () => {
+          interactive.current?.()
+          interactive.current = null
+        }
+      }
+    })
+    interactive.current = () => {
+      clean()
+      under.style.display = display
+    }
+    return swipe
+  }, [transition, released, routes, navigation])
+  useBackClaim(
+    routes.length > 1
+      ? () => {
+          navigation.goBack()
+          return true
+        }
+      : null,
+    beginBackSwipe
+  )
   const drawn = released
     ? slots
     : slots.filter((route) => route.key === topKey || route.key === leavingKey)
 
   // Start before paint so screens never flash at rest before sliding.
   useLayoutEffect(() => {
+    interactive.current?.()
+    interactive.current = null
+    committedSwipe.current = null
     if (transition === null) {
       return
     }
@@ -124,27 +179,36 @@ function HostStackView({ animation }: { animation: HostStackAnimation }) {
       onSettled: settle
     })
   }, [transition, topKey, settle])
+  useLayoutEffect(
+    () => () => {
+      interactive.current?.()
+      interactive.current = null
+    },
+    []
+  )
 
   return (
     // Render descriptors bare like NavigatorSlot; NavigationContent cannot run in this view-only rerender.
     // Disable taps mid-slide so repeated row taps cannot push duplicate screens.
-    <View style={styles.stack} pointerEvents={transition ? 'none' : 'auto'}>
-      {drawn.map((route) => {
-        const leaving = transition?.kind === 'pop' && route.key === transition.leaving.key
-        const descriptor = leaving ? transition.descriptors[route.key] : descriptors[route.key]
-        return (
-          <StackScreen
-            key={route.key}
-            routeKey={route.key}
-            nodes={nodes.current}
-            visible={route.key === topKey || leaving || route.key === underKey}
-            onPainted={released ? null : release}
-          >
-            {descriptor?.render()}
-          </StackScreen>
-        )
-      })}
-    </View>
+    <BackSwipeContext.Provider value={beginBackSwipe}>
+      <View style={styles.stack} pointerEvents={transition ? 'none' : 'auto'}>
+        {drawn.map((route) => {
+          const leaving = transition?.kind === 'pop' && route.key === transition.leaving.key
+          const descriptor = leaving ? transition.descriptors[route.key] : descriptors[route.key]
+          return (
+            <StackScreen
+              key={route.key}
+              routeKey={route.key}
+              nodes={nodes.current}
+              visible={route.key === topKey || leaving || route.key === underKey}
+              onPainted={released ? null : release}
+            >
+              {descriptor?.render()}
+            </StackScreen>
+          )
+        })}
+      </View>
+    </BackSwipeContext.Provider>
   )
 }
 

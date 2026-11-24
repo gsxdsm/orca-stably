@@ -1,5 +1,6 @@
 import { REDUCED_MOTION_FADE_MS } from '../components/motion/sheet-motion-values'
 import { PUSH_EASING_CSS, PUSH_SLIDE_MS, PUSH_UNDER_DIM, PUSH_UNDER_SHIFT } from './push-motion'
+import type { InteractiveBackSwipe } from './back-swipe'
 
 // Bound suspended-screen waits so a route with no content can still arrive.
 const CONTENT_WAIT_CAP_MS = 1000
@@ -19,6 +20,10 @@ export function runStackMotion(args: {
   under: HTMLElement | null
   reducedMotion: boolean
   onSettled: () => void
+  interactive?: {
+    ready: (swipe: InteractiveBackSwipe) => void
+    cancelled: () => void
+  }
 }): () => void {
   const { kind, moving, reducedMotion, onSettled } = args
   const under = reducedMotion ? null : args.under
@@ -28,7 +33,7 @@ export function runStackMotion(args: {
   const push = kind === 'push'
   const options: KeyframeAnimationOptions = {
     duration: PUSH_SLIDE_MS,
-    easing: PUSH_EASING_CSS,
+    easing: args.interactive ? 'linear' : PUSH_EASING_CSS,
     fill: 'both'
   }
   const from = (node: HTMLElement, rest: string) => stoppedAt.get(node) ?? rest
@@ -37,7 +42,11 @@ export function runStackMotion(args: {
         push
           ? [{ opacity: from(moving, '0') }, { opacity: 1 }]
           : [{ opacity: from(moving, '1') }, { opacity: 0 }],
-        { duration: REDUCED_MOTION_FADE_MS, easing: 'ease-out', fill: 'both' }
+        {
+          duration: REDUCED_MOTION_FADE_MS,
+          easing: args.interactive ? 'linear' : 'ease-out',
+          fill: 'both'
+        }
       )
     : moving.animate(
         push
@@ -73,6 +82,46 @@ export function runStackMotion(args: {
 
   let observer: MutationObserver | null = null
   let cap: ReturnType<typeof setTimeout> | null = null
+  let alive = true
+  if (args.interactive) {
+    const duration = reducedMotion ? REDUCED_MOTION_FADE_MS : PUSH_SLIDE_MS
+    for (const animation of animations) {
+      animation?.pause()
+      if (animation) {
+        animation.currentTime = 0
+      }
+    }
+    let finishing = false
+    const finish = (commit: boolean) => {
+      if (finishing || !alive) {
+        return
+      }
+      finishing = true
+      slide.onfinish = commit ? onSettled : args.interactive!.cancelled
+      for (const animation of animations) {
+        if (!animation) {
+          continue
+        }
+        animation.playbackRate = commit ? 1 : -1
+        animation.play()
+      }
+    }
+    args.interactive.ready({
+      width: moving.getBoundingClientRect().width,
+      update: (progress) => {
+        if (finishing || !alive) {
+          return
+        }
+        for (const animation of animations) {
+          if (animation) {
+            animation.currentTime = progress * duration
+          }
+        }
+      },
+      finish,
+      cancel: () => finish(false)
+    })
+  }
   // Keep a suspended chunk off-screen, with the screen under it still, until its content commits.
   if (push && moving.childElementCount === 0) {
     for (const animation of animations) {
@@ -93,12 +142,13 @@ export function runStackMotion(args: {
   }
 
   return () => {
+    alive = false
     observer?.disconnect()
     if (cap !== null) {
       clearTimeout(cap)
     }
     // Only an interrupted move hands its position on; a finished one rests where it should.
-    if (slide.playState !== 'finished') {
+    if (!args.interactive && slide.playState !== 'finished') {
       const style = getComputedStyle(moving)
       stoppedAt.set(moving, reducedMotion ? style.opacity : style.transform)
       if (under !== null) {

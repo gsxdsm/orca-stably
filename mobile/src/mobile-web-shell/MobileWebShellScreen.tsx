@@ -27,7 +27,6 @@ import { useClaimSideRelease } from '../layout/released-side-inset'
 import { BRIDGE_TERMINAL_KEY_RAIL_GRANT } from './bridge/native-capabilities/bridge-terminal-key'
 import { useNativeDeviceVerbs } from '../platform/use-native-device-verbs'
 import { useNativePdfViewer } from '../platform/pdf-viewing/native-pdf-view'
-import { ShellPageBackEdge } from './shell-page-back-edge'
 import { useNativeImageActions } from '../platform/image-actions/native-image-actions'
 import { processDeviceStore } from '../device-store/device-store'
 import { serveDeviceStoreVerb } from './native-capabilities/device-store-verb-server'
@@ -421,8 +420,6 @@ export function MobileWebShellScreen({
         sessionId={state.sessionId}
         bridgeEnabled={bridge.bridgeEnabled}
         onBridgeMessage={bridge.onBridgeMessage}
-        backEdgeSwipe={backClaimed}
-        onBackEdgeSwipe={bridge.sendBack}
         onExternalNavigation={(event) => {
           const target = cancelledShellNavigationTarget(event.nativeEvent.url)
           if (target === null) {
@@ -452,7 +449,6 @@ export function MobileWebShellScreen({
         <ShellPageCover label={SHELL_OPENING_LABEL} visible={pageFrame === 'unpainted'} />
       )}
       <ShellDevFacts state={state} droppedBinaryFrames={droppedBinaryFrames} />
-      <ShellPageBackEdge active={backClaimed} onBack={bridge.sendBack} />
     </View>
   )
 }
