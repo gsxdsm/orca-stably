@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import { directoryAccountBinding } from '../acp/launch/acp-account-binding'
+import { writeFolderContextFile } from '../acp/launch/acp-folder-context-file'
 import type { AcpLaunchSpec } from '../acp/launch/acp-launch-contract'
 import { agentSessionSetupFor } from '../../shared/agent-session/lifecycle/launch/agent-session-setup-commands'
 
@@ -24,6 +25,14 @@ export const MUSE_LAUNCH_SPEC: AcpLaunchSpec = {
     sessionFolderArgs: () => ['--no-session-log']
   },
   keepsEverySession: true,
+  // Muse reads the folder's rules at session/new and session/load.
+  instructions: async ({ cwd, text }) => {
+    if (!(await writeFolderContextFile(cwd, 'AGENTS.md', 'Muse', text))) {
+      throw new Error('Muse could not write standing instructions to AGENTS.md')
+    }
+    return { args: ['--trust-workspace'] }
+  },
+  instructionsInWorkspace: true,
   transcriptImport: null,
   sessionHistory: {
     rowAgents: ['muse'],
