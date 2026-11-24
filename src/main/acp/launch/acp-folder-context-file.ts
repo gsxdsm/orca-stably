@@ -42,14 +42,14 @@ export async function writeFolderContextFile(
   path: string,
   agentName: string,
   text: string
-): Promise<void> {
+): Promise<boolean> {
   const realCwd = await realpath(cwd).catch(() => cwd)
   const folders = dirname(path)
     .split(/[\\/]/)
     .filter((segment) => segment && segment !== '.')
   // A linked folder on the way would carry the bot's instructions somewhere else.
   if ((await realFolderUnderRoot(cwd, realCwd, folders)) === 'other') {
-    return
+    return false
   }
   const target = join(realCwd, path)
   let existing: string | null = null
@@ -57,12 +57,12 @@ export async function writeFolderContextFile(
   if (info) {
     // A link may point outside the folder or into a tracked file, so it is left as the user's.
     if (info.isSymbolicLink()) {
-      return
+      return false
     }
     try {
       existing = await readFile(target, 'utf8')
     } catch {
-      return
+      return false
     }
   } else {
     await mkdir(dirname(target), { recursive: true })
@@ -100,6 +100,7 @@ async function replaceWhole(target: string, content: string): Promise<void> {
   try {
     await writeFile(staged, content, { mode: 0o600 })
     await rename(staged, target)
+    return true
   } catch (error) {
     await rm(staged, { force: true }).catch(() => undefined)
     throw error

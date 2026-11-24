@@ -19,10 +19,10 @@ import {
   migrateRetiredBotAgent
 } from './bots/bot-retired-agents'
 
-/** Native-chat agents a bot cannot run on yet; each waits on a live check of its preamble delivery. */
-export const BOT_HELD_BACK_AGENTS = ['muse'] as const
+/** Native-chat agents waiting on a live check of their preamble delivery. */
+export const BOT_HELD_BACK_AGENTS = [] as const
 
-/** Bots run in a native chat; every native-chat agent but the held-back ones. */
+/** Agents with native chat and standing-instruction support. */
 export const BOT_AGENTS = [
   'claude',
   'codex',
@@ -45,7 +45,8 @@ export const BOT_AGENTS = [
   'qwen-code',
   'cline',
   'devin',
-  'codebuddy'
+  'codebuddy',
+  'muse'
 ] as const satisfies readonly Exclude<NativeChatAgent, (typeof BOT_HELD_BACK_AGENTS)[number]>[]
 
 /** A bot agent as old records and peers name it: a retired agent reads as its successor. */
@@ -72,8 +73,7 @@ export function splitBotsByOlderBuildSupport(bots: readonly Bot[]): {
   const readable: Bot[] = []
   const newer: Bot[] = []
   for (const bot of bots) {
-    const side = BOT_AGENTS_OLDER_BUILDS_READ.has(bot.agent) ? readable : newer
-    side.push(bot)
+    ;(BOT_AGENTS_OLDER_BUILDS_READ.has(bot.agent) ? readable : newer).push(bot)
   }
   return { readable, newer }
 }
