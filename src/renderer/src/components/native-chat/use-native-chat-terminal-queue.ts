@@ -148,6 +148,12 @@ export function useNativeChatTerminalQueue(args: {
         ...card,
         waitsForAgent: true
       })),
+      holds: (messageId) =>
+        snapshot?.queuedMessages.some((card) => card.messageId === messageId) ?? false,
+      agentMail: [],
+      agentMailEditable: () => false,
+      mailLeads: false,
+      stopping: false,
       queueCapable: false,
       clearCapable: true,
       pause: null,

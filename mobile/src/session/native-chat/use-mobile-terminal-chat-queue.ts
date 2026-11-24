@@ -10,12 +10,15 @@ import {
 import type { MobileStructuredQueuedMessageControls } from './input/queued-messages/use-mobile-structured-queued-message-controls'
 import { mobileQueuedMessageCards } from './input/queued-messages/mobile-structured-queued-message-cards'
 import type { z } from 'zod'
+import type { NativeChatMessage } from '../../../../src/shared/native-chat/native-chat-types'
 import { NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY } from '../../../../src/shared/native-chat/native-chat-terminal-queue-capability'
 import { mobileTerminalChatQueueSend } from './mobile-terminal-chat-queue-send'
 import type { MobileNativeChatSendOutcome } from './composer/delivery/mobile-native-chat-send'
 import { isRpcDeliveryUnknown } from '../../transport/rpc/rpc-delivery-ambiguity'
 import { isLogicalClientCutoverError } from '../../transport/connection/logical-client-cutover-error'
 import { UNCONFIRMED_SEND_MESSAGE } from './composer/delivery/use-mobile-native-chat-unconfirmed-sends'
+
+const NO_AGENT_MAIL: readonly NativeChatMessage[] = []
 
 export function useMobileTerminalChatQueue(args: {
   client: RpcClient | null
@@ -138,12 +141,18 @@ export function useMobileTerminalChatQueue(args: {
     },
     [request, args.onSendError]
   )
-  const controls = useMemo<MobileStructuredQueuedMessageControls>(
-    () => ({
+  const controls = useMemo<MobileStructuredQueuedMessageControls>(() => {
+    const cards = mobileQueuedMessageCards(snapshot?.queuedMessages, [], {
+      agentWorking: snapshot?.activity.state === 'working'
+    }).map((card) => ({ ...card, waitsForAgent: true as const }))
+    return {
       sessionKey: scope,
-      cards: mobileQueuedMessageCards(snapshot?.queuedMessages, [], {
-        agentWorking: snapshot?.activity.state === 'working'
-      }).map((card) => ({ ...card, waitsForAgent: true })),
+      cards,
+      steerOrder: cards,
+      clearIds: cards.map((card) => card.messageId),
+      holds: (messageId) => cards.some((card) => card.messageId === messageId),
+      agentMail: NO_AGENT_MAIL,
+      agentMailEditable: () => false,
       pause: null,
       send: async () => false,
       delete: async (messageId) =>
@@ -168,9 +177,8 @@ export function useMobileTerminalChatQueue(args: {
         return (await request({ type: 'delete', messageIds: [messageId] })) !== null
       },
       resume: async () => false
-    }),
-    [scope, snapshot, request, appendText]
-  )
+    }
+  }, [scope, snapshot, request, appendText])
   const bindSend = (
     ...args: [
       Parameters<typeof mobileTerminalChatQueueSend>[1],

@@ -5,6 +5,7 @@ import type { NativeChatMessage } from '../../../../../src/shared/native-chat/na
 import type { MobileNativeChatScrollNode } from './viewport/mobile-native-chat-reading-place'
 import { MobileNativeChatRowList } from './MobileNativeChatRowList'
 import type { MobileNativeChatRowKeys } from './projection/mobile-native-chat-row-keys'
+import { createMobileNativeChatTailViewport } from './viewport/mobile-native-chat-tail-viewport'
 import type {
   MobileNativeChatListHandle,
   MobileNativeChatTailFollow
@@ -183,6 +184,7 @@ function tailOf(
   endMomentum: () => void = () => {}
 ): MobileNativeChatTailFollow {
   return {
+    viewport: createMobileNativeChatTailViewport(),
     listProps: { ref: listRef },
     pageListProps: {
       ref: listRef,
