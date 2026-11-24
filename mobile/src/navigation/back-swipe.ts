@@ -15,3 +15,6 @@ export function backSwipeDirection(dx: number, dy: number): 'wait' | 'back' | 'r
 export function backSwipeCommits(progress: number, velocity: number): boolean {
   return velocity > -0.3 && (progress >= 0.5 || (progress >= 0.08 && velocity >= 0.5))
 }
+
+// Spread onto chrome with its own horizontal gestures (the session tab bar) so Back starts only from content.
+export const BACK_SWIPE_EXCLUDED_PROPS = { dataSet: { backSwipe: 'disabled' } }

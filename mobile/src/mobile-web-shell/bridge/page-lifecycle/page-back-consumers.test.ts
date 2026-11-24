@@ -34,7 +34,13 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
-function touch(type: string, x: number, time: number, y = 100): void {
+function touch(
+  type: string,
+  x: number,
+  time: number,
+  y = 100,
+  target: Element = document.body
+): void {
   const point = { identifier: 1, clientX: x, clientY: y }
   const event = new Event(type, { bubbles: true, cancelable: true })
   Object.defineProperties(event, {
@@ -42,7 +48,7 @@ function touch(type: string, x: number, time: number, y = 100): void {
     changedTouches: { value: [point] },
     timeStamp: { value: time }
   })
-  document.body.dispatchEvent(event)
+  target.dispatchEvent(event)
 }
 
 it('keeps navigation unchanged during drag and cancellation, then commits one back after release', () => {
@@ -111,6 +117,33 @@ it('cancels an in-flight swipe when a sheet claims Back and never falls through 
   touch('touchmove', 330, 1300, 200)
   touch('touchend', 330, 1400)
   expect(committed).toBe(0)
+})
+
+it('never starts from excluded chrome such as the tab bar, even at the edge', () => {
+  let started = 0
+  const back = createPageBackConsumers({ publishClaim: () => {}, onUnclaimed: () => {} })
+  cleanup.push(back.clear)
+  back.claim(
+    Object.assign(() => true, {
+      beginBackSwipe: () => {
+        started++
+        return null
+      }
+    })
+  )
+  const bar = document.createElement('div')
+  bar.dataset.backSwipe = 'disabled'
+  const cell = bar.appendChild(document.createElement('div'))
+  document.body.append(bar)
+  for (const x of [10, 200]) {
+    touch('touchstart', x, 0, 100, cell)
+    touch('touchmove', x + 150, 100, 100, cell)
+    touch('touchend', x + 150, 200, 100, cell)
+  }
+  expect(started).toBe(0)
+  touch('touchstart', 10, 300)
+  touch('touchmove', 160, 400)
+  expect(started).toBe(1)
 })
 
 it('leaves Android touch navigation to its hardware Back handler', () => {

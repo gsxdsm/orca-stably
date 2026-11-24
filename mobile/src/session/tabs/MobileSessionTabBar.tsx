@@ -10,6 +10,7 @@ import Animated, {
   withSequence,
   withTiming
 } from 'react-native-reanimated'
+import { BACK_SWIPE_EXCLUDED_PROPS } from '../../navigation/back-swipe'
 import { triggerMediumImpact, triggerSelection } from '../../platform/haptics/haptics'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
 import { AgentStateDot } from '../../agents/presentation/AgentStateDot'
@@ -210,7 +211,11 @@ export function MobileSessionTabBar({
   }
 
   return (
-    <View ref={keepsKeyboard} style={inTopBar ? styles.barInTopBar : styles.bar}>
+    <View
+      ref={keepsKeyboard}
+      style={inTopBar ? styles.barInTopBar : styles.bar}
+      {...BACK_SWIPE_EXCLUDED_PROPS}
+    >
       {/* pan-y keeps vertical touches with the page on the web. */}
       <GestureDetector gesture={pan} touchAction="pan-y">
         <View

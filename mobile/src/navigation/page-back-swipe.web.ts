@@ -1,14 +1,18 @@
 import { backSwipeCommits, backSwipeDirection, type InteractiveBackSwipe } from './back-swipe'
 
-// Horizontal controls keep their input; the edge remains an escape from a full-screen terminal.
+// Horizontal controls keep their input; the edge remains an escape from a full-screen terminal, but never from excluded chrome.
 function reservesHorizontalInput(event: TouchEvent, edge: boolean): boolean {
+  const path = event.composedPath()
+  if (path.some((node) => node instanceof HTMLElement && node.dataset.backSwipe === 'disabled')) {
+    return true
+  }
   if (edge) {
     return false
   }
   if (document.getSelection()?.isCollapsed === false) {
     return true
   }
-  return event.composedPath().some((node) => {
+  return path.some((node) => {
     if (!(node instanceof HTMLElement)) {
       return false
     }
@@ -19,7 +23,7 @@ function reservesHorizontalInput(event: TouchEvent, edge: boolean): boolean {
     ) {
       return true
     }
-    if (node.shadowRoot || node.dataset.backSwipe === 'disabled') {
+    if (node.shadowRoot) {
       return true
     }
     const style = getComputedStyle(node)
