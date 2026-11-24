@@ -8,7 +8,8 @@ import { colors, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { formatUsageWindowLength, type UsageWindowEntry } from './agent-usage-provider'
-import { computeUsagePace, type UsagePace } from './usage-window-pace'
+import { useComposerUsageDisplay } from './composer-usage-display-preference'
+import { computeUsagePace, usagePaceMarkerPercent, type UsagePace } from './usage-window-pace'
 
 function windowTitle(entry: UsageWindowEntry, t: Translate): string {
   const length = formatUsageWindowLength(entry.window.windowMinutes)
@@ -83,6 +84,7 @@ function resetCopy(entry: UsageWindowEntry, now: number, t: Translate): string |
 export function ComposerUsageWindowRow({ entry, now }: { entry: UsageWindowEntry; now: number }) {
   useMobileColorScheme()
   const t = useMobileTranslation()
+  const display = useComposerUsageDisplay()
   const used = Math.round(Math.max(0, Math.min(100, entry.window.usedPercent)))
   const pace = paceCopy(computeUsagePace(entry.window, now), t)
   const reset = resetCopy(entry, now, t)
@@ -103,6 +105,8 @@ export function ComposerUsageWindowRow({ entry, now }: { entry: UsageWindowEntry
         label={formatUsageWindowLength(entry.window.windowMinutes)}
         usedPercent={used}
         unavailable={false}
+        display={display}
+        paceMarkerPercent={usagePaceMarkerPercent(entry.window, now, display)}
       />
       {reset ? <Text style={styles.meta}>{reset}</Text> : null}
       {pace ? <Text style={[styles.pace, { color: pace.color }]}>{pace.text}</Text> : null}
