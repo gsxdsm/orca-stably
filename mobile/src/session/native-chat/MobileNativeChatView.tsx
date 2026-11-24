@@ -178,6 +178,9 @@ export function MobileNativeChatView({
   const onHistoryLoadEarlier = subagent.childHistory?.loadEarlier ?? onLoadEarlier
   const { font, lineSpacing } = useNativeChatTextSettings()
 
+  const transcriptScopeKey = subagent.focusedId
+    ? `${sendSurfaceId}\0${subagent.focusedId}`
+    : sendSurfaceId
   const data = useMobileNativeChatTransientData(
     {
       folded: subagent.shownFolded,
@@ -185,9 +188,13 @@ export function MobileNativeChatView({
       pending: subagent.shownPending,
       imagePreviewsByMessageId: subagent.focusedId ? undefined : imagePreviewsByMessageId
     },
-    subagent.focusedId ? `${sendSurfaceId}\0${subagent.focusedId}` : sendSurfaceId
+    transcriptScopeKey
   )
-  const tail = useMobileNativeChatTailFollow({ hasItems: data.length > 0, scopeKey: sendSurfaceId })
+  // A focused subagent is a different transcript, so tail-follow restarts with it.
+  const tail = useMobileNativeChatTailFollow({
+    hasItems: data.length > 0,
+    scopeKey: transcriptScopeKey
+  })
   const { jumpToTail, recordScrollMetrics, scrollMayLoadEarlier, jumpToPreviousMessage } = tail
 
   // Lock only terminal-backed Send: it can answer an agent prompt, while drafting is harmless and structured sends queue.
@@ -270,7 +277,7 @@ export function MobileNativeChatView({
   const rowKeys = useMobileNativeChatRowKeys(
     subagent.shownFolded,
     subagent.rowSource,
-    subagent.focusedId ? `${sendSurfaceId}\0${subagent.focusedId}` : sendSurfaceId,
+    transcriptScopeKey,
     turns.presentation
   )
   const itemJump = useMobileNativeChatItemNavigation({
