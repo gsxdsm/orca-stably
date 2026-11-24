@@ -20,7 +20,7 @@ import {
 } from './bots/bot-retired-agents'
 
 /** Native-chat agents a bot cannot run on yet; each waits on a live check of its preamble delivery. */
-export const BOT_HELD_BACK_AGENTS = [] as const
+export const BOT_HELD_BACK_AGENTS = ['muse'] as const
 
 /** Bots run in a native chat; every native-chat agent but the held-back ones. */
 export const BOT_AGENTS = [
