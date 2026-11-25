@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import * as z from 'zod'
 import type { AgentType } from '../../agent-status/contracts/agent-status-types'
 
 // Expose the same transcript readers over RPC for paired mobile/web native chat.
@@ -28,10 +28,14 @@ export const NativeChatSession = z.object({
   capabilities: z
     .object({
       transcriptPending: z.literal(1).optional(),
-      transcriptSourceOrder: z.literal(1).optional()
+      transcriptSourceOrder: z.literal(1).optional(),
+      // Ask for the whole-file task list. Older clients omit it and never receive the extra frame.
+      taskList: z.literal(1).optional()
     })
     .optional(),
   beforeOffset: z.number().int().nonnegative().optional(),
+  // One child. Absent keeps the parent snapshot on the roster and its own tail.
+  subagentId: z.string().min(1).max(512).optional(),
   // The newest row the client holds; a value this host can't read means no resume, not a failed subscribe.
   resumeAfter: z
     .object({

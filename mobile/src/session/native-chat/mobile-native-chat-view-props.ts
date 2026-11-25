@@ -16,6 +16,9 @@ import type {
   NativeChatSettledTurns
 } from '../../../../src/shared/native-chat/transcript/turns/native-chat-turn-status'
 import type { ComponentProps } from 'react'
+import type { NativeChatSubagentActivity } from '../../../../src/shared/native-chat/input/native-chat-activity'
+import type { NativeChatTaskSeedList } from '../../../../src/shared/native-chat/input/native-chat-claude-task-updates'
+import type { MobileNativeChatSubagentRead } from './input/use-mobile-native-chat-subagent-page'
 import type { MobileNativeChatSendProps } from './composer/MobileNativeChatComposer'
 import type { MobileNativeChatPromptCard } from './input/prompts/MobileNativeChatPromptCard'
 import type { MobileNativeChatInputLockStatus } from './composer/field/MobileNativeChatInputLockStatus'
@@ -32,6 +35,9 @@ export type MobileNativeChatViewProps = MobileNativeChatSendProps &
     workerApprovals?: MobileWorkerApprovals
     messages: NativeChatMessage[]
     folded: NativeChatMessage[]
+    taskList?: NativeChatTaskSeedList | null
+    subagentSeed?: readonly NativeChatSubagentActivity[] | null
+    readSubagentPage?: MobileNativeChatSubagentRead | null
     status: MobileNativeChatStatus
     error?: string
     // Permanent read failure replaces the pane because further chat actions cannot succeed.

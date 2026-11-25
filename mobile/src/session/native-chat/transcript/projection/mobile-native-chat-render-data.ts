@@ -13,6 +13,7 @@ import {
 import { projectNativeChatTaskListFrames } from '../../../../../../src/shared/native-chat/input/task-lists/native-chat-task-list-frames'
 import { foldSubagentItems } from '../../../../../../src/shared/native-chat/transcript/subagents/native-chat-subagent-items'
 import { prepareNativeChatMessages } from '../../../../../../src/shared/native-chat/transcript/messages/native-chat-message-preparation'
+import { linkUnrecordedSubagentSpawns } from '../../../../../../src/shared/native-chat/input/native-chat-unlinked-subagent-spawn'
 import {
   isImageRefBlock,
   type NativeChatMessage
@@ -121,6 +122,23 @@ export function foldMobileNativeChatMessages(
   )
 }
 
+/** One agent's rows, including a subagent's. The root fold drops those so they do not mix into the conversation. */
+export function foldMobileNativeChatAgentMessages(
+  messages: readonly NativeChatMessage[],
+  agent: AgentType
+): NativeChatMessage[] {
+  return finishMobileNativeChatMessages(
+    foldToolMessages(
+      foldSubagentItems(
+        prepareNativeChatMessages(
+          messages.filter((message) => !isUndrawnProviderFrameMessage(message)),
+          agent
+        )
+      )
+    )
+  )
+}
+
 export function isMobileNativeChatSource(message: NativeChatMessage): boolean {
   return isRootAgentJournalItem(message) && !isUndrawnProviderFrameMessage(message)
 }
@@ -144,9 +162,9 @@ export function finishMobileNativeChatMessages(
   messages: readonly NativeChatMessage[]
 ): NativeChatMessage[] {
   // Plan frames must not consume another call's result.
-  return projectNativeChatTaskListFrames(stripNoiseMessages(messages)).filter(
-    (message) => !isWordlessProviderFrameMessage(message)
-  )
+  return linkUnrecordedSubagentSpawns(
+    projectNativeChatTaskListFrames(stripNoiseMessages(messages))
+  ).filter((message) => !isWordlessProviderFrameMessage(message))
 }
 
 export function buildMobileNativeChatTransientData({

@@ -12,12 +12,10 @@ import {
 import { createMembershipStore } from '../../../../../../src/shared/collections/membership-store'
 import type { TextInputInstance } from 'react-native'
 import { MobileNativeChatBackgroundTasks } from '../../input/tasks/MobileNativeChatBackgroundTasks'
-import { MobileNativeChatDockedTaskList } from '../../input/tasks/MobileNativeChatDockedTaskList'
 import { MobileNativeChatWorkerDock } from '../../input/tasks/MobileNativeChatWorkerDock'
 import type { WorkerDockEntry } from '../../../../../../src/shared/orchestration/dock/worker-dock'
 import type { MobileWorkerApproval } from '../../input/prompts/use-mobile-worker-approvals'
 import type { NativeChatMessage } from '../../../../../../src/shared/native-chat/native-chat-types'
-import type { NativeChatTaskList } from '../../../../../../src/shared/native-chat/input/task-lists/native-chat-task-list'
 import {
   MobileNativeChatQueuedMessages,
   mobileNativeChatChordHeadId,
@@ -62,7 +60,6 @@ export const NO_COMPOSER_TRAY: MobileNativeChatComposerTray = {}
 
 export function useMobileNativeChatComposerTray({
   queued,
-  taskList,
   backgroundTasks,
   workerDock,
   workerApprovals
@@ -74,7 +71,6 @@ export function useMobileNativeChatComposerTray({
     agentMail?: readonly NativeChatMessage[]
     agentMailEditable?: (messageId: string) => boolean
   }
-  taskList: NativeChatTaskList | null
   backgroundTasks: MobileStructuredBackgroundTasks | null
   workerDock: readonly WorkerDockEntry[]
   /** Open worker approvals, which mark their workers in the strip as waiting on you. */
@@ -145,13 +141,6 @@ export function useMobileNativeChatComposerTray({
       content: createElement(
         Fragment,
         null,
-        taskList
-          ? createElement(MobileNativeChatDockedTaskList, {
-              key: `${sessionKey}:docked-task-list`,
-              list: taskList,
-              conversationKey: sessionKey
-            })
-          : null,
         backgroundTasks
           ? // Use distinct conversation keys so pending actions stay scoped and each tray section survives changes to the other.
             createElement(MobileNativeChatBackgroundTasks, {
@@ -206,7 +195,6 @@ export function useMobileNativeChatComposerTray({
       }
     }),
     [
-      taskList,
       backgroundTasks,
       workerDock,
       workerApprovals,

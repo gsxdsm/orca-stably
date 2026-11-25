@@ -36,10 +36,15 @@ import type { useMobileNativeChatSession } from './conversation/use-mobile-nativ
 import type { MobileNativeChatSessionOptionPickersProps } from './input/session-options/MobileNativeChatSessionOptionPickers'
 import type { MobileStructuredMcpPanel } from './mcp/use-mobile-structured-mcp-panel'
 import type { MobileStructuredAccountUsage } from './usage/use-mobile-structured-account-usage'
+import type { useMobileNativeChatSubagentReader } from './input/read-mobile-native-chat-subagent-page'
 import type { MobileNativeChatVisualSource } from './visual/mobile-native-chat-visual-read'
 import type { NativeChatContextUsageSummary } from '../../../../src/shared/native-chat/native-chat-context-usage-summary'
 import type { useMobileStructuredSessionCommands } from './composer/commands/use-mobile-structured-session-commands'
 import type { MobileNativeChatUsageLimit } from './status/use-mobile-native-chat-usage-limit'
+
+export type MobileNativeChatShownSession = ReturnType<typeof useMobileNativeChatSession> & {
+  readSubagentPage: ReturnType<typeof useMobileNativeChatSubagentReader>
+}
 
 export type MobileNativeChatController = {
   sessionViewReady: boolean
@@ -57,7 +62,7 @@ export type MobileNativeChatController = {
   getChatComposerEditGeneration: () => number
   chatPending: MobileNativeChatPendingMessage[]
   chatImagePreviewsByMessageId: Record<string, string[]>
-  nativeChatSession: ReturnType<typeof useMobileNativeChatSession>
+  nativeChatSession: MobileNativeChatShownSession
   nativeChatStructured: boolean
   nativeChatVisualSource: MobileNativeChatVisualSource | null
   nativeChatItemSource: MobileNativeChatVisualSource | null

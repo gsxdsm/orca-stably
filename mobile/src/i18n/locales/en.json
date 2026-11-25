@@ -3473,7 +3473,19 @@
       "reset": "Marked pending: {{task}}",
       "updated": "Updated {{task}}",
       "unchanged": "Tasks unchanged",
-      "showAll": "Full task list"
+      "showAll": "Full task list",
+      "cancelled": "Cancelled",
+      "cancelledTask": "Cancelled {{task}}"
+    },
+    "activity": {
+      "taskPill": "{{completed}}/{{count}} task",
+      "tasksPill": "{{completed}}/{{count}} tasks",
+      "openTasks": "Tasks, {{label}}",
+      "openSubagent": "Open {{name}}",
+      "viewingSubagent": "Viewing {{name}}",
+      "composerStays": "The composer still sends to the main agent.",
+      "backToMain": "Main agent",
+      "noMessages": "No messages from this subagent yet"
     },
     "sessionOptionCopy": {
       "none": "None",

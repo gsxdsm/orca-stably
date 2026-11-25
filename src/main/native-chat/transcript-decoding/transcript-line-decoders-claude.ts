@@ -10,11 +10,13 @@ import { extractString } from '../../../shared/text/trimmed-string'
 import { parseJsonObject } from '../../ai-vault/parsing/session-json-object'
 import { timestampMs } from '../../ai-vault/parsing/session-record-time'
 import { imageSourcePathFromText } from '../../../shared/native-chat/transcript/images/native-chat-image-transcript-markers'
+import { nativeChatSubagentStateFromStatus } from '../../../shared/native-chat/input/native-chat-tool-subagents'
 import { claudeContentBlocks, movePendingToolResultImages } from './transcript-record-blocks'
 import { isClaudeToolResultContent } from '../../../shared/agent-hook-listener/providers/claude/transcripts/claude-tool-content'
 import { isKnownRasterImageMimeType } from '../../../shared/file-preview/raster-image-preview-limits'
 import { unwrapClaudePastedContentBlock } from '../../../shared/agent-hook-listener/providers/claude/transcripts/claude-pasted-content'
 import { unwrapClaudeBashInputBlock } from '../../../shared/agent-hook-listener/providers/claude/transcripts/claude-bash-input'
+import { claudeTaskNotificationMessage } from '../transcript-claude-task-notification'
 import { claudeInterruptedMessageId } from './transcript-turn-markers'
 import { claudeStopHookFeedbackRow } from '../../claude/structured/journal/claude-stop-hook-feedback'
 import { structuredAgentSessionStatusBlock } from '../../../shared/agent-session/view/structured-agent-session-status-block'
@@ -30,6 +32,26 @@ const MAX_EDIT_PATCH_HUNKS = 40
 const MAX_EDIT_PATCH_HUNK_LINES = 400
 
 /** Render resolved result hunks; call-side snippet pairs cannot supply real file line numbers. */
+function stampClaudeSyncSubagent(
+  blocks: NativeChatBlock[],
+  record: Record<string, unknown>
+): NativeChatBlock[] {
+  const result = asRecord(record.toolUseResult)
+  const id = extractString(result?.agentId)
+  if (!id) {
+    return blocks
+  }
+  const state = nativeChatSubagentStateFromStatus(extractString(result?.status) ?? '') ?? 'working'
+  let attached = false
+  return blocks.map((block) => {
+    if (attached || block.type !== 'tool-result') {
+      return block
+    }
+    attached = true
+    return { ...block, subagent: { id, state } }
+  })
+}
+
 function claudeEditPatch(record: Record<string, unknown>): NativeChatEditPatch | null {
   const result = asRecord(record.toolUseResult)
   const raw = result?.structuredPatch
@@ -84,6 +106,10 @@ export function decodeClaudeTranscriptLine(
   const parsed = parseJsonObject(line)
   if (!parsed) {
     return null
+  }
+  const notification = claudeTaskNotificationMessage(parsed, fallbackId)
+  if (notification) {
+    return notification
   }
   const record = claudeMessageWithoutSyntheticText(claudeQueuedPromptAsUserRecord(parsed) ?? parsed)
   if (!record) {
@@ -142,15 +168,18 @@ export function decodeClaudeTranscriptLine(
   if (blocks.length === 0) {
     return null
   }
+  const settledBlocks = stampClaudeSyncSubagent(blocks, record)
   const messageId = extractString(record.uuid) ?? extractString(message?.id)
   return {
     id: messageId ?? fallbackId,
-    role: claudeMessageRole(role, blocks, message?.content),
+    role: claudeMessageRole(role, settledBlocks, message?.content),
     // Decode ! command echoes so harness filtering cannot hide them and strand the local echo.
     blocks:
       role === 'user'
-        ? blocks.map((block) => unwrapClaudeBashInputBlock(unwrapClaudePastedContentBlock(block)))
-        : blocks,
+        ? settledBlocks.map((block) =>
+            unwrapClaudeBashInputBlock(unwrapClaudePastedContentBlock(block))
+          )
+        : settledBlocks,
     timestamp,
     source: 'transcript',
     ...parent

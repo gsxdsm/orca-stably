@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: task-seed frames sit beside the history reader until the older-page reader moves it out. */
 import type { MobileSessionItemPresentation } from '../../mobile-session-item-target'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { EMPTY_NATIVE_CHAT_TRANSCRIPT } from '../../../../../src/shared/native-chat/transcript/messages/native-chat-transcript-retention'
@@ -12,6 +13,12 @@ import type {
 import type { NativeChatTranscriptPage } from '../../../../../src/shared/native-chat/transcript/streaming/native-chat-transcript-frames'
 import { buildNativeChatSubscriptionId } from '../../../../../src/shared/native-chat/transcript/streaming/native-chat-stream-unsubscribe'
 import type { RpcClient } from '../../../transport/rpc/rpc-client-contract'
+import type { NativeChatSubagentActivity } from '../../../../../src/shared/native-chat/input/native-chat-activity'
+import {
+  readNativeChatTaskSeedList,
+  type NativeChatTaskSeedList
+} from '../../../../../src/shared/native-chat/input/native-chat-claude-task-updates'
+import { readNativeChatSubagentActivities } from '../../../../../src/shared/native-chat/input/native-chat-tool-subagents'
 import { nativeChatSessionPageRead } from '../agent-session/mobile-native-chat-page-read-operations'
 import {
   applyMobileNativeChatStreamFrame,
@@ -52,6 +59,10 @@ export type MobileNativeChatSession = MobileSessionItemPresentation & {
   loadEarlier: () => void
   /** Latest provider turn boundary from the transcript feed; absent from older hosts. */
   transcriptLifecycle?: NativeChatTurnLifecycle
+  /** Tasks from history outside the loaded tail. */
+  taskList?: NativeChatTaskSeedList | null
+  /** Children from history outside the loaded tail. */
+  subagentSeed?: readonly NativeChatSubagentActivity[] | null
   /** When the rows on screen were saved, while they are an earlier launch's copy no read has confirmed. */
   savedAt?: number | null
 }
@@ -111,6 +122,11 @@ export function useMobileNativeChatSession(args: {
     lifecycle: NativeChatTurnLifecycle | undefined
   } | null>(null)
   const [hasMore, setHasMore] = useState(false)
+  const [taskSeed, setTaskSeed] = useState<{
+    identity: string
+    taskList: NativeChatTaskSeedList | null
+    subagents: readonly NativeChatSubagentActivity[] | null
+  } | null>(null)
   const { phase: olderPages, load: loadOlderPages, supersede } = useMobileOlderPageLoader()
   const beforeOffsetRef = useRef<number | null>(null)
   // Cache the id index so live appends cost incoming rows rather than rescanning all history.
@@ -177,7 +193,7 @@ export function useMobileNativeChatSession(args: {
         limit: limitRef.current,
         // Use a distinct token per screen so another viewer cannot evict this host feed.
         subscriptionId: buildNativeChatSubscriptionId(agent, sessionId, randomV4Uuid()),
-        capabilities: { transcriptPending: 1, transcriptSourceOrder: 1 },
+        capabilities: { transcriptPending: 1, transcriptSourceOrder: 1, taskList: 1 },
         ...(transcriptPath ? { transcriptPath } : {}),
         ...(resumeAfter ? { resumeAfter } : {})
       },
@@ -186,6 +202,17 @@ export function useMobileNativeChatSession(args: {
           return
         }
         const frame = raw as MobileNativeChatStreamFrame
+        if (frame.type === 'task-list') {
+          setTaskSeed({
+            identity,
+            taskList: readNativeChatTaskSeedList(frame.taskList),
+            subagents: readNativeChatSubagentActivities(frame.subagents)
+          })
+          return
+        }
+        if (frame.type === 'replacement') {
+          setTaskSeed(null)
+        }
         // No file yet says nothing about rows this subscription already holds: unsettle the read, keep the rows.
         if (resumeAfter && frame.type === 'snapshot' && frame.pending) {
           setRead({ client, identity, status: 'awaiting-transcript' })
@@ -341,6 +368,8 @@ export function useMobileNativeChatSession(args: {
     olderPages,
     loadEarlier,
     transcriptLifecycle: lifecycle?.identity === identity ? lifecycle.lifecycle : undefined,
+    taskList: taskSeed?.identity === identity ? taskSeed.taskList : undefined,
+    subagentSeed: taskSeed?.identity === identity ? taskSeed.subagents : undefined,
     savedAt: held?.savedAt ?? null
   }
 }

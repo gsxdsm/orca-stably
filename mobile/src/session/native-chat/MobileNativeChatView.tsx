@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the fork's additions sit beside upstream's in this owner after the upstream merge. */
 import { mobileWaitingAgentMailRows } from './transcript/agent-messages/MobileWaitingAgentMailRows'
 import { MobileBotFirstScreen, useMobileBotFirstScreen } from './MobileBotFirstScreen'
 import { MobileBotCardSendContext } from './transcript/bot-cards/mobile-bot-card-host'
@@ -14,6 +15,7 @@ import {
   MobileNativeChatDisclosureContext,
   useMobileNativeChatDisclosures
 } from './transcript/viewport/mobile-native-chat-disclosure-store'
+import { MobileNativeChatOpenSubagentProvider } from './input/mobile-native-chat-open-subagent'
 import { type NativeScrollEvent, type NativeSyntheticEvent, View } from 'react-native'
 import { MobileNativeChatSendErrorBanner } from './status/MobileNativeChatSendErrorBanner'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -51,6 +53,8 @@ import {
   type ComposerTrayProps
 } from './composer/menus/use-mobile-native-chat-composer-tray'
 import { MobileNativeChatScrollRootsBoundary } from './transcript/viewport/MobileNativeChatScrollRootsBoundary'
+import { MobileNativeChatActivityBar } from './input/MobileNativeChatActivityBar'
+import { useMobileNativeChatSubagentTranscript } from './input/use-mobile-native-chat-subagent-transcript'
 import { MobileNativeChatRowList } from './transcript/MobileNativeChatRowList'
 import { useMobileNativeChatRowRenderer } from './transcript/projection/use-mobile-native-chat-row-renderer'
 import { MobileNativeChatOpenFileContext } from './links/mobile-native-chat-open-file-context'
@@ -68,6 +72,9 @@ export function MobileNativeChatView({
   itemNavigation,
   messages,
   folded,
+  taskList = null,
+  subagentSeed = null,
+  readSubagentPage = null,
   status,
   error,
   readFailedFinally = false,
@@ -154,13 +161,39 @@ export function MobileNativeChatView({
   const bottomPad = keyboardInset > 0 ? keyboardInset + insets.bottom : insets.bottom
   const rootStyle = [styles.root, { paddingBottom: bottomPad }]
   const { fontScale, pinchGesture } = useMobileNativeChatPinchGesture()
+  const subagent = useMobileNativeChatSubagentTranscript({
+    messages,
+    folded,
+    streaming,
+    pending,
+    agent,
+    sendSurfaceId,
+    taskList,
+    subagentSeed,
+    readSubagentPage
+  })
+  const historyHasMore = subagent.childHistory?.hasMore ?? hasMore
+  const historyOlderPages = subagent.childHistory?.olderPages ?? olderPages
+  const onHistoryLoadEarlier = subagent.childHistory?.loadEarlier ?? onLoadEarlier
   const { font, lineSpacing } = useNativeChatTextSettings()
 
+  const transcriptScopeKey = subagent.focusedId
+    ? `${sendSurfaceId}\0${subagent.focusedId}`
+    : sendSurfaceId
   const data = useMobileNativeChatTransientData(
-    { folded, streaming, pending, imagePreviewsByMessageId },
-    sendSurfaceId
+    {
+      folded: subagent.shownFolded,
+      streaming: subagent.shownStreaming,
+      pending: subagent.shownPending,
+      imagePreviewsByMessageId: subagent.focusedId ? undefined : imagePreviewsByMessageId
+    },
+    transcriptScopeKey
   )
-  const tail = useMobileNativeChatTailFollow({ hasItems: data.length > 0, scopeKey: sendSurfaceId })
+  // A focused subagent is a different transcript, so tail-follow restarts with it.
+  const tail = useMobileNativeChatTailFollow({
+    hasItems: data.length > 0,
+    scopeKey: transcriptScopeKey
+  })
   const { jumpToTail, recordScrollMetrics, scrollMayLoadEarlier } = tail
 
   // Lock only terminal-backed Send: it can answer an agent prompt, while drafting is harmless and structured sends queue.
@@ -200,9 +233,10 @@ export function MobileNativeChatView({
       }),
     []
   )
-  const loadEarlier = useCallback(() => onLoadEarlier?.(), [onLoadEarlier])
+  const loadEarlier = useCallback(() => onHistoryLoadEarlier?.(), [onHistoryLoadEarlier])
   // After failure require a tap; automatic near-top retries could spin forever.
-  const loadEarlierNearTop = hasMore && olderPages === 'idle' ? loadEarlier : undefined
+  const loadEarlierNearTop =
+    historyHasMore && historyOlderPages === 'idle' ? loadEarlier : undefined
 
   const onScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -225,28 +259,33 @@ export function MobileNativeChatView({
   const turns = useMobileNativeChatTurnDisclosure({
     messages: data,
     enabled: true,
-    isWorking: agentWorking === true,
+    isWorking: subagent.focusedId ? false : agentWorking === true,
     workingStartedAt,
     settledTurns,
     turnJournal,
-    thinking: turnIndicator?.thinking === true,
-    activityText: turnIndicator?.activityText ?? null,
-    stopping: turnIndicator?.stopping === true,
-    lineYields: ask != null || permission != null || question != null,
+    thinking: subagent.focusedId ? false : turnIndicator?.thinking === true,
+    activityText: subagent.focusedId ? null : (turnIndicator?.activityText ?? null),
+    stopping: subagent.focusedId ? false : turnIndicator?.stopping === true,
+    lineYields: subagent.focusedId ? false : ask != null || permission != null || question != null,
     receipts,
-    scopeKey: sendSurfaceId,
+    scopeKey: subagent.focusedId ? `${sendSurfaceId}\0${subagent.focusedId}` : sendSurfaceId,
     showsTurnDiffs: turnBot === null
   })
 
   const workerReceipts = useMobileWorkerApprovalReceiptPlacement(turns, workerApprovals?.receipts)
-  const rowKeys = useMobileNativeChatRowKeys(folded, messages, sendSurfaceId, turns.presentation)
+  const rowKeys = useMobileNativeChatRowKeys(
+    subagent.shownFolded,
+    subagent.rowSource,
+    transcriptScopeKey,
+    turns.presentation
+  )
   const itemJump = useMobileNativeChatItemNavigation({
     navigation: itemNavigation,
     rows: turns.listMessages,
     rowKeys,
     ready: status === 'ready',
-    hasMore,
-    olderPages,
+    hasMore: historyHasMore,
+    olderPages: historyOlderPages,
     loadEarlier,
     tail
   })
@@ -266,23 +305,23 @@ export function MobileNativeChatView({
     actionablePromptIds
   })
 
-  const liveStatus =
-    awaitingInput === 'unshown' ? (
-      <MobileNativeChatAwaitingInputRow subject={null} pending fontScale={fontScale} />
-    ) : turns.liveLine ? (
-      <MobileNativeChatLiveLine
-        line={turns.liveLine}
-        onToggleReasoning={turns.onToggleReasoning}
-        fontScale={fontScale}
-      />
-    ) : null
+  const liveStatus = subagent.focusedId ? null : awaitingInput === 'unshown' ? (
+    <MobileNativeChatAwaitingInputRow subject={null} pending fontScale={fontScale} />
+  ) : turns.liveLine ? (
+    <MobileNativeChatLiveLine
+      line={turns.liveLine}
+      onToggleReasoning={turns.onToggleReasoning}
+      fontScale={fontScale}
+    />
+  ) : null
 
-  const header = mobileNativeChatListHeader(hasMore, olderPages, loadEarlier)
+  const header = mobileNativeChatListHeader(historyHasMore, historyOlderPages, loadEarlier)
   // Changing text size, face or spacing relays out every row, so preserve the page’s reading anchor.
   const layoutKey = `${fontScale}:${font}:${lineSpacing}`
   const mailRows = mobileWaitingAgentMailRows(tray.waitingAgentMail, fontScale, tail.viewport)
   const footer = mobileNativeChatListFooter(liveStatus, turns.waitingRows, renderItem, mailRows)
   const emptyState = mobileNativeChatEmptyState(status, agent, error, sessionLive, clearing)
+  const suppressEmptyState = subagent.focusedId != null && !readFailedFinally
 
   const composerPlaceholder = mobileNativeChatComposerPlaceholder(
     offlineQueue.lockReason,
@@ -308,7 +347,8 @@ export function MobileNativeChatView({
   // A failed answer shows on the open card that took the composer's place; a dismissable one stays over it.
   const onCard = promptOwnsInput && !collapsedPrompt && !onDismissSendError
   const [notice, banner] = onCard ? [sendErrorMessage, null] : [null, sendErrorMessage]
-  const emptyStateView = emptyState ? <MobileNativeChatEmptyStateView copy={emptyState} /> : null
+  const emptyStateView =
+    emptyState && !suppressEmptyState ? <MobileNativeChatEmptyStateView copy={emptyState} /> : null
 
   // The queue sits above a shown prompt card in a closed box, rather than tucking into the composer.
   const lowerContent = (
@@ -335,6 +375,14 @@ export function MobileNativeChatView({
         {...{ onAnswerInTerminal, collapsedPrompt, notice }}
       />
       <View style={promptOwnsInput ? styles.hidden : undefined}>
+        <MobileNativeChatActivityBar
+          list={subagent.taskList}
+          subagents={subagent.subagents}
+          focused={subagent.focused}
+          focusedTranscriptEmpty={subagent.focusedTranscriptEmpty}
+          fontScale={fontScale}
+          onFocusSubagent={subagent.onFocusSubagent}
+        />
         <MobileNativeChatDraftComposer
           draftScopeKey={composerScopeKey}
           structured={structuredActivityUi ? structured : null}
@@ -375,36 +423,42 @@ export function MobileNativeChatView({
         ) : (
           <GestureHandlerRootView style={styles.listWrap}>
             <MobileNativeChatDisclosureContext.Provider value={disclosures}>
-              <MobileBotCardSendContext.Provider value={sendFromCard}>
-                <MobileMarkdownBotCardContext.Provider value={drawReplyCard}>
-                  <MobileNativeChatScrollRootsBoundary
-                    {...{ rowKeys, layoutKey }}
-                    roots={disclosures.roots}
-                    runPlacements={rowKeys.runPlacements}
-                  >
-                    <MobileWorkerApprovalReceiptsContext value={workerReceipts}>
-                      <MobileNativeChatRowList
-                        {...{
-                          tail,
-                          rowKeys,
-                          renderItem,
-                          footer,
-                          emptyStateView,
-                          onScroll,
-                          layoutKey
-                        }}
-                        {...{ header, hasHeader: hasMore === true, onNearTop: loadEarlierNearTop }}
-                        itemJump={itemJump}
-                        rows={turns.listMessages}
-                        runs={turns.presentation.workRuns.heads}
-                        roots={disclosures.roots}
-                        contentContainerStyle={styles.listContent}
-                        pinchGesture={pinchGesture}
-                      />
-                    </MobileWorkerApprovalReceiptsContext>
-                  </MobileNativeChatScrollRootsBoundary>
-                </MobileMarkdownBotCardContext.Provider>
-              </MobileBotCardSendContext.Provider>
+              <MobileNativeChatOpenSubagentProvider onOpen={subagent.onFocusSubagent}>
+                <MobileBotCardSendContext.Provider value={sendFromCard}>
+                  <MobileMarkdownBotCardContext.Provider value={drawReplyCard}>
+                    <MobileNativeChatScrollRootsBoundary
+                      {...{ rowKeys, layoutKey }}
+                      roots={disclosures.roots}
+                      runPlacements={rowKeys.runPlacements}
+                    >
+                      <MobileWorkerApprovalReceiptsContext value={workerReceipts}>
+                        <MobileNativeChatRowList
+                          {...{
+                            tail,
+                            rowKeys,
+                            renderItem,
+                            footer,
+                            emptyStateView,
+                            onScroll,
+                            layoutKey
+                          }}
+                          {...{
+                            header,
+                            hasHeader: historyHasMore === true,
+                            onNearTop: loadEarlierNearTop
+                          }}
+                          itemJump={itemJump}
+                          rows={turns.listMessages}
+                          runs={turns.presentation.workRuns.heads}
+                          roots={disclosures.roots}
+                          contentContainerStyle={styles.listContent}
+                          pinchGesture={pinchGesture}
+                        />
+                      </MobileWorkerApprovalReceiptsContext>
+                    </MobileNativeChatScrollRootsBoundary>
+                  </MobileMarkdownBotCardContext.Provider>
+                </MobileBotCardSendContext.Provider>
+              </MobileNativeChatOpenSubagentProvider>
             </MobileNativeChatDisclosureContext.Provider>
             <MobileNativeChatFloatingControls
               showJumpToTail={tail.showJumpToTail}

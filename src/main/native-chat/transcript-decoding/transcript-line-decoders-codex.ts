@@ -9,6 +9,7 @@ import { extractString } from '../../../shared/text/trimmed-string'
 import { parseJsonObject } from '../../ai-vault/parsing/session-json-object'
 import { timestampMs } from '../../ai-vault/parsing/session-record-time'
 import { claudeContentBlocks, toolResultBlocks } from './transcript-record-blocks'
+import { codexSubagentActivityMessage } from '../transcript-codex-subagent-activity'
 import { CODEX_EVENT_TURN_ABORTED } from './transcript-turn-markers'
 
 /** Paginated completed items own visible messages; response tools retain their legacy format. */
@@ -195,6 +196,9 @@ function codexCompletedTurnItem(
   }
   if (item.type === 'ContextCompaction') {
     return codexCompactionMarker(id, timestamp)
+  }
+  if (item.type === 'SubAgentActivity') {
+    return codexSubagentActivityMessage(payload, timestamp)
   }
   const blocks = codexTurnItemBlocks(item.content)
   if (blocks.length === 0) {

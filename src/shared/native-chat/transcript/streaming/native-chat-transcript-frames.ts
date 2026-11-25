@@ -1,3 +1,5 @@
+import type { NativeChatSubagentActivity } from '../../input/native-chat-activity'
+import type { NativeChatTaskSeedList } from '../../input/native-chat-claude-task-updates'
 import type { NativeChatMessage, NativeChatTurnLifecycle } from '../../native-chat-types'
 
 /** One page of a transcript, newest last; `beforeOffset` is where the next older page ends. */
@@ -21,4 +23,9 @@ export type NativeChatTranscriptFrame =
       })
   | (NativeChatTranscriptPage & { type: 'replacement'; lifecycle?: NativeChatTurnLifecycle })
   | { type: 'appended'; messages: NativeChatMessage[]; lifecycle?: NativeChatTurnLifecycle }
+  | {
+      type: 'task-list'
+      taskList: NativeChatTaskSeedList | null
+      subagents?: readonly NativeChatSubagentActivity[] | null
+    }
   | { type: 'end' }

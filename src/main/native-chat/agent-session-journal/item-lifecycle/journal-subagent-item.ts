@@ -46,7 +46,7 @@ export function subagentJournalBody(block: NativeChatSubagentBlock): AgentJourna
   }
 }
 
-const OPTIONAL_LABELS = ['agentType', 'model', 'effort', 'lastMessage'] as const
+const OPTIONAL_LABELS = ['agentType', 'model', 'effort', 'lastMessage', 'activity'] as const
 
 function boundOptionalLabels(
   block: NativeChatSubagentBlock

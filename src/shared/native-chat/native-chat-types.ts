@@ -130,6 +130,8 @@ export type NativeChatToolResultBlock = {
   editPatch?: NativeChatEditPatch
   /** The journal item to fetch when `output` is only a head of what the tool returned. */
   fullOutputItemId?: string
+  /** Claude's synchronous Agent result. The roster id is this agent, not the tool-call id. */
+  subagent?: { id: string; state: NativeChatSubagentState }
 }
 
 /** Local path or remote URL, exactly one populated; optional alt text. */
@@ -165,6 +167,8 @@ export type NativeChatSubagentEntry = {
   startedAt?: number
   /** Epoch ms the entry latched terminal. */
   settledAt?: number
+  /** One capped sheet line from the parent. Absent until a prompt or result exists. */
+  activity?: string
   /** The child's role (Claude's `subagent_type`), when it has one. */
   agentType?: string
   model?: string
