@@ -39,9 +39,12 @@ function useRailRingCenter(strip: SideRailStrip | null): number {
 
 /** A scrolling column of usage rings; a tap opens the usage sheet on that provider, with tabs for the rest. */
 export function RailUsageStack({
-  snapshot
+  snapshot,
+  standalone = false
 }: {
   snapshot: AccountsSnapshot | null
+  /** Centred in its own column rather than on the Duo status glyph's axis. */
+  standalone?: boolean
 }): React.JSX.Element | null {
   const usages = listRailUsage(snapshot)
   const now = useNow(60_000)
@@ -50,7 +53,7 @@ export function RailUsageStack({
   const [shown, setShown] = useState<UsageProviderKey | null>(null)
   const strip = useSideRailStrip()
   const center = useRailRingCenter(strip)
-  if (usages.length === 0 || strip === null) {
+  if (usages.length === 0 || (strip === null && !standalone)) {
     return null
   }
   const sheetUsage = usages.find((usage) => usage.provider === shown) ?? usages[0]
@@ -64,7 +67,7 @@ export function RailUsageStack({
         style={styles.scroll}
         contentContainerStyle={[
           styles.column,
-          { paddingLeft: center - DUO_STATUS_RING_DIAMETER / 2 }
+          standalone ? styles.centered : { paddingLeft: center - DUO_STATUS_RING_DIAMETER / 2 }
         ]}
         showsVerticalScrollIndicator={false}
         testID="rail-usage-stack"
@@ -117,6 +120,9 @@ const styles = themedStyleSheet(() => ({
     gap: spacing.md,
     paddingTop: spacing.md,
     paddingBottom: spacing.lg
+  },
+  centered: {
+    alignItems: 'center'
   },
   tabs: {
     marginBottom: spacing.md

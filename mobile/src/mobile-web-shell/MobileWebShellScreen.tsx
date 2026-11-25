@@ -61,6 +61,7 @@ import {
 import { usePageFoldDivision, usePublishedFoldDivision } from './page-geometry/page-fold-division'
 import { usePublishedShellKeyRail, useShellKeyRail } from './terminal-controls/use-shell-key-rail'
 import { useShellUsageRail } from '../rail-usage/use-shell-usage-rail'
+import { TabletUsageRail, useTabletUsageRailRoom } from '../rail-usage/TabletUsageRail'
 import { pageSideStripRoom } from '../rail-usage/side-strip-holder'
 import { useRailRingsDuringChats } from '../rail-usage/rail-rings-during-chats-preference'
 import type { BridgeSideStripFree } from './bridge/page-geometry/bridge-side-strip-cover'
@@ -170,6 +171,7 @@ export function MobileWebShellScreen({
     }, [])
   )
   const strip = useSideRailStrip()
+  const tabletRail = useTabletUsageRailRoom() && !overlay
   useClaimSideRelease(
     shellFocused &&
       strip !== null &&
@@ -432,8 +434,6 @@ export function MobileWebShellScreen({
   }
   return (
     <View
-      ref={pageFold.rootRef}
-      onLayout={pageFold.onRootLayout}
       style={[
         styles.shellRoot,
         // The page pads system bars from init insets; a visible banner owns the status-bar strip.
@@ -450,43 +450,47 @@ export function MobileWebShellScreen({
           onDismiss={() => setNoticeDismissedFor(state.sessionId)}
         />
       )}
-      <OrcaMobileWebShellView
-        key={state.sessionId}
-        ref={bridge.viewRef}
-        // Overlays cannot cover the screen beneath; hide their opaque WebView until first paint.
-        style={[styles.shellView, overlay && pageFrame !== 'painted' && styles.unpaintedOverlay]}
-        onLayout={pageFold.onShellLayout}
-        generationDirectory={state.generationDirectory}
-        sessionId={state.sessionId}
-        bridgeEnabled={bridge.bridgeEnabled}
-        onBridgeMessage={bridge.onBridgeMessage}
-        backEdgeSwipe={backClaimed}
-        onBackEdgeSwipe={bridge.sendBack}
-        onExternalNavigation={(event) => {
-          const target = cancelledShellNavigationTarget(event.nativeEvent.url)
-          if (target === null) {
-            // Drop schemes outside the three allowed ones; shell-document URLs are already refused before this callback.
-            return
-          }
-          openUrlForPage(target)
-        }}
-        onLoadState={(event) => {
-          const parsed = parseMobileWebShellLoadState(event.nativeEvent)
-          if (parsed?.state === 'failed') {
-            reportShellFailure(parsed.reason, parsed.reclaimed === true)
-            return
-          }
-          // Load completion proves only response commit; start waiting for the page’s own first paint here.
-          if (parsed?.state === 'ready') {
-            reportDocumentLoaded()
-            return
-          }
-          // Cover on load start: the old document remains visible until the new one paints, before ready arrives.
-          if (parsed?.state === 'loading') {
-            reportDocumentStarted()
-          }
-        }}
-      />
+      {/* The row measures the WebView's window frame, wherever the banner leaves it. */}
+      <View ref={pageFold.rootRef} onLayout={pageFold.onRootLayout} style={styles.pageRow}>
+        <OrcaMobileWebShellView
+          key={state.sessionId}
+          ref={bridge.viewRef}
+          // Overlays cannot cover the screen beneath; hide their opaque WebView until first paint.
+          style={[styles.shellView, overlay && pageFrame !== 'painted' && styles.unpaintedOverlay]}
+          onLayout={pageFold.onShellLayout}
+          generationDirectory={state.generationDirectory}
+          sessionId={state.sessionId}
+          bridgeEnabled={bridge.bridgeEnabled}
+          onBridgeMessage={bridge.onBridgeMessage}
+          backEdgeSwipe={backClaimed}
+          onBackEdgeSwipe={bridge.sendBack}
+          onExternalNavigation={(event) => {
+            const target = cancelledShellNavigationTarget(event.nativeEvent.url)
+            if (target === null) {
+              // Drop schemes outside the three allowed ones; shell-document URLs are already refused before this callback.
+              return
+            }
+            openUrlForPage(target)
+          }}
+          onLoadState={(event) => {
+            const parsed = parseMobileWebShellLoadState(event.nativeEvent)
+            if (parsed?.state === 'failed') {
+              reportShellFailure(parsed.reason, parsed.reclaimed === true)
+              return
+            }
+            // Load completion proves only response commit; start waiting for the page’s own first paint here.
+            if (parsed?.state === 'ready') {
+              reportDocumentLoaded()
+              return
+            }
+            // Cover on load start: the old document remains visible until the new one paints, before ready arrives.
+            if (parsed?.state === 'loading') {
+              reportDocumentStarted()
+            }
+          }}
+        />
+        {tabletRail ? <TabletUsageRail hostId={hostId} /> : null}
+      </View>
       {overlay ? null : (
         <ShellPageCover label={SHELL_OPENING_LABEL} visible={pageFrame === 'unpainted'} />
       )}
@@ -500,6 +504,7 @@ const styles = themedStyleSheet(() => ({
     flex: 1,
     backgroundColor: colors.bgBase
   },
+  pageRow: { flex: 1, flexDirection: 'row' },
   shellView: { flex: 1 },
   unpaintedOverlay: { opacity: 0 }
 }))
