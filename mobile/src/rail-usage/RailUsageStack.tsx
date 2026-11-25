@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { ScrollView, useWindowDimensions } from 'react-native'
 import type { AccountsSnapshot } from '../accounts/accounts-snapshot'
 import { BottomDrawerModalHost } from '../components/bottom-drawer/bottom-drawer-modal-host'
-import { MobileSegmentedControl } from '../components/controls/MobileSegmentedControl'
-import { USAGE_PROVIDER_NAMES, type UsageProviderKey } from '../composer-usage/agent-usage-provider'
+import type { UsageProviderKey } from '../composer-usage/agent-usage-provider'
 import { useAccountsSnapshot } from '../composer-usage/accounts-snapshot-store'
 import { ComposerUsageSheet } from '../composer-usage/ComposerUsageSheet'
 import { useNow } from '../hooks/use-now'
@@ -86,24 +85,8 @@ export function RailUsageStack({
           visible={selected !== null}
           onClose={() => setSelected(null)}
           usage={sheetUsage}
+          snapshot={snapshot}
           spanSideStrip
-          header={
-            usages.length > 1 ? (
-              <MobileSegmentedControl
-                segments={usages.map((usage) => ({
-                  value: usage.provider,
-                  label: USAGE_PROVIDER_NAMES[usage.provider]
-                }))}
-                selected={sheetUsage.provider}
-                onSelect={setShown}
-                scrollWhenCrowded
-                onSheet
-                tabs
-                testIDPrefix="rail-usage-tab-"
-                style={styles.tabs}
-              />
-            ) : null
-          }
         />
       </BottomDrawerModalHost>
     </>
@@ -123,8 +106,5 @@ const styles = themedStyleSheet(() => ({
   },
   centered: {
     alignItems: 'center'
-  },
-  tabs: {
-    marginBottom: spacing.md
   }
 }))
