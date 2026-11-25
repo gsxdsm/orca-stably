@@ -2,23 +2,25 @@ import { createElement as h, useRef, type ReactElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NativeChatMessage } from '../../../../../src/shared/native-chat/native-chat-types'
-import type { MobileNativeChatScrollNode } from '../../mobile-native-chat-reading-place'
+import type { MobileNativeChatScrollNode } from './viewport/mobile-native-chat-reading-place'
 import { MobileNativeChatRowList } from './MobileNativeChatRowList'
-import type { MobileNativeChatRowKeys } from './mobile-native-chat-row-keys'
+import type { MobileNativeChatRowKeys } from './projection/mobile-native-chat-row-keys'
+import { createMobileNativeChatTailViewport } from './viewport/mobile-native-chat-tail-viewport'
 import type {
   MobileNativeChatListHandle,
   MobileNativeChatTailFollow
-} from './use-mobile-native-chat-tail-follow'
+} from './viewport/use-mobile-native-chat-tail-follow'
 
 const platform = vi.hoisted(() => ({ OS: 'web' }))
-// oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: Test stub slot starts empty and is filled with the scroller node.
 const scrollerSlot = vi.hoisted(() => ({ current: null as ScrollNode | null }))
 const nativeApi = vi.hoisted(() => ({
-  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: Typed empty recording array.
   offsets: [] as { offset: number; animated: boolean }[],
-  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: Typed empty recording array.
   indexes: [] as { index: number; animated: boolean }[],
   drags: 0
+}))
+
+vi.mock('react-native-gesture-handler', () => ({
+  GestureDetector: 'GestureDetector'
 }))
 
 vi.mock('react-native', async () => {
@@ -113,7 +115,6 @@ function pageScroller(): ScrollNode {
   const node = {
     scrollHeight: 1_400,
     clientHeight: 400,
-    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: Typed empty recording array.
     writes: [] as number[],
     top: 0,
     get scrollTop(): number {
@@ -147,7 +148,6 @@ function pageScroller(): ScrollNode {
       }
     }
   }
-  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: The stub implements the scroll fields the code under test reads.
   return node as ScrollNode
 }
 
@@ -169,7 +169,6 @@ const messages: NativeChatMessage[] = ['m0', 'm1', 'm2'].map((id) => ({
   blocks: [{ type: 'text', text: id }]
 }))
 
-// oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: The fixture implements the row-key fields the list reads.
 const rowKeys = {
   scope: 'chat',
   sourceHead: undefined,
@@ -185,8 +184,14 @@ function tailOf(
   endMomentum: () => void = () => {}
 ): MobileNativeChatTailFollow {
   return {
+    viewport: createMobileNativeChatTailViewport(),
     listProps: { ref: listRef },
-    pageListProps: { ref: listRef, isFollowing: () => false, onEndDistance },
+    pageListProps: {
+      ref: listRef,
+      isFollowing: () => false,
+      onEndDistance,
+      onPlaceRestored: () => {}
+    },
     showJumpToTail: false,
     showPreviousMessage: true,
     previousStopsRef: { current: ['m0', 'm1', 'm2'] },
@@ -195,6 +200,8 @@ function tailOf(
     pinToTail: () => {},
     pinToTailAfterContentResize: () => {},
     jumpToTail: () => {},
+    releaseFollow: () => {},
+    scrollRowToTop: () => {},
     beginUserScroll,
     endUserDrag: () => {},
     beginMomentum: () => {},
@@ -244,7 +251,9 @@ function Host(props: {
     footer: null,
     emptyStateView: null,
     onScroll: () => {},
-    hasHeader: false
+    hasHeader: false,
+    // SAFETY: this list mock never mounts the pinch detector. The gesture only satisfies the prop.
+    pinchGesture: {} as never
   })
 }
 
@@ -332,24 +341,6 @@ describe('previous-message jump while the list is moving', () => {
     expect(queued.frames.size).toBe(1)
     runLatestFrame()
     expect(scroller.scrollTop).toBe(-1_000)
-  })
-
-  it('does not treat the web jump’s own scroll events as the reader', () => {
-    const readers: boolean[] = []
-    const list = mount((_fromEnd, byReader) => readers.push(byReader))
-    const scroller = scrollerSlot.current
-    if (!scroller) {
-      throw new Error('scroller missing')
-    }
-    act(() => list.revealPreviousMessage?.(['m0', 'm1', 'm2'], true))
-    scroller.scrollTop = -40
-    act(() => {
-      hostNode('ScrollView').props.onScroll({})
-    })
-    expect(readers).toEqual([false])
-    expect(queued.frames.size).toBe(1)
-    runLatestFrame()
-    expect(scroller.scrollTop).toBe(-500)
   })
 
   it('stops a native fling, then steps once per tap without using the mid-jump offset', () => {

@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactElement } from 'react'
+import { useLayoutEffect, useRef, type ComponentProps, type ReactElement } from 'react'
 import { FlatList, Platform } from 'react-native'
 import type { LegacyComposedGesture } from 'react-native-gesture-handler'
 import { MobileNativeChatPinchZoom } from './viewport/mobile-native-chat-pinch-zoom'
@@ -220,34 +220,97 @@ function MobileNativeChatNativeRowList({
   }, [attach, jump])
 
   return (
-    <MobileNativeChatPinchZoom gesture={props.pinchGesture}>
-      <FlatList
-        {...tail.listProps}
-        data={rows}
-        keyExtractor={rowKeys.keyOf}
-        renderItem={renderItem}
-        contentContainerStyle={contentContainerStyle}
-        // Let link/file taps land while the composer keyboard is up
-        // instead of being swallowed by the dismiss gesture.
-        keyboardShouldPersistTaps="handled"
-        onScroll={onScroll}
-        onScrollBeginDrag={tail.beginUserScroll}
-        onScrollEndDrag={tail.endUserDrag}
-        onMomentumScrollBegin={tail.beginMomentum}
-        onMomentumScrollEnd={tail.endMomentum}
-        scrollEventThrottle={32}
-        onContentSizeChange={tail.pinToTailAfterContentResize}
-        onLayout={tail.pinToTail}
-        maintainVisibleContentPosition={mobileNativeChatRowAnchor(props.hasHeader)}
-        ListHeaderComponent={header ?? undefined}
-        ListFooterComponent={footer ?? undefined}
-        ListEmptyComponent={emptyStateView ?? undefined}
-      />
+    <MobileNativeChatPinchZoom gesture={pinchGesture}>
+      <NativeJumpContext.Provider value={jump}>
+        <FlatList
+          ref={flatRef}
+          // SAFETY: CellRendererProps is not exported to app code, and its focus event is not the DOM FocusEvent. The cell forwards style, layout, and focus.
+          CellRendererComponent={PreviousMessageCell as never}
+          data={rows}
+          keyExtractor={rowKeys.keyOf}
+          renderItem={renderItem}
+          contentContainerStyle={contentContainerStyle}
+          // Let link/file taps land while the composer keyboard is up
+          // instead of being swallowed by the dismiss gesture.
+          keyboardShouldPersistTaps="handled"
+          onScroll={(event) => {
+            const y = event.nativeEvent.contentOffset.y
+            jump.contentOffsetY = y
+            jump.viewportHeight = event.nativeEvent.layoutMeasurement?.height || jump.viewportHeight
+            jump.offsetTrusted ||= y > 0
+            onScroll(event)
+          }}
+          onScrollToIndexFailed={(info) => {
+            const pending = jump.retry
+            if (!pending || pending.left <= 0) {
               return
             }
+            pending.left -= 1
+            // averageItemLength 0 would scroll to the top and drop the pending row.
+            if (info.averageItemLength > 0) {
+              withOwnedScroll(jump, () => {
+                flatRef.current?.scrollToOffset({
+                  offset: info.averageItemLength * info.index,
+                  animated: pending.animated
+                })
+              })
+            }
+            requestAnimationFrame(() => {
+              if (jump.retry !== pending) {
+                return
+              }
+              withOwnedScroll(jump, () => {
+                flatRef.current?.scrollToIndex({
+                  index: info.index,
+                  viewPosition: 0,
+                  animated: pending.animated
+                })
               })
             })
+          }}
+          onScrollBeginDrag={() => {
+            if (jump.ownScroll) {
+              return
+            }
+            jump.offsetTrusted = true
+            jump.retry = null
             jump.inflightKey = null
+            tail.beginUserScroll()
+          }}
+          onScrollEndDrag={tail.endUserDrag}
+          onMomentumScrollBegin={tail.beginMomentum}
+          onMomentumScrollEnd={(event) => {
+            const offset = event.nativeEvent.contentOffset.y
+            jump.contentOffsetY = offset
+            jump.offsetTrusted ||= offset > 0
+            if (jump.suppressMomentum || jump.ownScroll) {
+              return
+            }
+            const landed = jump.inflightKey ? jump.layouts.get(jump.inflightKey) : undefined
+            // The stop along the way is short of the committed row. Only a real landing ends the chain.
+            if (landed !== undefined && Math.abs(offset - landed) <= PREVIOUS_MESSAGE_ALIGN_PX) {
+              jump.inflightKey = null
+            } else if (
+              jump.inflightKey &&
+              jump.stoppedAt !== null &&
+              Math.abs(offset - jump.stoppedAt) <= PREVIOUS_MESSAGE_ALIGN_PX
+            ) {
+              return
+            }
+            tail.endMomentum(event)
+          }}
+          scrollEventThrottle={32}
+          onContentSizeChange={tail.pinToTailAfterContentResize}
+          onLayout={(event) => {
+            jump.viewportHeight = event.nativeEvent.layout.height
+            tail.pinToTail()
+          }}
+          maintainVisibleContentPosition={mobileNativeChatRowAnchor(hasHeader)}
+          ListHeaderComponent={header ?? undefined}
+          ListFooterComponent={footer ?? undefined}
+          ListEmptyComponent={emptyStateView ?? undefined}
+        />
+      </NativeJumpContext.Provider>
     </MobileNativeChatPinchZoom>
   )
 }
