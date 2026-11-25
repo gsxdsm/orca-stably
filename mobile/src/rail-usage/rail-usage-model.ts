@@ -34,12 +34,6 @@ export function pickRailUsageWindow(windows: readonly UsageWindowEntry[]): Usage
   return tightest
 }
 
-// The rings read pace like the composer bar and the pop-up do.
-export {
-  usagePaceTone as railUsageTone,
-  type UsagePaceTone as RailUsageTone
-} from '../composer-usage/usage-pace-color'
-
 /** Glyph for a provider: the agent icon of the CLI that spends its quota. */
 export const RAIL_USAGE_PROVIDER_AGENT: Record<UsageProviderKey, string> = {
   claude: 'claude',
