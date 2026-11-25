@@ -156,6 +156,13 @@
             "usesCleartextTraffic": true
           }
         }
+      ],
+      "./plugins/ios-optional-development-team.js",
+      [
+        "@bacons/apple-targets",
+        {
+          "root": "./targets"
+        }
       ]
     ]
   }

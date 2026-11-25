@@ -40,6 +40,8 @@ import {
   actionableStructuredQuestion
 } from '../../input/prompts/mobile-structured-actionable-prompt'
 
+export { mobileStructuredSendQueues }
+
 export type StructuredMobileSendAttachment =
   | (StructuredAgentSessionAttachment & { kind?: 'image'; id?: string })
   | { kind: 'file'; id?: string; path: string }

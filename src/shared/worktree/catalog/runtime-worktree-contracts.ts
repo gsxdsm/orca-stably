@@ -37,6 +37,8 @@ export type RuntimeWorktreeSetResult = {
 
 export type RuntimeWorktreeAgentRow = {
   paneKey: string
+  /** Issued `terminal.send` handle. Older hosts omit it. */
+  terminalHandle?: string
   /** What `worker-start --terminal` takes for this agent: its terminal handle, or a chat's session address. Old hosts omit it. */
   address?: string
   /** The host's Orca id for this agent's conversation (a chat's /clear root); old hosts omit it. */
