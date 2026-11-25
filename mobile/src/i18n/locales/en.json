@@ -1167,6 +1167,7 @@
       "permission": "Needs attention"
     },
     "hostWorkspaceListStates": {
+      "addProject": "Add a project",
       "checkHost": "Check that your computer is awake and Orca is running",
       "loadFailed": "Could not load workspaces from this host",
       "noFilterMatches": "No workspaces match filters",
@@ -8474,7 +8475,6 @@
       }
     }
   },
-  },
   "addProject": {
     "sheet": {
       "projectAdded": "Project added",
@@ -8523,6 +8523,7 @@
     "flow": {
       "homeUnknown": "Couldn't read the host's home folder. Enter a full path instead of ~."
     }
+  },
   "hostMutation": {
     "renameOffline": "{{host}} is offline. Your text stays here until you can save.",
     "renameUnconfirmed": "Not confirmed yet. Orca checks the name when {{host}} is back.",

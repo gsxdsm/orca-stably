@@ -212,6 +212,11 @@ export function HostWorkspaceList({
         catalogError={state.catalogError}
         search={state.search}
         activeFilterCount={controller.activeFilterCount}
+        onAddProject={
+          actions.addProjectSupported && connState === 'connected' && !isReadOnly
+            ? actions.openCreateMenu
+            : undefined
+        }
         pausedBotMatches={sectionsResult.pausedBotMatches}
         onShowPausedBots={sectionsResult.showPausedBots}
         bottomInset={hasRows ? 0 : Math.max(bottomBarHeight, insets.bottom)}

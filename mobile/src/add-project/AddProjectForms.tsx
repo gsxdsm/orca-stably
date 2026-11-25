@@ -41,7 +41,7 @@ export function CreateProjectForm({ flow, onBack, onBrowse }: FormProps) {
         style={styles.input}
         value={flow.name}
         onChangeText={flow.setName}
-        placeholder={t('addProject.forms.namePlaceholder', 'my-project')}
+        placeholder="my-project"
         placeholderTextColor={colors.textMuted}
         autoFocus
         autoCapitalize="none"
@@ -77,7 +77,7 @@ export function CloneProjectForm({ flow, onBack, onBrowse }: FormProps) {
         style={styles.input}
         value={flow.url}
         onChangeText={flow.setUrl}
-        placeholder={t('addProject.forms.urlPlaceholder', 'https://github.com/owner/repo.git')}
+        placeholder="https://github.com/owner/repo.git"
         placeholderTextColor={colors.textMuted}
         autoFocus
         autoCapitalize="none"
@@ -109,7 +109,7 @@ export function ExistingProjectForm({ flow, onBack, onBrowse }: FormProps) {
           style={styles.input}
           value={flow.existingPath}
           onChangeText={flow.setExistingPath}
-          placeholder={t('addProject.forms.pathPlaceholder', '~/code/project')}
+          placeholder="~/code/project"
           placeholderTextColor={colors.textMuted}
           autoCapitalize="none"
           autoCorrect={false}
@@ -162,7 +162,7 @@ function ParentField({ flow, onBrowse }: Pick<FormProps, 'flow' | 'onBrowse'>) {
           style={styles.input}
           value={flow.parent}
           onChangeText={flow.setParent}
-          placeholder={t('addProject.forms.parentPlaceholder', '~/orca/projects')}
+          placeholder="~/orca/projects"
           placeholderTextColor={colors.textMuted}
           autoCapitalize="none"
           autoCorrect={false}
