@@ -82,7 +82,6 @@ export function useSessionTerminalKeyRail(controller: MobileSessionController): 
         }
         return
       }
-      // Sent by shipped shells only; the terminal has one input now.
       if (id === 'toggleInputMode') {
         if (canCompose) {
           controller.toggleInputMode()
