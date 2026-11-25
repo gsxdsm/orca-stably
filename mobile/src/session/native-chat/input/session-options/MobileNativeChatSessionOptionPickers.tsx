@@ -183,7 +183,7 @@ export function MobileNativeChatSessionOptionPickers({
   }
 
   return (
-    <View style={styles.pillSlot}>
+    <View style={[styles.pillSlot, !permissionIcon && styles.labelledPillSlot]}>
       <ModelPill
         primary={primary}
         secondary={secondary}
