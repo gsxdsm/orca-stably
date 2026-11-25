@@ -1,9 +1,17 @@
+import * as z from 'zod'
 import {
   ProviderRateLimitsSchema,
   type AccountsSnapshot,
   type ProviderRateLimits,
   type RateLimitWindow
 } from '../accounts/accounts-snapshot'
+import {
+  listUsageWindowSlots,
+  parseUsageHistory,
+  usageHistoryKey,
+  type UsageHistorySample,
+  type UsageWindowSlot
+} from '../../../src/shared/agent-usage/rate-limits/usage-window-history'
 
 /** `snapshot.rateLimits` keys whose quota a coding agent draws on. */
 export type UsageProviderKey =
@@ -54,13 +62,7 @@ export const USAGE_PROVIDER_NAMES: Record<UsageProviderKey, string> = {
 
 export type ComposerUsageWindowChoice = 'session' | 'weekly'
 
-export type UsageWindowEntry = {
-  id: string
-  kind: 'session' | 'weekly' | 'fableWeekly' | 'monthly' | 'bucket'
-  /** A bucket's own name; null for the standard windows. */
-  name: string | null
-  window: RateLimitWindow
-}
+export type UsageWindowEntry = UsageWindowSlot<RateLimitWindow>
 
 export type AgentUsage = {
   provider: UsageProviderKey
@@ -82,17 +84,7 @@ function readProviderLimits(
 }
 
 export function listUsageWindows(limits: ProviderRateLimits): UsageWindowEntry[] {
-  const standard = (['session', 'weekly', 'fableWeekly', 'monthly'] as const).flatMap((kind) => {
-    const window = limits[kind]
-    return window ? [{ id: kind, kind, name: null, window }] : []
-  })
-  const buckets = (limits.buckets ?? []).map((bucket, index) => ({
-    id: `bucket:${index}:${bucket.name}`,
-    kind: 'bucket' as const,
-    name: bucket.name,
-    window: bucket
-  }))
-  return [...standard, ...buckets]
+  return listUsageWindowSlots<RateLimitWindow>(limits)
 }
 
 /** The tab agent's provider usage, or null when the meter should stay hidden. */
@@ -107,6 +99,49 @@ export function selectAgentUsage(
   const limits = readProviderLimits(snapshot, provider)
   const windows = limits ? listUsageWindows(limits) : []
   return windows.length > 0 ? { provider, windows } : null
+}
+
+const PROVIDER_ORDER: readonly UsageProviderKey[] = [
+  'claude',
+  'codex',
+  'gemini',
+  'opencodeGo',
+  'kimi',
+  'antigravity',
+  'grok',
+  'cursor'
+]
+
+/** Every polled provider with windows, the given one first, for the sheet's provider tabs. */
+export function listProviderUsages(
+  snapshot: AccountsSnapshot | null,
+  first: UsageProviderKey
+): AgentUsage[] {
+  if (!snapshot) {
+    return []
+  }
+  const ordered = [first, ...PROVIDER_ORDER.filter((provider) => provider !== first)]
+  return ordered.flatMap((provider) => {
+    const limits = readProviderLimits(snapshot, provider)
+    const windows = limits ? listUsageWindows(limits) : []
+    return windows.length > 0 ? [{ provider, windows }] : []
+  })
+}
+
+const UsageHistoryCarrierSchema = z.object({ usageHistory: z.unknown().optional() })
+
+/** The host's used-percent samples for one window, oldest first; empty on hosts that keep none. */
+export function readUsageWindowHistory(
+  snapshot: AccountsSnapshot | null,
+  provider: UsageProviderKey,
+  windowId: string
+): UsageHistorySample[] {
+  const carrier = UsageHistoryCarrierSchema.safeParse(snapshot?.rateLimits)
+  if (!carrier.success) {
+    return []
+  }
+  const series = parseUsageHistory(carrier.data.usageHistory)[usageHistoryKey(provider, windowId)]
+  return series ? series.samples.toSorted((a, b) => a.at - b.at) : []
 }
 
 // Fall back to the other standard window, then whatever the provider reports (monthly-only plans).
