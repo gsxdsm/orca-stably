@@ -120,33 +120,6 @@ export function selectProviderUsage(
   return windows.length > 0 ? { provider, windows } : null
 }
 
-const PROVIDER_ORDER: readonly UsageProviderKey[] = [
-  'claude',
-  'codex',
-  'gemini',
-  'opencodeGo',
-  'kimi',
-  'antigravity',
-  'grok',
-  'cursor'
-]
-
-/** Every polled provider with windows, the given one first, for the sheet's provider tabs. */
-export function listProviderUsages(
-  snapshot: AccountsSnapshot | null,
-  first: UsageProviderKey
-): AgentUsage[] {
-  if (!snapshot) {
-    return []
-  }
-  const ordered = [first, ...PROVIDER_ORDER.filter((provider) => provider !== first)]
-  return ordered.flatMap((provider) => {
-    const limits = readProviderLimits(snapshot, provider)
-    const windows = limits ? listUsageWindows(limits) : []
-    return windows.length > 0 ? [{ provider, windows }] : []
-  })
-}
-
 const UsageHistoryCarrierSchema = z.object({ usageHistory: z.unknown().optional() })
 
 /** The host's used-percent samples for one window, oldest first; empty on hosts that keep none. */
