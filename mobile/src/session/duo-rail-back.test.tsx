@@ -20,7 +20,6 @@ const scene = vi.hoisted(() => ({
   occlusions: [{ x: 867, y: 0, width: 84, height: 124 }],
   expanded: false,
   keyboardInset: 0,
-  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: widens the null initializer so tests can assign a handler.
   pressBack: null as (() => boolean) | null
 }))
 
@@ -40,7 +39,7 @@ vi.mock('../layout/reserved-regions', () => ({
 vi.mock('./duo-chat-width', () => ({
   useDuoChatExpanded: () => scene.expanded
 }))
-vi.mock('../transport/client-context.web', () => ({
+vi.mock('../transport/connection/client-context.web', () => ({
   usePageBridgeClientIfPresent: () =>
     scene.pressBack === null ? null : { pressBack: scene.pressBack }
 }))

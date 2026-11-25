@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo } from 'react'
+import { useCallback, useContext, useMemo, type ComponentProps } from 'react'
 import { Text, View } from 'react-native'
 import { styles } from './mobile-session-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
@@ -20,7 +20,14 @@ import { useShellSideRail } from '../layout/use-shell-side-rail'
 import { useReleasedSideInset } from '../layout/released-side-inset'
 import { sideStripPadding } from './session-side-strip-inset'
 import { DuoRailBackButton } from './DuoRailBackButton'
+import { useKeyboardOcclusion } from '../platform/keyboard/keyboard-occlusion'
 import { useSessionRailBack } from './use-duo-rail-back'
+
+function KeyboardDuoRailBackButton(
+  props: Omit<ComponentProps<typeof DuoRailBackButton>, 'keyboardInset'>
+) {
+  return <DuoRailBackButton {...props} keyboardInset={useKeyboardOcclusion()} />
+}
 
 export function MobileSessionSurface({ controller }: { controller: MobileSessionController }) {
   useMobileColorScheme()
@@ -121,11 +128,7 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
           </BotChatOpenContext.Provider>
         </BotItemOpenContext.Provider>
       </View>
-      <DuoRailBackButton
-        chatVisible={controller.showNativeChat}
-        keyboardInset={controller.keyboardHeight}
-        onBack={onRailBack}
-      />
+      <KeyboardDuoRailBackButton chatVisible={controller.showNativeChat} onBack={onRailBack} />
       <AnchoredDetailCardLayer
         card={details}
         obscured={obscured}
