@@ -68,14 +68,12 @@ export const RAIL_USAGE_PROVIDER_AGENT: Record<UsageProviderKey, string> = {
   muse: 'muse'
 }
 
-/** The ring opens at the bottom for the window label, like the status glyph's signal dots. */
+/** The ring opens at the bottom, like the status glyph's ring above it. */
 const RING_GAP_DEGREES = 60
-/** And breaks at the top for the percent, which the fill passes behind. */
-const RING_LABEL_HOLE_DEGREES = 80
 const RING_SWEEP_DEGREES = 360 - RING_GAP_DEGREES
 const RING_START_DEGREES = 180 + RING_GAP_DEGREES / 2
-const HOLE_FROM = (360 - RING_LABEL_HOLE_DEGREES / 2 - RING_START_DEGREES) / RING_SWEEP_DEGREES
-const HOLE_TO = (360 + RING_LABEL_HOLE_DEGREES / 2 - RING_START_DEGREES) / RING_SWEEP_DEGREES
+/** Clear of the screen's rounded edge and of the strip's inner edge. */
+const RING_COLUMN_MARGIN = 2
 
 /** A point `fraction` of the way clockwise along the ring's sweep, which starts at 7 o'clock. */
 export function railRingPoint(
@@ -88,24 +86,30 @@ export function railRingPoint(
   return { x: center + radius * Math.sin(radians), y: center - radius * Math.cos(radians) }
 }
 
-/** Whether `fraction` falls in the break the percent sits in. */
-export function inRailRingLabelHole(fraction: number): boolean {
-  return fraction > HOLE_FROM && fraction < HOLE_TO
+/** SVG path for the sweep between two fractions. */
+export function railRingArc(center: number, radius: number, from: number, to: number): string {
+  if (!(to > from)) {
+    return ''
+  }
+  const a = railRingPoint(center, radius, from)
+  const b = railRingPoint(center, radius, to)
+  const largeArc = (to - from) * RING_SWEEP_DEGREES > 180 ? 1 : 0
+  return `M ${a.x} ${a.y} A ${radius} ${radius} 0 ${largeArc} 1 ${b.x} ${b.y}`
 }
 
-/** SVG path for the drawn part of the sweep between two fractions, skipping the label's break. */
-export function railRingArc(center: number, radius: number, from: number, to: number): string {
-  const spans: [number, number][] = [
-    [from, Math.min(to, HOLE_FROM)],
-    [Math.max(from, HOLE_TO), to]
-  ]
-  return spans
-    .filter(([start, end]) => end > start)
-    .map(([start, end]) => {
-      const a = railRingPoint(center, radius, start)
-      const b = railRingPoint(center, radius, end)
-      const largeArc = (end - start) * RING_SWEEP_DEGREES > 180 ? 1 : 0
-      return `M ${a.x} ${a.y} A ${radius} ${radius} 0 ${largeArc} 1 ${b.x} ${b.y}`
-    })
-    .join(' ')
+/**
+ * Where the rings sit in the strip: on the status glyph's vertical axis, as wide as the room on
+ * that axis's narrower side allows, and never narrower than the glyph.
+ */
+export function railRingColumn(args: {
+  strip: { side: 'left' | 'right'; width: number }
+  windowWidth: number
+  glyphMidX: number
+  minDiameter: number
+}): { center: number; diameter: number } {
+  const { strip } = args
+  const stripStart = strip.side === 'right' ? args.windowWidth - strip.width : 0
+  const center = Math.max(0, Math.min(strip.width, args.glyphMidX - stripStart))
+  const room = 2 * (Math.min(center, strip.width - center) - RING_COLUMN_MARGIN)
+  return { center, diameter: Math.max(args.minDiameter, Math.floor(room)) }
 }
