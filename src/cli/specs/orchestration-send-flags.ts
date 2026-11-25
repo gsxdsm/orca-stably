@@ -22,5 +22,6 @@ export const ORCHESTRATION_SEND_FLAGS = [
   'outcome',
   'files-modified',
   'report-path',
-  'phase'
+  'phase',
+  'wait-until'
 ] as const

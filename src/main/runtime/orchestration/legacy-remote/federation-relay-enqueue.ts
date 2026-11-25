@@ -1,3 +1,4 @@
+import { recordWorkerScheduledWait, clearWorkerScheduledWait } from '../db/worker-scheduled-waits'
 import { readAnswerSenderRelayReport } from '../mailbox/senders/answer-sender-relay-report'
 import type {
   WorkerReportOutcome,
@@ -24,6 +25,8 @@ export function enqueueFederationRelay(
     settleRemoteOutcome?: WorkerReportOutcome
     answerSenderReport?: unknown
     remoteQuestion?: true
+    scheduledWait?: { until: string; reason: string; from: string }
+    clearScheduledWait?: true
   }
 ): FederationRelayItemRow {
   const answer = readAnswerSenderRelayReport(params.answerSenderReport)
@@ -182,6 +185,17 @@ export function enqueueFederationRelay(
         .run(messageId, params.dispatchId)
     }
     this.settleRemoteAttachmentInRelayTransaction(params.dispatchId, params.settleRemoteOutcome)
+    if (params.direction === 'to_home' && (params.scheduledWait || params.clearScheduledWait)) {
+      if (params.scheduledWait) {
+        recordWorkerScheduledWait(this, {
+          dispatchId: params.dispatchId,
+          messageId,
+          ...params.scheduledWait
+        })
+      } else {
+        clearWorkerScheduledWait(this, params.dispatchId)
+      }
+    }
     return this.getFederationRelayItem(
       params.dispatchId,
       params.direction,

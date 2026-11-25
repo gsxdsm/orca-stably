@@ -47,6 +47,7 @@ class OrchestrationDbCore {
   mailReadWanted: () => boolean = () => true
   /** The runtime's auto-release timer, re-armed whenever a deadline moves. */
   workerTerminalAutoReleaseListener: (() => void) | undefined
+  workerScheduledWaitListener: ((event?: 'closed') => void) | undefined
   /** Told, with its id, of every change to what places or shows a Dispatch (see worker-status-notice),
    *  by any writer; bots' chats trees and Activity re-read on it. */
   workerStatusListener: ((dispatchId: string | null, change: DispatchRowChange) => void) | undefined
@@ -216,6 +217,9 @@ class OrchestrationDbCore {
   }
 
   close(): void {
+    const waitListener = this.workerScheduledWaitListener
+    this.workerScheduledWaitListener = undefined
+    waitListener?.('closed')
     this.closed = true
     for (const listener of this.closeListeners) {
       listener()
