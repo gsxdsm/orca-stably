@@ -18,7 +18,8 @@ export function mobileNativeChatMarkdownImageBlock(
       ? { type: 'image-ref', url: source, ...label }
       : null
   }
-  const route = routeNativeChatHref(source)
+  const pathSource = /^[A-Za-z]:%5c/i.test(source) ? source.replace(/%5c/gi, '\\') : source
+  const route = routeNativeChatHref(pathSource)
   if (route.kind === 'web') {
     return /^https:/i.test(route.url) && !isSvgFilePath(route.url.split(/[?#]/, 1)[0] ?? '')
       ? { type: 'image-ref', url: route.url, ...label }
