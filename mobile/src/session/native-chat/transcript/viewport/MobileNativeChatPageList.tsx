@@ -23,6 +23,7 @@ import type {
 import type { NativeChatMessage } from '../../../../../../src/shared/native-chat/native-chat-types'
 import type { MobileNativeChatRowKeys } from '../projection/mobile-native-chat-row-keys'
 import { MobileNativeChatPageScroll } from './MobileNativeChatPageScroll'
+import type { MobileNativeChatPinchPreview } from './mobile-native-chat-pinch-preview'
 import {
   DRAW_AHEAD_SCREENS,
   mobileNativeChatRowAbove,
@@ -94,6 +95,7 @@ type Props = {
   emptyStateView: ReactElement | null
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void
   onNearTop?: () => void
+  pinchPreview?: MobileNativeChatPinchPreview
 }
 
 // End anchoring preserves position when history prepends; restore after below-reader changes only at rest or on regroup.
@@ -114,7 +116,8 @@ export function MobileNativeChatPageList({
   footer: liveFooter,
   emptyStateView,
   onScroll,
-  onNearTop
+  onNearTop,
+  pinchPreview
 }: Props): ReactElement {
   const scroll = useRef<ScrollViewInstance>(null)
   const scroller = useCallback((): Scroller | null => {
@@ -337,12 +340,21 @@ export function MobileNativeChatPageList({
     write
   })
 
+  useEffect(() => {
+    pinchPreview?.bindScroller(scroller)
+    return () => pinchPreview?.bindScroller(null)
+  }, [pinchPreview, scroller])
+
   const drawnHead = useRef<string | undefined>(undefined)
+  const laidOut = useRef(layoutKey)
   useLayoutEffect(() => {
     const s = scroller()
     if (!s) {
       return
     }
+    // A pinch's preview comes off as its size draws, before any place is read.
+    const pinched = laidOut.current === layoutKey ? null : (pinchPreview?.settle() ?? null)
+    laidOut.current = layoutKey
     // Chromium keeps a touch scroll's offset from the top, so rows drawn or cut above would carry the reader with them; a write hands the scroll the end-anchored offset.
     if (!align.aligning.current && keys[first] !== drawnHead.current) {
       drawnHead.current = keys[first]
@@ -353,6 +365,12 @@ export function MobileNativeChatPageList({
       }
     }
     align.keepPlaceUnlessAligning(s)
+    // Off the tail, the text under the fingers stays put through the rewrap.
+    const drift = pinched && !isFollowing() ? pinched() : 0
+    if (Math.abs(drift) >= 0.5) {
+      write(s, s.scrollTop + drift)
+      notePlace(s)
+    }
     drawAndFetch(s)
     align.finishPendingAlign(s)
   })
