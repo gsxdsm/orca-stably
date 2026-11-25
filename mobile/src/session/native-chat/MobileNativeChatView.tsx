@@ -5,6 +5,7 @@ import {
   MobileNativeChatDisclosureContext,
   useMobileNativeChatDisclosures
 } from './transcript/mobile-native-chat-disclosure-store'
+import { MobileNativeChatOpenSubagentProvider } from './input/mobile-native-chat-open-subagent'
 import { type NativeScrollEvent, type NativeSyntheticEvent, Text, View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
@@ -274,6 +275,7 @@ export function MobileNativeChatView({
       ) : (
         <GestureHandlerRootView style={[styles.listWrap, transcriptInset]}>
           <MobileNativeChatDisclosureContext.Provider value={disclosures}>
+            <MobileNativeChatOpenSubagentProvider onOpen={subagent.onFocusSubagent}>
             <MobileNativeChatScrollRootsBoundary
               {...{ rowKeys, layoutKey }}
               roots={disclosures.roots}
@@ -294,6 +296,7 @@ export function MobileNativeChatView({
                 contentContainerStyle={styles.listContent}
               />
             </MobileNativeChatScrollRootsBoundary>
+            </MobileNativeChatOpenSubagentProvider>
           </MobileNativeChatDisclosureContext.Provider>
           <MobileNativeChatFloatingControls
             showJumpToTail={tail.showJumpToTail}
