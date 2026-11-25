@@ -57,7 +57,6 @@ export default withWorkspaceRoute(function MobileSessionScreen() {
     },
     [botItem, homeDraft, paneKey, router]
   )
-
   // Omit empty params: created=1 is one-shot, warning is host text, absent name derives a label, and empty paneKey marks a spent tap.
   const routeParams: Record<string, string> = {
     ...Object.fromEntries(

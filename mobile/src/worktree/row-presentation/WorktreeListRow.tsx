@@ -32,9 +32,18 @@ import { HostKindIcon } from '../../components/icons/HostKindIcon'
 import { MobileRepoIcon } from '../../components/icons/MobileRepoIcon'
 import { WorktreeAgentList } from '../agent-lineage/presentation/WorktreeAgentList'
 import { WorktreeMetaGlyphs, prStateColor } from './WorktreeMetaGlyphs'
-import { worktreeListRowStyles as styles } from './worktree-list-row-styles'
 import { PrStateIcon } from '../../source-control/review/status/PrStateIcon'
+import { worktreeListRowStyles as styles } from './worktree-list-row-styles'
 import { WorktreeUnsavedName } from './WorktreeUnsavedName'
+import {
+  useWorktreeRowSession,
+  workspaceCardActivation
+} from '../../components/worktree-session-press'
+
+// Match desktop formatBranchName by hiding refs/heads/ prefix.
+function displayBranch(branch: string): string {
+  return branch.replace(/^refs\/heads\//, '')
+}
 
 type Props = {
   item: Worktree
@@ -51,10 +60,13 @@ type Props = {
   status: WorktreeStatus | null
   onPress: (item: Worktree) => void
   onAgentPress?: (item: Worktree, paneKey: string) => void
+  /** Phone view setting: session rows are taller and open that session. */
+  selectableSessions?: boolean
   statusLive?: boolean
   onLongPress?: (item: Worktree) => void
+  /** Actions for one session. The card long-press stays the workspace menu. */
+  onSessionLongPress?: (item: Worktree, paneKey: string) => void
   onToggleLineage?: (item: WorkspaceListItem) => void
-  /** A bot row's "2 new": opens the bot's new threads. */
   /** A rename the desktop hasn't taken yet; the row keeps its real name and points to this one. */
   unsavedName?: string
   /** The paired computer, for a bot row's usage-limit stops. */
@@ -73,8 +85,10 @@ function WorktreeListRowComponent({
   status: rowStatus,
   onPress,
   onAgentPress,
+  selectableSessions = false,
   statusLive,
   onLongPress,
+  onSessionLongPress,
   onToggleLineage,
   unsavedName,
   pairedHostId = null
@@ -89,8 +103,7 @@ function WorktreeListRowComponent({
   const folderMeta =
     item.comment?.trim() || item.path || t('components.worktreeListRow.folder', 'Folder')
   const metaText =
-    view.botFacts?.statusLine ??
-    (isFolderWorkspace ? folderMeta : item.branch.replace(/^refs\/heads\//, ''))
+    view.botFacts?.statusLine ?? (isFolderWorkspace ? folderMeta : displayBranch(item.branch))
   const lineageDepth = Math.max(0, view.lineageDepth ?? 0)
   const indent = projectGroupRowIndent(item, view) + lineageDepth * 18
   const count = view.lineageChildCount ?? 0
@@ -126,13 +139,12 @@ function WorktreeListRowComponent({
   const showMetaRow =
     cardDetails.metaRow &&
     (lineageDepth > 0 || showHostBadge || showRepoInMetaRow || cardDetails.identity)
-  // Agent rows take their own taps, so they share the card's long-press menu.
-  const openActions = onLongPress
-    ? () => {
-        triggerMediumImpact()
-        onLongPress(item)
-      }
-    : undefined
+  const sessionPress = useWorktreeRowSession(item, selectableSessions, onPress, onAgentPress)
+  const handleLongPress = sessionPress.cardLongPress(onLongPress, triggerMediumImpact)
+  const handleSessionLongPress = sessionPress.sessionLongPress(
+    onSessionLongPress,
+    triggerMediumImpact
+  )
 
   if (view.botChatLine) {
     return (
@@ -164,7 +176,7 @@ function WorktreeListRowComponent({
             onPress(item)
           }
         }}
-        onLongPress={openActions}
+        onLongPress={handleLongPress}
         onToggle={onToggleLineage ? () => onToggleLineage({ row: item, view }) : undefined}
       />
     )
@@ -177,11 +189,17 @@ function WorktreeListRowComponent({
         indent > 0 && { paddingLeft: spacing.lg + indent },
         item.isActive && styles.worktreeRowActive,
         view.dimmed && styles.worktreeRowDimmed,
-        pressed && (item.isActive ? styles.worktreeRowActivePressed : styles.worktreeRowPressed)
+        // The open session keeps this accent and takes the fill; the rest of the card does not.
+        sessionPress.highlightedPane && { backgroundColor: colors.bgBase },
+        pressed &&
+          !sessionPress.isClaimed() &&
+          (item.isActive ? styles.worktreeRowActivePressed : styles.worktreeRowPressed)
       ]}
+      // One press target. An accessible card would hide the session rows from VoiceOver.
+      accessible={false}
       disabled={isReadOnly}
-      onPress={() => onPress(item)}
-      onLongPress={openActions}
+      onPress={sessionPress.press}
+      onLongPress={handleLongPress}
       delayLongPress={400}
     >
       <View style={styles.indicatorCol}>
@@ -197,102 +215,105 @@ function WorktreeListRowComponent({
       </View>
 
       <View style={styles.worktreeMain}>
-        <View style={styles.worktreeNameRow}>
-          {showHostGlyph && (
-            <View
-              accessibilityLabel={
-                hostAccessibilityLabel || t('components.worktreeListRow.remoteHost', 'Remote host')
-              }
+        <View {...workspaceCardActivation(isReadOnly, sessionPress.press)}>
+          <View style={styles.worktreeNameRow}>
+            {showHostGlyph && (
+              <View
+                accessibilityLabel={
+                  hostAccessibilityLabel ||
+                  t('components.worktreeListRow.remoteHost', 'Remote host')
+                }
+              >
+                <HostKindIcon hostId={hostId} size={11} />
+              </View>
+            )}
+            {showRepoChip && (
+              <View
+                style={styles.repoChip}
+                accessibilityLabel={t('components.worktreeListRow.project', 'Project {{repo}}', {
+                  repo: item.repo
+                })}
+              >
+                <MobileRepoIcon repoIcon={repoIcon} size={11} color={repoColor} />
+              </View>
+            )}
+            {lineAgent ? (
+              <BotLineAgentLogos
+                agent={lineAgent}
+                ringColor={item.isActive ? colors.bgPanel : colors.bgBase}
+              />
+            ) : null}
+            {lineAgent && lineAgent.others > 0 ? (
+              <BotLineAgentMore others={lineAgent.others} needsYou={lineAgent.othersNeedYou} />
+            ) : null}
+            <Text
+              style={[
+                styles.worktreeName,
+                item.unread && styles.worktreeNameUnread,
+                isReadOnly && styles.textReadOnly
+              ]}
+              numberOfLines={1}
             >
-              <HostKindIcon hostId={hostId} size={11} />
-            </View>
-          )}
-          {showRepoChip && (
-            <View
-              style={styles.repoChip}
-              accessibilityLabel={t('components.worktreeListRow.project', 'Project {{repo}}', {
-                repo: item.repo
-              })}
-            >
-              <MobileRepoIcon repoIcon={repoIcon} size={11} color={repoColor} />
-            </View>
-          )}
-          {lineAgent ? (
-            <BotLineAgentLogos
-              agent={lineAgent}
-              ringColor={item.isActive ? colors.bgPanel : colors.bgBase}
-            />
-          ) : null}
-          {lineAgent && lineAgent.others > 0 ? (
-            <BotLineAgentMore others={lineAgent.others} needsYou={lineAgent.othersNeedYou} />
-          ) : null}
-          <Text
-            style={[
-              styles.worktreeName,
-              item.unread && styles.worktreeNameUnread,
-              isReadOnly && styles.textReadOnly
-            ]}
-            numberOfLines={1}
-          >
-            {item.displayName || item.repo}
-          </Text>
-          {/* A bot's worker line has no room for PR marks; the desktop drops them there too. */}
-          {!view.botWorkspace && cardDetails.pr && item.linkedPR && (
-            <View style={styles.prBadge}>
-              <PrStateIcon state={prState} size={10} color={prColor} />
-              <Text style={[styles.prNumber, { color: prColor }]}>#{item.linkedPR.number}</Text>
-            </View>
-          )}
-          {isFolderWorkspace && !view.botFacts && (
-            <View style={styles.folderBadge}>
-              <Text style={styles.folderBadgeText}>
-                {t('components.worktreeListRow.folder', 'Folder')}
-              </Text>
-            </View>
-          )}
-          <WorktreeMetaGlyphs
-            presence={{
-              ...getWorktreeMetaGlyphPresence(item, cardDetails),
-              ...(view.botWorkspace ? { gitLabMR: false } : {})
-            }}
-          />
-          {item.liveTerminalCount > 0 ? (
-            <Text style={styles.terminalCount}>{item.liveTerminalCount}</Text>
-          ) : null}
-        </View>
-        {showMetaRow && (
-          <View style={styles.worktreeMetaRow}>
-            {lineageDepth > 0 && !view.botWorkspace && (
-              <View style={styles.childBadge}>
-                <GitBranch size={10} color={colors.textMuted} />
-                <Text style={styles.childBadgeText}>
-                  {t('components.worktreeListRow.child', 'Child')}
+              {item.displayName || item.repo}
+            </Text>
+            {/* A bot's worker line has no room for PR marks; the desktop drops them there too. */}
+            {!view.botWorkspace && cardDetails.pr && item.linkedPR && (
+              <View style={styles.prBadge}>
+                <PrStateIcon state={prState} size={10} color={prColor} />
+                <Text style={[styles.prNumber, { color: prColor }]}>#{item.linkedPR.number}</Text>
+              </View>
+            )}
+            {isFolderWorkspace && !view.botFacts && (
+              <View style={styles.folderBadge}>
+                <Text style={styles.folderBadgeText}>
+                  {t('components.worktreeListRow.folder', 'Folder')}
                 </Text>
               </View>
             )}
-            {showHostBadge ? (
-              <HostContextPill
-                hostId={hostId}
-                label={view.hostContextLabel}
-                healthLabel={view.hostContextHealthLabel}
-              />
+            <WorktreeMetaGlyphs
+              presence={{
+                ...getWorktreeMetaGlyphPresence(item, cardDetails),
+                ...(view.botWorkspace ? { gitLabMR: false } : {})
+              }}
+            />
+            {item.liveTerminalCount > 0 ? (
+              <Text style={styles.terminalCount}>{item.liveTerminalCount}</Text>
             ) : null}
-            {/* Show repo identity only outside grouping/title-chip cases; Folder fallback matches desktop. */}
-            {showRepoInMetaRow && (
-              <>
-                <MobileRepoIcon repoIcon={repoIcon} size={11} color={repoColor} />
-                <Text style={styles.repoName} numberOfLines={1}>
-                  {item.repo}
-                </Text>
-              </>
-            )}
-            {cardDetails.identity && (
-              <Text style={styles.branchName} numberOfLines={1}>
-                {metaText}
-              </Text>
-            )}
           </View>
-        )}
+          {showMetaRow && (
+            <View style={styles.worktreeMetaRow}>
+              {lineageDepth > 0 && !view.botWorkspace && (
+                <View style={styles.childBadge}>
+                  <GitBranch size={10} color={colors.textMuted} />
+                  <Text style={styles.childBadgeText}>
+                    {t('components.worktreeListRow.child', 'Child')}
+                  </Text>
+                </View>
+              )}
+              {showHostBadge ? (
+                <HostContextPill
+                  hostId={hostId}
+                  label={view.hostContextLabel}
+                  healthLabel={view.hostContextHealthLabel}
+                />
+              ) : null}
+              {/* Show repo identity only outside grouping/title-chip cases; Folder fallback matches desktop. */}
+              {showRepoInMetaRow && (
+                <>
+                  <MobileRepoIcon repoIcon={repoIcon} size={11} color={repoColor} />
+                  <Text style={styles.repoName} numberOfLines={1}>
+                    {item.repo}
+                  </Text>
+                </>
+              )}
+              {cardDetails.identity && (
+                <Text style={styles.branchName} numberOfLines={1}>
+                  {metaText}
+                </Text>
+              )}
+            </View>
+          )}
+        </View>
         {unsavedName ? <WorktreeUnsavedName name={unsavedName} /> : null}
         {/* Match desktop agent activity only; plain terminal shell-output tails stay hidden. */}
         {!view.botWorkspace && cardDetails.inlineAgents && item.agents && item.agents.length > 0 ? (
@@ -301,15 +322,22 @@ function WorktreeListRowComponent({
             unvisited={item.unread}
             statusLive={statusLive}
             isReadOnly={isReadOnly}
-            onAgentPress={onAgentPress ? (paneKey) => onAgentPress(item, paneKey) : undefined}
-            onAgentLongPress={openActions}
+            onAgentPress={sessionPress.openAgent}
+            selectedPaneKey={sessionPress.highlightedPane}
             fullList={agentActivityDisplayMode === 'full'}
+            selectable={selectableSessions}
+            onPressIn={sessionPress.claim}
+            onPressOut={sessionPress.release}
+            onWorkspacePress={sessionPress.openWorkspace}
+            onLongPress={handleSessionLongPress}
           />
         ) : null}
         {count > 0 && onToggleLineage ? (
           <Pressable
             style={({ pressed }) => [styles.lineageToggle, pressed && styles.lineageTogglePressed]}
             hitSlop={LINEAGE_TOGGLE_HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: !view.lineageCollapsed }}
             onPress={(event) => {
               event.stopPropagation()
               onToggleLineage({ row: item, view })
