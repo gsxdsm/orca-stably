@@ -1,9 +1,14 @@
+/* eslint-disable max-lines -- Why: the fork's additions sit beside upstream's in this owner after the upstream merge. */
 // Send background push after socket fan-out without making sockets wait or fail on gateway results.
-import type { MobilePushRegistration } from '../../../shared/notifications/mobile-push-contract'
+import type {
+  MobilePushPrompt,
+  MobilePushRegistration
+} from '../../../shared/notifications/mobile-push-contract'
 import {
   allowsMobilePushDelivery,
   mobilePushAlertContent
 } from '../../../shared/notifications/mobile-push-alert'
+import { attachMobilePushPrompt } from '../../../shared/mobile-push-prompt'
 import type { MobileNotificationEvent } from './notifications/runtime-mobile-notification-controller'
 import {
   PushBurstSlots,
@@ -11,6 +16,7 @@ import {
   type ExecutionHostPushCoverage
 } from './push-burst-slots'
 import type { PushGatewayClient, PushSendNotification } from './push-gateway-client'
+import type { PushPromptCategoryGate } from './push-prompt-category-gate'
 import { PushOutcomeCounters } from './push-outcome-counters'
 import {
   NOTIFICATION_PUSH_COVERAGE_MAX_DIGESTS,
@@ -33,6 +39,9 @@ type PushDispatcherOptions = {
   deliveryMode?: MobilePushDeliveryMode
   /** Test seam: lets a suite drive the single retry without real time. */
   scheduleRetry?: (run: () => void, delayMs: number) => void
+  /** Absent, or a gate that has not seen support, keeps today's notification bytes. */
+  promptCategory?: Pick<PushPromptCategoryGate, 'allows' | 'refresh'>
+  promptFor?: (event: MobileNotificationEvent) => MobilePushPrompt | null
   coverage?: ExecutionHostPushCoverage
 }
 
@@ -56,12 +65,16 @@ export class PushDispatcher {
   private readonly registry: PushDispatcherRegistry
   private readonly deliveryMode: MobilePushDeliveryMode
   private readonly scheduleRetry: (run: () => void, delayMs: number) => void
+  private readonly promptCategory: PushDispatcherOptions['promptCategory']
+  private readonly promptFor: PushDispatcherOptions['promptFor']
   private readonly coverage: ExecutionHostPushCoverage | undefined
 
   constructor(options: PushDispatcherOptions) {
     this.coverage = options.coverage
     this.client = options.client
     this.registry = options.registry
+    this.promptCategory = options.promptCategory
+    this.promptFor = options.promptFor
     this.deliveryMode = options.deliveryMode ?? 'full'
     this.scheduleRetry =
       options.scheduleRetry ??
@@ -211,16 +224,33 @@ export class PushDispatcher {
     if (targets.length === 0) {
       return null
     }
+    const notification: PushSendNotification = {
+      expiresAt: Date.now() + 300_000,
+      ...(event.notificationId ? { notificationId: event.notificationId } : {}),
+      ...content,
+      ...(event.worktreeId ? { worktreeId: event.worktreeId } : {}),
+      ...(event.paneKey ? { paneKey: event.paneKey } : {}),
+      ...(event.executionHost ? { executionHost: event.executionHost } : {})
+    }
     return {
       targets,
-      notification: {
-        expiresAt: Date.now() + 300_000,
-        ...(event.notificationId ? { notificationId: event.notificationId } : {}),
-        ...content,
-        ...(event.worktreeId ? { worktreeId: event.worktreeId } : {}),
-        ...(event.paneKey ? { paneKey: event.paneKey } : {}),
-        ...(event.executionHost ? { executionHost: event.executionHost } : {})
-      }
+      notification:
+        content.agentState === 'needs-input' ? this.withPrompt(event, notification) : notification
+    }
+  }
+
+  /** A lookup failure must still deliver the alert the host already built. */
+  private withPrompt(
+    event: MobileNotificationEvent,
+    notification: PushSendNotification
+  ): PushSendNotification {
+    try {
+      this.promptCategory?.refresh()
+      const prompt = this.promptFor?.(event) ?? null
+      return attachMobilePushPrompt(notification, prompt, this.promptCategory?.allows() === true)
+    } catch (error) {
+      console.warn('[push] prompt fields omitted', error)
+      return notification
     }
   }
 

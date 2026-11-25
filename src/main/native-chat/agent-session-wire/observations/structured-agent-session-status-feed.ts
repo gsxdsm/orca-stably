@@ -52,6 +52,11 @@ export class StructuredAgentSessionStatusFeed {
   private logFailure = (scope: string, message: string, sessionId: string, error: unknown): void =>
     this.deps.logger.warn(message, { scope, sessionId, error })
 
+  /** The prompts the last published status read found waiting; empty before a live read. */
+  publishedActionablePrompts(sessionId: string) {
+    return this.published.get(sessionId)?.work?.actionablePrompts ?? []
+  }
+
   subscribe(subscriber: StructuredAgentSessionStatusSubscriber): () => void {
     // Naming completion must be observable even if a held journal cannot be read.
     if (this.deps.namingActiveSessionIds || this.deps.listConversations) {
