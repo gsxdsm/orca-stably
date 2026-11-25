@@ -3057,6 +3057,7 @@
       "paste": "Yapıştır",
       "addCustomShortcut": "Özel kısayol ekle",
       "keysMode": "Tuşlar",
+      "messageMode": "Mesaj",
       "control": "Control",
       "alt": "Alt",
       "shift": "Shift"
@@ -3174,6 +3175,7 @@
       "sendCommand": "Komut gönder",
       "messageAgentPlaceholder": "{{agent}} için mesaj",
       "theAgent": "ajan",
+      "writeCommandPlaceholder": "Bir komut yazın ve gönderin",
       "tapToShowKeyboard": "Klavyeyi göstermek için dokunun"
     },
     "contentRow": {

@@ -3233,6 +3233,7 @@
       "paste": "Вставить",
       "addCustomShortcut": "Добавить пользовательское сочетание клавиш",
       "keysMode": "Клавиши",
+      "messageMode": "Сообщение",
       "control": "Control",
       "alt": "Alt",
       "shift": "Shift"
@@ -3382,6 +3383,7 @@
       "sendCommand": "Отправить команду",
       "messageAgentPlaceholder": "Сообщение для {{agent}}",
       "theAgent": "агент",
+      "writeCommandPlaceholder": "Напишите команду и отправьте её",
       "tapToShowKeyboard": "Нажмите, чтобы показать клавиатуру"
     },
     "contentRow": {

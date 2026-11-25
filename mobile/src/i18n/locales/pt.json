@@ -2434,6 +2434,7 @@
       "paste": "Colar",
       "addCustomShortcut": "Adicionar atalho personalizado",
       "keysMode": "Teclas",
+      "messageMode": "Mensagem",
       "control": "Ctrl",
       "alt": "Alt",
       "shift": "Shift"
