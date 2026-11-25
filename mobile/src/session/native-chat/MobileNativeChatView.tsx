@@ -75,6 +75,7 @@ export function MobileNativeChatView({
   taskList = null,
   subagentSeed = null,
   readSubagentPage = null,
+  initialSubagentId = null,
   status,
   error,
   readFailedFinally = false,
@@ -170,7 +171,8 @@ export function MobileNativeChatView({
     sendSurfaceId,
     taskList,
     subagentSeed,
-    readSubagentPage
+    readSubagentPage,
+    initialSubagentId
   })
   const historyHasMore = subagent.childHistory?.hasMore ?? hasMore
   const historyOlderPages = subagent.childHistory?.olderPages ?? olderPages

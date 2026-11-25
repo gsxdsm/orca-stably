@@ -52,7 +52,7 @@ export function homeWorktreeForAgentPane<T extends AgentPaneOwner>(
 export function agentPaneHomeLoaded(
   worktrees: readonly AgentPaneOwner[],
   paneKey: string,
-  home: AgentPaneOwner
+  home: Pick<AgentPaneOwner, 'worktreeId' | 'hostId'>
 ): boolean {
   const row = worktrees
     .flatMap((worktree) => worktree.agents ?? [])

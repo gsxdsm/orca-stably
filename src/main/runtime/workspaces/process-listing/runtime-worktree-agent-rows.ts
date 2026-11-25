@@ -71,28 +71,31 @@ function visibleParentPaneKey(
   return null
 }
 
-/** A mirrored child keeps another worktree id. A path alias of this summary still owns it. */
-function rowBelongsToSummaryWorktree(
+function summaryForSource(
   source: RuntimeWorktreeAgentSource | undefined,
-  worktreeId: string,
+  getSummary: RuntimeWorktreePsSummaryLookup
+): RuntimeWorktreePsSummary | null {
+  return source?.worktreeId
+    ? getSummary(source.worktreeId, connectionEvidenceHostId(source.connectionId))
+    : null
+}
+
+/** A mirrored child keeps another workspace's summary. A path alias of this summary still owns it. */
+function rowBelongsToSummary(
+  source: RuntimeWorktreeAgentSource | undefined,
+  summary: RuntimeWorktreePsSummary,
   getSummary: RuntimeWorktreePsSummaryLookup
 ): boolean {
-  const ownerId = source?.worktreeId
-  if (!source || !ownerId) {
-    return false
-  }
-  // Host evidence picks the same copy attach uses; a bare id is ambiguous across hosts.
-  return (
-    ownerId === worktreeId ||
-    getSummary(ownerId, connectionEvidenceHostId(source.connectionId))?.worktreeId === worktreeId
-  )
+  return summaryForSource(source, getSummary) === summary
 }
 
 function mirrorCrossWorkspaceChildren(
   rowsBySummary: Map<RuntimeWorktreePsSummary, RuntimeWorktreeAgentRow[]>,
   rowSources: ReadonlyMap<string, RuntimeWorktreeAgentSource>,
+  summaries: Map<string, RuntimeWorktreePsSummary>,
   getSummary: RuntimeWorktreePsSummaryLookup
 ): void {
+  const knownSummaries = new Set(summaries.values())
   const mirrors: [RuntimeWorktreePsSummary, RuntimeWorktreeAgentRow][] = []
   const rowsByPaneKey = new Map<string, RuntimeWorktreeAgentRow>()
   for (const rows of rowsBySummary.values()) {
@@ -106,14 +109,8 @@ function mirrorCrossWorkspaceChildren(
       let ancestorPaneKey = row.parentPaneKey ?? null
       while (ancestorPaneKey && !visited.has(ancestorPaneKey)) {
         visited.add(ancestorPaneKey)
-        const ancestorSource = rowSources.get(ancestorPaneKey)
-        const ancestorSummary = ancestorSource?.worktreeId
-          ? getSummary(
-              ancestorSource.worktreeId,
-              connectionEvidenceHostId(ancestorSource.connectionId)
-            )
-          : undefined
-        if (ancestorSummary && ancestorSummary.worktreeId !== summary.worktreeId) {
+        const ancestorSummary = summaryForSource(rowSources.get(ancestorPaneKey), getSummary)
+        if (ancestorSummary && ancestorSummary !== summary && knownSummaries.has(ancestorSummary)) {
           mirrors.push([ancestorSummary, row])
         }
         ancestorPaneKey = rowsByPaneKey.get(ancestorPaneKey)?.parentPaneKey ?? null
@@ -249,7 +246,7 @@ export function attachRuntimeWorktreeAgentRows(args: {
       rowsBySummary.set(summary, [row])
     }
   }
-  mirrorCrossWorkspaceChildren(rowsBySummary, rowSources, args.getSummary)
+  mirrorCrossWorkspaceChildren(rowsBySummary, rowSources, args.summaries, args.getSummary)
   for (const [summary, rows] of rowsBySummary) {
     rows.sort((a, b) => a.stateStartedAt - b.stateStartedAt)
     summary.agents = rows
@@ -257,13 +254,7 @@ export function attachRuntimeWorktreeAgentRows(args: {
     const monitoringSources: RuntimeWorktreeAgentSource[] = []
     for (const row of rows) {
       // A child mirrored onto its coordinator's workspace must not mark that workspace busy.
-      if (
-        !rowBelongsToSummaryWorktree(
-          rowSources.get(row.paneKey),
-          summary.worktreeId,
-          args.getSummary
-        )
-      ) {
+      if (!rowBelongsToSummary(rowSources.get(row.paneKey), summary, args.getSummary)) {
         continue
       }
       if (!isFreshNonDoneAgentStatus(row, now)) {
@@ -304,8 +295,7 @@ export function attachRuntimeWorktreeAgentRows(args: {
       now,
       args.terminalTitleEvidenceByRow.get(summary) ?? [],
       (paneKey) => rowSources.get(paneKey),
-      (paneKey) =>
-        rowBelongsToSummaryWorktree(rowSources.get(paneKey), summary.worktreeId, args.getSummary)
+      (paneKey) => rowBelongsToSummary(rowSources.get(paneKey), summary, args.getSummary)
     )
   }
 }

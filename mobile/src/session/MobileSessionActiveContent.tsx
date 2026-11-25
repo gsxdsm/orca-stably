@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the active-content switch keeps every surface's props wiring in one place. */
 import { MobileSessionBotIdentity } from './native-chat/MobileSessionBotIdentity'
 import { MobileBotCardHostProvider } from './native-chat/transcript/bot-cards/MobileBotCardHostProvider'
 import { nativeChatTerminalRunner } from './native-chat/native-chat-terminal-runner'
@@ -365,6 +366,7 @@ export function MobileSessionActiveContent({
                     onClearSendError={nativeChatSendError.clear}
                     sendSurfaceId={controller.nativeChatScopeKey ?? ''}
                     sessionId={resolveMobileNativeChatSessionId(controller.activeSessionTab)}
+                    worktreeId={worktreeId}
                     getSendCompletionGeneration={controller.getSendCompletionGeneration}
                     keyboardInset={keyboardLift}
                     // A workspace routed to another server stops with that server, whose name the phone lacks.

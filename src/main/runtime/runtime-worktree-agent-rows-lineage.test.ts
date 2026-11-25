@@ -1,9 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { RuntimeWorktreePsSummary } from '../../../../shared/runtime-types'
-import { attachRuntimeWorktreeAgentRows } from './runtime-worktree-agent-rows'
-import type { RuntimeWorktreeAgentSource } from './runtime-worktree-agent-source'
-
-const NOW = 1_700_000_000_000
+import { describe, expect, it } from 'vitest'
+import type { RuntimeWorktreePsSummary } from '../../shared/worktree/catalog/runtime-worktree-contracts'
+import { attachRuntimeWorktreeAgentRows } from './workspaces/process-listing/runtime-worktree-agent-rows'
+import type { RuntimeWorktreeAgentSource } from './workspaces/process-listing/runtime-worktree-agent-source'
 
 function source(
   paneKey: string,
@@ -28,11 +26,10 @@ function source(
 }
 
 function workingSource(paneKey: string, worktreeId: string): RuntimeWorktreeAgentSource {
-  return { ...source(paneKey, worktreeId, 'term'), state: 'working', updatedAt: NOW }
+  return { ...source(paneKey, worktreeId, 'term'), state: 'working', updatedAt: Date.now() }
 }
 
 function summary(worktreeId: string): RuntimeWorktreePsSummary {
-  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: partial test fixture
   return {
     worktreeId,
     status: 'inactive',
@@ -42,14 +39,6 @@ function summary(worktreeId: string): RuntimeWorktreePsSummary {
 }
 
 describe('worktree agent rows nest orchestration workers across folder workspaces', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-    vi.setSystemTime(NOW)
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
   it('places a worker under the coordinator pane even when the stored parent pane is gone', () => {
     const coordinator = 'tab-coord:leaf-coord'
     const worker = 'tab-worker:leaf-worker'
@@ -64,7 +53,7 @@ describe('worktree agent rows nest orchestration workers across folder workspace
     attachRuntimeWorktreeAgentRows({
       summaries,
       rowSources,
-      terminalTitleEvidenceByWorktreeId: new Map(),
+      terminalTitleEvidenceByRow: new Map(),
       orchestrationByPaneKey: {
         [worker]: {
           parentPaneKey: 'tab-stale:leaf-stale',
@@ -90,7 +79,7 @@ describe('worktree agent rows nest orchestration workers across folder workspace
     attachRuntimeWorktreeAgentRows({
       summaries,
       rowSources: new Map([[worker, source(worker, 'folder:babysitter', 'term_worker')]]),
-      terminalTitleEvidenceByWorktreeId: new Map(),
+      terminalTitleEvidenceByRow: new Map(),
       orchestrationByPaneKey: {},
       getSummary: (id) => summaries.get(id) ?? null
     })
@@ -105,7 +94,7 @@ describe('worktree agent rows nest orchestration workers across folder workspace
     attachRuntimeWorktreeAgentRows({
       summaries,
       rowSources: new Map([[pane, workingSource(pane, alias)]]),
-      terminalTitleEvidenceByWorktreeId: new Map(),
+      terminalTitleEvidenceByRow: new Map(),
       orchestrationByPaneKey: {},
       getSummary: (id) =>
         id === alias || id === canonical ? (summaries.get(canonical) ?? null) : null
@@ -133,7 +122,7 @@ describe('worktree agent rows nest orchestration workers across folder workspace
         [coordinator, source(coordinator, parentId, 'term_coord')],
         [worker, workingSource(worker, childAlias)]
       ]),
-      terminalTitleEvidenceByWorktreeId: new Map(),
+      terminalTitleEvidenceByRow: new Map(),
       orchestrationByPaneKey: { [worker]: { parentPaneKey: coordinator } },
       getSummary: (id) => {
         if (id === parentId) {
@@ -164,7 +153,7 @@ describe('worktree agent rows nest orchestration workers across folder workspace
         [coordinator, source(coordinator, 'folder:orca', 'term_coord')],
         [worker, { ...workingSource(worker, 'folder:babysitter'), state: 'waiting' }]
       ]),
-      terminalTitleEvidenceByWorktreeId: new Map(),
+      terminalTitleEvidenceByRow: new Map(),
       orchestrationByPaneKey: { [worker]: { parentPaneKey: coordinator } },
       getSummary: (id) => summaries.get(id) ?? null
     })
@@ -189,7 +178,7 @@ describe('worktree agent rows nest orchestration workers across folder workspace
         [worker, source(worker, 'folder:worker', 'term_worker')],
         [helper, source(helper, 'folder:helper', 'term_helper')]
       ]),
-      terminalTitleEvidenceByWorktreeId: new Map(),
+      terminalTitleEvidenceByRow: new Map(),
       orchestrationByPaneKey: {
         [worker]: { parentPaneKey: coordinator },
         [helper]: { parentPaneKey: worker }
@@ -223,7 +212,7 @@ describe('worktree agent rows nest orchestration workers across folder workspace
         [coordinator, source(coordinator, parentAlias, 'term_coord')],
         [worker, source(worker, 'folder:babysitter', 'term_worker')]
       ]),
-      terminalTitleEvidenceByWorktreeId: new Map(),
+      terminalTitleEvidenceByRow: new Map(),
       orchestrationByPaneKey: { [worker]: { parentPaneKey: coordinator } },
       getSummary: (id) =>
         id === parentId || id === parentAlias
@@ -250,7 +239,7 @@ describe('worktree agent rows nest orchestration workers across folder workspace
         [worker, source(worker, 'folder:babysitter', 'term_worker')],
         [helper, source(helper, 'folder:babysitter', 'term_helper')]
       ]),
-      terminalTitleEvidenceByWorktreeId: new Map(),
+      terminalTitleEvidenceByRow: new Map(),
       orchestrationByPaneKey: {
         [worker]: { parentPaneKey: coordinator },
         [helper]: { parentPaneKey: worker }

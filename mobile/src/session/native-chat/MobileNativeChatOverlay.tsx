@@ -21,6 +21,7 @@ import {
 } from './transcript/tool-results/mobile-native-chat-reply-reveals'
 import { MobileNativeChatRowOverlaysHost } from './transcript/message-actions/MobileNativeChatRowOverlaysHost'
 import type { MobileLinkOpenMode } from '../../storage/preferences'
+import { takePendingSubagentFocus } from '../pending-subagent-focus'
 import { nativeChatAskRequiresTerminal } from '../../../../src/shared/native-chat/native-chat-agent-support'
 import { tuiAgentDisplayName } from '../../../../src/shared/agent-launch/catalog/tui-agent-display-names'
 import { MobileNativeChatNoticeContext } from './transcript/notices/mobile-native-chat-notice-context'
@@ -54,6 +55,7 @@ type Props = {
   /** Stable host/worktree/tab identity for accepted-send completion fencing. */
   sendSurfaceId: string
   sessionId: string | null
+  worktreeId?: string
   getSendCompletionGeneration: () => number
   keyboardInset: number
   /** The Orca host that runs this chat, named for notices; null when unnamed. */
@@ -109,6 +111,7 @@ function MobileNativeChatOverlayContent({
   onClearSendError,
   sendSurfaceId,
   sessionId,
+  worktreeId,
   getSendCompletionGeneration,
   keyboardInset,
   hostName,
@@ -118,6 +121,7 @@ function MobileNativeChatOverlayContent({
   hostOutage = null,
   onOpenAccounts
 }: Props): React.JSX.Element {
+  const initialSubagentId = useRef(takePendingSubagentFocus(worktreeId)).current
   const session = controller.nativeChatSession
   const agent = controller.nativeChatAgent ?? ''
   const fullContent = useMobileNativeChatMessageDetail(
@@ -349,6 +353,7 @@ function MobileNativeChatOverlayContent({
                       onLoadEarlier={session.loadEarlier}
                       onSend={images.sendNativeChat}
                       sendSurfaceId={sendSurfaceId}
+                      initialSubagentId={initialSubagentId}
                       getSendCompletionGeneration={getSendCompletionGeneration}
                       getComposerEditGeneration={controller.getChatComposerEditGeneration}
                       pending={controller.chatPending}

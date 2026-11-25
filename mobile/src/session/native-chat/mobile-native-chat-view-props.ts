@@ -38,6 +38,7 @@ export type MobileNativeChatViewProps = MobileNativeChatSendProps &
     taskList?: NativeChatTaskSeedList | null
     subagentSeed?: readonly NativeChatSubagentActivity[] | null
     readSubagentPage?: MobileNativeChatSubagentRead | null
+    initialSubagentId?: string | null
     status: MobileNativeChatStatus
     error?: string
     // Permanent read failure replaces the pane because further chat actions cannot succeed.
