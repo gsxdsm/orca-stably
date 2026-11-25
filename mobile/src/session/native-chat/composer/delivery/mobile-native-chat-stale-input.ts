@@ -11,6 +11,12 @@ export function markMobileNativeChatInputStale(terminal: string): void {
   staleInputTerminals.add(terminal)
 }
 
+export function markMobileNativeChatInputStaleIfStarted(started: boolean, terminal: string): void {
+  if (started) {
+    markMobileNativeChatInputStale(terminal)
+  }
+}
+
 export function isMobileNativeChatInputStale(terminal: string): boolean {
   return staleInputTerminals.has(terminal)
 }
