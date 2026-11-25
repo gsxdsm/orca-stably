@@ -32,6 +32,7 @@ import {
 import type { InactiveClaudeAccount } from '../providers/claude/claude-managed-account-usage'
 import type { RateLimitState } from '../../../shared/agent-usage/rate-limits/rate-limit-types'
 import type { NetworkProxySettings } from '../../../shared/network/network-proxy'
+import type { UsageHistoryRecorder } from '../usage-history/usage-history-recorder'
 
 export class RateLimitService extends RateLimitServiceTargetUsageRead {
   private lastOwnerReturnAt = Number.NEGATIVE_INFINITY
@@ -138,6 +139,11 @@ export class RateLimitService extends RateLimitServiceTargetUsageRead {
     this.networkProxySettingsResolver = resolver
   }
 
+  setUsageHistoryRecorder(recorder: UsageHistoryRecorder): void {
+    this.usageHistory = recorder
+    recorder.record(this.state)
+  }
+
   setInactiveClaudeAccountsResolver(resolver: () => InactiveClaudeAccount[]): void {
     this.inactiveClaudeAccountsResolver = resolver
     this.inactiveClaudeAccountsGeneration += 1
@@ -218,6 +224,7 @@ export class RateLimitService extends RateLimitServiceTargetUsageRead {
     this.detachWindowListeners?.()
     this.detachWindowListeners = null
     this.mainWindow = null
+    void this.usageHistory?.flush()
   }
 
   async getState(): Promise<RateLimitState> {
@@ -244,7 +251,8 @@ export class RateLimitService extends RateLimitServiceTargetUsageRead {
         this.inactiveCodexCache,
         this.inactiveCodexFetching
       ),
-      antigravityAccounts: this.antigravityAccounts
+      antigravityAccounts: this.antigravityAccounts,
+      usageHistory: this.usageHistory?.snapshot()
     }
   }
 }
