@@ -53,6 +53,7 @@
 1 src/main/runtime/agent-state-rules/agent-state-rules-live-update.ts
 1 src/main/runtime/mobile-cloud-relay/desktop-relay-service.ts
 3 src/main/runtime/mobile-cloud-relay/control-channel/relay-control-liveness.ts
+1 src/main/runtime/rpc/methods/native-chat/native-chat-terminal-queue.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/runtime/rpc/methods/orchestration/messaging/check-run.ts
 1 src/main/runtime/rpc/mobile/mobile-socket-wiring.ts
 1 src/main/runtime/rpc/transports/websocket/remote-runtime-server-heartbeat.ts
@@ -78,6 +79,7 @@
 1 src/renderer/src/components/browser-pane/host-guest/viewport/browser-client-page-position-driver.ts
 1 src/renderer/src/components/contextual-tours/use-contextual-tour.ts
 1 src/renderer/src/components/feature-tips/FeatureTipRotatingSlot.tsx
+1 src/renderer/src/components/native-chat/use-native-chat-terminal-queue.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/renderer/src/components/right-sidebar/plugin-panels/health/plugin-panel-watchdog.ts
 1 src/renderer/src/components/maintenance/terminal-daemon/SeveredTerminalDaemonBanner.tsx
 1 src/renderer/src/components/maintenance/terminal-daemon/StalledTerminalDaemonBanner.tsx

@@ -10,6 +10,7 @@
 1 src/main/acp/launch/acp-structured-launch-resolution.ts
 1 src/main/acp/process/acp-agent-connection.ts
 1 src/main/acp/text-task/acp-text-task.ts
+1 src/main/acp/timeline/acp-tool-timeline.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/agent-hooks/first-work/first-work-generation-target.ts
 1 src/main/agent-hooks/installation/bare-shell-plugin-agent-presence.ts
 2 src/main/agent-hooks/installation/configuration/hooks-json-read.ts
@@ -53,7 +54,7 @@
 15 src/main/ai-vault/scanners/hermes/session-scanner-hermes-sqlite.ts
 1 src/main/ai-vault/scanners/omp/omp-session-root.ts
 2 src/main/ai-vault/scanners/opencode/reader-transport/opencode-wsl-runtime-preparation.ts
-15 src/main/ai-vault/scanners/opencode/reader-transport/session-scanner-opencode-sqlite-dispatch.ts
+17 src/main/ai-vault/scanners/opencode/reader-transport/session-scanner-opencode-sqlite-dispatch.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/ai-vault/scanners/opencode/reader-transport/session-scanner-opencode-sqlite-process-entry.ts
 5 src/main/ai-vault/scanners/opencode/reader-transport/session-scanner-opencode-sqlite-worker-spawn.ts
 2 src/main/ai-vault/scanners/opencode/reader-transport/session-scanner-opencode-wsl-client.ts
@@ -217,6 +218,8 @@
 1 src/main/claude/hooks/statusline-install.ts
 3 src/main/claude/hooks/windows-hook-files.ts
 2 src/main/claude/structured/claude-structured-session-adapter.ts
+1 src/main/claude/structured/journal/claude-message-journaling.ts # fork-only (gsxdsm/orca), not for upstream
+1 src/main/claude/structured/journal/claude-structured-journal-translation.ts # fork-only (gsxdsm/orca), not for upstream
 2 src/main/claude/structured/launch/claude-structured-child-env.ts
 2 src/main/claude/structured/launch/claude-structured-launch-resolution.ts # claudeOwnServerNames: one config-file lookup per launch, only when the host list adds servers
 1 src/main/claude/theme-sync/claude-code-theme-sync-schedule.ts
@@ -774,6 +777,7 @@
 1 src/main/native-chat/agent-model-catalog/agent-model-catalog-refresh.ts
 1 src/main/native-chat/agent-model-catalog/agent-model-catalog-scope.ts
 4 src/main/native-chat/agent-session-attachments/agent-session-attachment-claims.ts
+1 src/main/native-chat/agent-session-attachments/agent-session-attachment-store.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/native-chat/agent-session-journal/context-epochs/journal-context-cursor.ts
 12 src/main/native-chat/agent-session-journal/database/journal-database.ts
 6 src/main/native-chat/agent-session-journal/database/journal-domain-migrations.ts # tail table create at store open (one-shot startup); worker-only: +2 create the retired-epoch pending table in a transaction on the journal SQL worker; +1 creates the operation-window send indexes (IF NOT EXISTS, one-shot) on the journal SQL worker
@@ -798,11 +802,15 @@
 2 src/main/native-chat/conversation-adoption/codex-adoption-preparation.ts
 1 src/main/native-chat/conversation-adoption/structured-agent-cli-conversations.ts
 3 src/main/native-chat/conversation-files/native-chat-media-path.ts
+1 src/main/native-chat/native-chat-transcript-task-scan.ts # fork-only (gsxdsm/orca), not for upstream
 2 src/main/native-chat/session-file-resolver.ts
+5 src/main/native-chat/tool-result-images.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/native-chat/transcript-discovery/transcript-path-admission.ts
 3 src/main/native-chat/transcript-filesystem/process/wsl-transcript-fs-process-dispatch.ts
 1 src/main/native-chat/transcript-filesystem/process/wsl-transcript-fs-process-spawn.ts
 2 src/main/native-chat/transcript-filesystem/wsl-transcript-fs-access.ts
+6 src/main/native-chat/transcript-hermes-sqlite.ts # fork-only (gsxdsm/orca), not for upstream
+1 src/main/native-chat/transcript-hermes.ts # fork-only (gsxdsm/orca), not for upstream
 2 src/main/native-chat/transcript-history/codex/codex-rollout-history-source.ts
 7 src/main/native-chat/transcript-history/hermes/transcript-hermes-sqlite.ts
 3 src/main/native-chat/transcript-history/opencode/transcript-opencode-database.ts
@@ -810,6 +818,10 @@
 2 src/main/native-chat/transcript-history/opencode/transcript-opencode.ts
 2 src/main/native-chat/transcript-history/opencode/transcript-opencode2-fork-coverage.ts
 2 src/main/native-chat/transcript-history/opencode/transcript-opencode2-sqlite.ts
+2 src/main/native-chat/transcript-live-tail.ts # fork-only (gsxdsm/orca), not for upstream
+2 src/main/native-chat/transcript-read-cache.ts # fork-only (gsxdsm/orca), not for upstream
+5 src/main/native-chat/transcript-reader.ts # fork-only (gsxdsm/orca), not for upstream
+1 src/main/native-chat/transcript-tail-reader.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/network/macos-tailscale-dns-diagnostic.ts
 3 src/main/node-runtime/managed-runtime-installation.ts
 1 src/main/node-runtime/managed-runtime-release-install.ts
@@ -1213,6 +1225,7 @@
 3 src/main/runtime/orchestration/legacy-remote/remote-dispatch-attachment-create.ts
 1 src/main/runtime/orchestration/mailbox/questions/question-reconcile.ts # one savepoint per agent-question notice, around orchestration DB writes that were already synchronous, so the notice and its record commit together
 2 src/main/runtime/orchestration/workers/lifecycle/context-only-dispatch-release.ts
+1 src/main/runtime/orchestration/workers/transcripts/worker-transcript-local-read.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/runtime/orchestration/workers/turn-stops/worker-presence-report.ts # one savepoint per real worker presence change, around orchestration DB writes that were already synchronous, so the report and its record commit together
 1 src/main/runtime/orchestration/workers/turn-stops/worker-turn-stop-report.ts # one savepoint per real worker presence change, around orchestration DB writes that were already synchronous, so the report and its record commit together
 2 src/main/runtime/push/push-unregister-outbox.ts

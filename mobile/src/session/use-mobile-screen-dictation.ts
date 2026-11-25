@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: dictation target, announcement and silence wiring share one hook so a transcript has one delivery path. */
 import {
   useCallback,
   useEffect,

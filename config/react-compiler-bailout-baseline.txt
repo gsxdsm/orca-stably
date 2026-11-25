@@ -2,6 +2,7 @@
 # Lower after a fix: pnpm check:react-compiler-compat-ratchet --prune. Regenerate (compiler bump, reviewed exception): --update
 5 src/renderer/src/app-shell/chrome/TitlebarLeftControls.tsx
 3 src/renderer/src/app-shell/startup/use-app-startup-hydration.ts
+5 src/renderer/src/components/native-chat/use-native-chat-terminal-queue.ts # fork-only (gsxdsm/orca), not for upstream
 2 src/renderer/src/components/onboarding/telemetry/FirstLaunchBanner.tsx
 1 src/renderer/src/components/task-page/jira/issue-workspace/JiraIssueWorkspace.tsx
 3 src/renderer/src/components/task-page/linear/issue-workspace/LinearIssueTextEditor.tsx
