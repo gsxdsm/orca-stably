@@ -28,8 +28,8 @@ import {
   useBottomDrawerModalHostBackClaim
 } from './bottom-drawer-modal-host-scope'
 import { useResponsiveLayout } from '../../layout/responsive-layout'
-import { useReleasedSideInset } from '../../layout/released-side-inset'
 import { useWindowSafeAreaInsets } from '../../layout/side-safe-area'
+import { useReleasedSideInset } from '../../layout/released-side-inset'
 import { useBackClaim } from '../../navigation/use-back-claim'
 import {
   currentSoftKeyboardHeight,

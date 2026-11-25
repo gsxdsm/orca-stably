@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { RpcClient } from '../transport/rpc-client'
-import type { RpcResponse } from '../transport/types'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
+import type { RpcResponse } from '../transport/rpc/rpc-wire-types'
 import { subscribeAccountsSnapshot } from './accounts-snapshot-store'
 
 const SNAPSHOT = {
@@ -34,7 +34,7 @@ describe('subscribeAccountsSnapshot', () => {
   it('shares one accounts stream across composers and closes it after the last leaves', () => {
     vi.useFakeTimers()
     const fake = fakeClient()
-    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the store only calls subscribe and sendRequest, which the fake implements.
+    // SAFETY: the store only calls subscribe and sendRequest, which the fake implements.
     const client = fake.client as RpcClient
     const first = vi.fn()
     const second = vi.fn()

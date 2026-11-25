@@ -37,6 +37,10 @@ type MessageBoxProps = Omit<
   trailing?: ReactNode
   /** Centered in the gap between leading and trailing. */
   middle?: ReactNode
+  /** A bar floating at the bottom of the screen; casts the composer's shadow. */
+  docked?: boolean
+  /** Drawn over the text, which hides while it is set, e.g. dictation's live preview. */
+  inputOverlay?: ReactNode
   monospace?: boolean
   /** One pill-shaped row with its controls beside the text, for short replies. */
   inline?: boolean
@@ -55,6 +59,8 @@ export function MessageBox({
   leading,
   trailing,
   middle,
+  docked = false,
+  inputOverlay,
   monospace = false,
   inline = false,
   style,
@@ -79,6 +85,7 @@ export function MessageBox({
         !hasActions && styles.formBox,
         !hasActions && focus.focused && styles.focused,
         inline && styles.inlineBox,
+        docked && styles.docked,
         style
       ]}
     >
@@ -99,13 +106,15 @@ export function MessageBox({
             contentHeight !== undefined && {
               height: Math.min(MESSAGE_MAX_HEIGHT, Math.max(minHeight, contentHeight))
             },
-            !editable && styles.disabled
+            !editable && styles.disabled,
+            inputOverlay !== undefined && styles.hiddenText
           ]}
           {...inputProps}
           // Only a bare box draws a ring, so only it re-renders on focus.
           onFocus={hasActions ? onFocus : focus.onFocus}
           onBlur={hasActions ? onBlur : focus.onBlur}
         />
+        {inputOverlay}
       </View>
       {hasActions ? (
         <View style={[styles.actionRow, inline && styles.inlineActions]}>

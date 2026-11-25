@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Platform } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { ComposerUsageDisplayPicker } from '../composer-usage/ComposerUsageDisplayPicker'
+import { ComposerUsagePositionPicker } from '../composer-usage/ComposerUsagePositionPicker'
 import { ComposerUsageWindowPicker } from '../composer-usage/ComposerUsageWindowPicker'
 import { ListRow } from '../components/list/ListGroup'
 import { MobileSegmentedControl } from '../components/controls/MobileSegmentedControl'
@@ -154,16 +155,6 @@ export default function NativeChatSettingsScreen({ onBack }: { onBack?: () => vo
           />
         </SettingsSection>
 
-        <SettingsSection>
-          <ListRow
-            key="reset"
-            title={t('settings.nativeChatText.reset', 'Reset text settings')}
-            disabled={!stored}
-            onPress={() => void resetNativeChatTextSettings()}
-            testID="chat-text-reset"
-          />
-        </SettingsSection>
-
         <SettingsSection
           title={t('settings.nativeChatSettingsScreen.composerUsageHeading', 'COMPOSER USAGE')}
           footer={t(
@@ -173,6 +164,17 @@ export default function NativeChatSettingsScreen({ onBack }: { onBack?: () => vo
         >
           <ComposerUsageWindowPicker inSettings />
           <ComposerUsageDisplayPicker inSettings />
+          <ComposerUsagePositionPicker inSettings />
+        </SettingsSection>
+
+        <SettingsSection>
+          <ListRow
+            key="reset"
+            title={t('settings.nativeChatText.reset', 'Reset text settings')}
+            disabled={!stored}
+            onPress={() => void resetNativeChatTextSettings()}
+            testID="chat-text-reset"
+          />
         </SettingsSection>
       </SettingsScreen>
     </GestureHandlerRootView>

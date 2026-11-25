@@ -1,7 +1,6 @@
 import { useCallback, useSyncExternalStore } from 'react'
-import { decodeAccountsSnapshot, type AccountsSnapshot } from '../components/accounts-snapshot'
-import { subscribeAccountsSnapshots } from '../accounts/accounts-snapshot-stream'
-import type { RpcClient } from '../transport/rpc-client'
+import { decodeAccountsSnapshot, type AccountsSnapshot } from '../accounts/accounts-snapshot'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 
 type Entry = {
   snapshot: AccountsSnapshot | null
@@ -27,27 +26,32 @@ function entryFor(client: RpcClient): Entry {
 
 function startStream(client: RpcClient, entry: Entry): () => void {
   let stopped = false
-  const accept = (snapshot: AccountsSnapshot): void => {
-    entry.snapshot = snapshot
+  const accept = (value: unknown): void => {
+    try {
+      entry.snapshot = decodeAccountsSnapshot(value)
+    } catch {
+      return
+    }
     for (const listener of entry.listeners) {
       listener()
     }
   }
-  const unsubscribe = subscribeAccountsSnapshots(client, {
-    onSnapshot: accept,
-    onInvalidSnapshot: () => undefined,
-    onStreamError: () => undefined
+  const unsubscribe = client.subscribe('accounts.subscribe', null, (payload) => {
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      'type' in payload &&
+      (payload.type === 'ready' || payload.type === 'snapshot') &&
+      'snapshot' in payload
+    ) {
+      accept(payload.snapshot)
+    }
   })
   // Hosts without the stream still answer the one-shot list; a streamed snapshot is never older.
   void client.sendRequest('accounts.list').then(
     (res) => {
-      if (stopped || entry.snapshot !== null || !res.ok) {
-        return
-      }
-      try {
-        accept(decodeAccountsSnapshot(res.result))
-      } catch {
-        // An undecodable list leaves the meter hidden.
+      if (!stopped && entry.snapshot === null && res.ok) {
+        accept(res.result)
       }
     },
     () => undefined

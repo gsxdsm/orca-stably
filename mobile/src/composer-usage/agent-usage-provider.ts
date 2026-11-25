@@ -1,27 +1,56 @@
-import { getUsageWindowSections } from '../../../src/shared/usage-provider-windows'
 import {
-  getActiveProviderRateLimits,
-  getOtherUsageProviders
-} from '../components/account-usage-state'
-import type {
-  AccountsSnapshot,
-  ProviderRateLimits,
-  RateLimitWindow
-} from '../components/accounts-snapshot'
+  ProviderRateLimitsSchema,
+  type AccountsSnapshot,
+  type ProviderRateLimits,
+  type RateLimitWindow
+} from '../accounts/accounts-snapshot'
+
+/** `snapshot.rateLimits` keys whose quota a coding agent draws on. */
+export type UsageProviderKey =
+  | 'claude'
+  | 'codex'
+  | 'gemini'
+  | 'opencodeGo'
+  | 'kimi'
+  | 'antigravity'
+  | 'grok'
+  | 'cursor'
 
 // Only agents that spend the provider plan the desktop polls; others (e.g. aider, openclaude) bring their own keys.
-const AGENT_USAGE_PROVIDERS = new Map<string, string>([
+const AGENT_USAGE_PROVIDERS = new Map<string, UsageProviderKey>([
   ['claude', 'claude'],
   ['claude-agent-teams', 'claude'],
   ['codex', 'codex'],
   ['gemini', 'gemini'],
-  ['opencode', 'opencode-go'],
-  ['opencode2', 'opencode-go'],
+  ['opencode', 'opencodeGo'],
+  ['opencode2', 'opencodeGo'],
   ['kimi', 'kimi'],
   ['antigravity', 'antigravity'],
   ['grok', 'grok'],
   ['cursor', 'cursor']
 ])
+
+const PROVIDER_IDS: Record<UsageProviderKey, ProviderRateLimits['provider']> = {
+  claude: 'claude',
+  codex: 'codex',
+  gemini: 'gemini',
+  opencodeGo: 'opencode-go',
+  kimi: 'kimi',
+  antigravity: 'antigravity',
+  grok: 'grok',
+  cursor: 'cursor'
+}
+
+export const USAGE_PROVIDER_NAMES: Record<UsageProviderKey, string> = {
+  claude: 'Claude',
+  codex: 'Codex',
+  gemini: 'Gemini',
+  opencodeGo: 'OpenCode Go',
+  kimi: 'Kimi',
+  antigravity: 'Antigravity',
+  grok: 'Grok',
+  cursor: 'Cursor'
+}
 
 export type ComposerUsageWindowChoice = 'session' | 'weekly'
 
@@ -34,34 +63,36 @@ export type UsageWindowEntry = {
 }
 
 export type AgentUsage = {
-  /** The provider id the host reports, e.g. "opencode-go". */
-  provider: string
+  provider: UsageProviderKey
   windows: UsageWindowEntry[]
 }
 
-export function usageProviderForAgent(agent: string | null | undefined): string | null {
+export function usageProviderForAgent(agent: string | null | undefined): UsageProviderKey | null {
   return (agent && AGENT_USAGE_PROVIDERS.get(agent)) || null
 }
 
-function listUsageWindows(limits: ProviderRateLimits): UsageWindowEntry[] {
-  return getUsageWindowSections(limits).flatMap((section, index): UsageWindowEntry[] => {
-    if (!section.window) {
-      return []
-    }
-    if (section.kind === 'bucket') {
-      return [
-        {
-          id: `bucket:${index}:${section.name}`,
-          kind: 'bucket',
-          name: section.name,
-          window: section.window
-        }
-      ]
-    }
-    // Cursor's plan total and zcode's MCP quota read as the provider's monthly window.
-    const kind = section.kind === 'plan' || section.kind === 'mcp' ? 'monthly' : section.kind
-    return [{ id: kind, kind, name: null, window: section.window }]
+// Providers beyond Claude/Codex ride the snapshot's passthrough fields, so validate them here.
+function readProviderLimits(
+  snapshot: AccountsSnapshot,
+  provider: UsageProviderKey
+): ProviderRateLimits | null {
+  const raw: unknown = snapshot.rateLimits[provider]
+  const parsed = ProviderRateLimitsSchema.safeParse(raw)
+  return parsed.success && parsed.data.provider === PROVIDER_IDS[provider] ? parsed.data : null
+}
+
+export function listUsageWindows(limits: ProviderRateLimits): UsageWindowEntry[] {
+  const standard = (['session', 'weekly', 'fableWeekly', 'monthly'] as const).flatMap((kind) => {
+    const window = limits[kind]
+    return window ? [{ id: kind, kind, name: null, window }] : []
   })
+  const buckets = (limits.buckets ?? []).map((bucket, index) => ({
+    id: `bucket:${index}:${bucket.name}`,
+    kind: 'bucket' as const,
+    name: bucket.name,
+    window: bucket
+  }))
+  return [...standard, ...buckets]
 }
 
 /** The tab agent's provider usage, or null when the meter should stay hidden. */
@@ -73,10 +104,7 @@ export function selectAgentUsage(
   if (!snapshot || !provider) {
     return null
   }
-  const limits =
-    provider === 'claude' || provider === 'codex'
-      ? getActiveProviderRateLimits(snapshot, provider)
-      : getOtherUsageProviders(snapshot).find((entry) => entry.provider === provider)
+  const limits = readProviderLimits(snapshot, provider)
   const windows = limits ? listUsageWindows(limits) : []
   return windows.length > 0 ? { provider, windows } : null
 }

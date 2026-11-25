@@ -52,6 +52,14 @@ export function formatUsageBarValue(
     : `${shown}%`
 }
 
+// Fork meters (composer, server resources) color a percent without drawing a bar.
+export function usageBandColor(usedPercent: number | null): string {
+  if (usedPercent == null || !Number.isFinite(usedPercent)) {
+    return colors.textMuted
+  }
+  return usageBarFill(usedPercent, false, 'used').color
+}
+
 // Match desktop/harness consumption meters: fresh empty/green, depleted full/red.
 export function UsageBar({
   label,
@@ -60,6 +68,8 @@ export function UsageBar({
   loading,
   resetText,
   wideLabel = false,
+  display: displayOverride,
+  paceMarkerPercent = null,
   style
 }: {
   label: string
@@ -69,11 +79,16 @@ export function UsageBar({
   resetText?: string | null
   /** For long pool names: the label sits on its own line above the track. */
   wideLabel?: boolean
+  /** Overrides the accounts used/remaining preference, for meters with their own toggle. */
+  display?: UsagePercentageDisplay
+  /** Tick where an even burn would put the fill (0–100, in the bar's display); null hides it. */
+  paceMarkerPercent?: number | null
   style?: StyleProp<ViewStyle>
 }) {
   useMobileColorScheme()
   const t = useMobileTranslation()
-  const display = useUsagePercentageDisplay()
+  const preferredDisplay = useUsagePercentageDisplay()
+  const display = displayOverride ?? preferredDisplay
   const { shown, color } = usageBarFill(usedPercent, unavailable, display)
   return (
     <View style={[wideLabel ? styles.usageBarStack : styles.usageBarRow, style]}>
@@ -82,16 +97,28 @@ export function UsageBar({
       </Text>
       <View style={[styles.usageBarBody, !wideLabel && styles.usageBarBodyBeside]}>
         <View style={styles.usageBar}>
-          <View style={styles.usageTrack}>
-            <View
-              style={[
-                styles.usageFill,
-                {
-                  width: `${shown ?? 0}%`,
-                  backgroundColor: color
-                }
-              ]}
-            />
+          <View style={styles.usageTrackSlot}>
+            <View style={styles.usageTrack}>
+              <View
+                style={[
+                  styles.usageFill,
+                  {
+                    width: `${shown ?? 0}%`,
+                    backgroundColor: color
+                  }
+                ]}
+              />
+            </View>
+            {paceMarkerPercent != null ? (
+              <View
+                pointerEvents="none"
+                testID="usage-bar-pace-marker"
+                style={[
+                  styles.usagePaceMarker,
+                  { left: `${Math.max(0, Math.min(100, paceMarkerPercent))}%` }
+                ]}
+              />
+            ) : null}
           </View>
           {loading ? (
             <ActivityIndicator
@@ -141,12 +168,25 @@ const styles = themedStyleSheet(() => ({
     color: colors.textMuted,
     minWidth: 22
   },
-  usageTrack: {
+  usageTrackSlot: {
     flex: 1,
+    justifyContent: 'center'
+  },
+  usageTrack: {
     height: 6,
     borderRadius: 3,
     backgroundColor: colors.bgRaised,
     overflow: 'hidden'
+  },
+  // Taller than the track so it reads over any fill colour; centred on its position.
+  usagePaceMarker: {
+    position: 'absolute',
+    top: -3,
+    bottom: -3,
+    width: 2,
+    marginLeft: -1,
+    borderRadius: 1,
+    backgroundColor: colors.textPrimary
   },
   usageFill: {
     height: '100%',
