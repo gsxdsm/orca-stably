@@ -6,6 +6,7 @@ import { useShellStorage } from '../../../platform/shell-storage/shell-storage'
 import { persistMirrored, subscribeMirroredKey } from '../../../storage/mirrored-storage-keys'
 import { typography } from '../../../theme/mobile-theme'
 import { serifFontFamily } from '../../../theme/mobile-serif-font'
+import { boundNativeChatTextSize } from './native-chat-text-size-range'
 import { CHAT_PROSE_SCALE } from '../transcript/messages/mobile-native-chat-message-styles'
 
 export const NATIVE_CHAT_TEXT_KEY = 'orca:nativeChatText'
@@ -20,8 +21,7 @@ export type NativeChatTextSettings = {
 }
 
 // Half the chat's base size, so a pinch can shrink it as far as the terminal's smallest scale.
-export const NATIVE_CHAT_TEXT_SIZE_MIN = 7
-export const NATIVE_CHAT_TEXT_SIZE_MAX = 24
+export { NATIVE_CHAT_TEXT_SIZE_MAX, NATIVE_CHAT_TEXT_SIZE_MIN } from './native-chat-text-size-range'
 const BASE_TEXT_SIZE = 14
 const TABLET_TEXT_SIZE = 16
 
@@ -44,7 +44,7 @@ export function defaultNativeChatTextSettings(): NativeChatTextSettings {
 
 export function clampNativeChatTextSize(size: number): number {
   return Number.isFinite(size)
-    ? Math.min(NATIVE_CHAT_TEXT_SIZE_MAX, Math.max(NATIVE_CHAT_TEXT_SIZE_MIN, Math.round(size)))
+    ? boundNativeChatTextSize(Math.round(size))
     : defaultNativeChatTextSettings().size
 }
 

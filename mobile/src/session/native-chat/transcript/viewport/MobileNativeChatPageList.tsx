@@ -23,7 +23,7 @@ import type {
 import type { NativeChatMessage } from '../../../../../../src/shared/native-chat/native-chat-types'
 import type { MobileNativeChatRowKeys } from '../projection/mobile-native-chat-row-keys'
 import { MobileNativeChatPageScroll } from './MobileNativeChatPageScroll'
-import type { MobileNativeChatPinchPreview } from './mobile-native-chat-pinch-preview'
+import type { MobileNativeChatPinchAnchor } from './mobile-native-chat-pinch-anchor'
 import {
   DRAW_AHEAD_SCREENS,
   mobileNativeChatRowAbove,
@@ -95,7 +95,7 @@ type Props = {
   emptyStateView: ReactElement | null
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void
   onNearTop?: () => void
-  pinchPreview?: MobileNativeChatPinchPreview
+  pinchAnchor?: MobileNativeChatPinchAnchor
 }
 
 // End anchoring preserves position when history prepends; restore after below-reader changes only at rest or on regroup.
@@ -117,7 +117,7 @@ export function MobileNativeChatPageList({
   emptyStateView,
   onScroll,
   onNearTop,
-  pinchPreview
+  pinchAnchor
 }: Props): ReactElement {
   const scroll = useRef<ScrollViewInstance>(null)
   const scroller = useCallback((): Scroller | null => {
@@ -341,9 +341,9 @@ export function MobileNativeChatPageList({
   })
 
   useEffect(() => {
-    pinchPreview?.bindScroller(scroller)
-    return () => pinchPreview?.bindScroller(null)
-  }, [pinchPreview, scroller])
+    pinchAnchor?.bindScroller(scroller)
+    return () => pinchAnchor?.bindScroller(null)
+  }, [pinchAnchor, scroller])
 
   const drawnHead = useRef<string | undefined>(undefined)
   const laidOut = useRef(layoutKey)
@@ -352,8 +352,8 @@ export function MobileNativeChatPageList({
     if (!s) {
       return
     }
-    // A pinch's preview comes off as its size draws, before any place is read.
-    const pinched = laidOut.current === layoutKey ? null : (pinchPreview?.settle() ?? null)
+    // A pinch's mark is read as its size draws, before any place is read.
+    const pinched = laidOut.current === layoutKey ? null : (pinchAnchor?.settle() ?? null)
     laidOut.current = layoutKey
     // Chromium keeps a touch scroll's offset from the top, so rows drawn or cut above would carry the reader with them; a write hands the scroll the end-anchored offset.
     if (!align.aligning.current && keys[first] !== drawnHead.current) {
