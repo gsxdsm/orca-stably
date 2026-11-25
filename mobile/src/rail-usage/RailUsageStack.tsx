@@ -85,7 +85,6 @@ export function RailUsageStack({
           onClose={() => setSelected(null)}
           usage={sheetUsage}
           snapshot={snapshot}
-          spanSideStrip
         />
       </BottomDrawerModalHost>
     </>

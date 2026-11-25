@@ -33,12 +33,11 @@ type Props = {
   usage: AgentUsage
   /** Every provider's windows for the tabs, and the history the graph draws. */
   snapshot: AccountsSnapshot | null
-  spanSideStrip: boolean
 }
 
 /** The one usage pop-up, opened from the composer usage bar and from the Duo rail's usage rings. */
 
-export function ComposerUsageSheet({ visible, onClose, usage, snapshot, spanSideStrip }: Props) {
+export function ComposerUsageSheet({ visible, onClose, usage, snapshot }: Props) {
   useMobileColorScheme()
   const t = useMobileTranslation()
   const now = useNow(30_000, visible)
@@ -63,7 +62,7 @@ export function ComposerUsageSheet({ visible, onClose, usage, snapshot, spanSide
   const percent = (usedPercent: number): string =>
     formatUsageBarValue(composerUsageMeterReadout(usedPercent, display).shown, display, t)
   return (
-    <BottomDrawer visible={visible} onClose={onClose} spanReleasedSide={spanSideStrip}>
+    <BottomDrawer visible={visible} onClose={onClose}>
       <View testID="composer-usage-sheet">
         {providers.length > 1 ? (
           <MobileSegmentedControl<UsageProviderKey>

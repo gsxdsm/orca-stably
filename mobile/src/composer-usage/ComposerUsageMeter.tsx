@@ -34,8 +34,6 @@ import { ComposerUsageSheet } from './ComposerUsageSheet'
 
 type Props = {
   agent: string | null | undefined
-  /** The chat composer spans the Duo's status column, so its sheet does too; the terminal's keeps clear of the rail. */
-  spanSideStrip?: boolean
 }
 
 type Reading = {
@@ -93,7 +91,7 @@ function useComposerUsageReading(agent: string | null | undefined): Reading | nu
 }
 
 /** The composer action row's flexible gap, with the compact usage meter centered in it unless it sits above. */
-export function ComposerUsageSlot({ agent, spanSideStrip }: Props): React.JSX.Element {
+export function ComposerUsageSlot({ agent }: Props): React.JSX.Element {
   const position = useComposerUsagePosition()
   const [room, setRoom] = useState<number | null>(null)
   // The full meter's width, whatever part of it shows, so the row never re-splits as parts drop.
@@ -110,12 +108,7 @@ export function ComposerUsageSlot({ agent, spanSideStrip }: Props): React.JSX.El
       ]}
       onLayout={(event) => setRoom(event.nativeEvent.layout.width)}
     >
-      <ComposerUsageMeter
-        agent={agent}
-        spanSideStrip={spanSideStrip}
-        room={room}
-        onFullWidth={setBasis}
-      />
+      <ComposerUsageMeter agent={agent} room={room} onFullWidth={setBasis} />
     </View>
   )
 }
@@ -123,7 +116,6 @@ export function ComposerUsageSlot({ agent, spanSideStrip }: Props): React.JSX.El
 /** Window label and percent over a full-width bar: narrow enough to leave the model pill its name. */
 export function ComposerUsageMeter({
   agent,
-  spanSideStrip = false,
   room = null,
   onFullWidth
 }: Props & {
@@ -195,17 +187,13 @@ export function ComposerUsageMeter({
         onClose={() => setOpen(false)}
         usage={reading.usage}
         snapshot={reading.snapshot}
-        spanSideStrip={spanSideStrip}
       />
     </>
   )
 }
 
 /** The meter as one full-width line over the composer text, when the owner moves it out of the controls row. */
-export function ComposerUsageStrip({
-  agent,
-  spanSideStrip = false
-}: Props): React.JSX.Element | null {
+export function ComposerUsageStrip({ agent }: Props): React.JSX.Element | null {
   useMobileColorScheme()
   const position = useComposerUsagePosition()
   const reading = useComposerUsageReading(agent)
@@ -236,7 +224,6 @@ export function ComposerUsageStrip({
         onClose={() => setOpen(false)}
         usage={reading.usage}
         snapshot={reading.snapshot}
-        spanSideStrip={spanSideStrip}
       />
     </>
   )

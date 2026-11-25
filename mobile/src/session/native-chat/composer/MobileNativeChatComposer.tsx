@@ -268,7 +268,7 @@ export function MobileNativeChatComposer({
           style={fitScreenCorners ? styles.barCornerFit : styles.bar}
           testID="native-chat-composer"
         >
-          {editSession ? null : <ComposerUsageStrip agent={agent} spanSideStrip />}
+          {editSession ? null : <ComposerUsageStrip agent={agent} />}
           <MobileNativeChatComposerAttachments
             images={attachments}
             files={files}
