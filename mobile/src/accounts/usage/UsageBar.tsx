@@ -59,6 +59,7 @@ export function UsageBar({
   unavailable,
   loading,
   resetText,
+  labelWidth,
   wideLabel = false,
   style
 }: {
@@ -67,6 +68,8 @@ export function UsageBar({
   unavailable: boolean
   loading?: boolean
   resetText?: string | null
+  // 0 hides the chip. A positive width keeps the fork's fixed session chip.
+  labelWidth?: number
   /** For long pool names: the label sits on its own line above the track. */
   wideLabel?: boolean
   style?: StyleProp<ViewStyle>
@@ -75,11 +78,20 @@ export function UsageBar({
   const t = useMobileTranslation()
   const display = useUsagePercentageDisplay()
   const { shown, color } = usageBarFill(usedPercent, unavailable, display)
+  const showLabel = labelWidth === 0 ? false : label !== ''
   return (
     <View style={[wideLabel ? styles.usageBarStack : styles.usageBarRow, style]}>
-      <Text style={styles.usageLabel} numberOfLines={1}>
-        {label}
-      </Text>
+      {showLabel ? (
+        <Text
+          style={[
+            styles.usageLabel,
+            labelWidth != null && labelWidth > 0 ? { width: labelWidth } : null
+          ]}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+      ) : null}
       <View style={[styles.usageBarBody, !wideLabel && styles.usageBarBodyBeside]}>
         <View style={styles.usageBar}>
           <View style={styles.usageTrack}>
