@@ -9,7 +9,7 @@ import { useNativeChatDraft } from '../drafts/use-native-chat-draft'
 import { useNativeChatDraftEvents } from './editor/use-native-chat-draft-events'
 import { useNativeChatComposerRecall } from '../drafts/use-native-chat-composer-recall'
 import { useNativeChatLaunchDraftAdoption } from '../drafts/use-native-chat-launch-draft-adoption'
-import { NativeChatComposerWorkspace } from './controls/NativeChatComposerWorkspace'
+import { nativeChatComposerWorkspaceFooter } from './controls/NativeChatComposerWorkspace'
 import { NativeChatComposerField } from './editor/NativeChatComposerField'
 import { useNativeChatComposerAttachments } from '../attachments/chips/use-native-chat-composer-attachments'
 import { nativeChatComposerSendState } from './submit/native-chat-composer-send-state'
@@ -407,15 +407,13 @@ export const NativeChatComposerPane = forwardRef<ComposerHandle, C.NativeChatCom
           sessionOptionsPickerRequest={structuredTransport?.optionPickerRequest ?? null}
           agent={agent}
           launchPrompt={launchPrompt}
-          workspaceFooter={
-            !editSession && !launchPrompt ? (
-              <NativeChatComposerWorkspace
-                terminalTabId={terminalTabId}
-                structuredTransport={structuredTransport}
-                isWorking={isWorking}
-              />
-            ) : undefined
-          }
+          workspaceFooter={nativeChatComposerWorkspaceFooter({
+            editSession,
+            launchPrompt,
+            terminalTabId,
+            structuredTransport,
+            isWorking
+          })}
           {...fieldOverrides}
         />
       </div>

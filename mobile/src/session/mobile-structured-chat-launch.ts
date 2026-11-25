@@ -82,8 +82,13 @@ export function mobileNewTabHostLaunchSurface(
   agent: string,
   context: MobileStructuredChatLaunchContext | null
 ): 'chat' | 'terminal' | undefined {
-  if (agent === 'hermes') {
-    return 'terminal'
+  if (
+    agent === 'hermes' &&
+    context?.canRequestSurface &&
+    context.defaultView === 'chat' &&
+    context.registeredAgents.includes('hermes')
+  ) {
+    return 'chat'
   }
   return mobileStructuredChatLaunchSurface(agent, context)
 }
@@ -111,12 +116,8 @@ async function capabilitiesForStructuredChat(
   if (!capabilitySnapshotUnproven(hostCapabilities)) {
     return hostCapabilities
   }
-  try {
-    const reply = await hostStatusProbe.request(client)
-    return readProbedHostCapabilities(reply) ?? hostCapabilities
-  } catch {
-    return hostCapabilities
-  }
+  const reply = await hostStatusProbe.request(client)
+  return readProbedHostCapabilities(reply) ?? hostCapabilities
 }
 
 async function registeredStructuredAgents(

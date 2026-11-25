@@ -215,3 +215,14 @@ export function terminalQueueFields<TFollowUp, TSend, TOutcome, TBind extends un
     handleNativeChatSendWithOutcome: chosen.sendWithOutcome
   }
 }
+
+export function bindMobileTerminalQueue<TFollowUp, TSend, TOutcome, TBind extends unknown[]>(
+  queue: Parameters<typeof terminalQueueFields<TFollowUp, TSend, TOutcome, TBind>>[0]['queue'],
+  structured: boolean,
+  structuredFollowUp: TFollowUp,
+  structuredSend: { send: TSend; sendWithOutcome: TOutcome },
+  bind: TBind,
+  plain: { send: TSend; sendWithOutcome: TOutcome }
+) {
+  return terminalQueueFields({ structured, queue, structuredFollowUp, structuredSend, bind, plain })
+}

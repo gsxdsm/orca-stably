@@ -31,6 +31,10 @@ vi.mock('../transport/hosts/host-store', () => ({
 }))
 
 import { usePageHostSnapshot, type PageHostSnapshotView } from './use-page-host-snapshot'
+import { createFakeBridgePortPair } from './bridge/bridge-port-pair-test-harness'
+import pageAsyncStorage, { publishPageStorage } from './bridge/page-async-storage'
+import { MOBILE_WEB_SHELL_GRANTS } from './page-route-policy'
+import { storageReadParamsSchema, storageReadResultSchema } from './bridge/bridge-native-verbs'
 import './bridge/bridge-port-pair-test-harness'
 import './bridge/bridge-native-verbs'
 import './bridge/page-async-storage'
@@ -77,6 +81,45 @@ async function snapshotFor(routePathname: string, hostArea: boolean) {
     throw new Error('nothing mounted')
   }
   return held.view
+}
+
+
+async function hostAreaPage() {
+  const view = await snapshotFor('/h/host-a', true)
+  const pair = createFakeBridgePortPair({
+    route: { pathname: '/h/host-a' },
+    ownsHostArea: true,
+    routeGrants: MOBILE_WEB_SHELL_GRANTS,
+    storage: view.readStorage().storage,
+    onStorageWrite: view.writeStorage,
+    serveNativeVerb: async (verb, params) =>
+      verb === 'native.storage.read'
+        ? { value: await view.readWorkspaceKey(storageReadParamsSchema.parse(params).key) }
+        : {}
+  })
+  await pair.flush()
+  const session = pair.client.getShellSession()
+  if (session === null) {
+    throw new Error('no init')
+  }
+  publishPageStorage(
+    session.storage,
+    (key, value) => pair.client.notifyStorageWrite(key, value),
+    'host-a',
+    '/h/host-a',
+    session.storageOversize,
+    session.ownsHostArea
+      ? async (key) =>
+          storageReadResultSchema.parse(
+            (await pair.client.callNativeVerb('native.storage.read', { key })).result
+          ).value
+      : null
+  )
+  const settled = async <T,>(read: Promise<T>): Promise<T> => {
+    await pair.flush()
+    return read
+  }
+  return { view, pair, settled }
 }
 
 beforeEach(async () => {

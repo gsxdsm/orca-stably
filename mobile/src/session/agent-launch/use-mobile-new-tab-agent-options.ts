@@ -52,15 +52,28 @@ export function useMobileNewTabAgentOptions(args: {
     readMobileStructuredChatLaunchContext,
     () => null
   )
+  const capabilityKey = args.hostCapabilities?.join('\0') ?? ''
   useEffect(() => {
     if (!client || connState !== 'connected') {
       return
     }
+    let stale = false
     void loadMobileStructuredChatLaunchContext({
       client,
       hostCapabilities: args.hostCapabilities
-    }).catch(() => null)
-  }, [args.hostCapabilities, client, connState])
+    })
+      .catch(() => null)
+      .finally(() => {
+        if (stale) {
+          return
+        }
+      })
+    return () => {
+      stale = true
+    }
+    // capabilityKey is the stable identity; the array itself is often a fresh literal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [capabilityKey, client, connState])
   const queryClient = useQueryClient()
   const connected = client !== null && connState === 'connected'
   const { detection, settings, target, input, settingsSignalled } = useMobileAgentLaunchQueries({

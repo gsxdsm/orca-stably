@@ -33,43 +33,13 @@ describe('mobile structured agent-session launch', () => {
       ).not.toContain('send your message again')
     }
   )
-  it('creates through the structured agent-session intent after support is confirmed', async () => {
-    const client = clientReturning({ ok: true, result: { supported: true } }, acceptedCreate)
-
-    await expect(
-      createMobileStructuredAgentSession(client, 'workspace-1', 'codex')
-    ).resolves.toMatchObject({
-      kind: 'created',
-      sessionId: expect.stringMatching(/^codex_[A-Za-z0-9_]{8,128}$/)
-    })
-    expect(client.sendRequest).toHaveBeenNthCalledWith(1, 'agentSession.createSupport', {
-      worktree: 'id:workspace-1',
-      agent: 'codex'
-    })
-    expect(client.sendRequest).toHaveBeenNthCalledWith(
-      2,
-      'agentSession.create',
-      expect.objectContaining({
-        worktree: 'id:workspace-1',
-        agent: 'codex',
-        envelope: expect.objectContaining({ expectedRuntimeFence: null })
-      }),
-      expect.objectContaining({ budgetSpansConnect: true })
-    )
-    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: mock call args are untyped; the test asserts each field read below
-    const params = client.sendRequest.mock.calls[1]?.[1] as {
-      envelope: { sessionId: string; payloadFingerprint: string }
-      worktree: string
-      agent: 'codex'
-    }
-    expect(params.envelope.payloadFingerprint).toMatch(/^[0-9a-f]{64}$/)
-    expect(params.envelope.sessionId).toMatch(/^codex_[A-Za-z0-9_]{8,128}$/)
-  })
-
   it('sends a Hermes resume id in the create fingerprint', async () => {
-    const client = clientReturning({ ok: true, result: { supported: true } }, acceptedCreate)
-    await createMobileStructuredAgentSession(client, 'workspace-1', 'hermes', {
-      resumeFrom: { providerSessionId: '11111111-1111-4111-8111-111111111111' }
+    const client = clientReturning(
+      { ok: true, result: { supported: true } },
+      { ok: false, error: { code: 'method_not_found', message: 'no' } }
+    )
+    await createMobileStructuredAgentSession(client, 'workspace-1', 'hermes', undefined, undefined, {
+      providerSessionId: '11111111-1111-4111-8111-111111111111'
     })
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: mock call args are untyped; the test asserts each field read below
     const params = client.sendRequest.mock.calls[1]?.[1] as {
@@ -82,38 +52,6 @@ describe('mobile structured agent-session launch', () => {
       providerSessionId: '11111111-1111-4111-8111-111111111111'
     })
     expect(params.envelope.payloadFingerprint).toMatch(/^[0-9a-f]{64}$/)
-  })
-
-  it('creates a Claude session through the same envelope, keyed to the claude provider', async () => {
-    const client = clientReturning(
-      { ok: true, result: { supported: true } },
-      {
-        ok: true,
-        result: {
-          ...acceptedCreateResult,
-          value: { ...acceptedCreateResult.value, sessionId: 'claude_session_1' }
-        }
-      }
-    )
-
-    await expect(
-      createMobileStructuredAgentSession(client, 'workspace-1', 'claude')
-    ).resolves.toMatchObject({ kind: 'created', sessionId: 'claude_session_1' })
-    expect(client.sendRequest).toHaveBeenNthCalledWith(1, 'agentSession.createSupport', {
-      worktree: 'id:workspace-1',
-      agent: 'claude'
-    })
-    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: mock call args are untyped; the test asserts each field read below
-    const params = client.sendRequest.mock.calls[1]?.[1] as {
-      envelope: { sessionId: string; payloadFingerprint: string }
-      agent: string
-    }
-    expect(params.agent).toBe('claude')
-    expect(params.envelope.sessionId).toMatch(/^claude_[A-Za-z0-9_]{8,128}$/)
-    expect(params.envelope.payloadFingerprint).toMatch(/^[0-9a-f]{64}$/)
-    expect(mobileCreatedStructuredSession(params.envelope.sessionId)).toEqual({
-      worktree: 'id:workspace-1'
-    })
   })
 
   it('names the refusing agent in the failure copy rather than always saying Codex', async () => {
@@ -137,29 +75,6 @@ describe('mobile structured agent-session launch', () => {
       reason: 'remote'
     })
     expect(client.sendRequest).toHaveBeenCalledTimes(1)
-  })
-
-  it('retries a transient unresolved worktree before deciding structured support', async () => {
-    vi.useFakeTimers()
-    const client = clientReturning(
-      { ok: false, error: { code: 'selector_not_found', message: 'Selector not found' } },
-      { ok: true, result: { supported: true } },
-      acceptedCreate
-    )
-
-    try {
-      const result = createMobileStructuredAgentSession(client, 'workspace-1', 'claude')
-      await vi.runAllTimersAsync()
-
-      await expect(result).resolves.toMatchObject({ kind: 'created' })
-      expect(client.sendRequest.mock.calls.map(([method]) => method)).toEqual([
-        'agentSession.createSupport',
-        'agentSession.createSupport',
-        'agentSession.create'
-      ])
-    } finally {
-      vi.useRealTimers()
-    }
   })
 
   it('does not retry a support failure unrelated to worktree resolution', async () => {

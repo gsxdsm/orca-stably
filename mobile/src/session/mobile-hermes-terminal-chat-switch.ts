@@ -1,8 +1,9 @@
 import { hermesAcpLoadSessionId } from '../../../src/shared/hermes-session-id'
+import { useMobileStructuredChatLaunch } from './use-mobile-structured-chat-launch'
 import { STRUCTURED_AGENT_SESSION_RESUME_HISTORY_RUNTIME_CAPABILITY } from '../../../src/shared/agent-session/structured-agent-session-surface-capabilities'
 import { triggerError, triggerSuccess } from '../platform/haptics'
 import { translate } from '../i18n/mobile-i18n'
-import type { RpcClient } from '../transport/rpc-client'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import {
   createMobileStructuredAgentSession,
   type MobileStructuredAgentLaunchResult
@@ -12,7 +13,7 @@ import {
   withLaunchReply,
   withoutUnansweredLaunch,
   type PendingSessionSelection
-} from './pending-session-selection'
+} from './tabs/pending-session-selection'
 
 function canResumeOnHost(hostCapabilities: readonly string[] | null | undefined): boolean {
   return (
@@ -33,14 +34,16 @@ async function openHermesChat(args: {
 }): Promise<MobileStructuredAgentLaunchResult> {
   const lock = chatLock()
   args.pendingSelectionRef.current = launchedSelection(lock, {}, null)
-  const created = await createMobileStructuredAgentSession(
-    args.client,
-    args.worktreeId,
-    'hermes',
-    args.providerSessionId
-      ? { resumeFrom: { providerSessionId: args.providerSessionId } }
-      : undefined
-  )
+  const created = args.providerSessionId
+    ? await createMobileStructuredAgentSession(
+        args.client,
+        args.worktreeId,
+        'hermes',
+        undefined,
+        undefined,
+        { providerSessionId: args.providerSessionId }
+      )
+    : await createMobileStructuredAgentSession(args.client, args.worktreeId, 'hermes')
   if (created.kind !== 'created') {
     args.pendingSelectionRef.current = withoutUnansweredLaunch(
       args.pendingSelectionRef.current,
@@ -131,19 +134,24 @@ type HermesSheetController = {
 }
 
 /** Keep the session sheet under its line limit. The row still reads the terminal's hook id. */
-export function hermesTerminalActionFields<Tab extends { id: string }>(args: {
+export function useHermesTerminalActionFields<Tab extends { id: string }>(args: {
   controller: HermesSheetController
   sessionTabs: readonly Tab[]
   handle: string | null | undefined
   closeTerminalTab: (tab: Tab) => Promise<void> | void
   showToast: (message: string, durationMs?: number) => void
 }): {
+  hostCapabilities: HermesSheetController['hostCapabilities']
+  structuredAgents: readonly string[]
   hostAgentIdentity: string | undefined
   hermesResumeSupported: boolean
   onHermesTerminalChat: (request: { tabId: string; providerSessionId: string | null }) => void
 } {
   const { controller } = args
+  const structuredChat = useMobileStructuredChatLaunch(controller)
   return {
+    hostCapabilities: controller.hostCapabilities,
+    structuredAgents: structuredChat?.registeredAgents ?? [],
     hostAgentIdentity: controller.terminals.find((terminal) => terminal.handle === args.handle)
       ?.agentIdentity,
     hermesResumeSupported: canResumeOnHost(controller.hostCapabilities),

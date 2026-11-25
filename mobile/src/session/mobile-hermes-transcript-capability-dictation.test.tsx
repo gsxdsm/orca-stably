@@ -1,11 +1,12 @@
 import { createElement, useRef } from 'react'
+import { MobileDictationHostProvider } from '../dictation/mobile-dictation-host'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createFakeRpcClient, type FakeRpcClient } from '../mobile-web-shell/bridge-host-test-fakes'
 import { resolveMobileTerminalInputGate } from '../terminal/terminal-input-connection-gate'
 import type { MobileSessionFeedbackCapabilitiesModel } from './use-mobile-session-feedback-capabilities'
-import type { MobileSessionTab } from './mobile-session-route-types'
-import type { ConnectionState } from '../transport/types'
+import type { MobileSessionTab } from './tabs/mobile-session-tabs'
+import type { ConnectionState } from '../transport/connection/connection-state'
 import { structuredAgentSessionHostSupport } from './mobile-structured-agent-session-host-support'
 import { HERMES_TRANSCRIPT_RUNTIME_CAPABILITY } from '../../../src/shared/native-chat/native-chat-hermes-capability'
 
@@ -28,7 +29,7 @@ vi.mock('expo-keep-awake', () => ({
 vi.mock('../platform/clipboard', () => ({
   useClipboardWriter: () => ({ writeText: async () => {} })
 }))
-vi.mock('expo-router', () => ({ useFocusEffect: () => {} }))
+vi.mock('expo-router', () => ({ useFocusEffect: () => {}, useRouter: () => ({ push: () => {}, back: () => {}, canGoBack: () => false }), useNavigation: () => ({ setOptions: () => {}, addListener: () => () => {} }) }))
 vi.mock('../platform/haptics', () => ({
   triggerError: () => {},
   triggerEdgeBump: () => {},
@@ -173,7 +174,7 @@ function model(): NonNullable<typeof current> {
 
 async function render(options: ProbeOptions): Promise<void> {
   await act(async () => {
-    const probe = createElement(Probe, options)
+    const probe = createElement(MobileDictationHostProvider, null, createElement(Probe, options))
     if (renderer) {
       renderer.update(probe)
     } else {

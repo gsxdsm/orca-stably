@@ -12,7 +12,7 @@ vi.mock('../platform/haptics', () => ({
 
 import { STRUCTURED_AGENT_SESSION_RESUME_HISTORY_RUNTIME_CAPABILITY } from '../../../src/shared/agent-session/structured-agent-session-surface-capabilities'
 import { switchMobileHermesTerminalToChat } from './mobile-hermes-terminal-chat-switch'
-import type { PendingSessionSelection } from './pending-session-selection'
+import type { PendingSessionSelection } from './tabs/pending-session-selection'
 
 const SESSION_ID = '11111111-1111-4111-8111-111111111111'
 const TERMINAL_SESSION_ID = '20261031_144415_71256d'
@@ -45,8 +45,8 @@ describe('switchMobileHermesTerminalToChat', () => {
       terminalTab,
       ...scope
     })
-    expect(createMobileStructuredAgentSession).toHaveBeenCalledWith({}, 'workspace-1', 'hermes', {
-      resumeFrom: { providerSessionId: SESSION_ID }
+    expect(createMobileStructuredAgentSession).toHaveBeenCalledWith({}, 'workspace-1', 'hermes', undefined, undefined, {
+      providerSessionId: SESSION_ID
     })
     expect(scope.closeTerminalTab).toHaveBeenCalledWith(terminalTab)
     expect(scope.pendingSelectionRef.current).toMatchObject({
@@ -76,8 +76,7 @@ describe('switchMobileHermesTerminalToChat', () => {
       2,
       {},
       'workspace-1',
-      'hermes',
-      undefined
+      'hermes'
     )
     expect(scope.closeTerminalTab).not.toHaveBeenCalled()
   })
@@ -118,8 +117,7 @@ describe('switchMobileHermesTerminalToChat', () => {
     expect(createMobileStructuredAgentSession).toHaveBeenCalledWith(
       {},
       'workspace-1',
-      'hermes',
-      undefined
+      'hermes'
     )
     expect(scope.closeTerminalTab).not.toHaveBeenCalled()
   })
@@ -141,8 +139,7 @@ describe('switchMobileHermesTerminalToChat', () => {
     expect(createMobileStructuredAgentSession).toHaveBeenCalledWith(
       {},
       'workspace-1',
-      'hermes',
-      undefined
+      'hermes'
     )
     expect(scope.closeTerminalTab).not.toHaveBeenCalled()
   })

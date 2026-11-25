@@ -199,19 +199,7 @@ export abstract class OrcaRuntimeWithGetStructuredAgentSessionCreateSupport exte
       ...(options ? { options } : {})
     })
     if (committedReplay) {
-      if (!hermesLoadId) {
-        return committedReplay
-      }
-      return {
-        envelope: committedReplay.envelope,
-        location: committedReplay.location,
-        provider: committedReplay.provider,
-        agent: committedReplay.agent,
-        accountHome: committedReplay.accountHome,
-        ...(committedReplay.options ? { options: committedReplay.options } : {}),
-        acpLoadSessionId: hermesLoadId,
-        runtimeKind: committedReplay.runtimeKind
-      }
+      return hermesLoadId ? { ...committedReplay, acpLoadSessionId: hermesLoadId } : committedReplay
     }
     const resumeFrom = input.resumeFrom
     if (resumeFrom) {

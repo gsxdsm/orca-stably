@@ -199,3 +199,22 @@ function LocalMachineName({ name }: { name: string }): React.JSX.Element {
     </span>
   )
 }
+
+export function nativeChatComposerWorkspaceFooter(args: {
+  editSession: unknown
+  launchPrompt: unknown
+  terminalTabId: string
+  structuredTransport?: NativeChatComposerWorkspaceTarget
+  isWorking: boolean
+}) {
+  if (args.editSession || args.launchPrompt) {
+    return undefined
+  }
+  return (
+    <NativeChatComposerWorkspace
+      terminalTabId={args.terminalTabId}
+      structuredTransport={args.structuredTransport}
+      isWorking={args.isWorking}
+    />
+  )
+}

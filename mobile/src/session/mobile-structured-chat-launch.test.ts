@@ -54,7 +54,7 @@ function client(sendRequest: RpcClient['sendRequest']): RpcClient {
 
 describe('mobileStructuredChatLaunchSurface', () => {
   it('asks for chat only for a registered agent the transcript overlay does not cover', () => {
-    expect(mobileStructuredChatLaunchSurface('hermes', chatHost)).toBe('chat')
+    expect(mobileStructuredChatLaunchSurface('hermes', chatHost)).toBeUndefined()
     expect(mobileStructuredChatLaunchSurface('claude', chatHost)).toBeUndefined()
     expect(mobileStructuredChatLaunchSurface('gemini', chatHost)).toBeUndefined()
     expect(
@@ -80,13 +80,13 @@ describe('mobileStructuredChatLaunchSurface', () => {
         row.opensAsChat ? [row.agent] : []
       )
 
-    expect(hinted(chatHost)).toEqual(['claude', 'codex', 'grok', 'antigravity'])
+    expect(hinted(chatHost)).toEqual(['claude', 'codex', 'grok'])
     expect(mobileNewTabHostLaunchSurface('claude', chatHost)).toBeUndefined()
     expect(mobileNewTabHostLaunchSurface('codex', chatHost)).toBeUndefined()
     expect(mobileNewTabHostLaunchSurface('grok', chatHost)).toBeUndefined()
-    expect(mobileNewTabHostLaunchSurface('antigravity', chatHost)).toBe('chat')
+    expect(mobileNewTabHostLaunchSurface('antigravity', chatHost)).toBeUndefined()
     expect(mobileNewTabHostLaunchSurface('gemini', chatHost)).toBeUndefined()
-    expect(mobileNewTabHostLaunchSurface('hermes', chatHost)).toBe('terminal')
+    expect(mobileNewTabHostLaunchSurface('hermes', chatHost)).toBe('chat')
 
     const terminalDefault: MobileStructuredChatLaunchContext = {
       ...chatHost,
@@ -106,7 +106,7 @@ describe('mobileStructuredChatLaunchSurface', () => {
       ]
     }
     expect(hinted(hermesChat)).toEqual(['claude', 'codex', 'grok', 'antigravity', 'hermes'])
-    expect(mobileNewTabHostLaunchSurface('hermes', hermesChat)).toBe('terminal')
+    expect(mobileNewTabHostLaunchSurface('hermes', hermesChat)).toBe('chat')
 
     const unproven: MobileStructuredChatLaunchContext = {
       ...chatHost,
@@ -193,7 +193,7 @@ describe('loadMobileStructuredChatLaunchContext', () => {
     })
     expect(context.canRequestSurface).toBe(true)
     expect(context.registeredAgents).toEqual(['hermes', 'claude'])
-    expect(mobileStructuredChatLaunchSurface('hermes', { ...context, defaultView: 'chat' })).toBe(
+    expect(mobileNewTabHostLaunchSurface('hermes', { ...context, defaultView: 'chat' })).toBe(
       'chat'
     )
     expect(mobileStructuredChatLaunchSurface('claude', context)).toBeUndefined()
@@ -238,7 +238,7 @@ describe('loadMobileStructuredChatLaunchContext', () => {
       hostCapabilities: null
     })
     expect(fromShell.defaultView).toBe('chat')
-    expect(mobileStructuredChatLaunchSurface('hermes', fromShell)).toBe('chat')
+    expect(mobileNewTabHostLaunchSurface('hermes', fromShell)).toBe('chat')
 
     publishPageStorage({}, () => true, 'host-1', '/h/host-1/session/wt-1')
     refreshPageTerminalShortcuts({ 'orca:defaultSessionView': 'chat' }, [])
@@ -247,6 +247,6 @@ describe('loadMobileStructuredChatLaunchContext', () => {
       hostCapabilities: null
     })
     expect(refreshed.defaultView).toBe('chat')
-    expect(mobileStructuredChatLaunchSurface('hermes', refreshed)).toBe('chat')
+    expect(mobileNewTabHostLaunchSurface('hermes', refreshed)).toBe('chat')
   })
 })

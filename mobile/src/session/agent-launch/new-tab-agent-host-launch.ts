@@ -71,12 +71,18 @@ export async function launchNewTabAgentThroughHost(args: {
   const reservation = reserveMobileAgentLaunch(args.agent)
   // Chat UI lives on the phone. A headless host keeps its terminal default unless the launch asks for chat.
   // Overlay agents never request a surface, so only the others pay for the registry and status reads.
-  const launchContext = isNativeChatSupportedAgent(args.agent)
-    ? null
-    : await loadMobileStructuredChatLaunchContext({
+  const asksForChatSurface = !isNativeChatSupportedAgent(args.agent) || args.agent === 'hermes'
+  let launchContext = null
+  if (asksForChatSurface) {
+    try {
+      launchContext = await loadMobileStructuredChatLaunchContext({
         client: args.client,
         hostCapabilities: args.hostCapabilities
       })
+    } catch {
+      return false
+    }
+  }
   const hostCapabilities = launchContext?.hostCapabilities ?? args.hostCapabilities
   const surface = mobileNewTabHostLaunchSurface(args.agent, launchContext)
   const afterTabId = hostCapabilities?.includes(AGENT_LAUNCH_PLACEMENT_RUNTIME_CAPABILITY)

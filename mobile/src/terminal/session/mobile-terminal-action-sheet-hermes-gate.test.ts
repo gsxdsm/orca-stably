@@ -1,4 +1,4 @@
-import { HERMES_TRANSCRIPT_RUNTIME_CAPABILITY } from '../../../src/shared/native-chat/native-chat-hermes-capability'
+import { HERMES_TRANSCRIPT_RUNTIME_CAPABILITY } from '../../../../src/shared/native-chat/native-chat-hermes-capability'
 import { describe, expect, it, vi } from 'vitest'
 import { getMobileTerminalActionSheetActions } from './mobile-terminal-action-sheet-actions'
 
