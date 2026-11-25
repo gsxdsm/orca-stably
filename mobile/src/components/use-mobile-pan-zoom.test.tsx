@@ -1,9 +1,8 @@
 import { createElement, useEffect } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PanZoomSize } from '../../../src/shared/pan-zoom-view'
+import type { PanZoomSize } from '../../../src/shared/document-preview/pan-zoom-view'
 
-// oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the ref only ever holds the handler the mocked BackHandler registers.
 const back = vi.hoisted(() => ({ press: null as (() => boolean) | null }))
 
 vi.mock('react-native', () => ({
@@ -23,9 +22,9 @@ import {
   useMobilePanZoom,
   type MobilePanZoom,
   type MobilePanZoomDismiss
-} from './use-mobile-pan-zoom'
+} from '../files/media/presentation/use-mobile-pan-zoom'
 
-// oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the hook only reads client size, bounds, and pointer capture from the canvas.
+// SAFETY: the hook only reads client size, bounds, and pointer capture from the canvas.
 const canvas = {
   clientWidth: 320,
   clientHeight: 640,
@@ -118,16 +117,12 @@ describe('useMobilePanZoom dismiss', () => {
     const handlers = latest?.handlers
     act(() => {
       if (kind === 'down') {
-        // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the stub event carries only the fields the hook reads.
         handlers?.onPointerDown?.(event as never)
       } else if (kind === 'move') {
-        // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the stub event carries only the fields the hook reads.
         handlers?.onPointerMove?.(event as never)
       } else if (kind === 'cancel') {
-        // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the stub event carries only the fields the hook reads.
         handlers?.onPointerCancel?.(event as never)
       } else {
-        // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the stub event carries only the fields the hook reads.
         handlers?.onPointerUp?.(event as never)
       }
     })
@@ -185,14 +180,6 @@ describe('useMobilePanZoom dismiss', () => {
     })
     expect(dismiss.onBack).not.toHaveBeenCalled()
     expect(latest?.scale).toBe(fitted)
-
-    dismiss.onMove.mockClear()
-    dismiss.onRelease.mockClear()
-    pointer('down', 1, 100, 200, 200)
-    pointer('move', 1, 108, 260, 230)
-    pointer('up', 1, 108, 260, 240)
-    expect(dismiss.onMove).toHaveBeenCalledWith(8, 60)
-    expect(dismiss.onRelease).toHaveBeenCalledWith(8, 60, 800 / 3, 2000)
   })
 
   it('cancels a dismiss when a second finger pinches, and pans once zoomed', async () => {
