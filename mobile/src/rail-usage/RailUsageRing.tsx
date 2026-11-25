@@ -23,16 +23,20 @@ import {
   railRingArc,
   railRingPoint,
   railUsageTone,
-  inRailRingLabelHole,
   type RailUsageTone
 } from './rail-usage-model'
 
-// The iOS status glyph above draws a 37 pt ring; these match it.
-const SIZE = DUO_STATUS_GLYPH_SIZE
-const STROKE = 3.5
-const CENTER = SIZE / 2
-const RADIUS = (SIZE - STROKE) / 2
-const GLYPH_SIZE = 15
+// The iOS status glyph draws a 37pt ring with a 3.5pt stroke; larger rings keep its proportions, capped so the arc stays light.
+const GLYPH_RING_STROKE = 3.5
+const MAX_STROKE = 5
+
+function ringGeometry(diameter: number) {
+  const stroke = Math.min(MAX_STROKE, (GLYPH_RING_STROKE * diameter) / DUO_STATUS_GLYPH_SIZE)
+  const center = diameter / 2
+  // Room inside the box for the pace tick, which crosses the arc.
+  const radius = center - stroke
+  return { stroke, center, radius, glyph: Math.round(diameter * 0.36) }
+}
 
 function toneColor(tone: RailUsageTone, used: number): string {
   switch (tone) {
@@ -69,10 +73,12 @@ export function RailUsageProviderGlyph({
 export function RailUsageRing({
   usage,
   now,
+  diameter,
   onPress
 }: {
   usage: AgentUsage
   now: number
+  diameter: number
   onPress: () => void
 }): React.JSX.Element | null {
   useMobileColorScheme()
@@ -91,9 +97,10 @@ export function RailUsageRing({
     window: formatUsageWindowLength(entry.window.windowMinutes),
     percent: readout.shown
   }
-  const tick = marker === null || inRailRingLabelHole(marker / 100) ? null : marker / 100
-  const tickInner = tick === null ? null : railRingPoint(CENTER, RADIUS - STROKE, tick)
-  const tickOuter = tick === null ? null : railRingPoint(CENTER, RADIUS + STROKE, tick)
+  const { stroke, center, radius, glyph } = ringGeometry(diameter)
+  const tick = marker === null ? null : marker / 100
+  const tickInner = tick === null ? null : railRingPoint(center, radius - stroke, tick)
+  const tickOuter = tick === null ? null : railRingPoint(center, radius + stroke, tick)
   return (
     <Pressable
       accessibilityRole="button"
@@ -110,47 +117,45 @@ export function RailUsageRing({
               vars
             )
       }
-      hitSlop={{ left: 12, right: 12, top: 4, bottom: 4 }}
+      hitSlop={{ left: 4, right: 4, top: 4, bottom: 4 }}
       onPress={onPress}
-      style={({ pressed }) => [styles.ring, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.item, { width: diameter }, pressed && styles.pressed]}
       testID={`rail-usage-ring-${usage.provider}`}
     >
-      <Svg width={SIZE} height={SIZE} style={styles.arc}>
-        <Path
-          d={railRingArc(CENTER, RADIUS, 0, 1)}
-          stroke={colors.translucentFill}
-          strokeWidth={STROKE}
-          strokeLinecap="round"
-          fill="none"
-        />
-        {readout.shown > 0 ? (
+      <Text style={styles.percent} numberOfLines={1} allowFontScaling={false}>
+        {readout.shown}
+      </Text>
+      <View style={[styles.ring, { width: diameter, height: diameter }]}>
+        <Svg width={diameter} height={diameter} style={styles.arc}>
           <Path
-            d={railRingArc(CENTER, RADIUS, 0, readout.shown / 100)}
-            stroke={fill}
-            strokeWidth={STROKE}
+            d={railRingArc(center, radius, 0, 1)}
+            stroke={colors.translucentFill}
+            strokeWidth={stroke}
             strokeLinecap="round"
             fill="none"
           />
-        ) : null}
-        {tickInner && tickOuter ? (
-          <Line
-            x1={tickInner.x}
-            y1={tickInner.y}
-            x2={tickOuter.x}
-            y2={tickOuter.y}
-            stroke={colors.textSecondary}
-            strokeWidth={1.5}
-            strokeLinecap="round"
-          />
-        ) : null}
-      </Svg>
-      <View style={[styles.labelRow, styles.percentRow]} pointerEvents="none">
-        <Text style={styles.percent} numberOfLines={1} allowFontScaling={false}>
-          {readout.shown}
-        </Text>
-      </View>
-      <RailUsageProviderGlyph provider={usage.provider} size={GLYPH_SIZE} />
-      <View style={[styles.labelRow, styles.windowRow]} pointerEvents="none">
+          {readout.shown > 0 ? (
+            <Path
+              d={railRingArc(center, radius, 0, readout.shown / 100)}
+              stroke={fill}
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              fill="none"
+            />
+          ) : null}
+          {tickInner && tickOuter ? (
+            <Line
+              x1={tickInner.x}
+              y1={tickInner.y}
+              x2={tickOuter.x}
+              y2={tickOuter.y}
+              stroke={colors.textSecondary}
+              strokeWidth={1.5}
+              strokeLinecap="round"
+            />
+          ) : null}
+        </Svg>
+        <RailUsageProviderGlyph provider={usage.provider} size={glyph} />
         <Text style={styles.window} numberOfLines={1} allowFontScaling={false}>
           {vars.window}
         </Text>
@@ -160,44 +165,34 @@ export function RailUsageRing({
 }
 
 const styles = themedStyleSheet(() => ({
-  ring: {
-    width: SIZE,
-    height: SIZE,
+  // Number above the ring, glyph and window inside it, as the status glyph shows its battery.
+  item: {
     alignItems: 'center',
-    justifyContent: 'center'
+    gap: 2
   },
   pressed: {
     opacity: feedback.pressedOpacity
+  },
+  ring: {
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   arc: {
     position: 'absolute',
     top: 0,
     left: 0
   },
-  labelRow: {
-    position: 'absolute',
-    left: -8,
-    right: -8,
-    alignItems: 'center'
-  },
-  // Centered on the ring's top, in the break the arc leaves for it.
-  percentRow: {
-    top: -5
-  },
-  // In the ring's bottom opening.
-  windowRow: {
-    bottom: -4
-  },
   percent: {
-    fontSize: 11,
-    lineHeight: 13,
+    fontSize: 13,
+    lineHeight: 16,
     fontWeight: '700',
     color: colors.textPrimary,
     fontVariant: ['tabular-nums']
   },
   window: {
-    fontSize: 9,
-    lineHeight: 11,
+    marginTop: 1,
+    fontSize: 10,
+    lineHeight: 12,
     fontWeight: '600',
     color: colors.textSecondary,
     fontVariant: ['tabular-nums']

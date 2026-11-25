@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ScrollView } from 'react-native'
+import { ScrollView, useWindowDimensions } from 'react-native'
 import type { AccountsSnapshot } from '../accounts/accounts-snapshot'
 import { BottomDrawerModalHost } from '../components/bottom-drawer/bottom-drawer-modal-host'
 import { MobileSegmentedControl } from '../components/controls/MobileSegmentedControl'
@@ -10,13 +10,32 @@ import { useNow } from '../hooks/use-now'
 import { spacing } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useHostClient } from '../transport/connection/host-client-hooks'
-import { listRailUsage } from './rail-usage-model'
+import { DUO_STATUS_GLYPH_SIZE, duoStatusGlyphMidX } from '../layout/duo-status-row'
+import { useReservedRegions } from '../layout/reserved-regions'
+import { useSideRailStrip } from '../layout/side-rail'
+import type { SideRailStrip } from '../layout/side-rail-strip'
+import { listRailUsage, railRingColumn } from './rail-usage-model'
 import { RailUsageRing } from './RailUsageRing'
 
 /** The host's usage rings for the Duo side rail; empty until it reports a provider. */
 export function HostRailUsageStack({ hostId }: { hostId: string }): React.JSX.Element | null {
   const { client } = useHostClient(hostId)
   return <RailUsageStack snapshot={useAccountsSnapshot(client)} />
+}
+
+/** The rings' axis and size: the status glyph's axis, as wide as the strip allows around it. */
+function useRailRingColumn(strip: SideRailStrip | null): { center: number; diameter: number } {
+  const { width, height } = useWindowDimensions()
+  const { occlusions } = useReservedRegions()
+  if (strip === null) {
+    return { center: 0, diameter: DUO_STATUS_GLYPH_SIZE }
+  }
+  return railRingColumn({
+    strip,
+    windowWidth: width,
+    glyphMidX: duoStatusGlyphMidX({ windowWidth: width, windowHeight: height, strip, occlusions }),
+    minDiameter: DUO_STATUS_GLYPH_SIZE
+  })
 }
 
 /** A scrolling column of usage rings; a tap opens the usage sheet on that provider, with tabs for the rest. */
@@ -30,7 +49,9 @@ export function RailUsageStack({
   const [selected, setSelected] = useState<UsageProviderKey | null>(null)
   // Kept after close so the sheet slides out still showing what it showed.
   const [shown, setShown] = useState<UsageProviderKey | null>(null)
-  if (usages.length === 0) {
+  const strip = useSideRailStrip()
+  const column = useRailRingColumn(strip)
+  if (usages.length === 0 || strip === null) {
     return null
   }
   const sheetUsage = usages.find((usage) => usage.provider === shown) ?? usages[0]
@@ -42,7 +63,10 @@ export function RailUsageStack({
     <>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.column}
+        contentContainerStyle={[
+          styles.column,
+          { paddingLeft: column.center - column.diameter / 2 }
+        ]}
         showsVerticalScrollIndicator={false}
         testID="rail-usage-stack"
       >
@@ -51,6 +75,7 @@ export function RailUsageStack({
             key={usage.provider}
             usage={usage}
             now={now}
+            diameter={column.diameter}
             onPress={() => open(usage.provider)}
           />
         ))}
@@ -88,9 +113,9 @@ const styles = themedStyleSheet(() => ({
   scroll: {
     flex: 1
   },
-  // Room above the first ring's percent, which sits over the ring's top edge.
+  // Every ring starts at the same inset, so all share the status glyph's axis; the padding is set inline.
   column: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.lg
