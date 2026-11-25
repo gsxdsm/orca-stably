@@ -57,7 +57,7 @@ export function MobileNativeChatRowList(props: Props): ReactElement {
   if (Platform.OS === 'web') {
     const { roots, runs, layoutKey, onNearTop, itemJump } = props
     return (
-      <MobileNativeChatPinchZoom gesture={props.pinchGesture} preview={props.pinchAnchor}>
+      <MobileNativeChatPinchZoom gesture={props.pinchGesture}>
         {/* Only the page list draws row keys to scroll to. */}
         <MobileNativeChatScrollRowToTopContext value={tail.scrollRowToTop}>
           <MobileNativeChatPageList

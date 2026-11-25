@@ -7,7 +7,7 @@ import {
   type ComponentProps,
   type ReactNode
 } from 'react'
-import { Platform, View } from 'react-native'
+import { Platform } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import type { LegacyComposedGesture } from 'react-native-gesture-handler'
 import {
@@ -108,25 +108,15 @@ const PAN_WITHOUT_PAGE_ZOOM = 'pan-x pan-y' as ComponentProps<typeof GestureDete
 // Web: gesture handler 3 also cancels contextmenu by default, which drops Android WebView's Copy menu for selected text.
 export function MobileNativeChatPinchZoom({
   gesture,
-  preview,
   children
 }: {
   gesture: LegacyComposedGesture
-  preview?: MobileNativeChatPinchAnchor
   children: ReactNode
 }) {
+  // No wrapper: the handler must sit on the scroller, as WebKit reads touch-action only up to the nearest scroller.
   return (
     <GestureDetector gesture={gesture} touchAction={PAN_WITHOUT_PAGE_ZOOM} enableContextMenu>
-      {preview && Platform.OS === 'web' ? (
-        // One known box to measure the pinch's focal point from.
-        <View ref={preview.attach} style={PINCH_BOX}>
-          {children}
-        </View>
-      ) : (
-        children
-      )}
+      {children}
     </GestureDetector>
   )
 }
-
-const PINCH_BOX = { flex: 1 } as const
