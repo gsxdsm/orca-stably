@@ -23,6 +23,9 @@ export type UsageProviderKey =
   | 'antigravity'
   | 'grok'
   | 'cursor'
+  | 'minimax'
+  | 'zcode'
+  | 'muse'
 
 // Only agents that spend the provider plan the desktop polls; others (e.g. aider, openclaude) bring their own keys.
 const AGENT_USAGE_PROVIDERS = new Map<string, UsageProviderKey>([
@@ -35,7 +38,9 @@ const AGENT_USAGE_PROVIDERS = new Map<string, UsageProviderKey>([
   ['kimi', 'kimi'],
   ['antigravity', 'antigravity'],
   ['grok', 'grok'],
-  ['cursor', 'cursor']
+  ['cursor', 'cursor'],
+  ['zcode', 'zcode'],
+  ['muse', 'muse']
 ])
 
 const PROVIDER_IDS: Record<UsageProviderKey, ProviderRateLimits['provider']> = {
@@ -46,7 +51,10 @@ const PROVIDER_IDS: Record<UsageProviderKey, ProviderRateLimits['provider']> = {
   kimi: 'kimi',
   antigravity: 'antigravity',
   grok: 'grok',
-  cursor: 'cursor'
+  cursor: 'cursor',
+  minimax: 'minimax',
+  zcode: 'zcode',
+  muse: 'muse'
 }
 
 export const USAGE_PROVIDER_NAMES: Record<UsageProviderKey, string> = {
@@ -57,7 +65,10 @@ export const USAGE_PROVIDER_NAMES: Record<UsageProviderKey, string> = {
   kimi: 'Kimi',
   antigravity: 'Antigravity',
   grok: 'Grok',
-  cursor: 'Cursor'
+  cursor: 'Cursor',
+  minimax: 'MiniMax',
+  zcode: 'ZCode',
+  muse: 'Muse'
 }
 
 export type ComposerUsageWindowChoice = 'session' | 'weekly'
@@ -93,7 +104,15 @@ export function selectAgentUsage(
   agent: string | null | undefined
 ): AgentUsage | null {
   const provider = usageProviderForAgent(agent)
-  if (!snapshot || !provider) {
+  return provider ? selectProviderUsage(snapshot, provider) : null
+}
+
+/** One provider's usage windows, or null when the host reports none for it. */
+export function selectProviderUsage(
+  snapshot: AccountsSnapshot | null,
+  provider: UsageProviderKey
+): AgentUsage | null {
+  if (!snapshot) {
     return null
   }
   const limits = readProviderLimits(snapshot, provider)

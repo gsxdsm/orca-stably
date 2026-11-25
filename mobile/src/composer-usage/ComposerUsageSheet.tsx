@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Text, View } from 'react-native'
 import { formatUsageBarValue } from '../accounts/usage/UsageBar'
 import type { AccountsSnapshot } from '../accounts/accounts-snapshot'
@@ -29,11 +29,21 @@ type Props = {
   visible: boolean
   onClose: () => void
   usage: AgentUsage
-  snapshot: AccountsSnapshot | null
+  /** Absent: only `usage`'s provider, with no history graph. */
+  snapshot?: AccountsSnapshot | null
   spanSideStrip: boolean
+  /** Above the title, e.g. the Duo rail's provider tabs. */
+  header?: ReactNode
 }
 
-export function ComposerUsageSheet({ visible, onClose, usage, snapshot, spanSideStrip }: Props) {
+export function ComposerUsageSheet({
+  visible,
+  onClose,
+  usage,
+  snapshot = null,
+  spanSideStrip,
+  header
+}: Props) {
   useMobileColorScheme()
   const t = useMobileTranslation()
   const now = useNow(30_000, visible)
@@ -51,6 +61,7 @@ export function ComposerUsageSheet({ visible, onClose, usage, snapshot, spanSide
   return (
     <BottomDrawer visible={visible} onClose={onClose} spanReleasedSide={spanSideStrip}>
       <View testID="composer-usage-sheet">
+        {header}
         <Text style={styles.heading}>
           {providers.length > 1
             ? t('composerUsage.sheet.titleAll', 'Usage')
