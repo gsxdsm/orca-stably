@@ -61,7 +61,7 @@ import {
 import { usePageFoldDivision, usePublishedFoldDivision } from './page-geometry/page-fold-division'
 import { usePublishedShellKeyRail, useShellKeyRail } from './terminal-controls/use-shell-key-rail'
 import { useShellUsageRail } from '../rail-usage/use-shell-usage-rail'
-import { sessionOfPageLocation } from '../notifications/delivery-policy/notification-viewing-policy'
+import { pageHoldsSideStrip } from '../rail-usage/side-strip-holder'
 import { hostProfileUnreadableLine, pageFaultLine } from './diagnostics/shell-lifecycle-log'
 import { recordShellLifecycleLine } from './diagnostics/shell-lifecycle-line-recorder'
 
@@ -174,14 +174,16 @@ export function MobileWebShellScreen({
       !overlay &&
       routeGrants.includes(BRIDGE_TERMINAL_KEY_RAIL_GRANT)
   )
-  // Where the page reports it is; a host page owning the area opens sessions inside itself.
+  // What this document last reported about itself; a new document starts unknown.
   const [pageLocation, setPageLocation] = useState<{ sessionId: string; href: string } | null>(null)
-  const reportedHref = pageLocation?.sessionId === readySessionId ? pageLocation.href : null
-  // The host page owns every route's grants, so it lends the rail only while it shows a session.
-  const lendsRail = ownsHostArea
-    ? reportedHref !== null && sessionOfPageLocation(reportedHref) !== null
-    : routeGrants.includes(BRIDGE_TERMINAL_KEY_RAIL_GRANT)
-  useShellUsageRail(hostId, shellFocused && !overlay && state.kind === 'ready' && !lendsRail)
+  const [pageCover, setPageCover] = useState<{ sessionId: string; covered: boolean } | null>(null)
+  const pageHoldsStrip = pageHoldsSideStrip({
+    ownsHostArea,
+    routeGrants,
+    covered: pageCover?.sessionId === readySessionId ? pageCover.covered : null,
+    location: pageLocation?.sessionId === readySessionId ? pageLocation.href : null
+  })
+  useShellUsageRail(hostId, shellFocused && !overlay && state.kind === 'ready' && !pageHoldsStrip)
   const {
     snapshot,
     unreadable,
@@ -320,6 +322,11 @@ export function MobileWebShellScreen({
     },
     // A newer build swaps in only on a resume where the page has nothing to lose (no draft, upload or open sheet).
     onPageSwapSafe: reportSwapSafe,
+    onSideStripCover: (covered) => {
+      if (readySessionId !== null) {
+        setPageCover({ sessionId: readySessionId, covered })
+      }
+    },
     onTerminalKeyRailClaim: keyRail.reportClaim,
     onRouteParamClear: openTarget.onRouteParamClear,
     onRouteRefused: (issue) => {

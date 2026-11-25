@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { useWindowDimensions, View } from 'react-native'
 import { Slot, usePathname } from 'expo-router'
 import { SafeAreaFrameContext, SafeAreaInsetsContext } from 'react-native-safe-area-context'
@@ -33,6 +33,11 @@ export default function PageRootLayout() {
         ? 'right'
         : 'left'
       : null
+  // The shell draws usage rings on the strip unless the page is laid across it.
+  const covered = releaseSide !== null
+  useEffect(() => {
+    client.notifySideStripCover(covered)
+  }, [client, covered])
   const frame = useMemo(() => ({ x: 0, y: 0, width, height }), [width, height])
   return (
     <SafeAreaFrameContext.Provider value={frame}>
