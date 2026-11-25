@@ -15,7 +15,7 @@ import { useReservedRegions } from '../layout/reserved-regions'
 import { useSideRailStrip } from '../layout/side-rail'
 import type { SideRailStrip } from '../layout/side-rail-strip'
 import { listRailUsage, railRingColumn } from './rail-usage-model'
-import { RailUsageRing } from './RailUsageRing'
+import { RailUsageRing, usageProviderTabLogo } from './RailUsageRing'
 
 /** The host's usage rings for the Duo side rail; empty until it reports a provider. */
 export function HostRailUsageStack({ hostId }: { hostId: string }): React.JSX.Element | null {
@@ -89,10 +89,16 @@ export function RailUsageStack({
           header={
             usages.length > 1 ? (
               <MobileSegmentedControl
-                segments={usages.map((usage) => ({
-                  value: usage.provider,
-                  label: USAGE_PROVIDER_NAMES[usage.provider]
-                }))}
+                segments={usages.map((usage) => {
+                  const logo = usageProviderTabLogo(usage.provider)
+                  const name = USAGE_PROVIDER_NAMES[usage.provider]
+                  return {
+                    value: usage.provider,
+                    label: logo ? '' : name,
+                    icon: logo,
+                    accessibilityLabel: name
+                  }
+                })}
                 selected={sheetUsage.provider}
                 onSelect={setShown}
                 scrollWhenCrowded

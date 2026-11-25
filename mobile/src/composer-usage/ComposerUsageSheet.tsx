@@ -9,6 +9,7 @@ import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { colors, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { usageProviderTabLogo } from '../rail-usage/RailUsageRing'
 import {
   listProviderUsages,
   pickComposerUsageWindow,
@@ -84,10 +85,13 @@ export function ComposerUsageSheet({
               segments={providers.map((provider) => {
                 const shown = pickComposerUsageWindow(provider.windows, choice)
                 const name = USAGE_PROVIDER_NAMES[provider.provider]
+                const logo = usageProviderTabLogo(provider.provider)
+                const used = shown ? percent(shown.window.usedPercent) : ''
                 return {
                   value: provider.provider,
-                  label: shown ? `${name} ${percent(shown.window.usedPercent)}` : name,
-                  accessibilityLabel: name
+                  label: logo ? used : `${name} ${used}`.trim(),
+                  icon: logo,
+                  accessibilityLabel: shown ? `${name} ${used}` : name
                 }
               })}
               selected={active.provider}
