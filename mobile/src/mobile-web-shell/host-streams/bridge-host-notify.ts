@@ -53,7 +53,7 @@ export function createBridgeNotifyForwarder(args: {
       return
     }
     if (message.name === BRIDGE_SIDE_STRIP_COVER_NOTIFY) {
-      options.onSideStripCover?.(message.covered)
+      options.onSideStripCover?.(message.covered, message.free ?? null)
       return
     }
     if (message.name === BRIDGE_SWAP_SAFE_NOTIFY) {

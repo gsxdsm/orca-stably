@@ -9,12 +9,13 @@ import {
   type ReactNode
 } from 'react'
 import { StyleSheet, View, useWindowDimensions, type HostInstance } from 'react-native'
-import type { DuoRailJumpFrames } from '../layout/duo-status-row'
+import { duoRailFreeBand, type DuoRailJumpFrames } from '../layout/duo-status-row'
 import { useReservedRegions } from '../layout/reserved-regions'
 import { getSideRailStrip } from '../layout/side-rail-strip'
 import { useWindowSafeAreaInsets } from '../layout/side-safe-area'
 import { useDuoChatExpanded } from './duo-chat-width'
 import { duoRailJumpPlacement } from './duo-rail-jump'
+import { publishDuoRailFreeBand } from './duo-rail-free-band'
 import { MobileNativeChatFloatingControls } from './native-chat/lower-region/MobileNativeChatFloatingControls'
 
 type JumpActions = {
@@ -63,6 +64,20 @@ function useRailFrames(
     insets,
     occlusions
   })
+  const band =
+    chatVisible && !expanded && strip !== null && !(keyboardInset > 0) && composerTop !== null
+      ? duoRailFreeBand({
+          windowWidth: width,
+          windowHeight: height,
+          strip,
+          occlusions,
+          composerTop
+        })
+      : null
+  useEffect(() => {
+    publishDuoRailFreeBand(band)
+  }, [band?.top, band?.bottom])
+  useEffect(() => () => publishDuoRailFreeBand(null), [])
   return duoRailJumpPlacement({
     chatVisible,
     expanded,

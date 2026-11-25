@@ -20,7 +20,7 @@ export function latestBridgeCallbacks(args: { readonly current: MobileWebShellBr
     onPageBackClaim: (claimed) => args.current.onPageBackClaim(claimed),
     onPageLocation: (href) => args.current.onPageLocation(href),
     onPageSwapSafe: (safe, round) => args.current.onPageSwapSafe(safe, round),
-    onSideStripCover: (covered) => args.current.onSideStripCover(covered),
+    onSideStripCover: (covered, free) => args.current.onSideStripCover(covered, free),
     onTerminalKeyRailClaim: (claimed, inputOwner, toolbar) =>
       args.current.onTerminalKeyRailClaim(claimed, inputOwner, toolbar)
   } satisfies Partial<BridgeHostOptions>

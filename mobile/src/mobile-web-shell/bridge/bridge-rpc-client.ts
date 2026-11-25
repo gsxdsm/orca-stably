@@ -138,7 +138,7 @@ export function createBridgeRpcClient(options: BridgeRpcClientOptions): BridgeRp
   // Requests still unanswered when the app left: the user may be waiting on an upload or a save.
   let sentBeforeLeaving: readonly string[] | null = null
   // The last cover the page reported, resent to each new init like the rail claim.
-  let sideStripCovered: boolean | null = null
+  let sideStripCover: Parameters<BridgeRpcClient['notifySideStripCover']> | null = null
   const pageDocument: Document | undefined = globalThis.document
   const swapSafety = pageDocument === undefined ? null : createPageSwapSafety(pageDocument)
   const readInboundFrame = createBridgeInboundFrameReader({
@@ -151,8 +151,8 @@ export function createBridgeRpcClient(options: BridgeRpcClientOptions): BridgeRp
       shellSession.accept(message)
       back.reassert()
       terminalKeys.reassert()
-      if (sideStripCovered !== null) {
-        notifications.notifySideStripCover(sideStripCovered)
+      if (sideStripCover !== null) {
+        notifications.notifySideStripCover(...sideStripCover)
       }
     },
     acceptState: (connection) => acceptState(cache.apply(connection)),
@@ -326,9 +326,9 @@ export function createBridgeRpcClient(options: BridgeRpcClientOptions): BridgeRp
     notifyHaptics: notifications.notifyHaptics,
     notifyPageFault: notifications.notifyPageFault,
     notifyPagePainted: notifications.notifyPagePainted,
-    notifySideStripCover: (covered) => {
-      sideStripCovered = covered
-      notifications.notifySideStripCover(covered)
+    notifySideStripCover: (covered, free) => {
+      sideStripCover = [covered, free]
+      notifications.notifySideStripCover(covered, free)
     },
     notifyPageLocation: (href) => {
       swapSafety?.navigated()
