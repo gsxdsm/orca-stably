@@ -5,11 +5,11 @@ import type {
 } from '../../shared/native-chat/native-chat-terminal-queue'
 import { agentSessionSendBodyFingerprint } from '../../shared/agent-session/requests/structured-agent-session-send-mutation'
 import { QUEUED_MESSAGE_PAUSED_SEND_FAILED } from '../../shared/agent-session/requests/agent-session-queued-message-wire'
-import { readPublishedQueuedMessages } from './agent-session-wire/structured-agent-session-queued-publication'
+import { readPublishedQueuedMessages } from './agent-session-wire/delivery/structured-agent-session-queued-publication'
 import type { AgentSessionJournal } from './agent-session-journal/journal-store'
 import { agentSessionFailureFact } from '../../shared/agent-session/failures/agent-session-failure'
 import { agentSessionFailureWords } from '../../shared/agent-session/failures/agent-session-failure-words'
-import { queuedMessagesPublishedBytesRefusal } from './agent-session-wire/structured-agent-session-queued-published-bytes'
+import { queuedMessagesPublishedBytesRefusal } from './agent-session-wire/delivery/structured-agent-session-queued-published-bytes'
 import type { AgentJournalMessageItem } from '../../shared/agent-session/journal/agent-session-journal-types'
 
 export class TerminalChatQueue {
@@ -96,25 +96,26 @@ export class TerminalChatQueue {
       return
     }
     const card = this.journal.queuedMessages.nextInputCard()
-    if (card?.messageId !== first.messageId) {
+    if (!card || card.messageId !== first.messageId) {
       return
     }
+    const held = card
     const id = randomUUID()
     await this.journal.appendSubmission(
       {
         clientMessageId: id,
         payloadFingerprint: agentSessionSendBodyFingerprint(
           this.journal.queuedMessages.sessionId,
-          card.body
+          held.body
         ),
-        body: card.body,
+        body: held.body,
         fence: 0,
         handoverRecorded: true
       },
-      { messageId: card.messageId, expect: 'waiting', yieldsToPause: true }
+      { messageId: held.messageId, expect: 'waiting', yieldsToPause: true }
     )
     this.submittedSequence = activity.workingSequence
-    const text = card.body.blocks
+    const text = held.body.blocks
       .flatMap((block) => (block.type === 'text' ? [block.text] : []))
       .join('\n')
     const sent = await this.send(text).catch(() => null)
@@ -132,12 +133,12 @@ export class TerminalChatQueue {
         () =>
           this.journal.queuedMessages.plan([
             {
-              messageId: card.messageId,
+              messageId: held.messageId,
               change: {
                 op: 'queued',
-                body: card.body,
-                position: card.position,
-                queuedAt: card.queuedAt
+                body: held.body,
+                position: held.position,
+                queuedAt: held.queuedAt
               }
             }
           ])
@@ -163,12 +164,12 @@ export class TerminalChatQueue {
       () =>
         this.journal.queuedMessages.plan([
           {
-            messageId: card.messageId,
+            messageId: held.messageId,
             change: {
               op: 'queued',
-              body: card.body,
-              position: card.position,
-              queuedAt: card.queuedAt,
+              body: held.body,
+              position: held.position,
+              queuedAt: held.queuedAt,
               holdReason: QUEUED_MESSAGE_PAUSED_SEND_FAILED
             }
           }

@@ -64,7 +64,7 @@ import { useNativeChatImageRuntimeContext } from './media/images/native-chat-ima
 import { handleNativeChatPaneShortcut } from './pane/routing/native-chat-pane-shortcut'
 import { formatShortcutLabel } from '@/hooks/useShortcutLabel'
 import { useNativeChatTerminalQueue, queueSendEpoch } from './use-native-chat-terminal-queue'
-import { NativeChatQueuedMessageList } from './NativeChatQueuedMessageList'
+import { NativeChatQueuedMessageList } from './queue/NativeChatQueuedMessageList'
 
 export function NativeChatResolvedView({
   paneKey,

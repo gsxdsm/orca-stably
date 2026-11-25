@@ -1,4 +1,4 @@
-import type { AcpLaunchSpec } from '../acp/acp-launch-specs'
+import type { AcpLaunchSpec } from '../acp/launch/acp-launch-contract'
 import { HERMES_ACP_DIALECT } from '../acp/acp-dialects/hermes-dialect'
 import { agentSessionSignInFor } from '../../shared/agent-session/lifecycle/agent-session-sign-in'
 import { hermesAcpAccountBinding } from './hermes-acp-account'

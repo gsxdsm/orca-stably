@@ -2,7 +2,7 @@ import { hermesAcpLoadSessionId } from '../../../src/shared/hermes-session-id'
 import { STRUCTURED_AGENT_SESSION_RESUME_HISTORY_RUNTIME_CAPABILITY } from '../../../src/shared/agent-session/structured-agent-session-surface-capabilities'
 import { triggerError, triggerSuccess } from '../platform/haptics'
 import { translate } from '../i18n/mobile-i18n'
-import type { RpcClient } from '../transport/rpc-client'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import {
   createMobileStructuredAgentSession,
   type MobileStructuredAgentLaunchResult
@@ -12,7 +12,7 @@ import {
   withLaunchReply,
   withoutUnansweredLaunch,
   type PendingSessionSelection
-} from './pending-session-selection'
+} from './tabs/pending-session-selection'
 
 function canResumeOnHost(hostCapabilities: readonly string[] | null | undefined): boolean {
   return (

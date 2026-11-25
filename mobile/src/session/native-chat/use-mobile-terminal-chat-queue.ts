@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { RpcClient } from '../../transport/rpc-client'
+import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
 import { randomV4Uuid } from '../../platform/random-v4-uuid'
 import {
   NativeChatTerminalQueueSnapshotSchema,
@@ -13,8 +13,8 @@ import type { z } from 'zod'
 import { NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY } from '../../../../src/shared/native-chat/native-chat-terminal-queue-capability'
 import { mobileTerminalChatQueueSend } from './mobile-terminal-chat-queue-send'
 import type { MobileNativeChatSendOutcome } from './mobile-native-chat-send'
-import { isRpcDeliveryUnknown } from '../../transport/rpc-delivery-ambiguity'
-import { isLogicalClientCutoverError } from '../../transport/stable-logical-rpc-client'
+import { isRpcDeliveryUnknown } from '../../transport/rpc/rpc-delivery-ambiguity'
+import { isLogicalClientCutoverError } from '../../transport/connection/logical-client-cutover-error'
 import { UNCONFIRMED_SEND_MESSAGE } from './use-mobile-native-chat-unconfirmed-sends'
 
 export function useMobileTerminalChatQueue(args: {

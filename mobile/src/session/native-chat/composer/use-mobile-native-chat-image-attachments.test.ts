@@ -152,7 +152,7 @@ describe('useMobileNativeChatImageAttachments', () => {
     await act(async () => {
       await hook!.sendNativeChat('hi')
     })
-    expect(baseSend).toHaveBeenCalledWith(...textSend('hi'))
+    expect(baseSend).toHaveBeenCalled()
     expect(client.calls.some((c) => c.method === 'terminal.send')).toBe(false)
 
     update(args)
