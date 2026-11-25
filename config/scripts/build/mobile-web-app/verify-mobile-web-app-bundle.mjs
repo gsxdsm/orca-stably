@@ -46,11 +46,9 @@ export const MOBILE_WEB_APP_HOST_CATALOG_MAX_BYTES = 1024 * 1024
 // budget holds only files outfitSheetsOnDemand proves are fetched when used, and any that the document
 // names count as eager. The phone shell still downloads each on-demand file to disk once per bundle
 // update (shellDownloadedAssets), so this budget also bounds that download.
-// Eager: fork-only raise over upstream's 8 MiB (fork features ship in the page; never cut them for size).
-export const MOBILE_WEB_APP_BUNDLE_MAX_EAGER_BYTES = 11.25 * 1024 * 1024
-// The diagram engine: shells that serve deferred code fetch it from the desktop when a page first draws a
-// diagram, and older shells download it with the rest. Never loaded to open a page.
-export const MOBILE_WEB_APP_BUNDLE_MAX_DEFERRED_BYTES = 3.5 * 1024 * 1024
+// Eager: fork-only raise over upstream's 11 MiB (fork pages ship in it; never cut them for size). 11,692,201
+// bytes with the diagram engine back in it (2026-11-25).
+export const MOBILE_WEB_APP_BUNDLE_MAX_EAGER_BYTES = 11.5 * 1024 * 1024
 export const MOBILE_WEB_APP_BUNDLE_MAX_ON_DEMAND_BYTES = 1024 * 1024
 export const MOBILE_WEB_APP_BUNDLE_MAX_ON_DEMAND_FILE_BYTES = 128 * 1024
 
@@ -133,19 +131,20 @@ export const MOBILE_WEB_APP_BUNDLE_SCRIPT_SWEEP = [
   ['./h/[hostId]/agent-history/[worktreeId].tsx', 9],
   ['./h/[hostId]/automations.tsx', 12],
   ['./h/[hostId]/edit.tsx', 13],
-  ['./h/[hostId]/files/[worktreeId].tsx', 17],
-  ['./h/[hostId]/files/preview/[worktreeId].tsx', 23],
+  ['./h/[hostId]/files/[worktreeId].tsx', 16],
+  ['./h/[hostId]/files/preview/[worktreeId].tsx', 22],
   ['./h/[hostId]/group/[groupId].tsx', 30],
   ['./h/[hostId]/history/[worktreeId].tsx', 31],
-  ['./h/[hostId]/index.tsx', 40],
-  ['./h/[hostId]/new-workspace.tsx', 48],
-  ['./h/[hostId]/pr/[worktreeId].tsx', 49],
-  ['./h/[hostId]/resources.tsx', 44],
-  ['./h/[hostId]/review/[worktreeId].tsx', 52],
-  ['./h/[hostId]/session/[worktreeId].tsx', 79],
-  ['./h/[hostId]/source-control/[worktreeId].tsx', 81],
-  ['./h/[hostId]/tasks.tsx', 85],
-  ['./h/_layout.tsx', 89]
+  ['./h/[hostId]/index.tsx', 38],
+  ['./h/[hostId]/mcp.tsx', 44],
+  ['./h/[hostId]/new-workspace.tsx', 50],
+  ['./h/[hostId]/pr/[worktreeId].tsx', 51],
+  ['./h/[hostId]/resources.tsx', 48],
+  ['./h/[hostId]/review/[worktreeId].tsx', 57],
+  ['./h/[hostId]/session/[worktreeId].tsx', 83],
+  ['./h/[hostId]/source-control/[worktreeId].tsx', 85],
+  ['./h/[hostId]/tasks.tsx', 87],
+  ['./h/_layout.tsx', 90]
 ]
 
 const sweptScripts = MOBILE_WEB_APP_BUNDLE_SCRIPT_SWEEP.map(([, scripts]) => scripts)
@@ -278,20 +277,10 @@ export async function verifyMobileWebAppBundle({ bundleDir = defaultBundleDir } 
     )
   }
   const onDemandBytes = assertOnDemandFits(await outfitSheetsOnDemand(manifest, bundleDir))
-  if (first.deferredBytes > MOBILE_WEB_APP_BUNDLE_MAX_DEFERRED_BYTES) {
-    fail(
-      `the deferred diagram engine is ${String(first.deferredBytes)} bytes, over its budget of ` +
-        `${String(MOBILE_WEB_APP_BUNDLE_MAX_DEFERRED_BYTES)}`
-    )
-  }
-  const eagerBytes =
-    mobileWebAppBundleBudgetBytes(manifest) -
-    first.catalogBytes -
-    onDemandBytes -
-    first.deferredBytes
+  const eagerBytes = mobileWebAppBundleBudgetBytes(manifest) - first.catalogBytes - onDemandBytes
   if (eagerBytes > MOBILE_WEB_APP_BUNDLE_MAX_EAGER_BYTES) {
     fail(
-      `bundle excluding the approved fonts, locale catalogs, on-demand files and deferred code is ${String(eagerBytes)} bytes, ` +
+      `bundle excluding the approved fonts, locale catalogs and on-demand files is ${String(eagerBytes)} bytes, ` +
         `over the Phase C eager budget of ${String(MOBILE_WEB_APP_BUNDLE_MAX_EAGER_BYTES)}`
     )
   }
@@ -322,13 +311,7 @@ export async function verifyMobileWebAppBundle({ bundleDir = defaultBundleDir } 
         `budget of ${String(MOBILE_WEB_APP_BUNDLE_MAX_ENTRY_BYTES)}`
     )
   }
-  return {
-    ...manifest,
-    catalogBytes: first.catalogBytes,
-    deferredBytes: first.deferredBytes,
-    eagerBytes,
-    onDemandBytes
-  }
+  return { ...manifest, catalogBytes: first.catalogBytes, eagerBytes, onDemandBytes }
 }
 
 if (isDirectInvocation(import.meta.url, process.argv[1])) {
@@ -339,7 +322,6 @@ if (isDirectInvocation(import.meta.url, process.argv[1])) {
         `${String(manifest.totalBytes)} total bytes, ` +
         `${String(manifest.eagerBytes)}/${String(MOBILE_WEB_APP_BUNDLE_MAX_EAGER_BYTES)} eager bytes excluding the approved fonts, ` +
         `${String(manifest.onDemandBytes)}/${String(MOBILE_WEB_APP_BUNDLE_MAX_ON_DEMAND_BYTES)} on-demand bytes, ` +
-        `${String(manifest.deferredBytes)}/${String(MOBILE_WEB_APP_BUNDLE_MAX_DEFERRED_BYTES)} deferred bytes, ` +
         `${String(manifest.catalogBytes)}/${String(MOBILE_WEB_APP_BUNDLE_MAX_CATALOG_BYTES)} bytes of language catalogs, ` +
         `reproducible buildId ${manifest.buildId}`
     )

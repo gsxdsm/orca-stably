@@ -4,6 +4,7 @@ import { OrcaRuntimeWithPtyForegroundProcessReads } from '../../client/runtime-c
 import { getWorkerTerminalAutoReleaseScheduler } from '../../orchestration/terminal-authority/release/worker-terminal-auto-release-scheduler'
 import type { OrchestrationDb } from '../../orchestration/db/orchestration-db'
 import { getWorkerScheduledWaitScheduler } from '../../orchestration/worker-scheduled-wait-scheduler'
+import { createAgentOrchestrationChangeNotice } from './agent-orchestration-change-notice'
 
 // Keyed by runtime, not a field: the database can open while the runtime is still constructing.
 const runtimesWatchingAutoReleaseSetting = new WeakSet<object>()
@@ -18,6 +19,11 @@ export abstract class OrcaRuntimeWithOrchestrationDatabaseBinding extends OrcaRu
     this.notifier?.peerMailReturned?.()
     this.emitClientEvent({ type: 'peerMailReturned' })
   }
+
+  // Paired desktops re-read this host's worker lineage on it, whether a chat or a terminal created the Dispatch.
+  private readonly noteAgentOrchestrationChanged = createAgentOrchestrationChangeNotice(() =>
+    this.emitClientEvent({ type: 'agentOrchestrationChanged' })
+  )
 
   protected bindWorkerTerminalAutoRelease(db: OrchestrationDb): void {
     let waitRearmQueued = false
@@ -46,7 +52,10 @@ export abstract class OrcaRuntimeWithOrchestrationDatabaseBinding extends OrcaRu
     db.workerScheduledWaitListener = onScheduledWaitChanged
     getWorkerScheduledWaitScheduler(this).rearm()
     // A worker can settle with no agent phase change (a failed start, a release); bots re-read.
-    db.workerStatusListener = (dispatchId, change) => this.botDispatchChanged(dispatchId, change)
+    db.workerStatusListener = (dispatchId, change) => {
+      this.botDispatchChanged(dispatchId, change)
+      this.noteAgentOrchestrationChanged()
+    }
     db.workerTerminalAutoReleaseListener = () => {
       if (this._orchestrationDb === db) {
         getWorkerTerminalAutoReleaseScheduler(this).rearm()
