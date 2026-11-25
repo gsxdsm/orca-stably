@@ -93,6 +93,8 @@ public class OrcaReservedRegionsModule: Module {
         guard let self, UIApplication.shared.applicationState == .active else { return }
         self.setNeedsLayout()
       }
+    }
+
     required init?(coder: NSCoder) {
       fatalError("init(coder:) is not supported")
     }
