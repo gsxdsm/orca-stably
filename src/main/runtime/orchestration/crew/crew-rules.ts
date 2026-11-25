@@ -1,5 +1,6 @@
 import { buildOrchestrationTaskDisplayMetadata } from '../../../../shared/orchestration/orchestration-task-display'
 import type { TaskRow } from '../db/orchestration-records'
+import { FORK_CREW_VIEW_ENABLED } from '../../../../shared/fork-crew-view-flag'
 
 export function crewTaskDisplay(
   task: Pick<TaskRow, 'spec' | 'task_title' | 'display_name'> | undefined
@@ -26,6 +27,16 @@ export function crewRowStatus(
   activityState: string | undefined,
   assignmentStatus: string | undefined
 ): string {
+  if (!FORK_CREW_VIEW_ENABLED) {
+    return (
+      activityState ??
+      (assignmentStatus
+        ? ['pending', 'dispatched'].includes(assignmentStatus)
+          ? 'working'
+          : 'done'
+        : 'unknown')
+    )
+  }
   if (
     activityState === 'working' ||
     activityState === 'monitoring' ||

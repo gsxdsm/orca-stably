@@ -29,6 +29,7 @@ import type { MobileNativeChatImageSource } from './visual/mobile-native-chat-im
 import type { MobileNativeChatHostOutage } from './status/mobile-native-chat-host-outage'
 import { MobileMarkdownLinksContext } from '../../components/markdown/links/mobile-markdown-links-context'
 import { MobileSessionCrewActivity } from './input/MobileSessionCrewActivity'
+import { FORK_CREW_VIEW_ENABLED } from '../../../../src/shared/fork-crew-view-flag'
 import type { ConnectionState } from '../../transport/connection/connection-state'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
 
@@ -410,12 +411,14 @@ function MobileNativeChatOverlayContent({
                       }
                       keyboardInset={keyboardInset}
                       activityBar={
-                        <MobileSessionCrewActivity
-                          client={imageSource?.client ?? null}
-                          sessionId={sessionId}
-                          terminal={crewTerminal}
-                          setComposerText={controller.setChatComposerText}
-                        />
+                        FORK_CREW_VIEW_ENABLED ? (
+                          <MobileSessionCrewActivity
+                            client={imageSource?.client ?? null}
+                            sessionId={sessionId}
+                            terminal={crewTerminal}
+                            setComposerText={controller.setChatComposerText}
+                          />
+                        ) : null
                       }
                     />
                   </MobileNativeChatNoticeContext.Provider>
