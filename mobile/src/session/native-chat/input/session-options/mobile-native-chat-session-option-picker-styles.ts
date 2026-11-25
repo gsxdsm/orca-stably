@@ -1,12 +1,17 @@
 import { colors, spacing, typography } from '../../../../theme/mobile-theme'
 import { themedStyleSheet } from '../../../../theme/themed-styles'
 import { LIST_ROW_PADDING } from '../../../../components/list/ListGroup'
+import { COMPOSER_CONTROL_SIZE } from '../../../../components/composer-input/composer-input-styles'
 
 export const sessionOptionPickerStyles = themedStyleSheet(() => ({
-  // The action row's only shrinkable item: a long label truncates before it pushes Send off.
+  // Far above the usage meter's 1, so a long label truncates before the meter gives way.
   pillSlot: {
-    flexShrink: 1,
+    flexShrink: 100,
     minWidth: 0
+  },
+  // A labelled pill keeps its icon and a few letters.
+  labelledPillSlot: {
+    minWidth: 2 * COMPOSER_CONTROL_SIZE
   },
   sheet: {
     paddingBottom: spacing.xs
