@@ -78,6 +78,8 @@ export type UsageWindowEntry = UsageWindowSlot<RateLimitWindow>
 export type AgentUsage = {
   provider: UsageProviderKey
   windows: UsageWindowEntry[]
+  /** The host's note on this reading, e.g. that no window has usage yet. */
+  notice?: string | null
 }
 
 export function usageProviderForAgent(agent: string | null | undefined): UsageProviderKey | null {
@@ -117,7 +119,7 @@ export function selectProviderUsage(
   }
   const limits = readProviderLimits(snapshot, provider)
   const windows = limits ? listUsageWindows(limits) : []
-  return windows.length > 0 ? { provider, windows } : null
+  return windows.length > 0 ? { provider, windows, notice: limits?.notice ?? null } : null
 }
 
 const UsageHistoryCarrierSchema = z.object({ usageHistory: z.unknown().optional() })
