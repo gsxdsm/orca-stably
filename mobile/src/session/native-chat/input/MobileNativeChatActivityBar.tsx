@@ -20,6 +20,7 @@ import {
   useMobileDismissedSubagents,
   type MobileDismissedSubagentScope
 } from './use-mobile-dismissed-subagents'
+import { FORK_SUBAGENT_PILLS_ENABLED } from '../../../../../src/shared/fork-subagent-pills-flag'
 
 export function MobileNativeChatActivityBar({
   list,
@@ -46,7 +47,9 @@ export function MobileNativeChatActivityBar({
   const [tasksOpen, setTasksOpen] = useState(false)
   const [subagentsOpen, setSubagentsOpen] = useState(false)
   const listed = nativeChatListedSubagents(subagents)
-  const { visible, dismiss } = useMobileDismissedSubagents(dismissalScope, listed)
+  const dismissed = useMobileDismissedSubagents(dismissalScope, listed)
+  const { dismiss } = dismissed
+  const visible = FORK_SUBAGENT_PILLS_ENABLED ? dismissed.visible : []
   useEffect(() => {
     if (visible.length === 0) {
       setSubagentsOpen(false)
