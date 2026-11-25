@@ -11,6 +11,8 @@ export const DUO_RAIL_CONTROL_SIZE = 44
  */
 export const DUO_STATUS_GLYPH_FROM_EDGE = 29.33
 export const DUO_STATUS_GLYPH_SIZE = 37
+/** The Wi-Fi/battery ring that glyph draws: 41pt across, 3.5pt stroke, measured on the iOS 27.1 simulator. */
+export const DUO_STATUS_RING_DIAMETER = 41
 
 const STATUS_ROW_CENTER_FROM_EDGE = DUO_STATUS_GLYPH_FROM_EDGE + DUO_STATUS_GLYPH_SIZE / 2
 

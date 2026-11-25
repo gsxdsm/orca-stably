@@ -13,7 +13,7 @@ import { computeUsagePace, usagePaceMarkerPercent } from '../composer-usage/usag
 import { MiniMaxIcon, OpenCodeGoIcon } from '../components/icons/AgentIcons'
 import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { DUO_STATUS_GLYPH_SIZE } from '../layout/duo-status-row'
+import { DUO_STATUS_RING_DIAMETER } from '../layout/duo-status-row'
 import { colors, feedback } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
@@ -26,17 +26,15 @@ import {
   type RailUsageTone
 } from './rail-usage-model'
 
-// The iOS status glyph draws a 37pt ring with a 3.5pt stroke; larger rings keep its proportions, capped so the arc stays light.
-const GLYPH_RING_STROKE = 3.5
-const MAX_STROKE = 5
-
-function ringGeometry(diameter: number) {
-  const stroke = Math.min(MAX_STROKE, (GLYPH_RING_STROKE * diameter) / DUO_STATUS_GLYPH_SIZE)
-  const center = diameter / 2
-  // Room inside the box for the pace tick, which crosses the arc.
-  const radius = center - stroke
-  return { stroke, center, radius, glyph: Math.round(diameter * 0.36) }
-}
+// The same ring as the iOS status glyph above it.
+const SIZE = DUO_STATUS_RING_DIAMETER
+const STROKE = 3.5
+const CENTER = SIZE / 2
+const RADIUS = (SIZE - STROKE) / 2
+const GLYPH_SIZE = 13
+// The pace tick crosses the stroke and stops at the ring's edge.
+const TICK_INNER = RADIUS - STROKE / 2 - 1
+const TICK_OUTER = RADIUS + STROKE / 2
 
 function toneColor(tone: RailUsageTone, used: number): string {
   switch (tone) {
@@ -73,12 +71,10 @@ export function RailUsageProviderGlyph({
 export function RailUsageRing({
   usage,
   now,
-  diameter,
   onPress
 }: {
   usage: AgentUsage
   now: number
-  diameter: number
   onPress: () => void
 }): React.JSX.Element | null {
   useMobileColorScheme()
@@ -97,10 +93,9 @@ export function RailUsageRing({
     window: formatUsageWindowLength(entry.window.windowMinutes),
     percent: readout.shown
   }
-  const { stroke, center, radius, glyph } = ringGeometry(diameter)
   const tick = marker === null ? null : marker / 100
-  const tickInner = tick === null ? null : railRingPoint(center, radius - stroke, tick)
-  const tickOuter = tick === null ? null : railRingPoint(center, radius + stroke, tick)
+  const tickInner = tick === null ? null : railRingPoint(CENTER, TICK_INNER, tick)
+  const tickOuter = tick === null ? null : railRingPoint(CENTER, TICK_OUTER, tick)
   return (
     <Pressable
       accessibilityRole="button"
@@ -117,47 +112,49 @@ export function RailUsageRing({
               vars
             )
       }
-      hitSlop={{ left: 4, right: 4, top: 4, bottom: 4 }}
+      hitSlop={{ left: 8, right: 8, top: 8, bottom: 8 }}
       onPress={onPress}
-      style={({ pressed }) => [styles.item, { width: diameter }, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.ring, pressed && styles.pressed]}
       testID={`rail-usage-ring-${usage.provider}`}
     >
-      <Text style={styles.percent} numberOfLines={1} allowFontScaling={false}>
-        {readout.shown}
-      </Text>
-      <View style={[styles.ring, { width: diameter, height: diameter }]}>
-        <Svg width={diameter} height={diameter} style={styles.arc}>
+      <Svg width={SIZE} height={SIZE} style={styles.arc}>
+        <Path
+          d={railRingArc(CENTER, RADIUS, 0, 1)}
+          stroke={colors.translucentFill}
+          strokeWidth={STROKE}
+          strokeLinecap="round"
+          fill="none"
+        />
+        {readout.shown > 0 ? (
           <Path
-            d={railRingArc(center, radius, 0, 1)}
-            stroke={colors.translucentFill}
-            strokeWidth={stroke}
+            d={railRingArc(CENTER, RADIUS, 0, readout.shown / 100)}
+            stroke={fill}
+            strokeWidth={STROKE}
             strokeLinecap="round"
             fill="none"
           />
-          {readout.shown > 0 ? (
-            <Path
-              d={railRingArc(center, radius, 0, readout.shown / 100)}
-              stroke={fill}
-              strokeWidth={stroke}
-              strokeLinecap="round"
-              fill="none"
-            />
-          ) : null}
-          {tickInner && tickOuter ? (
-            <Line
-              x1={tickInner.x}
-              y1={tickInner.y}
-              x2={tickOuter.x}
-              y2={tickOuter.y}
-              stroke={colors.textSecondary}
-              strokeWidth={1.5}
-              strokeLinecap="round"
-            />
-          ) : null}
-        </Svg>
-        <RailUsageProviderGlyph provider={usage.provider} size={glyph} />
+        ) : null}
+        {tickInner && tickOuter ? (
+          <Line
+            x1={tickInner.x}
+            y1={tickInner.y}
+            x2={tickOuter.x}
+            y2={tickOuter.y}
+            stroke={colors.textSecondary}
+            strokeWidth={1.25}
+            strokeLinecap="round"
+          />
+        ) : null}
+      </Svg>
+      <View style={styles.inside} pointerEvents="none">
+        <RailUsageProviderGlyph provider={usage.provider} size={GLYPH_SIZE} />
         <Text style={styles.window} numberOfLines={1} allowFontScaling={false}>
           {vars.window}
+        </Text>
+      </View>
+      <View style={[styles.labelRow, styles.percentRow]} pointerEvents="none">
+        <Text style={styles.percent} numberOfLines={1} allowFontScaling={false}>
+          {readout.shown}
         </Text>
       </View>
     </Pressable>
@@ -165,34 +162,45 @@ export function RailUsageRing({
 }
 
 const styles = themedStyleSheet(() => ({
-  // Number above the ring, glyph and window inside it, as the status glyph shows its battery.
-  item: {
+  ring: {
+    width: SIZE,
+    height: SIZE,
     alignItems: 'center',
-    gap: 2
+    justifyContent: 'center'
   },
   pressed: {
     opacity: feedback.pressedOpacity
-  },
-  ring: {
-    alignItems: 'center',
-    justifyContent: 'center'
   },
   arc: {
     position: 'absolute',
     top: 0,
     left: 0
   },
+  labelRow: {
+    position: 'absolute',
+    left: -6,
+    right: -6,
+    alignItems: 'center'
+  },
+  // Logo over window label, a little above centre so the label clears the percent below.
+  inside: {
+    alignItems: 'center',
+    marginTop: -6
+  },
+  // Centred on the ring's bottom edge, in the opening the arc leaves.
+  percentRow: {
+    top: SIZE - STROKE / 2 - 6
+  },
   percent: {
-    fontSize: 13,
-    lineHeight: 16,
+    fontSize: 10,
+    lineHeight: 12,
     fontWeight: '700',
     color: colors.textPrimary,
     fontVariant: ['tabular-nums']
   },
   window: {
-    marginTop: 1,
-    fontSize: 10,
-    lineHeight: 12,
+    fontSize: 8,
+    lineHeight: 9,
     fontWeight: '600',
     color: colors.textSecondary,
     fontVariant: ['tabular-nums']

@@ -10,11 +10,11 @@ import { useNow } from '../hooks/use-now'
 import { spacing } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useHostClient } from '../transport/connection/host-client-hooks'
-import { DUO_STATUS_GLYPH_SIZE, duoStatusGlyphMidX } from '../layout/duo-status-row'
+import { DUO_STATUS_RING_DIAMETER, duoStatusGlyphMidX } from '../layout/duo-status-row'
 import { useReservedRegions } from '../layout/reserved-regions'
 import { useSideRailStrip } from '../layout/side-rail'
 import type { SideRailStrip } from '../layout/side-rail-strip'
-import { listRailUsage, railRingColumn } from './rail-usage-model'
+import { listRailUsage, railRingCenter } from './rail-usage-model'
 import { RailUsageRing } from './RailUsageRing'
 
 /** The host's usage rings for the Duo side rail; empty until it reports a provider. */
@@ -23,18 +23,17 @@ export function HostRailUsageStack({ hostId }: { hostId: string }): React.JSX.El
   return <RailUsageStack snapshot={useAccountsSnapshot(client)} />
 }
 
-/** The rings' axis and size: the status glyph's axis, as wide as the strip allows around it. */
-function useRailRingColumn(strip: SideRailStrip | null): { center: number; diameter: number } {
+/** The rings' axis: the status glyph's, so each ring sits under it. */
+function useRailRingCenter(strip: SideRailStrip | null): number {
   const { width, height } = useWindowDimensions()
   const { occlusions } = useReservedRegions()
   if (strip === null) {
-    return { center: 0, diameter: DUO_STATUS_GLYPH_SIZE }
+    return 0
   }
-  return railRingColumn({
+  return railRingCenter({
     strip,
     windowWidth: width,
-    glyphMidX: duoStatusGlyphMidX({ windowWidth: width, windowHeight: height, strip, occlusions }),
-    minDiameter: DUO_STATUS_GLYPH_SIZE
+    glyphMidX: duoStatusGlyphMidX({ windowWidth: width, windowHeight: height, strip, occlusions })
   })
 }
 
@@ -50,7 +49,7 @@ export function RailUsageStack({
   // Kept after close so the sheet slides out still showing what it showed.
   const [shown, setShown] = useState<UsageProviderKey | null>(null)
   const strip = useSideRailStrip()
-  const column = useRailRingColumn(strip)
+  const center = useRailRingCenter(strip)
   if (usages.length === 0 || strip === null) {
     return null
   }
@@ -65,7 +64,7 @@ export function RailUsageStack({
         style={styles.scroll}
         contentContainerStyle={[
           styles.column,
-          { paddingLeft: column.center - column.diameter / 2 }
+          { paddingLeft: center - DUO_STATUS_RING_DIAMETER / 2 }
         ]}
         showsVerticalScrollIndicator={false}
         testID="rail-usage-stack"
@@ -75,7 +74,6 @@ export function RailUsageStack({
             key={usage.provider}
             usage={usage}
             now={now}
-            diameter={column.diameter}
             onPress={() => open(usage.provider)}
           />
         ))}
@@ -116,7 +114,7 @@ const styles = themedStyleSheet(() => ({
   // Every ring starts at the same inset, so all share the status glyph's axis; the padding is set inline.
   column: {
     alignItems: 'flex-start',
-    gap: spacing.lg,
+    gap: spacing.md,
     paddingTop: spacing.md,
     paddingBottom: spacing.lg
   },
