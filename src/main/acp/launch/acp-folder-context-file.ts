@@ -68,6 +68,7 @@ export async function writeFolderContextFile(
     await mkdir(dirname(target), { recursive: true })
   }
   await replaceWhole(target, withOrcaText(existing, text, agentName))
+  return true
 }
 
 /** Takes Orca's text back out of `cwd`'s `path`: deletes a file Orca wrote for `agentName`, or
@@ -100,7 +101,6 @@ async function replaceWhole(target: string, content: string): Promise<void> {
   try {
     await writeFile(staged, content, { mode: 0o600 })
     await rename(staged, target)
-    return true
   } catch (error) {
     await rm(staged, { force: true }).catch(() => undefined)
     throw error
