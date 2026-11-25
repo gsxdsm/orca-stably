@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { Text, View } from 'react-native'
 import { formatUsageBarValue } from '../accounts/usage/UsageBar'
 import type { AccountsSnapshot } from '../accounts/accounts-snapshot'
@@ -9,9 +9,9 @@ import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { colors, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { listRailUsage } from '../rail-usage/rail-usage-model'
 import { usageProviderTabLogo } from '../rail-usage/RailUsageRing'
 import {
-  listProviderUsages,
   pickComposerUsageWindow,
   readUsageWindowHistory,
   USAGE_PROVIDER_NAMES,
@@ -29,22 +29,16 @@ import { ComposerUsageWindowPicker } from './ComposerUsageWindowPicker'
 type Props = {
   visible: boolean
   onClose: () => void
+  /** Selected each time the sheet opens: the tapped rail ring's or the session's provider. */
   usage: AgentUsage
-  /** Absent: only `usage`'s provider, with no history graph. */
-  snapshot?: AccountsSnapshot | null
+  /** Every provider's windows for the tabs, and the history the graph draws. */
+  snapshot: AccountsSnapshot | null
   spanSideStrip: boolean
-  /** Above the title, e.g. the Duo rail's provider tabs. */
-  header?: ReactNode
 }
 
-export function ComposerUsageSheet({
-  visible,
-  onClose,
-  usage,
-  snapshot = null,
-  spanSideStrip,
-  header
-}: Props) {
+/** The one usage pop-up, opened from the composer usage bar and from the Duo rail's usage rings. */
+
+export function ComposerUsageSheet({ visible, onClose, usage, snapshot, spanSideStrip }: Props) {
   useMobileColorScheme()
   const t = useMobileTranslation()
   const now = useNow(30_000, visible)
@@ -52,7 +46,16 @@ export function ComposerUsageSheet({
   const choice = useComposerUsageWindow()
   const [providerKey, setProviderKey] = useState<UsageProviderKey>(usage.provider)
   const [windowId, setWindowId] = useState<string | null>(null)
-  const providers = listProviderUsages(snapshot, usage.provider)
+  // The sheet stays mounted between opens, so each open reselects its entry point's provider.
+  const [wasVisible, setWasVisible] = useState(visible)
+  if (visible !== wasVisible) {
+    setWasVisible(visible)
+    if (visible) {
+      setProviderKey(usage.provider)
+      setWindowId(null)
+    }
+  }
+  const providers = listRailUsage(snapshot)
   const active = providers.find((entry) => entry.provider === providerKey) ?? usage
   const entry =
     active.windows.find((window) => window.id === windowId) ??
@@ -62,13 +65,34 @@ export function ComposerUsageSheet({
   return (
     <BottomDrawer visible={visible} onClose={onClose} spanReleasedSide={spanSideStrip}>
       <View testID="composer-usage-sheet">
-        {header}
+        {providers.length > 1 ? (
+          <MobileSegmentedControl<UsageProviderKey>
+            tabs
+            onSheet
+            scrollWhenCrowded
+            segments={providers.map((provider) => {
+              const logo = usageProviderTabLogo(provider.provider)
+              const name = USAGE_PROVIDER_NAMES[provider.provider]
+              return {
+                value: provider.provider,
+                label: logo ? '' : name,
+                icon: logo,
+                accessibilityLabel: name
+              }
+            })}
+            selected={active.provider}
+            onSelect={(value) => {
+              setProviderKey(value)
+              setWindowId(null)
+            }}
+            testIDPrefix="usage-provider-tab-"
+            style={styles.providerTabs}
+          />
+        ) : null}
         <Text style={styles.heading}>
-          {providers.length > 1
-            ? t('composerUsage.sheet.titleAll', 'Usage')
-            : t('composerUsage.sheet.title', '{{provider}} usage', {
-                provider: USAGE_PROVIDER_NAMES[active.provider]
-              })}
+          {t('composerUsage.sheet.title', '{{provider}} usage', {
+            provider: USAGE_PROVIDER_NAMES[active.provider]
+          })}
         </Text>
         <Text style={styles.subtitle}>
           {t(
@@ -76,48 +100,21 @@ export function ComposerUsageSheet({
             'Pace compares what you have used with an even burn across each window.'
           )}
         </Text>
-        <View style={styles.tabs}>
-          {providers.length > 1 ? (
-            <MobileSegmentedControl<UsageProviderKey>
-              tabs
-              onSheet
-              scrollWhenCrowded
-              segments={providers.map((provider) => {
-                const shown = pickComposerUsageWindow(provider.windows, choice)
-                const name = USAGE_PROVIDER_NAMES[provider.provider]
-                const logo = usageProviderTabLogo(provider.provider)
-                const used = shown ? percent(shown.window.usedPercent) : ''
-                return {
-                  value: provider.provider,
-                  label: logo ? used : `${name} ${used}`.trim(),
-                  icon: logo,
-                  accessibilityLabel: shown ? `${name} ${used}` : name
-                }
-              })}
-              selected={active.provider}
-              onSelect={(value) => {
-                setProviderKey(value)
-                setWindowId(null)
-              }}
-              testIDPrefix="composer-usage-provider-"
-            />
-          ) : null}
-          {active.windows.length > 1 ? (
-            <MobileSegmentedControl<string>
-              tabs
-              onSheet
-              scrollWhenCrowded
-              segments={active.windows.map((window) => ({
-                value: window.id,
-                label: `${windowTitle(window, t)} ${percent(window.window.usedPercent)}`,
-                accessibilityLabel: windowTitle(window, t)
-              }))}
-              selected={entry?.id}
-              onSelect={setWindowId}
-              testIDPrefix="composer-usage-tab-"
-            />
-          ) : null}
-        </View>
+        {active.windows.length > 1 ? (
+          <MobileSegmentedControl<string>
+            tabs
+            onSheet
+            scrollWhenCrowded
+            segments={active.windows.map((window) => ({
+              value: window.id,
+              label: `${windowTitle(window, t)} ${percent(window.window.usedPercent)}`,
+              accessibilityLabel: windowTitle(window, t)
+            }))}
+            selected={entry?.id}
+            onSelect={setWindowId}
+            testIDPrefix="composer-usage-tab-"
+          />
+        ) : null}
         {entry ? (
           <ComposerUsageWindowDetail
             key={`${active.provider}:${entry.id}`}
@@ -146,7 +143,7 @@ const styles = themedStyleSheet(() => ({
     marginTop: spacing.xs,
     marginBottom: spacing.sm
   },
-  tabs: {
-    gap: spacing.sm
+  providerTabs: {
+    marginBottom: spacing.md
   }
 }))

@@ -8634,8 +8634,7 @@
     },
     "sheet": {
       "title": "{{provider}} usage",
-      "description": "Pace compares what you have used with an even burn across each window.",
-      "titleAll": "Usage"
+      "description": "Pace compares what you have used with an even burn across each window."
     },
     "window": {
       "sessionTitle": "{{length}} session",
