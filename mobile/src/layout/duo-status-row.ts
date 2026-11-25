@@ -71,6 +71,22 @@ function statusGlyph(
   return mark
 }
 
+function glyphCenter(column: ReservedRect, occlusions: readonly ReservedRect[]): number | null {
+  const mark = statusGlyph(column, occlusions)
+  return mark === null ? null : mark.y + mark.height / 2
+}
+
+/** Vertical center of the battery, wifi and Control Center row, in window points. */
+export function duoStatusRowCenter(args: RowArgs): number {
+  const column = statusColumn(args)
+  const measured = column === null ? null : glyphCenter(column, args.occlusions)
+  if (measured !== null) {
+    return measured
+  }
+  const fromTop = column !== null ? column.y <= 1 : args.strip.top > 1
+  return fromTop ? STATUS_ROW_CENTER_FROM_EDGE : args.windowHeight - STATUS_ROW_CENTER_FROM_EDGE
+}
+
 /**
  * Below the reported status occlusion, on the status cluster's midX.
  * The full control stays inside the column. A bottom column clears upward.

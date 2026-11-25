@@ -8,18 +8,20 @@ import {
   useState,
   type ReactNode
 } from 'react'
-import { StyleSheet, View, useWindowDimensions } from 'react-native'
+import { StyleSheet, View, useWindowDimensions, type HostInstance } from 'react-native'
 import type { DuoRailJumpFrames } from '../layout/duo-status-row'
 import { useReservedRegions } from '../layout/reserved-regions'
 import { getSideRailStrip } from '../layout/side-rail-strip'
 import { useWindowSafeAreaInsets } from '../layout/side-safe-area'
 import { useDuoChatExpanded } from './duo-chat-width'
 import { duoRailJumpPlacement } from './duo-rail-jump'
-import { MobileNativeChatFloatingControls } from './native-chat/MobileNativeChatFloatingControls'
+import { MobileNativeChatFloatingControls } from './native-chat/lower-region/MobileNativeChatFloatingControls'
 
 type JumpActions = {
   showJumpToTail: boolean
   onJumpToTail: () => void
+  showPreviousMessage?: boolean
+  onJumpToPrevious?: (animated: boolean) => void
 }
 
 type JumpContextValue = {
@@ -38,7 +40,12 @@ function sameActions(left: JumpActions | null, right: JumpActions | null): boole
   if (left === null || right === null) {
     return false
   }
-  return left.showJumpToTail === right.showJumpToTail && left.onJumpToTail === right.onJumpToTail
+  return (
+    left.showJumpToTail === right.showJumpToTail &&
+    left.showPreviousMessage === right.showPreviousMessage &&
+    left.onJumpToTail === right.onJumpToTail &&
+    left.onJumpToPrevious === right.onJumpToPrevious
+  )
 }
 
 function useRailFrames(
@@ -109,7 +116,7 @@ export function DuoRailComposerTop({
   children: ReactNode
 }) {
   const report = useContext(DuoRailJumpContext)?.reportComposerTop
-  const ref = useRef<View>(null)
+  const ref = useRef<HostInstance>(null)
   const measure = useCallback(() => {
     ref.current?.measureInWindow((_x, y, _width, height) => {
       if (height > 0) {
@@ -157,7 +164,13 @@ export function MobileNativeChatJumpControls(props: JumpActions) {
   useEffect(() => {
     ctx?.register(props)
     return () => ctx?.register(null)
-  }, [ctx?.register, props.showJumpToTail, props.onJumpToTail])
+  }, [
+    ctx?.register,
+    props.showJumpToTail,
+    props.showPreviousMessage,
+    props.onJumpToTail,
+    props.onJumpToPrevious
+  ])
   if (ctx?.frames != null) {
     return null
   }
