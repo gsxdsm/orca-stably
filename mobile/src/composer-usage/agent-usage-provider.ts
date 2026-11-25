@@ -141,7 +141,8 @@ export function readUsageWindowHistory(
     return []
   }
   const series = parseUsageHistory(carrier.data.usageHistory)[usageHistoryKey(provider, windowId)]
-  return series ? series.samples.toSorted((a, b) => a.at - b.at) : []
+  // The phone's Hermes engine lacks toSorted.
+  return series ? [...series.samples].sort((a, b) => a.at - b.at) : []
 }
 
 // Fall back to the other standard window, then whatever the provider reports (monthly-only plans).
