@@ -25,11 +25,11 @@ import {
   publishPageStorage,
   refreshPageTerminalSettings
 } from '../src/mobile-web-shell/bridge/page-storage/page-async-storage'
+import { applyStoredDuoChatExpanded, DUO_CHAT_EXPANDED_KEY } from '../src/session/duo-chat-width'
 import {
   createPageDeviceStore,
   publishPageDeviceStore
 } from '../src/mobile-web-shell/bridge/page-storage/page-device-store'
-import { applyStoredDuoChatExpanded, DUO_CHAT_EXPANDED_KEY } from '../src/session/duo-chat-width'
 import {
   RouteScreenPaintProvider,
   createRouteScreenPaintReporter

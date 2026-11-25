@@ -87,6 +87,14 @@ export const composerInputStyles = themedStyleSheet(() => ({
     ...noOwnRing,
     minHeight: FORM_MESSAGE_MIN_HEIGHT
   },
+  // Only bars floating over content cast a shadow; an inline box would shade its own thread.
+  docked: {
+    shadowColor: '#000',
+    shadowOpacity: 0.45,
+    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8
+  },
   messageText: {
     width: '100%',
     minHeight: MESSAGE_MIN_HEIGHT,

@@ -1,4 +1,4 @@
-import { TERMINAL_SETTINGS_STORAGE_KEYS } from '../../page-storage/page-storage-keys'
+import { LIVE_PAGE_STORAGE_KEYS } from '../../page-storage/page-storage-keys'
 import { readShellSession, type BridgeShellSession } from './bridge-client-session'
 import { bridgeRouteMoved } from '../page-lifecycle/bridge-route-update'
 import {
@@ -120,13 +120,13 @@ export function createBridgeClientShellSession(args: {
       const storageOversize = refreshSettings
         ? [
             ...update.storageOversize.filter(
-              (key) => !TERMINAL_SETTINGS_STORAGE_KEYS.some((item) => item === key)
+              (key) => !LIVE_PAGE_STORAGE_KEYS.some((item) => item === key)
             ),
-            ...TERMINAL_SETTINGS_STORAGE_KEYS.filter((key) => sentOversize.includes(key))
+            ...LIVE_PAGE_STORAGE_KEYS.filter((key) => sentOversize.includes(key))
           ]
         : update?.storageOversize
       if (refreshSettings && storage) {
-        for (const key of TERMINAL_SETTINGS_STORAGE_KEYS) {
+        for (const key of LIVE_PAGE_STORAGE_KEYS) {
           if (sentStorage[key] === undefined) {
             delete storage[key]
           } else {

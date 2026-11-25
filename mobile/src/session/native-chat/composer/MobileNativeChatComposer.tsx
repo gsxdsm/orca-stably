@@ -40,7 +40,6 @@ import type { MobileNativeChatComposerProps } from './mobile-native-chat-compose
 import { MobileNativeChatMcpTray } from '../mcp/MobileNativeChatMcpTray'
 import { MobileNativeChatQuoteTab } from './quotes/MobileNativeChatQuoteTab'
 import { MobileNativeChatWidthToggle } from './MobileNativeChatWidthToggle'
-export type { MobileNativeChatStructuredComposer } from './commands/mobile-native-chat-structured-composer'
 
 const NO_FILE_PATHS: string[] = []
 const NO_ATTACHMENTS: PendingNativeChatImage[] = []
@@ -361,8 +360,8 @@ export function MobileNativeChatComposer({
               ) : null}
               <MobileNativeChatComposerPlanChip options={sessionOptions} inputRef={fieldRef} />
               {goal.chip}
-              {widthToggle ? <MobileNativeChatWidthToggle {...widthToggle} /> : null}
             </MobileNativeChatDictationLeading>
+            {widthToggle ? <MobileNativeChatWidthToggle {...widthToggle} /> : null}
             {onMicPress ? (
               <MobileNativeChatComposerMic
                 {...{ onMicPress, micActive, micStarting, micProcessing, dictationMode }}

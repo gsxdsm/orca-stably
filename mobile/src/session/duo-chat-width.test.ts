@@ -1,4 +1,4 @@
-import { createElement, Fragment } from 'react'
+import { createElement, Fragment, type ReactElement } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DUO_CHAT_EXPANDED_KEY } from './duo-chat-width'
@@ -55,7 +55,7 @@ async function load(): Promise<WidthModule> {
 }
 
 async function mount(pref: WidthModule): Promise<{ read: () => readonly boolean[] }> {
-  const held: { values: boolean[] } = { values: [] }
+  const held = { values: [] as boolean[] }
   function First(): null {
     held.values[0] = pref.useDuoChatExpanded()
     return null
@@ -69,7 +69,9 @@ async function mount(pref: WidthModule): Promise<{ read: () => readonly boolean[
     renderer = create(createElement(First))
   })
   await act(async () => {
-    renderer.update(createElement(Fragment, null, createElement(First), createElement(Second)))
+    renderer.update(
+      createElement(Fragment, null, createElement(First), createElement(Second)) as ReactElement
+    )
     await Promise.resolve()
   })
   unmount = () => act(() => renderer.unmount())

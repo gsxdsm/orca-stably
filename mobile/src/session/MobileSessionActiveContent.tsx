@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the active-content switch keeps every surface's props wiring in one place. */
 import { MobileSessionBotIdentity } from './native-chat/MobileSessionBotIdentity'
 import { MobileBotCardHostProvider } from './native-chat/transcript/bot-cards/MobileBotCardHostProvider'
 import { nativeChatTerminalRunner } from './native-chat/native-chat-terminal-runner'
@@ -7,8 +8,7 @@ import {
   terminalPaneDirection,
   terminalPaneKeyboardLayout
 } from '../terminal/session/pane-layout/mobile-terminal-pane-layout'
-import { View, StyleSheet } from 'react-native'
-import { MobileSessionPendingTerminalState } from './MobileSessionPendingTerminalState'
+import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native'
 import {
   sideStripMargin,
   sideStripOffset,
@@ -24,6 +24,7 @@ import { MobileNativeChatForkProvider } from './MobileNativeChatForkProvider'
 import { useMobileAgentMessageNavigation } from './use-mobile-agent-message-navigation'
 import { MobileNativeChatDictationPreviewContext } from './native-chat/composer/dictation/mobile-native-chat-dictation-preview-context'
 import { resolveMobileNativeChatSessionId } from './native-chat/conversation/mobile-native-chat-eligibility'
+import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { styles } from './mobile-session-styles'
@@ -257,13 +258,39 @@ export function MobileSessionActiveContent({
         {toast}
       </View>
     ) : activePendingTerminalTab ? (
-      <MobileSessionPendingTerminalState
-        title={activePendingTerminalTab.title}
-        parked={isPendingTerminalRecoveryParked}
-        onRetry={() => void retryPendingTerminalRecovery()}
-      />
+      <View style={styles.emptyState}>
+        {!isPendingTerminalRecoveryParked && (
+          <ActivityIndicator size="small" color={colors.textSecondary} />
+        )}
+        <Text style={styles.emptyText}>
+          {isPendingTerminalRecoveryParked
+            ? t(
+                'session.activeContent.terminalTakingLonger',
+                'Terminal is taking longer than expected'
+              )
+            : activePendingTerminalTab.title ||
+              t('session.activeContent.loadingTerminal', 'Loading terminal')}
+        </Text>
+        {isPendingTerminalRecoveryParked && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(
+              'session.activeContent.retryLoadingTerminal',
+              'Retry loading terminal'
+            )}
+            style={({ pressed }) => [
+              styles.createButton,
+              pressed && styles.newTerminalButtonPressed
+            ]}
+            onPress={() => void retryPendingTerminalRecovery()}
+          >
+            <Text style={styles.createButtonText}>{t('common.retry', 'Retry')}</Text>
+          </Pressable>
+        )}
+      </View>
     ) : (
       <View style={styles.terminalFrame}>
+        {/* Terminals keep clear of a released strip; the chat overlay below fills it. */}
         <View style={[StyleSheet.absoluteFill, sideStripOffset(stripInset)]}>
           <MountedTerminalPanes terminals={terminals} visibleHandles={visibleTerminalHandles}>
             {(terminal) => (

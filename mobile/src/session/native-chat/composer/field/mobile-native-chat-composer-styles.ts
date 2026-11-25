@@ -15,13 +15,13 @@ const composerInset = {
 
 export const mobileNativeChatComposerStyles = themedStyleSheet(() => ({
   composerInset,
-
   // Bottom margin matches the sides, so the box sits evenly in the screen's corners.
-  composerInsetCornerFit: { ...composerInset, paddingHorizontal: 10, paddingBottom: 10 },
-  bar: composerInputStyles.box,
+  composerInsetCornerFit: { ...composerInset, paddingBottom: 10 },
+  bar: { ...composerInputStyles.box, ...composerInputStyles.docked },
   // Wider bottom corners stay concentric with the rounded screen instead of poking into it.
   barCornerFit: {
     ...composerInputStyles.box,
+    ...composerInputStyles.docked,
     borderBottomLeftRadius: 34,
     borderBottomRightRadius: 34,
     paddingBottom: 14

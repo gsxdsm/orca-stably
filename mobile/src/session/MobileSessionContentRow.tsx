@@ -34,8 +34,8 @@ export function MobileSessionContentRow({ controller }: { controller: MobileSess
     cancelDictation,
     handleSessionContentRowLayout
   } = controller
-  const strip = useSessionSideStripInset(canDockPanel && activePanel !== null)
   const dictationLive = useMobileDictationLive(dictation, cancelDictation, hostId)
+  const strip = useSessionSideStripInset(canDockPanel && activePanel !== null)
   return (
     <View
       style={[styles.sessionContentRow, sideStripPadding(strip.row)]}
