@@ -24,6 +24,7 @@ import type { NativeChatMessage } from '../../../../../../src/shared/native-chat
 import type { MobileNativeChatRowKeys } from '../projection/mobile-native-chat-row-keys'
 import { MobileNativeChatPageScroll } from './MobileNativeChatPageScroll'
 import type { MobileNativeChatPinchAnchor } from './mobile-native-chat-pinch-anchor'
+import { guardMobileNativeChatAgainstPageZoom } from './mobile-native-chat-page-zoom-guard'
 import {
   DRAW_AHEAD_SCREENS,
   mobileNativeChatRowAbove,
@@ -318,7 +319,11 @@ export function MobileNativeChatPageList({
 
   useEffect(() => {
     pinchAnchor?.bindScroller(scroller)
-    return () => pinchAnchor?.bindScroller(null)
+    const unguard = guardMobileNativeChatAgainstPageZoom(scroller())
+    return () => {
+      unguard()
+      pinchAnchor?.bindScroller(null)
+    }
   }, [pinchAnchor, scroller])
 
   const drawnHead = useRef<string | undefined>(undefined)

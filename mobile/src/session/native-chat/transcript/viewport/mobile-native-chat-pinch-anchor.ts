@@ -26,9 +26,7 @@ function elementAtPage(
 
 // Web pinch anchor: the text under the fingers stays put as each live text size rewraps the transcript.
 export type MobileNativeChatPinchAnchor = {
-  /** Ref for the transcript box the pinch's focal point is measured from; only DOM nodes (web) take part. */
-  attach: (node: unknown) => void
-  /** The transcript's scroller, read before each resize to find the text under the pinch. */
+  /** The transcript's scroller: the pinch's focal point is measured from it, and the text under it read before each resize. */
   bindScroller: (scroller: (() => MobileNativeChatScrollNode | null) | null) => void
   begin: (focalX: number, focalY: number) => void
   /** Reads the point under the pinch from the current layout; call just before a new size renders. */
@@ -38,38 +36,25 @@ export type MobileNativeChatPinchAnchor = {
   settle: () => (() => number) | null
 }
 
-type BoxNode = { getBoundingClientRect: () => { top: number; left: number } }
-
-function isBoxNode(node: unknown): node is BoxNode {
-  return (
-    typeof node === 'object' &&
-    node !== null &&
-    'getBoundingClientRect' in node &&
-    typeof node.getBoundingClientRect === 'function'
-  )
-}
-
 export function createMobileNativeChatPinchAnchor(): MobileNativeChatPinchAnchor {
-  let node: BoxNode | null = null
   let scroller: (() => MobileNativeChatScrollNode | null) | null = null
   let pageX = 0
   let pageY: number | null = null
   let anchor: Anchor | null = null
   return {
-    attach: (next) => {
-      node = isBoxNode(next) ? next : null
-    },
     bindScroller: (next) => {
       scroller = next
     },
     begin: (focalX, focalY) => {
       anchor = null
-      if (!node) {
+      // The gesture handler sits on the scroller itself, so its focal point is relative to it.
+      const s = scroller?.()
+      if (!s) {
         pageY = null
         return
       }
-      const box = node.getBoundingClientRect()
-      pageX = box.left + focalX
+      const box = s.getBoundingClientRect()
+      pageX = ('left' in box && typeof box.left === 'number' ? box.left : 0) + focalX
       pageY = box.top + focalY
     },
     mark: () => {
