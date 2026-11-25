@@ -7,7 +7,9 @@ import { deliverMuseBotInstructions } from './muse-bot-instructions'
 export const MUSE_LAUNCH_SPEC: AcpLaunchSpec = {
   agent: 'muse',
   command: 'muse',
-  args: () => ['acp'],
+  // Full access lifts Muse's sandbox too, as Codex's does; under `allowAll` alone every
+  // escalation is refused, since its approval prompts are off.
+  args: ({ fullAccess }) => (fullAccess ? ['acp', '--disable-sandbox'] : ['acp']),
   env: {},
   dialect: { clientCapabilities: { elicitation: { form: {} } } },
   loginCommand: agentSessionSetupFor('muse')?.loginCommand ?? [],
@@ -17,7 +19,10 @@ export const MUSE_LAUNCH_SPEC: AcpLaunchSpec = {
   ),
   installDirectories: ({ homePath }) => [join(homePath, '.local', 'bin')],
   minimumVersions: ['1.4.25'],
-  permissionModeConfig: { values: { ask: 'promptUnmatched', 'full-access': 'allowAll' } },
+  permissionModeConfig: {
+    values: { ask: 'promptUnmatched', 'full-access': 'allowAll' },
+    fullAccessAtLaunch: true
+  },
   modelDiscovery: {
     kind: 'session',
     listingNamesConfiguredModel: true,
