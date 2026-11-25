@@ -61,6 +61,7 @@ import {
 import { usePageFoldDivision, usePublishedFoldDivision } from './page-geometry/page-fold-division'
 import { usePublishedShellKeyRail, useShellKeyRail } from './terminal-controls/use-shell-key-rail'
 import { useShellUsageRail } from '../rail-usage/use-shell-usage-rail'
+import { sessionOfPageLocation } from '../notifications/delivery-policy/notification-viewing-policy'
 import { hostProfileUnreadableLine, pageFaultLine } from './diagnostics/shell-lifecycle-log'
 import { recordShellLifecycleLine } from './diagnostics/shell-lifecycle-line-recorder'
 
@@ -173,14 +174,14 @@ export function MobileWebShellScreen({
       !overlay &&
       routeGrants.includes(BRIDGE_TERMINAL_KEY_RAIL_GRANT)
   )
-  // Routes that never lend the rail to the page, such as the host screen, show usage in it instead.
-  useShellUsageRail(
-    hostId,
-    shellFocused &&
-      !overlay &&
-      state.kind === 'ready' &&
-      !routeGrants.includes(BRIDGE_TERMINAL_KEY_RAIL_GRANT)
-  )
+  // Where the page reports it is; a host page owning the area opens sessions inside itself.
+  const [pageLocation, setPageLocation] = useState<{ sessionId: string; href: string } | null>(null)
+  const reportedHref = pageLocation?.sessionId === readySessionId ? pageLocation.href : null
+  // The host page owns every route's grants, so it lends the rail only while it shows a session.
+  const lendsRail = ownsHostArea
+    ? reportedHref !== null && sessionOfPageLocation(reportedHref) !== null
+    : routeGrants.includes(BRIDGE_TERMINAL_KEY_RAIL_GRANT)
+  useShellUsageRail(hostId, shellFocused && !overlay && state.kind === 'ready' && !lendsRail)
   const {
     snapshot,
     unreadable,
@@ -310,6 +311,9 @@ export function MobileWebShellScreen({
     // A caller that tracks the location takes it; pages from #34484 desktops report it only for a fold to reopen.
     onPageLocation: (href) => {
       openTarget.recordLocation(href)
+      if (readySessionId !== null) {
+        setPageLocation({ sessionId: readySessionId, href })
+      }
       return onPageLocation === undefined
         ? holdPageLocation(href, ownsHostArea)
         : onPageLocation(href)
