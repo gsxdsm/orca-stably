@@ -95,10 +95,11 @@ export function ComposerUsageSheet({ visible, onClose, usage, snapshot, spanSide
           })}
         </Text>
         <Text style={styles.subtitle}>
-          {t(
-            'composerUsage.sheet.description',
-            'Pace compares what you have used with an even burn across each window.'
-          )}
+          {active.notice ??
+            t(
+              'composerUsage.sheet.description',
+              'Pace compares what you have used with an even burn across each window.'
+            )}
         </Text>
         {active.windows.length > 1 ? (
           <MobileSegmentedControl<string>
