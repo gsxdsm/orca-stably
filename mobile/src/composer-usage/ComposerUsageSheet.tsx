@@ -7,6 +7,7 @@ import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { USAGE_PROVIDER_NAMES, type AgentUsage } from './agent-usage-provider'
 import { ComposerUsageDisplayPicker } from './ComposerUsageDisplayPicker'
+import { ComposerUsagePositionPicker } from './ComposerUsagePositionPicker'
 import { ComposerUsageWindowPicker } from './ComposerUsageWindowPicker'
 import { ComposerUsageWindowRow } from './ComposerUsageWindowRow'
 
@@ -35,6 +36,7 @@ export function ComposerUsageSheet({ visible, onClose, usage, spanSideStrip }: P
         ))}
         <ComposerUsageWindowPicker windows={usage.windows} />
         <ComposerUsageDisplayPicker />
+        <ComposerUsagePositionPicker />
       </View>
     </BottomDrawer>
   )

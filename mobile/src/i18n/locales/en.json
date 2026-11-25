@@ -8638,6 +8638,13 @@
       "label": "Show in composer",
       "session": "5-hour",
       "weekly": "Weekly"
+    },
+    "position": {
+      "label": "Meter position",
+      "row": "Controls",
+      "rowHint": "Show the meter in the controls row",
+      "above": "Above text",
+      "aboveHint": "Show the meter on its own line above the text"
     }
   },
   "addProject": {

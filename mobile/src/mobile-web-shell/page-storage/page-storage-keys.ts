@@ -79,6 +79,8 @@ export const PAGE_STORAGE_EXACT_KEYS = [
   'orca:composerUsageWindow',
   /** Whether that meter shows percent used or percent left. */
   'orca:composerUsageDisplay',
+  /** Whether the chat composer's meter sits in its controls row or above the text. */
+  'orca:composerUsagePosition',
   /** Whether a sidebar session row opens that session. */
   'orca:selectableSidebarSessions',
   /** Whether every Duo chat runs across the status column. */
@@ -102,6 +104,7 @@ export const NEGOTIATED_PAGE_STORAGE_KEYS = [
   'orca:terminalSplitLayout',
   'orca:composerUsageWindow',
   'orca:composerUsageDisplay',
+  'orca:composerUsagePosition',
   'orca:selectableSidebarSessions',
   'orca:duoChatExpanded',
   'orca:terminalFontStyle',
