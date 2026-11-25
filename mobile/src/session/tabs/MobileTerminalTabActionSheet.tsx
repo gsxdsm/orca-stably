@@ -34,6 +34,7 @@ export function MobileTerminalTabActionSheet({
         isTabChatView: controller.nativeChatController.isTabChatView,
         nativeChatTranscriptIsLocalReadable: controller.nativeChatTranscriptIsLocalReadable,
         onDismiss: () => setActionTarget(null),
+        onActivateSessionTab: controller.switchSessionTab,
         onToggleChat: controller.toggleTabChatView,
         isPhoneMode: (handle) => isTerminalPhoneDisplayMode(handle, controller.terminalModes),
         onToggleDisplayMode: (handle) => void controller.toggleDisplayMode(handle),

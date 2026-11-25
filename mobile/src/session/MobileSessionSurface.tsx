@@ -100,37 +100,38 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
   const hostName =
     controller.worktreeHostId === 'local' ? (server ? server.name : controller.hostName) : null
   return (
-    <View ref={setMobileSessionRootRef} style={styles.container}>
-      <View style={styles.kavInner}>
-        <MobileSessionHeader controller={controller} details={details} />
-        <View style={sideStripPadding(releasedStrip)}>
-          <MobileWorkerAutoCloseStrip controller={controller} />
+    <SessionListLongPressOverride action={controller.requestLeaveToSessionList}>
+      <View ref={setMobileSessionRootRef} style={styles.container}>
+        <View style={styles.kavInner}>
+          <MobileSessionHeader controller={controller} details={details} />
+          <View style={sideStripPadding(releasedStrip)}>
+            <MobileWorkerAutoCloseStrip controller={controller} />
           </View>
+          {/* A chat's item chips open the item's page in the bot panel. */}
+          <BotItemOpenContext.Provider value={openItem}>
+            <BotChatOpenContext.Provider value={openChat}>
+              <BotPanelOpenContext.Provider value={panelOpener}>
+                <MobileSessionContentRow controller={controller} />
+              </BotPanelOpenContext.Provider>
+            </BotChatOpenContext.Provider>
+          </BotItemOpenContext.Provider>
         </View>
-        {/* A chat's item chips open the item's page in the bot panel. */}
-        <BotItemOpenContext.Provider value={openItem}>
-          <BotChatOpenContext.Provider value={openChat}>
-            <BotPanelOpenContext.Provider value={panelOpener}>
-              <MobileSessionContentRow controller={controller} />
-            </BotPanelOpenContext.Provider>
-          </BotChatOpenContext.Provider>
-        </BotItemOpenContext.Provider>
+        <AnchoredDetailCardLayer
+          card={details}
+          obscured={obscured}
+          title={controller.worktreeName || t('session.header.terminalTitle', 'Terminal')}
+          detail={controller.worktreePath}
+          footer={
+            hostName ? (
+              <>
+                <StatusDot state={controller.connState} verdict={controller.connectionVerdict} />
+                <Text style={styles.sessionMetaText}>{hostName}</Text>
+              </>
+            ) : null
+          }
+        />
+        <MobileSessionSheets controller={controller} />
       </View>
-      <AnchoredDetailCardLayer
-        card={details}
-        obscured={obscured}
-        title={controller.worktreeName || t('session.header.terminalTitle', 'Terminal')}
-        detail={controller.worktreePath}
-        footer={
-          hostName ? (
-            <>
-              <StatusDot state={controller.connState} verdict={controller.connectionVerdict} />
-              <Text style={styles.sessionMetaText}>{hostName}</Text>
-            </>
-          ) : null
-        }
-      />
-      <MobileSessionSheets controller={controller} />
-    </View>
+    </SessionListLongPressOverride>
   )
 }

@@ -1,9 +1,8 @@
 import { createElement } from 'react'
-import { Pressable } from 'react-native'
 import { act, create } from 'react-test-renderer'
 import { describe, expect, it, vi } from 'vitest'
 
-const longPress = vi.hoisted((): { go?: () => void } => ({}))
+const longPress = vi.hoisted(() => ({ go: undefined as (() => void) | undefined }))
 
 vi.mock('react-native', () => ({ Pressable: 'Pressable' }))
 vi.mock('../theme/use-mobile-color-scheme', () => ({ useMobileColorScheme: () => 'dark' }))
@@ -19,7 +18,7 @@ vi.mock('../navigation/session-list-long-press-props', () => ({
     longPress.go ? { onLongPress: longPress.go, delayLongPress: 500 } : {}
 }))
 
-import { MobileBrowserToolbarIconButton } from './MobileBrowserToolbarIconButton'
+import { MobileBrowserToolbarIconButton } from './pane-view/MobileBrowserToolbarIconButton'
 
 function mount(disabled: boolean, toSessionList = true) {
   const onPress = vi.fn()
@@ -36,7 +35,7 @@ function mount(disabled: boolean, toSessionList = true) {
       </MobileBrowserToolbarIconButton>
     )
   })
-  return { onPress, button: renderer.root.findByType(Pressable) }
+  return { onPress, button: renderer.root.findByType('Pressable' as never) }
 }
 
 describe('MobileBrowserToolbarIconButton', () => {

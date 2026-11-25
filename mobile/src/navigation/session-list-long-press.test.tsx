@@ -1,6 +1,4 @@
 import { createElement } from 'react'
-import { Pressable } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
 import { act, create } from 'react-test-renderer'
 import { describe, expect, it, vi } from 'vitest'
 import { NavBarButton } from '../components/nav-bar/NavBarButton'
@@ -28,7 +26,7 @@ vi.mock('react-native', () => ({
 function BackButton({ onPress }: { onPress: () => void }) {
   return (
     <SessionListLongPressProvider>
-      <NavBarButton accessibilityLabel="Back" icon={ChevronLeft} onPress={onPress} />
+      <NavBarButton accessibilityLabel="Back" icon={'ChevronLeft' as never} onPress={onPress} />
     </SessionListLongPressProvider>
   )
 }
@@ -45,7 +43,7 @@ describe('a back button long-press', () => {
     act(() => {
       renderer.update(createElement(BackButton, { onPress }))
     })
-    const button = renderer.root.findByType(Pressable)
+    const button = renderer.root.findByType('Pressable' as never)
     expect(button?.props.delayLongPress).toBe(SESSION_LIST_LONG_PRESS_MS)
     expect(button?.props.accessibilityActions).toEqual([
       { name: 'longpress', label: 'Back to sessions' }
@@ -66,7 +64,7 @@ describe('a back button long-press', () => {
     act(() => {
       renderer.update(createElement(BackButton, { onPress: vi.fn() }))
     })
-    expect(renderer.root.findByType(Pressable).props.onLongPress).toBeUndefined()
+    expect(renderer.root.findByType('Pressable' as never).props.onLongPress).toBeUndefined()
   })
 
   it('uses a session leave guard instead of dismissing past an unsaved draft', () => {
@@ -79,12 +77,16 @@ describe('a back button long-press', () => {
       renderer.update(
         <SessionListLongPressProvider>
           <SessionListLongPressOverride action={guarded}>
-            <NavBarButton accessibilityLabel="Back" icon={ChevronLeft} onPress={vi.fn()} />
+            <NavBarButton
+              accessibilityLabel="Back"
+              icon={'ChevronLeft' as never}
+              onPress={vi.fn()}
+            />
           </SessionListLongPressOverride>
         </SessionListLongPressProvider>
       )
     })
-    act(() => renderer.root.findByType(Pressable).props.onLongPress())
+    act(() => renderer.root.findByType('Pressable' as never).props.onLongPress())
     expect(guarded).toHaveBeenCalledTimes(1)
     expect(router.dismissTo).not.toHaveBeenCalled()
   })

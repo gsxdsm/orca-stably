@@ -1,4 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useContext } from 'react'
+import { BackSwipeContext } from './back-swipe-context'
 import { usePageBridgeClientIfPresent } from '../transport/connection/client-context.web'
 import { hostStackHostRoute } from './host-stack-navigation'
 import { firstParam } from './route-param-reader'
@@ -25,6 +27,7 @@ function backToListedHost(
 
 // A shell-opened session document keeps the native swipe. Repairing its web history would claim Back and swallow that swipe.
 export function useSessionPageBackToHostList(): void {
+  const beginBackSwipe = useContext(BackSwipeContext)
   const hostId = firstParam(useLocalSearchParams<{ hostId?: string | string[] }>().hostId)
   const router = useRouter()
   const shellPath = usePageBridgeClientIfPresent()?.getShellSession()?.route?.pathname ?? null
@@ -32,5 +35,8 @@ export function useSessionPageBackToHostList(): void {
   const repairHostId = nativeSessionDocument || hostId === '' ? null : hostId
   useSessionHostListBeneath(repairHostId)
   // Claim Back while this session is inside a host document. Otherwise the native swipe pops that document to the server list.
-  useBackClaim(repairHostId === null ? null : backToListedHost(router, repairHostId))
+  useBackClaim(
+    repairHostId === null ? null : backToListedHost(router, repairHostId),
+    beginBackSwipe
+  )
 }

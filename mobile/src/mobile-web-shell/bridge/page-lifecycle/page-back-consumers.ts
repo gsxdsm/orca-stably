@@ -1,4 +1,10 @@
-export type PageBackConsumer = () => boolean
+import type { InteractiveBackSwipe } from '../../../navigation/back-swipe'
+import { listenForPageBackSwipe } from '../../../navigation/page-back-swipe.web'
+import { hostOs } from '../../../platform/host-os.web'
+
+export type PageBackConsumer = (() => boolean) & {
+  beginBackSwipe?: (edge: boolean) => InteractiveBackSwipe | null
+}
 
 // One LIFO stack per page client matches native BackHandler false-fallthrough. Publish shell claim changes only on empty/nonempty edges so stacked sheets cannot flicker native key registration.
 export type PageBackConsumers = {
@@ -16,8 +22,18 @@ export function createPageBackConsumers(args: {
   onUnclaimed: () => void
 }): PageBackConsumers {
   const held: { consumer: PageBackConsumer }[] = []
+  let stopSwipe: (() => void) | null = null
 
   function publish(before: number): void {
+    if (held.length === 0) {
+      stopSwipe?.()
+      stopSwipe = null
+    } else if (stopSwipe === null && typeof document !== 'undefined' && hostOs() === 'ios') {
+      stopSwipe = listenForPageBackSwipe(
+        document,
+        (edge) => held.at(-1)?.consumer.beginBackSwipe?.(edge) ?? null
+      )
+    }
     if ((before === 0) !== (held.length === 0)) {
       args.publishClaim(held.length > 0)
     }
@@ -26,6 +42,8 @@ export function createPageBackConsumers(args: {
   return {
     claim: (consumer) => {
       const entry = { consumer }
+      stopSwipe?.()
+      stopSwipe = null
       const before = held.length
       held.push(entry)
       publish(before)
@@ -34,6 +52,8 @@ export function createPageBackConsumers(args: {
         if (at === -1) {
           return
         }
+        stopSwipe?.()
+        stopSwipe = null
         const heldBefore = held.length
         held.splice(at, 1)
         publish(heldBefore)
