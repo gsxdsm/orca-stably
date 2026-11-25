@@ -206,6 +206,7 @@ export function attachRuntimeWorktreeAgentRows(args: {
     const address = agentAddress(source)
     const row: RuntimeWorktreeAgentRow = {
       paneKey: source.paneKey,
+      ...(source.terminalHandle ? { terminalHandle: source.terminalHandle } : {}),
       ...(address ? { address } : {}),
       ...(source.orcaSessionId ? { orcaSessionId: source.orcaSessionId } : {}),
       parentPaneKey,
