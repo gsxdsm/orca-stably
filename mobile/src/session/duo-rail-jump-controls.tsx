@@ -16,6 +16,7 @@ import { useWindowSafeAreaInsets } from '../layout/side-safe-area'
 import { useDuoChatExpanded } from './duo-chat-width'
 import { duoRailJumpPlacement } from './duo-rail-jump'
 import { publishDuoRailFreeBand } from './duo-rail-free-band'
+import { spacing } from '../theme/mobile-theme'
 import { MobileNativeChatFloatingControls } from './native-chat/lower-region/MobileNativeChatFloatingControls'
 
 type JumpActions = {
@@ -64,15 +65,21 @@ function useRailFrames(
     insets,
     occlusions
   })
+  // Without the status occlusions (a folded Duo that reports no fold division) the page draws no
+  // rail Back or arrows, so it frees everything above the composer; the shell places the top itself.
   const band =
-    chatVisible && !expanded && strip !== null && !(keyboardInset > 0) && composerTop !== null
-      ? duoRailFreeBand({
-          windowWidth: width,
-          windowHeight: height,
-          strip,
-          occlusions,
-          composerTop
-        })
+    chatVisible && !expanded && !(keyboardInset > 0) && composerTop !== null
+      ? strip !== null
+        ? duoRailFreeBand({
+            windowWidth: width,
+            windowHeight: height,
+            strip,
+            occlusions,
+            composerTop
+          })
+        : composerTop > spacing.sm
+          ? { top: 0, bottom: composerTop - spacing.sm }
+          : null
       : null
   useEffect(() => {
     publishDuoRailFreeBand(band)
