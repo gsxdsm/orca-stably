@@ -60,6 +60,7 @@ import {
 } from './page-geometry/page-safe-area-insets'
 import { usePageFoldDivision, usePublishedFoldDivision } from './page-geometry/page-fold-division'
 import { usePublishedShellKeyRail, useShellKeyRail } from './terminal-controls/use-shell-key-rail'
+import { useShellUsageRail } from '../rail-usage/use-shell-usage-rail'
 import { hostProfileUnreadableLine, pageFaultLine } from './diagnostics/shell-lifecycle-log'
 import { recordShellLifecycleLine } from './diagnostics/shell-lifecycle-line-recorder'
 
@@ -171,6 +172,14 @@ export function MobileWebShellScreen({
       strip !== null &&
       !overlay &&
       routeGrants.includes(BRIDGE_TERMINAL_KEY_RAIL_GRANT)
+  )
+  // Routes that never lend the rail to the page, such as the host screen, show usage in it instead.
+  useShellUsageRail(
+    hostId,
+    shellFocused &&
+      !overlay &&
+      state.kind === 'ready' &&
+      !routeGrants.includes(BRIDGE_TERMINAL_KEY_RAIL_GRANT)
   )
   const {
     snapshot,
