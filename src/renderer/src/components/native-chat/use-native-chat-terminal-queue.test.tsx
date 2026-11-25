@@ -2,10 +2,10 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRef } from 'react'
-import { RuntimeRpcCallError } from '@/runtime/runtime-rpc-result'
+import { RuntimeRpcCallError } from '@/runtime/rpc/calls/runtime-rpc-result'
 import { NativeChatTerminalQueueRequest } from '../../../../shared/native-chat/native-chat-terminal-queue'
 import { useNativeChatTerminalQueue } from './use-native-chat-terminal-queue'
-import type { NativeChatComposerHandle } from './native-chat-composer-types'
+import type { NativeChatComposerHandle } from './composer/native-chat-composer-types'
 
 const rpc = vi.hoisted(() => vi.fn())
 vi.mock('@/runtime/runtime-rpc-client', () => ({ callRuntimeRpc: rpc }))

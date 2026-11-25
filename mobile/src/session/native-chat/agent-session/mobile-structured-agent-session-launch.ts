@@ -1,6 +1,5 @@
 import { agentSessionForkSourceFailureWords } from '../../../../../src/shared/agent-session/failures/agent-session-failure-copy'
 import { sayMobileAgentSessionFailure } from './agent-session-failure-copy'
-import type { TuiAgent } from '../../../../../src/shared/agent-launch/catalog/tui-agent'
 import type { StructuredAgentId } from '../../../../../src/shared/agent-session/lifecycle/agent-session-provider-handle'
 import type {
   AgentSessionAttachResult,

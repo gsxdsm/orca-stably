@@ -21,3 +21,14 @@ export function hermesAcpLoadSessionId(
   const target = resumeFrom?.providerSessionId.trim() ?? ''
   return UUID_SESSION_ID.test(target) ? target : null
 }
+
+/** An already committed replay keeps its fields and carries the ACP load id. */
+export function withHermesAcpLoad<T extends object>(
+  replay: T,
+  hermesLoadId: string | null
+): T & { acpLoadSessionId?: string } {
+  if (!hermesLoadId) {
+    return replay
+  }
+  return { ...replay, acpLoadSessionId: hermesLoadId }
+}

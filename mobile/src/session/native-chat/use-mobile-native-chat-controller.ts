@@ -7,7 +7,7 @@ import type { StructuredAgentSessionHostSupport } from './agent-session/mobile-s
 import { useMobileNativeChatDrafts } from './composer/use-mobile-native-chat-drafts'
 import { useMobileNativeChatWorkspaceCatalog } from './composer/use-mobile-native-chat-workspace-catalog'
 import { useMobileNativeChatMessageSend } from './transcript/use-mobile-native-chat-message-send'
-import { useMobileNativeChatSessionOptionController } from './input/use-mobile-native-chat-session-option-controller'
+import { useControllerSessionOptions } from './input/use-mobile-native-chat-session-option-controller'
 import { useMobileNativeChatSessionLane } from './use-mobile-native-chat-session-lane'
 import { useMobileStructuredNativeChatSendBridge } from './composer/use-mobile-structured-native-chat-send-bridge'
 import { useMobileNativeChatTerminalTurn } from './transcript/use-mobile-native-chat-terminal-turn'
@@ -15,10 +15,13 @@ import type { MobileNativeChatController } from './mobile-native-chat-controller
 import { useMobileBridgeChatPromptWrites } from './input/use-mobile-bridge-chat-prompt-writes'
 import { useMobileNativeChatActiveResolution } from './use-mobile-native-chat-active-resolution'
 import { useMobileNativeChatPromptController } from './input/use-mobile-native-chat-prompt-controller'
-import { nativeChatPendingSendPlacement } from '../../../../src/shared/native-chat/transcript/native-chat-pending-sends'
+import { placeMobileChatPending } from '../../../../src/shared/native-chat/transcript/native-chat-pending-sends'
 import { mobileNativeChatScopeKey } from './mobile-native-chat-scope-key'
 import { useMobileNativeChatCiResultLines } from './preferences/use-mobile-native-chat-ci-result-lines'
-import { terminalQueueFields, useMobileTerminalChatQueue } from './use-mobile-terminal-chat-queue'
+import {
+  hermesControllerQueueSlice,
+  useMobileTerminalChatQueue
+} from './use-mobile-terminal-chat-queue'
 
 export function useMobileNativeChatController(args: {
   client: RpcClient | null
@@ -177,11 +180,7 @@ export function useMobileNativeChatController(args: {
   const nativeChatAgentWorking = activeTurn.isWorking
   const workingEpoch = terminalTurn.workingEpoch
   const placedChatPending = useMemo(
-    () =>
-      chatPending.map((entry) => ({
-        ...entry,
-        pendingSend: nativeChatPendingSendPlacement(entry, workingEpoch)
-      })),
+    () => placeMobileChatPending(chatPending, workingEpoch),
     [chatPending, workingEpoch]
   )
   const captureTerminalSendOrigin = useCallback(
@@ -229,7 +228,7 @@ export function useMobileNativeChatController(args: {
   })
 
   const { nativeChatSessionOptions, recordCommand: recordNativeChatSessionOptionCommand } =
-    useMobileNativeChatSessionOptionController({
+    useControllerSessionOptions({
       client,
       activeChatStructured,
       activeSessionTabId,
@@ -240,18 +239,7 @@ export function useMobileNativeChatController(args: {
       isWorking: nativeChatAgentWorking,
       reportedModel: activeSessionTab?.agentStatus?.model ?? null,
       modelSwitchCommand: activeSessionTab?.agentStatus?.modelSwitchCommand,
-      structured: {
-        optionPickerRequest: structuredNativeChat.optionPickerRequest,
-        optionSurface: structuredNativeChat.optionSurface,
-        conversationCommands: structuredNativeChat.conversationCommands,
-        compactInstructions: structuredNativeChat.compactInstructions,
-        snapshot: structuredNativeChat.optionSnapshot,
-        pendingId: structuredNativeChat.pendingOptionId,
-        appliesOnAttach: structuredNativeChat.appliesOnAttach,
-        heldPick: structuredNativeChat.heldPick,
-        setOption: structuredNativeChat.setStructuredOption,
-        invokeAction: structuredNativeChat.invokeStructuredOption
-      },
+      structured: structuredNativeChat,
       toggleTabChatView,
       worktreeId
     })
@@ -298,18 +286,18 @@ export function useMobileNativeChatController(args: {
     nativeChatActionablePromptIds: structuredNativeChat.actionablePromptIds,
     nativeChatCommandRefusalCauses: structuredNativeChat.commandRefusalCauses,
     nativeChatCanStop: activeChatStructured ? structuredNativeChat.canStop : nativeChatAgentWorking,
-    ...terminalQueueFields({
-      structured: activeChatStructured,
-      queue: terminalQueue,
-      structuredFollowUp: structuredNativeChat.sendFollowUp,
-      bind: [captureSendOrigin, clearDraftForSend, handleNativeChatSendWithOutcome],
-      structuredSend: structuredNativeChatSend,
-      plain: { send: handleNativeChatSend, sendWithOutcome: handleNativeChatSendWithOutcome }
-    }),
+    ...hermesControllerQueueSlice(
+      activeChatStructured,
+      terminalQueue,
+      structuredNativeChat.sendFollowUp,
+      structuredNativeChatSend,
+      { send: handleNativeChatSend, sendWithOutcome: handleNativeChatSendWithOutcome },
+      [captureSendOrigin, clearDraftForSend, handleNativeChatSendWithOutcome],
+      structuredNativeChat.queued
+    ),
     nativeChatStreamingText: terminalTurn.streamingText,
     ...prompts,
     handleNativeChatStop: activeChatStructured ? structuredNativeChat.cancel : terminalTurn.stop,
-    nativeChatQueued: terminalQueue.enabled ? terminalQueue.controls : structuredNativeChat.queued,
     nativeChatBackgroundTasks: activeChatStructured ? structuredNativeChat.backgroundTasks : null,
     nativeChatContextUsage: activeChatStructured ? structuredNativeChat.contextUsage : null,
     nativeChatInterruptedContinue: activeChatStructured

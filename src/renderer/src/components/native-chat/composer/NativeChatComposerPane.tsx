@@ -245,11 +245,8 @@ export const NativeChatComposerPane = forwardRef<ComposerHandle, C.NativeChatCom
       setCaret,
       clearSkillOrigin,
       clearImageAttachments,
-      setNotice
-    }
-    const sendPty = useNativeChatPtyComposerSend({
+      setNotice,
       draftScopeKey,
-      ...ptyCommandRouting,
       draft,
       imageAttachments,
       launchDraft: launchSeed?.launchDraft,
@@ -260,7 +257,8 @@ export const NativeChatComposerPane = forwardRef<ComposerHandle, C.NativeChatCom
       enqueueTerminalMessage,
       optimisticSendOutcome,
       terminalTabId
-    })
+    }
+    const sendPty = useNativeChatPtyComposerSend(ptyCommandRouting)
     const submission = useNativeChatComposerSubmit({
       agent,
       textareaRef,

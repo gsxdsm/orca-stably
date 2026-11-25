@@ -4,9 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createFakeRpcClient, type FakeRpcClient } from '../mobile-web-shell/bridge-host-test-fakes'
 import { resolveMobileTerminalInputGate } from '../terminal/terminal-input-connection-gate'
 import type { MobileSessionFeedbackCapabilitiesModel } from './use-mobile-session-feedback-capabilities'
-import type { MobileSessionTab } from './mobile-session-route-types'
-import type { ConnectionState } from '../transport/types'
-import { structuredAgentSessionHostSupport } from './mobile-structured-agent-session-host-support'
+import type { MobileSessionTab } from './tabs/mobile-session-tabs'
+import type { ConnectionState } from '../transport/connection/connection-state'
+import { structuredAgentSessionHostSupport } from './native-chat/agent-session/mobile-structured-agent-session-host-support'
 import { HERMES_TRANSCRIPT_RUNTIME_CAPABILITY } from '../../../src/shared/native-chat/native-chat-hermes-capability'
 
 const device = vi.hoisted(() => ({ chatView: false }))

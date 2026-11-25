@@ -16,15 +16,13 @@ import { useWorkspaceOnPairedHost } from '../navigation/workspace-execution-host
 import { MobileBrowserTabActionSheet } from './tabs/MobileBrowserTabActionSheet'
 import { getMobileTerminalActionSheetActions } from '../terminal/session/mobile-terminal-action-sheet-actions'
 import { isTerminalPhoneDisplayMode } from '../terminal/session/terminal-phone-display-mode'
-import { hermesTerminalActionFields } from './mobile-hermes-terminal-chat-switch'
-import { useMobileStructuredChatLaunch } from './use-mobile-structured-chat-launch'
+import { useHermesTerminalSheetActions } from './mobile-hermes-terminal-chat-switch'
 import type { MobileSessionController } from './use-mobile-session-controller'
 import { useMobileAllowAutoCloseActions } from './tabs/mobile-worker-auto-close'
 import { MobileAgentSessionTabActionSheet } from './tabs/MobileAgentSessionTabActionSheet'
 
 export function MobileSessionSheets({ controller }: { controller: MobileSessionController }) {
   const t = useMobileTranslation()
-  const structuredChat = useMobileStructuredChatLaunch(controller)
   const terminalWorkerActions = useMobileAllowAutoCloseActions(
     controller.client,
     controller.actionTarget && { terminal: controller.actionTarget.handle }
@@ -213,9 +211,7 @@ export function MobileSessionSheets({ controller }: { controller: MobileSessionC
           tabs: sessionTabs.filter((tab) => tab.type === 'terminal'),
           isTabChatView: nativeChatController.isTabChatView,
           nativeChatTranscriptIsLocalReadable: controller.nativeChatTranscriptIsLocalReadable,
-          hostCapabilities: controller.hostCapabilities,
-          structuredAgents: structuredChat?.registeredAgents ?? [],
-          ...hermesTerminalActionFields({
+          ...useHermesTerminalSheetActions({
             controller,
             sessionTabs,
             handle: actionTarget?.handle,

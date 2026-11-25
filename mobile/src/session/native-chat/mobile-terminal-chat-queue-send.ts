@@ -1,6 +1,6 @@
 import type { MobileNativeChatMessageSend } from './transcript/use-mobile-native-chat-message-send'
-import type { MobileNativeChatSendOrigin } from './mobile-native-chat-pending-echo'
-import type { MobileNativeChatSendOutcome } from './mobile-native-chat-send'
+import type { MobileNativeChatSendOrigin } from './transcript/mobile-native-chat-pending-echo'
+import type { MobileNativeChatSendOutcome } from './composer/mobile-native-chat-send'
 
 export function mobileTerminalChatQueueSend(
   enqueue: (text: string) => Promise<MobileNativeChatSendOutcome>,

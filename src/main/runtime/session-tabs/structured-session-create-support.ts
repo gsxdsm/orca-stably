@@ -30,7 +30,7 @@ import { isFloatingWorkspaceSelector } from '../../../shared/floating-workspace-
 import type { AgentSessionAccountHome } from '../../../shared/agent-session/lifecycle/agent-session-account-home'
 import type { StructuredAgentId } from '../../../shared/agent-session/lifecycle/agent-session-provider-handle'
 import type { StructuredAgentCreateSupportReply } from '../../../shared/agent-session/structured-agent-create-support-reply'
-import { hermesAcpLoadSessionId } from '../../../shared/hermes-session-id'
+import { hermesAcpLoadSessionId, withHermesAcpLoad } from '../../../shared/hermes-session-id'
 
 export abstract class OrcaRuntimeWithGetStructuredAgentSessionCreateSupport extends StructuredSessionWorkspaceScope {
   protected abstract restoreStructuredAgentSessionTabsOnce(
@@ -199,19 +199,7 @@ export abstract class OrcaRuntimeWithGetStructuredAgentSessionCreateSupport exte
       ...(options ? { options } : {})
     })
     if (committedReplay) {
-      if (!hermesLoadId) {
-        return committedReplay
-      }
-      return {
-        envelope: committedReplay.envelope,
-        location: committedReplay.location,
-        provider: committedReplay.provider,
-        agent: committedReplay.agent,
-        accountHome: committedReplay.accountHome,
-        ...(committedReplay.options ? { options: committedReplay.options } : {}),
-        acpLoadSessionId: hermesLoadId,
-        runtimeKind: committedReplay.runtimeKind
-      }
+      return withHermesAcpLoad(committedReplay, hermesLoadId)
     }
     const resumeFrom = input.resumeFrom
     if (resumeFrom) {

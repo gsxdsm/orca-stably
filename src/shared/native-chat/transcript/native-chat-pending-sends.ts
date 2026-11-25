@@ -246,3 +246,15 @@ export function isPendingMessageId(id: string): boolean {
 export function isLaunchPromptMessageId(id: string): boolean {
   return id.startsWith('launch-pending:')
 }
+
+export function placeMobileChatPending<
+  T extends Parameters<typeof nativeChatPendingSendPlacement>[0]
+>(
+  pending: readonly T[],
+  workingEpoch: number | null | undefined
+): Array<T & { pendingSend: ReturnType<typeof nativeChatPendingSendPlacement> }> {
+  return pending.map((entry) => ({
+    ...entry,
+    pendingSend: nativeChatPendingSendPlacement(entry, workingEpoch)
+  }))
+}

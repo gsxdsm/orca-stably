@@ -155,3 +155,60 @@ export function useMobileNativeChatSessionOptionController(args: {
 
   return { nativeChatSessionOptions, recordCommand: sessionOptions.recordCommand }
 }
+
+type SessionOptionArgs = Parameters<typeof useMobileNativeChatSessionOptionController>[0]
+
+/** Keeps the chat controller under the line cap. Same option wiring, one call. */
+export function useControllerSessionOptions(input: {
+  client: SessionOptionArgs['client']
+  activeChatStructured: boolean
+  activeSessionTabId: string | null
+  agent: string | null | undefined
+  dispatchCommand: SessionOptionArgs['dispatchCommand']
+  hostId: string
+  isTabChatView: SessionOptionArgs['isTabChatView']
+  isWorking: boolean
+  reportedModel: string | null
+  modelSwitchCommand: string | undefined
+  structured: {
+    optionPickerRequest: NonNullable<SessionOptionArgs['structured']>['optionPickerRequest']
+    optionSurface: NonNullable<SessionOptionArgs['structured']>['optionSurface']
+    conversationCommands: NonNullable<SessionOptionArgs['structured']>['conversationCommands']
+    compactInstructions: NonNullable<SessionOptionArgs['structured']>['compactInstructions']
+    optionSnapshot: NonNullable<SessionOptionArgs['structured']>['snapshot']
+    pendingOptionId: NonNullable<SessionOptionArgs['structured']>['pendingId']
+    appliesOnAttach: NonNullable<SessionOptionArgs['structured']>['appliesOnAttach']
+    heldPick: NonNullable<SessionOptionArgs['structured']>['heldPick']
+    setStructuredOption: NonNullable<SessionOptionArgs['structured']>['setOption']
+    invokeStructuredOption: NonNullable<SessionOptionArgs['structured']>['invokeAction']
+  }
+  toggleTabChatView: SessionOptionArgs['toggleTabChatView']
+  worktreeId: string
+}): ReturnType<typeof useMobileNativeChatSessionOptionController> {
+  return useMobileNativeChatSessionOptionController({
+    client: input.client,
+    activeChatStructured: input.activeChatStructured,
+    activeSessionTabId: input.activeSessionTabId,
+    agent: input.agent ?? null,
+    dispatchCommand: input.dispatchCommand,
+    hostId: input.hostId,
+    isTabChatView: input.isTabChatView,
+    isWorking: input.isWorking,
+    reportedModel: input.reportedModel,
+    modelSwitchCommand: input.modelSwitchCommand,
+    structured: {
+      optionPickerRequest: input.structured.optionPickerRequest,
+      optionSurface: input.structured.optionSurface,
+      conversationCommands: input.structured.conversationCommands,
+      compactInstructions: input.structured.compactInstructions,
+      snapshot: input.structured.optionSnapshot,
+      pendingId: input.structured.pendingOptionId,
+      appliesOnAttach: input.structured.appliesOnAttach,
+      heldPick: input.structured.heldPick,
+      setOption: input.structured.setStructuredOption,
+      invokeAction: input.structured.invokeStructuredOption
+    },
+    toggleTabChatView: input.toggleTabChatView,
+    worktreeId: input.worktreeId
+  })
+}
