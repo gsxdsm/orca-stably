@@ -117,7 +117,7 @@ function MobileNativeChatOverlayContent({
   onRunInTerminal,
   hostOutage = null,
   onOpenAccounts
-}: Props): React.JSX.Element {
+}: Props): React.JSX.Element | null {
   const session = controller.nativeChatSession
   const agent = controller.nativeChatAgent ?? ''
   const fullContent = useMobileNativeChatMessageDetail(
