@@ -41,6 +41,8 @@ export type BridgeRpcClient = RpcClient &
     notifyPagePainted: () => void
     // Where the page has navigated inside its document, so the shell knows which session it shows.
     notifyPageLocation: (href: string) => void
+    // Whether the page lays itself across the side strip; resent on each init.
+    notifySideStripCover: (covered: boolean) => void
     // Claim Back until disposal; invoke consumers newest-first with false fallthrough. Return unhandled presses to the shell so a race with sheet closure cannot swallow navigation.
     claimBack: (consumer: PageBackConsumer) => () => void
     // The page's own Back control. True when a claim took it or the shell accepted the pop; false leaves the caller its header path.
