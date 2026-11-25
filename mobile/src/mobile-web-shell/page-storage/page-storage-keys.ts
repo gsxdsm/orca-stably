@@ -54,6 +54,8 @@ export const PAGE_STORAGE_EXACT_KEYS = [
   'orca:terminalLinkOpenMode',
   /** The split terminal's chosen direction. */
   'orca:terminalSplitLayout',
+  /** Whether a sidebar session row opens that session. */
+  'orca:selectableSidebarSessions',
   /** Whether every Duo chat runs across the status column. */
   'orca:duoChatExpanded',
   /** Terminal font, line spacing and weight. */
@@ -73,6 +75,7 @@ export const PAGE_STORAGE_EXACT_KEYS = [
  */
 export const NEGOTIATED_PAGE_STORAGE_KEYS = [
   'orca:terminalSplitLayout',
+  'orca:selectableSidebarSessions',
   'orca:duoChatExpanded',
   'orca:terminalFontStyle',
   'orca:nativeChatText',
