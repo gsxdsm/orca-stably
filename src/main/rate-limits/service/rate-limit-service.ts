@@ -3,6 +3,10 @@ import {
   type LocalAccountRuntimeTarget
 } from '../../../shared/agent-accounts/local-account-runtime'
 import type { BrowserWindow } from 'electron'
+import {
+  USAGE_PROVIDER_KEYS,
+  type UsageLastGoodStore
+} from '../usage-last-good/usage-last-good-store'
 import { hasMiniMaxSessionCookie } from '../../minimax/minimax-cookie-store'
 import { hasMiniMaxApiKey } from '../../minimax/minimax-api-key-store'
 import { hasZcodePlanApiKey } from '../../zcode/zcode-plan-api-key-store'
@@ -23,7 +27,8 @@ import {
   type ClaudeOAuthUsageEnabledResolver,
   type MuseUsageEnabledResolver,
   type ZcodePlanRateLimitConfig,
-  type InactiveCodexAccountInfo
+  type InactiveCodexAccountInfo,
+  type InternalRateLimitState
 } from './service-types'
 import {
   type ClaudeAccountSelectionTarget,
@@ -36,6 +41,25 @@ import type { UsageHistoryRecorder } from '../usage-history/usage-history-record
 
 export class RateLimitService extends RateLimitServiceTargetUsageRead {
   private lastOwnerReturnAt = Number.NEGATIVE_INFINITY
+  private usageLastGood: UsageLastGoodStore | null = null
+
+  /** Shows each provider's persisted last windows until a poll replaces them. Loads well inside
+   *  the deferred startup poll; a provider already read by then keeps its own reading. */
+  setUsageLastGoodStore(store: UsageLastGoodStore): Promise<void> {
+    this.usageLastGood = store
+    return store.loaded.then((restored) => {
+      const seeded = { ...this.state }
+      for (const key of USAGE_PROVIDER_KEYS) {
+        seeded[key] ??= restored[key] ?? null
+      }
+      this.updateState(seeded)
+    })
+  }
+
+  protected override updateState(next: InternalRateLimitState): void {
+    super.updateState(next)
+    this.usageLastGood?.record(next)
+  }
 
   refreshOnOwnerReturn(): Promise<void> {
     const now = Date.now()
