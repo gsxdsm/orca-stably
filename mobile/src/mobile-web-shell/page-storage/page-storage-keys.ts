@@ -48,8 +48,8 @@ export const PAGE_STORAGE_EXACT_KEYS = [
   'orca:terminalLinkOpenMode',
   /** The split terminal's chosen direction. */
   'orca:terminalSplitLayout',
-  'orca:composerUsageWindow',
   /** Whether a sidebar session row opens that session. */
+  'orca:selectableSidebarSessions',
   /** Terminal font, line spacing and weight. */
   'orca:terminalFontStyle',
   /** Chat text size, font and spacing; a pinch in a chat saves here. */
@@ -67,7 +67,7 @@ export const PAGE_STORAGE_EXACT_KEYS = [
  */
 export const NEGOTIATED_PAGE_STORAGE_KEYS = [
   'orca:terminalSplitLayout',
-  'orca:composerUsageWindow',
+  'orca:selectableSidebarSessions',
   'orca:terminalFontStyle',
   'orca:nativeChatText',
   'orca:newAgentSurface',

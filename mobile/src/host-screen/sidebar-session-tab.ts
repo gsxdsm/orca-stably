@@ -35,8 +35,7 @@ export function sidebarSessionTabs(snapshot: unknown): SidebarSessionTab[] | nul
       id: entry.id,
       type: entry.type,
       parentTabId: optionalString(entry, 'parentTabId'),
-      leafId: optionalString(entry, 'leafId'),
-      sessionId: optionalString(entry, 'sessionId')
+      leafId: optionalString(entry, 'leafId')
     })
   }
   return tabs

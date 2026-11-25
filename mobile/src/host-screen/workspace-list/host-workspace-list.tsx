@@ -1,3 +1,5 @@
+/* eslint-disable max-lines -- Why: the list keeps selectable session rows beside upstream workspace rows. */
+import { useSharedNow } from '../../hooks/use-now'
 import { useCallback, useEffect, useMemo, type ReactElement } from 'react'
 import { Animated, Platform, RefreshControl, View } from 'react-native'
 import { isBotsListRow, useMobileBotsListParts } from '../../bots/use-mobile-bots-list-parts'
@@ -37,6 +39,8 @@ import { useSlowPendingKeys } from './use-slow-pending-keys'
 import { useHostMutationDrafts } from '../../query/host-mutation-drafts'
 import { workspaceRenameDraftKey } from '../workspace-actions/workspace-rename-sheet'
 import type { HostScreenController } from '../use-host-screen-controller'
+import { sidebarSessionAction } from '../sidebar-session-action'
+import { useSelectableSidebarSessions } from '../selectable-sidebar-sessions'
 
 export function HostWorkspaceList({
   controller,
@@ -50,6 +54,7 @@ export function HostWorkspaceList({
   pageTitle?: { element: ReactElement; collapsing: CollapsingTitle }
 }) {
   const colorScheme = useMobileColorScheme()
+  const selectableSessions = useSelectableSidebarSessions()
   const {
     actions,
     activeWorktreeScroll,
@@ -77,6 +82,14 @@ export function HostWorkspaceList({
     state
   } = controller
   const { rawSections, sections, repoById } = sectionsResult
+  const { setSessionAction } = state
+  const now = useSharedNow(30_000)
+  const openSessionMenu = useCallback(
+    (item: Worktree, paneKey: string) => {
+      setSessionAction(sidebarSessionAction(item, paneKey, now))
+    },
+    [now, setSessionAction]
+  )
   const bots = useMobileBotsListParts(controller)
   const { pending } = settings.pendingViewChanges
   // A collapse the desktop has not answered within SLOW_PENDING_MS spins on its header.
@@ -174,9 +187,11 @@ export function HostWorkspaceList({
           agentActivityDisplayMode={agentActivityDisplayMode}
           onPress={openWorktreeSession}
           onAgentPress={openWorktreeSession}
+          selectableSessions={selectableSessions}
           statusLive={statusLive && !view.hostContextHealthLabel}
           // A bot's home goes through the bot's own delete, not the workspace menu.
           onLongPress={item.botHome === true || view.botFacts ? undefined : setActionTarget}
+          onSessionLongPress={openSessionMenu}
           onToggleLineage={toggleWorktreeLineage}
           unsavedName={unsavedRename(renameDrafts, hostId, item)}
           pairedHostId={hostId ?? null}
@@ -194,6 +209,8 @@ export function HostWorkspaceList({
       openWorktreeSession,
       statusLive,
       setActionTarget,
+      selectableSessions,
+      openSessionMenu,
       toggleWorktreeLineage
     ]
   )

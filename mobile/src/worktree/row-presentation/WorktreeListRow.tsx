@@ -32,7 +32,6 @@ import { HostKindIcon } from '../../components/icons/HostKindIcon'
 import { MobileRepoIcon } from '../../components/icons/MobileRepoIcon'
 import { WorktreeAgentList } from '../agent-lineage/presentation/WorktreeAgentList'
 import { WorktreeMetaGlyphs, prStateColor } from './WorktreeMetaGlyphs'
-import { worktreeListRowStyles as styles } from './worktree-list-row-styles'
 import { PrStateIcon } from '../../source-control/review/status/PrStateIcon'
 import { worktreeListRowStyles as styles } from './worktree-list-row-styles'
 import { WorktreeUnsavedName } from './WorktreeUnsavedName'
@@ -68,7 +67,6 @@ type Props = {
   /** Actions for one session. The card long-press stays the workspace menu. */
   onSessionLongPress?: (item: Worktree, paneKey: string) => void
   onToggleLineage?: (item: WorkspaceListItem) => void
-  /** A bot row's "2 new": opens the bot's new threads. */
   /** A rename the desktop hasn't taken yet; the row keeps its real name and points to this one. */
   unsavedName?: string
   /** The paired computer, for a bot row's usage-limit stops. */

@@ -36,6 +36,7 @@ type Props = {
   selectable?: boolean
   /** This session is the one open from the sidebar. Child lines share the parent pane and stay unfilled. */
   selected?: boolean
+  onPress?: (paneKey: string) => void
   onPressIn?: () => void
   onPressOut?: () => void
   onLongPress?: (paneKey: string) => void
@@ -155,7 +156,7 @@ function WorktreeAgentRowComponent({
   const interactive = Boolean(onPress || onLongPress)
   const openSession = () => {
     if (!isReadOnly && onPress) {
-        onPress(agent.paneKey)
+      onPress(agent.paneKey)
     }
   }
   const openSessionActions = () => {
@@ -163,21 +164,75 @@ function WorktreeAgentRowComponent({
       onLongPress(agent.paneKey)
     }
   }
+  return (
+    <Pressable
+      // Touch stays on the row. The control below is what VoiceOver focuses, so the disclosure stays reachable.
+      accessible={false}
+      disabled={isReadOnly || !interactive}
+      delayLongPress={400}
+      style={({ pressed }) => [
+        pressed && pressedStyle,
+        selectable && (selected || pressed) && styles.rowHighlight,
+        selectable && selected && styles.rowSelected,
+        selectable && pressed && styles.rowPressed
+      ]}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      onPress={
+        onPress
+          ? (event) => {
+              event.stopPropagation()
+              openSession()
             }
           : undefined
       }
-      }}
-      onLongPress={onLongPress}
-      delayLongPress={400}
+      onLongPress={
+        onLongPress
+          ? (event) => {
+              event.stopPropagation()
+              openSessionActions()
+            }
+          : undefined
+      }
     >
-      {content}
-    </Pressable>
-  ) : (
-    content
+      <View style={rowStyle}>
+        {interactive ? (
+          <View
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={ts ? `${spokenName}, ${ts}` : spokenName}
+            accessibilityState={
+              selected || isReadOnly
+                ? {
+                    ...(selected ? { selected: true } : {}),
+                    ...(isReadOnly ? { disabled: true } : {})
+                  }
+                : undefined
+            }
+            accessibilityActions={[
+              ...(onPress ? [{ name: 'activate' }] : []),
+              ...(onLongPress ? [{ name: 'longpress', label: sessionActionsLabel }] : [])
+            ]}
+            onAccessibilityTap={onPress ? openSession : undefined}
+            onAccessibilityAction={(event) => {
+              if (event.nativeEvent.actionName === 'activate') {
                 openSession()
               }
+              if (event.nativeEvent.actionName === 'longpress') {
                 openSessionActions()
               }
+            }}
+            style={styles.sessionControl}
+          >
+            {leading}
+          </View>
+        ) : (
+          <View style={styles.sessionControl}>{leading}</View>
+        )}
+        {trailing}
+        {time}
+      </View>
+    </Pressable>
   )
 }
 

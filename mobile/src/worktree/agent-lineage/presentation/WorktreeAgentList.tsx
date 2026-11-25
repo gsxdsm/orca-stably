@@ -164,8 +164,7 @@ export function WorktreeAgentList({
           selectable={selectable}
           selected={selectedPaneKey === node.row.paneKey}
           isReadOnly={isReadOnly}
-          onPress={onAgentPress}
-          onLongPress={onAgentLongPress}
+          onPress={parentSessionPress(selectable, onAgentPress, onLongPress, onWorkspacePress)}
           onPressIn={onPressIn}
           onPressOut={onPressOut}
           onLongPress={hold}

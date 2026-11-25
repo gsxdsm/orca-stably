@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
-import { ActionSheetContent } from '../components/ActionSheetModal'
+import { ActionSheetContent } from '../components/sheets/ActionSheetModal'
 import { BottomDrawer } from '../components/bottom-drawer/BottomDrawer'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
@@ -16,10 +16,40 @@ type Props = {
 
 export function SidebarSessionActionSheet({ session, onDismiss, onOpen, onCloseSession }: Props) {
   useMobileColorScheme()
+  const sessionKey = session ? `${session.worktree.worktreeId}\0${session.paneKey}` : null
+  const [phase, setPhase] = useState<{ key: string; closing: boolean } | null>(null)
+  // The drawer stays mounted, so a leftover confirm step would reopen on the next long-press.
+  useEffect(() => {
+    if (session === null) {
+      setPhase(null)
+    }
+  }, [session])
+  const confirming = phase?.key === sessionKey && sessionKey !== null
+  const closing = confirming && phase?.closing === true
+  const confirmClose = () => {
+    if (!session || !sessionKey || closing) {
+      return
+    }
+    setPhase({ key: sessionKey, closing: true })
+    onCloseSession(session)
+  }
+
   return (
     <BottomDrawer visible={session != null} onClose={onDismiss}>
       {session == null ? null : (
-        <SessionSheetBody session={session} onOpen={onOpen} onCloseSession={onCloseSession} />
+        <SessionSheetBody
+          session={session}
+          confirming={confirming}
+          closing={closing}
+          onOpen={onOpen}
+          onConfirm={confirmClose}
+          onAskConfirm={() => {
+            if (sessionKey) {
+              setPhase({ key: sessionKey, closing: false })
+            }
+          }}
+          onCancelConfirm={() => setPhase(null)}
+        />
       )}
     </BottomDrawer>
   )
@@ -27,32 +57,29 @@ export function SidebarSessionActionSheet({ session, onDismiss, onOpen, onCloseS
 
 function SessionSheetBody({
   session,
+  confirming,
+  closing,
   onOpen,
-  onCloseSession
+  onAskConfirm,
+  onCancelConfirm,
+  onConfirm
 }: {
   session: SidebarSessionAction
+  confirming: boolean
+  closing: boolean
   onOpen: (session: SidebarSessionAction) => void
-  onCloseSession: (session: SidebarSessionAction) => void
+  onAskConfirm: () => void
+  onCancelConfirm: () => void
+  onConfirm: () => void
 }) {
   const t = useMobileTranslation()
-  const [phase, setPhase] = useState<'ask' | 'closing' | null>(null)
-  const confirming = phase !== null
-  const closing = phase === 'closing'
-  const confirmClose = () => {
-    if (closing) {
-      return
-    }
-    setPhase('closing')
-    onCloseSession(session)
-  }
-
   if (confirming) {
     return (
       <SessionCloseConfirm
         label={session.label}
         closing={closing}
-        onCancel={() => setPhase(null)}
-        onConfirm={confirmClose}
+        onCancel={onCancelConfirm}
+        onConfirm={onConfirm}
       />
     )
   }
@@ -73,7 +100,7 @@ function SessionSheetBody({
           id: 'close',
           label: t('common.close', 'Close'),
           destructive: true,
-          onPress: () => setPhase('ask')
+          onPress: onAskConfirm
         }
       ]}
     />
