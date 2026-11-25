@@ -150,6 +150,21 @@ export function mobileNativeChatRowOffset(
   return row && row.getBoundingClientRect().top - scroller.getBoundingClientRect().top
 }
 
+/** The drawn row box under page `y`, and how far down it `y` falls (0..1), so a relayout can put that point back. */
+export function mobileNativeChatRowAtPageY(
+  scroller: MobileNativeChatScrollNode,
+  y: number
+): { row: Tagged; fraction: number } | undefined {
+  const rows = drawnRows(scroller)
+  const row = rows[firstRowEndingBelow(rows, y)]
+  if (!row) {
+    return undefined
+  }
+  const box = row.getBoundingClientRect()
+  const height = box.bottom - box.top
+  return { row, fraction: height > 0 ? Math.min(1, Math.max(0, (y - box.top) / height)) : 0 }
+}
+
 // The nearest row wholly more than `distance` above the view; it ends at or above that line.
 export function mobileNativeChatRowAbove(
   scroller: MobileNativeChatScrollNode,

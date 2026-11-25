@@ -152,7 +152,7 @@ export function MobileNativeChatView({
   const t = useMobileTranslation()
   const { bottomPad, composerFit, transcriptInset } = useChatBottomFit(keyboardInset)
   const rootStyle = [styles.root, { paddingBottom: bottomPad }]
-  const { fontScale, pinchGesture } = useMobileNativeChatPinchGesture()
+  const { fontScale, pinchGesture, pinchPreview } = useMobileNativeChatPinchGesture()
   const { font, lineSpacing } = useNativeChatTextSettings()
 
   const data = useMobileNativeChatTransientData(
@@ -400,6 +400,7 @@ export function MobileNativeChatView({
                         roots={disclosures.roots}
                         contentContainerStyle={styles.listContent}
                         pinchGesture={pinchGesture}
+                        pinchPreview={pinchPreview}
                       />
                     </MobileWorkerApprovalReceiptsContext>
                   </MobileNativeChatScrollRootsBoundary>
