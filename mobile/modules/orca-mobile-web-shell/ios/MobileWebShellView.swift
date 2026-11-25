@@ -155,15 +155,11 @@ internal final class MobileWebShellBridgeMessageTooLargeException: GenericExcept
   }
 }
 
-final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate,
-  UIGestureRecognizerDelegate {
+final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate {
   let onLoadState = EventDispatcher()
   let onBridgeMessage = EventDispatcher()
   let onExternalNavigation = EventDispatcher()
-  let onBackEdgeSwipe = EventDispatcher()
 
-  // The page's own Back: the stack's swipe is off while the page claims Back, and a strip overlay would eat taps.
-  private let backEdgePan = UIPanGestureRecognizer()
   private let schemeHandler = MobileWebShellSchemeHandler()
   private let bridgeReceiver = MobileWebShellBridgeReceiver()
   private let bridgeGate = MobileWebShellBridgeGate()
@@ -224,12 +220,7 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
       webView.leadingAnchor.constraint(equalTo: leadingAnchor),
       webView.trailingAnchor.constraint(equalTo: trailingAnchor)
     ])
-    for name in [
-      UIWindow.didBecomeKeyNotification, UIScene.didActivateNotification,
-      UIApplication.didBecomeActiveNotification,
-      UIResponder.keyboardDidHideNotification, UITextField.textDidEndEditingNotification,
-      UITextView.textDidEndEditingNotification
-    ] {
+    for name in [UIWindow.didBecomeKeyNotification, UIScene.didActivateNotification, UIApplication.didBecomeActiveNotification] {
       windowObservers.append(NotificationCenter.default.addObserver(
         forName: name, object: nil, queue: .main
       ) { [weak self] _ in
@@ -237,36 +228,6 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
       })
     }
     installNetworkBlock(into: configuration.userContentController)
-    backEdgePan.isEnabled = false
-    backEdgePan.addTarget(self, action: #selector(handleBackEdgePan(_:)))
-    backEdgePan.delegate = self
-    addGestureRecognizer(backEdgePan)
-    webView.scrollView.panGestureRecognizer.require(toFail: backEdgePan)
-  }
-
-  func setBackEdgeSwipe(_ value: Bool) {
-    backEdgePan.isEnabled = value
-  }
-
-  /// Only touches that start at the shell's left edge; a landscape safe area insets it from the screen's.
-  func gestureRecognizer(_ recognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-    recognizer !== backEdgePan || touch.location(in: self).x <= 20
-  }
-
-  override func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
-    guard recognizer === backEdgePan else { return super.gestureRecognizerShouldBegin(recognizer) }
-    let velocity = backEdgePan.velocity(in: self)
-    return velocity.x > abs(velocity.y)
-  }
-
-  /// Commit like the stack's own swipe: past half the width, or a rightward flick.
-  @objc private func handleBackEdgePan(_ pan: UIPanGestureRecognizer) {
-    guard pan.state == .ended else { return }
-    let travel = pan.translation(in: self).x
-    let speed = pan.velocity(in: self).x
-    if speed > 300 || (speed > -300 && travel > bounds.width / 2) {
-      onBackEdgeSwipe()
-    }
   }
 
   func setGenerationDirectory(_ value: String) {
@@ -463,22 +424,7 @@ final class OrcaMobileWebShellView: ExpoView, WKNavigationDelegate, WKUIDelegate
         self.loadWhenIsolated()
         return
       }
-      let delay: TimeInterval
-      switch MobileWebShellKeyboardWarmup.prepare(in: window) {
-      case .ready(let remainingDelay):
-        delay = remainingDelay
-      case .waitingForTextInput:
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
-          guard let self else { return }
-          self.keyboardPreparationPending = false
-          self.loadWhenIsolated()
-        }
-        return
-      case .failed:
-        self.keyboardPreparationPending = false
-        self.failPropUpdate(.documentLoadFailed)
-        return
-      }
+      let delay = MobileWebShellKeyboardWarmup.prepare(in: window)
       DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self, weak window] in
         guard let self else { return }
         self.keyboardPreparationPending = false

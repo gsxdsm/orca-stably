@@ -81,12 +81,7 @@ export function useMobileAgentMessageNavigation(
       const failure = (outcome: StructuredSessionOpenFailure) => {
         if (current()) {
           showToast(
-            mobileStructuredSessionOpenMessage(
-              outcome.reason,
-              sender.name ?? '',
-              outcome.surface,
-              outcome.workspaceKind
-            ),
+            mobileStructuredSessionOpenMessage(outcome.reason, sender.name ?? '', outcome.surface),
             3000
           )
         }

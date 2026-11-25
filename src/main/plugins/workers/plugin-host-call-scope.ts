@@ -16,8 +16,6 @@ export type PluginHostCallScope = {
   panel?: PluginPanelCaller
   /** Writes to the plugin's log (`orca plugin logs`). */
   log?: (line: string) => void
-  /** Aborts when the worker that made the call cancels it or exits. */
-  signal?: AbortSignal
 }
 
 export const UNSCOPED_PLUGIN_HOST_CALL: PluginHostCallScope = { assertActive: () => {} }

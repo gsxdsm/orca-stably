@@ -32,7 +32,6 @@ import { agentCliInstallationProblemOf } from '../agent-cli-installation-error'
 import { agentCliInstallationFacts } from '../../../shared/agent-cli-installation-problem'
 
 const TYPED_START_REFUSALS = [
-  'savedConversationMissing',
   'notSignedIn',
   'cliMissing',
   'historyTooLarge',

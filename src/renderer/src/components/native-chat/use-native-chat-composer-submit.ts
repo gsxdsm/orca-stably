@@ -1,5 +1,3 @@
-import { serializeNativeChatAgentReferences } from './native-chat-agent-reference-send'
-import { mayHoldAgentReferences } from '../../../../shared/orchestration-agent-reference'
 import { useCallback, useMemo, useState } from 'react'
 import { translate } from '@/i18n/i18n'
 import { applyPickerSuggestion } from '../../../../shared/native-chat/input/native-chat-picker-triggers'
@@ -8,7 +6,6 @@ import type {
   NativeChatComposerSendIntent,
   NativeChatStructuredComposerTransport
 } from './native-chat-composer-types'
-import type { NativeChatStructuredComposerSend } from './use-native-chat-structured-composer-send'
 import type { NativeChatComposerImageAttachment } from './NativeChatComposerField'
 import { nativeChatImagesHoldSend } from './native-chat-image-reattach'
 import {
@@ -38,7 +35,7 @@ export type NativeChatComposerGoalMode = {
   ) => (item: TItem) => void
 }
 
-/** Reuse goal entry for host controls and native commands, preserving each submission path. */
+/** Submit objectives only where host goals are supported; route other drafts through structured/PTY sends. */
 export function useNativeChatComposerSubmit(args: {
   structuredTransport?: NativeChatStructuredComposerTransport
   draftScopeKey: string
@@ -46,10 +43,12 @@ export function useNativeChatComposerSubmit(args: {
   caret: number
   imageAttachments: readonly NativeChatComposerImageAttachment[]
   disabled: boolean
-  /** An optional-prompt action still passes the shared paste and attachment admission. */
-  submitEmpty?: () => void
   sendPty: () => void
-  sendStructured: NativeChatStructuredComposerSend
+  sendStructured: (
+    text: string,
+    attachments: readonly NativeChatComposerImageAttachment[],
+    intent?: NativeChatComposerSendIntent
+  ) => void
   /** Runs a command Orca owns, like `/resume`; true means the draft never reaches the agent. */
   consumeOrcaCommand?: (draft: string) => boolean
   matchesOrcaCommand?: (draft: string) => boolean
@@ -61,21 +60,15 @@ export function useNativeChatComposerSubmit(args: {
   messageDelivery: boolean
 } {
   const { caret, disabled, draft, draftScopeKey, imageAttachments, sendPty, sendStructured } = args
-  const { consumeOrcaCommand, setCaret, setDraft, structuredTransport, submitEmpty } = args
+  const { consumeOrcaCommand, setCaret, setDraft, structuredTransport } = args
   const threadGoal = structuredTransport?.threadGoal
   const [entered, setEntered] = useState(false)
-  const active = entered && structuredTransport !== undefined
+  const active = entered && threadGoal !== undefined
 
   const interceptPick = useCallback(
     <TItem extends NativeChatPickerItem>(pick: (item: TItem) => void) =>
       (item: TItem) => {
-        // Without host goals only the provider's built-in /goal opens the chip; a namesake keeps its invocation.
-        if (
-          !structuredTransport ||
-          item.kind !== 'command' ||
-          item.name !== GOAL_COMMAND ||
-          (!threadGoal && item.builtin !== true)
-        ) {
+        if (!threadGoal || item.kind !== 'command' || item.name !== GOAL_COMMAND) {
           pick(item)
           return
         }
@@ -86,71 +79,43 @@ export function useNativeChatComposerSubmit(args: {
         setCaret(tokenStart)
         setEntered(true)
       },
-    [caret, draft, setCaret, setDraft, structuredTransport, threadGoal]
+    [caret, draft, setCaret, setDraft, threadGoal]
   )
 
-  // Native goals keep the ordinary sender's paste admission and clearing; host goals clear only an unchanged draft.
-  const setGoal = useCallback(
-    (intent?: NativeChatComposerSendIntent) => {
-      const submitted = readNativeChatComposerDraft(draftScopeKey)
-      // A host goal is one line; a provider /goal is sent as a message, so its notes keep their own lines.
-      const objective = structuredAgentSessionGoalObjective(
-        threadGoal || mayHoldAgentReferences(draft)
-          ? serializeNativeChatAgentReferences(
-              draft,
-              submitted.document,
-              submitted.pastedTextFiles,
-              threadGoal ? 'goal' : 'message'
-            )
-          : draft
-      )
-      if (!structuredTransport || objective === '') {
-        return
-      }
-      if (imageAttachments.length > 0) {
-        structuredTransport.onError(
-          translate(
-            'components.native-chat.goal.attachmentsUnsupported',
-            'Remove attachments before setting a goal.'
-          )
+  // Clear only the submitted draft after host acceptance; the goal controller refuses concurrent submissions.
+  const setGoal = useCallback(() => {
+    const objective = structuredAgentSessionGoalObjective(
+      resolveNativeChatPastedText(draftScopeKey, draft)
+    )
+    if (!threadGoal || !structuredTransport || objective === '') {
+      return
+    }
+    if (imageAttachments.length > 0) {
+      structuredTransport.onError(
+        translate(
+          'components.native-chat.goal.attachmentsUnsupported',
+          'Remove attachments before setting a goal.'
         )
+      )
+      return
+    }
+    structuredTransport.onSubmitted?.()
+    const isCurrent = structuredTransport.capturePresentation()
+    const submitted = readNativeChatComposerDraft(draftScopeKey)
+    void threadGoal.setObjective(objective).then((accepted) => {
+      if (!accepted) {
         return
       }
-      if (!threadGoal) {
-        const isCurrent = structuredTransport.capturePresentation()
-        void sendStructured(`/goal ${objective}`, [], intent).then((accepted) => {
-          if (accepted && isCurrent() && readNativeChatComposerDraft(draftScopeKey).text === '') {
-            setEntered(false)
-          }
-        })
+      if (!clearNativeChatComposerDraftIfUnchanged(draftScopeKey, submitted)) {
         return
       }
-      structuredTransport.onSubmitted?.()
-      const isCurrent = structuredTransport.capturePresentation()
-      void threadGoal.setObjective(objective).then((accepted) => {
-        if (!accepted) {
-          return
-        }
-        if (!clearNativeChatComposerDraftIfUnchanged(draftScopeKey, submitted)) {
-          return
-        }
-        if (isCurrent()) {
-          structuredTransport.onError(null)
-          setCaret(0)
-          setEntered(false)
-        }
-      })
-    },
-    [
-      draft,
-      draftScopeKey,
-      imageAttachments.length,
-      sendStructured,
-      setCaret,
-      structuredTransport,
-      threadGoal
-    ]
-  )
+      if (isCurrent()) {
+        structuredTransport.onError(null)
+        setCaret(0)
+        setEntered(false)
+      }
+    })
+  }, [draft, draftScopeKey, imageAttachments.length, setCaret, structuredTransport, threadGoal])
 
   const send = useCallback(
     (intent?: NativeChatComposerSendIntent) => {
@@ -174,13 +139,11 @@ export function useNativeChatComposerSubmit(args: {
         setEntered(true)
       } else if (active) {
         if (!disabled) {
-          setGoal(intent)
+          setGoal()
         }
       } else if (!structuredTransport) {
         sendPty()
-      } else if (!disabled && draft.trim() === '' && imageAttachments.length === 0) {
-        submitEmpty?.()
-      } else if (!disabled) {
+      } else if ((draft.trim() !== '' || imageAttachments.length > 0) && !disabled) {
         if (intent) {
           sendStructured(draft, imageAttachments, intent)
         } else {
@@ -190,7 +153,6 @@ export function useNativeChatComposerSubmit(args: {
     },
     [
       active,
-      submitEmpty,
       consumeOrcaCommand,
       disabled,
       draft,
@@ -209,7 +171,7 @@ export function useNativeChatComposerSubmit(args: {
   const exit = useCallback(() => setEntered(false), [])
   const goalMode = useMemo(() => ({ active, exit, interceptPick }), [active, exit, interceptPick])
   const messageDelivery =
-    !(active && threadGoal !== undefined) &&
+    !active &&
     !args.matchesOrcaCommand?.(draft) &&
     !(
       structuredTransport &&

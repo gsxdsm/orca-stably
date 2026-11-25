@@ -8,10 +8,7 @@ import { stepUIZoomLevel } from '../../../../shared/ui-zoom-level'
 import { useAppStore } from '../../store'
 import { focusedBrowserPageId, resolveZoomTarget } from '../resolve-zoom-target'
 import { dispatchBrowserPageZoom } from '@/components/browser-pane/host-guest/browser-page-zoom'
-import {
-  requestFrontDialogViewerZoom,
-  requestViewerZoom
-} from '@/components/editor/viewer-zoom-request'
+import { requestViewerZoom } from '@/components/editor/viewer-zoom-request'
 
 export function registerZoomIpcBridge(unsubs: (() => void)[]): void {
   unsubs.push(
@@ -54,10 +51,6 @@ export function registerZoomIpcBridge(unsubs: (() => void)[]): void {
         const actual = computeEditorFontSize(baseFontSize, next)
         const percent = Math.round((actual / baseFontSize) * 100)
         dispatchZoomLevelChanged('editor', percent)
-        return
-      }
-      // Why: viewer dialogs are portaled outside every pane, so only the editor branch above reached them.
-      if (requestFrontDialogViewerZoom(direction)) {
         return
       }
 

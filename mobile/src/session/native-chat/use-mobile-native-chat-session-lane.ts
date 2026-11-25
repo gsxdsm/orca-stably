@@ -11,7 +11,6 @@ import type { MobileNativeChatSendErrorReporter } from './use-mobile-native-chat
 // Run both hooks in fixed order and starve the inactive lane’s identity so flips preserve cached transcripts.
 export function useMobileNativeChatSessionLane({
   client,
-  pairedHostClient,
   hostId,
   composerScopeKey,
   structured,
@@ -26,7 +25,6 @@ export function useMobileNativeChatSessionLane({
   onActionResolved
 }: {
   client: RpcClient | null
-  pairedHostClient: RpcClient | null
   hostId: string
   composerScopeKey?: string | null
   structured: boolean
@@ -68,7 +66,6 @@ export function useMobileNativeChatSessionLane({
   })
   const structuredSession = useMobileStructuredAgentSession({
     client,
-    pairedHostClient,
     sessionId: structured ? sessionId : null,
     sourceIdentity,
     hostSupport,

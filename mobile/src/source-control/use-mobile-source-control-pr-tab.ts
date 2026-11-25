@@ -122,7 +122,6 @@ export function useMobileSourceControlPrTab({
           : false,
     state: prTabState,
     refetch: refetchPr,
-    rereadAfterWrite: prController.rereadPRSidebarAfterWrite,
     client,
     connState,
     worktreeId,

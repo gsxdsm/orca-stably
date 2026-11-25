@@ -39,7 +39,7 @@ export function structuredAgentSessionCommandTurnItemIds(
 
 export function isStructuredAgentSessionCommandRow(
   item: Pick<AgentJournalRenderItem, 'body' | 'turnScope'>,
-  commandTurnItemIds: Pick<ReadonlySet<string>, 'has'>
+  commandTurnItemIds: ReadonlySet<string>
 ): boolean {
   const scope = item.turnScope
   return (

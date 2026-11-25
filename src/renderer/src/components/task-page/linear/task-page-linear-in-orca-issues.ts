@@ -3,7 +3,7 @@ import type {
   LinearIssueRead,
   LinearIssueLease,
   LinearIssueView
-} from '@/store/slices/linear/linear-issue-read-lifecycle'
+} from '@/store/slices/linear/linear-issue-publication'
 import type { LinearIssue } from '../../../../../shared/linear/issue-types'
 import type { LinearWorkspace } from '../../../../../shared/linear/workspace-types'
 import type { Worktree } from '../../../../../shared/worktree/types'

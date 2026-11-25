@@ -6,7 +6,7 @@ import { useMobileTranslation } from '../../i18n/use-mobile-translation'
 import type { Translate } from '../../i18n/mobile-i18n'
 import type { GitHubPRMergeMethod } from '../../../../src/shared/github/pull-request-types'
 import { resolveGitHubPRMergeMethods } from '../../../../src/shared/github/pull-request-merge-methods'
-import { KeyedBottomDrawer } from '../bottom-drawer/keyed-bottom-drawer'
+import { KeyedBottomDrawer } from '../keyed-bottom-drawer'
 import { SheetHeader } from '../nav-bar/SheetHeader'
 import { SheetPrimaryButton } from '../SheetPrimaryButton'
 import { ListGroup, ListRow } from '../list/ListGroup'
@@ -181,10 +181,7 @@ function PrEditTextSheet({ tab, field }: { tab: MobilePrTab; field: 'title' | 'b
       <View style={sheetStyles.body}>
         <FieldTextInput
           value={draft}
-          onChangeText={(value) => {
-            textAction.touch()
-            setDraft(value)
-          }}
+          onChangeText={setDraft}
           editable={!textAction.saving}
           autoFocus
           multiline={field === 'body'}

@@ -24,8 +24,7 @@ import {
 import { agentJournalItemKey } from '../../../shared/agent-session/journal/agent-session-journal-item-key'
 import { QUEUED_MESSAGE_PAUSED_SEND_FAILED } from '../../../shared/agent-session/requests/agent-session-queued-message-wire'
 
-// Counts are exact or log-bounded formulas in n, so 3x already exposes superlinear work.
-it.each([10, 30])(
+it.each([10, 100])(
   'bounds actual edit/growth, replay, replacement and complete recovery N=%i',
   async (n) => {
     type Counts = {

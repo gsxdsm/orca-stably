@@ -22,7 +22,6 @@ export type Body = {
   env?: string
   version?: string
   agentProcess?: string
-  tmuxPane?: string
   payload: Record<string, unknown>
 }
 

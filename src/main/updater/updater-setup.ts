@@ -33,7 +33,6 @@ export type UpdaterSetupOptions = {
   setPendingUpdateNudgeId?: (id: string | null) => void
   setDismissedUpdateNudgeId?: (id: string | null) => void
   getReleaseChannelOverride?: () => ReleaseChannel | null
-  getUpdateDelayDays?: () => number
   installMode?: UpdateInstallMode
   onBeforeQuitFailure?: PreQuitCleanupFailureMode
 }
@@ -125,7 +124,6 @@ export class UpdaterSetup extends UpdaterDownloadInstall {
     this._setPendingUpdateNudgeId = opts?.setPendingUpdateNudgeId ?? null
     this._setDismissedUpdateNudgeId = opts?.setDismissedUpdateNudgeId ?? null
     this.getReleaseChannelOverride = opts?.getReleaseChannelOverride ?? null
-    this.getUpdateDelayDays = opts?.getUpdateDelayDays ?? null
     this.updateInstallMode = opts?.installMode ?? 'interactive'
     this.lastInstallDeferralVersion = { download: null, install: null }
 

@@ -16,7 +16,6 @@ import {
   SessionConfigSelectGroupSchema,
   SessionConfigSelectOptionSchema,
   type AvailableCommand,
-  type InitializeResponse,
   type SessionConfigOption,
   type SessionConfigSelectOption,
   type SessionModelState
@@ -52,19 +51,13 @@ export class AcpStructuredOptions {
   constructor(
     private readonly dialect: Pick<
       AcpDialect,
-      | 'modelEfforts'
-      | 'withheldCommands'
-      | 'effortChangesModel'
-      | 'clampsUnlistedEffort'
-      | 'builtinCommands'
+      'modelEfforts' | 'withheldCommands' | 'effortChangesModel' | 'clampsUnlistedEffort'
     > = {}
   ) {}
 
   private configOptions: SessionConfigOption[] = []
   private models: SessionModelState | null = null
   private commands: AgentSessionSlashCommand[] | undefined
-  private reportedCommands: readonly AvailableCommand[] | undefined
-  private isBuiltin: (command: AvailableCommand) => boolean = () => false
   // Only new sessions resolve configured defaults; loaded sessions retain their saved choices.
   private resolvesConfig = false
   readonly picked = new Set<string>()
@@ -112,25 +105,15 @@ export class AcpStructuredOptions {
     }
   }
 
-  /** Each process proves its own built-ins; session rows alone cannot. */
-  adoptInitialize(initialized: InitializeResponse): void {
-    this.isBuiltin = this.dialect.builtinCommands?.(initialized) ?? (() => false)
-    if (this.reportedCommands) {
-      this.adoptCommands(this.reportedCommands)
-    }
-  }
-
   adoptCommands(commands: readonly AvailableCommand[]): void {
     const withheld = this.dialect.withheldCommands ?? []
-    this.reportedCommands = commands
     this.commands = commands
       .filter((command) => !withheld.includes(command.name))
       .map((command) => ({
         name: command.name,
         kind: 'command',
         ...(command.description ? { description: command.description } : {}),
-        ...(command.input?.hint ? { argumentHint: command.input.hint } : {}),
-        ...(this.isBuiltin(command) ? { builtin: true as const } : {})
+        ...(command.input?.hint ? { argumentHint: command.input.hint } : {})
       }))
   }
 

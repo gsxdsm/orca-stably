@@ -495,12 +495,10 @@ it.each(['worker-stop', 'worker-release'] as const)(
 type ParkedMailRegistry = ReadonlyMap<unknown, unknown>
 
 function observeParkedMail(value: unknown): ParkedMailRegistry {
-  const parking = isRecord(value) ? value.parking : undefined
-  if (!isRecord(parking) || !(parking.sessionOf instanceof Map)) {
+  if (!isRecord(value) || !(value.parkedUntilJournalEdge instanceof Map)) {
     throw new Error('expected actual parked mail registry')
   }
-  // Parked mailboxes, each with the session whose journal edge it waits on.
-  return parking.sessionOf
+  return value.parkedUntilJournalEdge
 }
 
 it('worker-abandon settles and fences consumption, releases the existing binding and retains the child', async () => {
@@ -543,8 +541,7 @@ it('worker-abandon settles and fences consumption, releases the existing binding
   const delivery = runtime.pointerDelivery()
   const parked = observeParkedMail(delivery)
   runtime.deliverPendingMessagesForHandle(mailbox)
-  // Queued behind the running turn, its card is followed on the session's next journal edge.
-  await vi.waitFor(() => expect(parked.has(mailbox)).toBe(true))
+  expect(parked.has(mailbox)).toBe(true)
   const originalForget = delivery.forgetSession.bind(delivery)
   const releasedEntries: boolean[] = []
   const forget = vi.spyOn(delivery, 'forgetSession').mockImplementation((sessionId) => {

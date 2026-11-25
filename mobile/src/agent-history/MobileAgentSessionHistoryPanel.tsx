@@ -38,12 +38,7 @@ import {
   MobileOfflineState,
   MobileStateView
 } from '../components/MobileStateView'
-import {
-  AgentHistoryResumeNotice,
-  AgentHistoryResumeToast,
-  AgentHistorySkippedNotice,
-  useAgentHistoryResumeToast
-} from './AgentHistoryNotices'
+import { AgentHistoryResumeNotice, AgentHistorySkippedNotice } from './AgentHistoryNotices'
 import { useNow } from '../hooks/use-now'
 import { useMobileResumeOperationOwnership } from './use-mobile-resume-operation-ownership'
 import type { Translate } from '../i18n/mobile-i18n'
@@ -93,7 +88,6 @@ function MobileAgentSessionHistoryPanelContent({
   const insets = useSafeAreaInsets()
   const [resumingSessionId, setResumingSessionId] = useState<string | null>(null)
   const [resumeMessage, setResumeMessage] = useState<string | null>(null)
-  const { message: resumeToast, showToast: showResumeToast } = useAgentHistoryResumeToast()
   const now = useNow(30_000)
   const resumeLaunchInFlightRef = useRef(false)
   const resumeMutationRegistryRef = useRef(
@@ -204,17 +198,9 @@ function MobileAgentSessionHistoryPanelContent({
               triggerSuccess()
               router.replace(href)
             },
-            failed: (reason, workspaceKind) => {
+            failed: (reason) => {
               triggerError()
-              const message = mobileStructuredSessionOpenMessage(
-                reason,
-                session.agent,
-                undefined,
-                workspaceKind
-              )
-              const showMessage =
-                reason === 'workspace-missing' ? showResumeToast : setResumeMessage
-              showMessage(message)
+              setResumeMessage(mobileStructuredSessionOpenMessage(reason, session.agent))
             }
           })
         ) {
@@ -304,7 +290,6 @@ function MobileAgentSessionHistoryPanelContent({
       worktreeId,
       worktrees,
       claimResumeOwnership,
-      showResumeToast,
       t
     ]
   )
@@ -409,7 +394,6 @@ function MobileAgentSessionHistoryPanelContent({
           />
         </>
       )}
-      <AgentHistoryResumeToast message={resumeToast} bottomInset={searchBarHeight} />
     </View>
   )
 }

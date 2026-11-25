@@ -4,6 +4,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef } from 'react'
 import { isAgentSessionHandleProvider } from '../../../src/shared/agent-session/lifecycle/agent-session-provider-handle'
 import { structuredAgentSessionSeedCatalog } from '../../../src/shared/agent-session/options/structured-agent-session-seed-catalog'
 import type { AgentSessionOptionResult } from '../../../src/shared/agent-session/agent-session-wire'
+import { lockedStructuredAgentSessionOptionSnapshot } from '../../../src/shared/agent-session/options/structured-agent-session-option-snapshot'
 import {
   structuredAgentSessionOptionView,
   structuredAgentSessionSendSelection,
@@ -20,7 +21,7 @@ import { mobileCreatedStructuredSession } from './mobile-created-structured-sess
 import {
   acceptedStructuredSessionSelectionOutcome,
   createStructuredAgentSessionOptionsWriteOwner
-} from '../../../src/shared/agent-session/options/structured-agent-session-options-write-owner'
+} from '../../../src/shared/structured-agent-session-options-write-owner'
 import { useMobileStructuredOptionSurface } from './use-mobile-structured-option-surface'
 
 const NO_COMMANDS: readonly AgentSessionConversationCommand[] = []
@@ -56,7 +57,7 @@ export function useMobileStructuredAgentOptions(args: {
   )
   // An options answer made before the account's listing landed listed none of it.
   const {
-    projectRuntimeReports,
+    projectPermission,
     optionState,
     optionStateRef,
     activeOptionRecordRef,
@@ -64,6 +65,7 @@ export function useMobileStructuredAgentOptions(args: {
     updateOptionState,
     conversationSupport,
     imageSupport,
+    awaitingOptions,
     receiveCatalog,
     isCurrentContext,
     controller,
@@ -105,9 +107,19 @@ export function useMobileStructuredAgentOptions(args: {
     imageSupport?.sessionId === sessionId &&
     !imageSupport.statesPermissionMode &&
     optionState.permissionMode === null
+  const interactionReadyRef = useRef(!awaitingOptions)
+  const lockSnapshotRef = useRef(
+    (snapshot: ReturnType<typeof structuredAgentSessionShownSnapshot>) => snapshot
+  )
+  const lockSnapshot = (snapshot: ReturnType<typeof structuredAgentSessionShownSnapshot>) =>
+    awaitingOptions ? lockedStructuredAgentSessionOptionSnapshot(snapshot) : snapshot
+  useLayoutEffect(() => {
+    interactionReadyRef.current = !awaitingOptions
+    lockSnapshotRef.current = lockSnapshot
+  })
   const readOptionState = useCallback(
     () =>
-      projectRuntimeReports({
+      projectPermission({
         ...structuredAgentSessionOptionView(
           optionStateRef.current,
           undefined,
@@ -115,15 +127,15 @@ export function useMobileStructuredAgentOptions(args: {
         ),
         permissionOwnSupported: hostSupport ? hostSupport.permissionOwn === true : null
       }),
-    [controller, projectRuntimeReports, hostSupport?.permissionOwn]
+    [controller, projectPermission, hostSupport?.permissionOwn]
   )
-  const shown = structuredAgentSessionShownSnapshot(readOptionState())
+  const shown = lockSnapshot(structuredAgentSessionShownSnapshot(readOptionState()))
   const optionSnapshot = legacyHostPermissions
     ? [...shown, legacyHostPermissionDescriptor()]
     : shown
 
   const readWriteContext = () => {
-    const currentState = projectRuntimeReports({
+    const currentState = projectPermission({
       ...optionStateRef.current,
       permissionOwnSupported: hostSupport ? hostSupport.permissionOwn === true : null
     })
@@ -132,8 +144,8 @@ export function useMobileStructuredAgentOptions(args: {
       controller,
       record: optionStateRef.current.record,
       view,
-      snapshot: structuredAgentSessionShownSnapshot(view),
-      ready: !!client && !!sessionId,
+      snapshot: lockSnapshotRef.current(structuredAgentSessionShownSnapshot(view)),
+      ready: !awaitingOptions && !!client && !!sessionId && interactionReadyRef.current,
       providerStarting,
       isCurrentContext,
       flush: (isCurrent: () => boolean) => {
@@ -187,6 +199,7 @@ export function useMobileStructuredAgentOptions(args: {
     useMobileStructuredOptionSurface({
       optionSnapshot,
       demandModelCatalog,
+      lockSnapshot: (snapshot) => lockSnapshotRef.current(snapshot),
       setStructuredOption,
       readOptionState
     })

@@ -250,7 +250,7 @@ export async function startLocalWorker(args: {
       terminalOwnership: external ? 'external' : 'created'
     })
     if (workerChat) {
-      rebindReusedStructuredWorker(terminalHandle, db)
+      rebindReusedStructuredWorker(runtime, terminalHandle, db)
     }
 
     result = await deliverAndSettleWorkerStartReadiness({

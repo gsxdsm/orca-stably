@@ -1,8 +1,6 @@
 /** The `orca` object a worker's `activate(orca)` receives; shared so orca/testing hands tests the same one. */
 import type { PluginEventName } from '../manifest/plugin-manifest'
 import { PLUGIN_V1_EVENT_ALIASES } from '../contributions/plugin-event-contribution'
-import { isPluginHookName, type PluginHookName } from '../contributions/plugin-hook-contribution'
-import type { PluginHookHandler } from './plugin-worker-hooks'
 import { PLUGIN_HOST_API_MINOR, pluginHostMethodsFor } from './plugin-host-api'
 import { PLUGIN_HOST_API_MAJOR } from './plugin-host-api-major'
 import {
@@ -40,9 +38,6 @@ export type PluginWorkerOrcaApi = {
       event: PluginEventName,
       handler: (payload: unknown) => void | Promise<void>
     ): PluginDisposable
-  }
-  hooks: {
-    on(event: PluginHookName, handler: PluginHookHandler): PluginDisposable
   }
   host: {
     call: HostCall
@@ -102,7 +97,6 @@ const WORKER_METHOD_NAMES: ReadonlySet<string> = new Set(pluginHostMethodsFor('w
 export type PluginWorkerApiTables = {
   commands: Map<string, (args: unknown, context: { signal: AbortSignal }) => unknown>
   events: Map<string, Set<(payload: unknown) => void | Promise<void>>>
-  hooks: Map<PluginHookName, Set<PluginHookHandler>>
   panelRequests: Map<string, PluginPanelRequestHandler>
   dataListeners: Record<PluginDataChanged['area'], Set<DataListener>>
 }
@@ -111,7 +105,6 @@ export function createPluginWorkerApiTables(): PluginWorkerApiTables {
   return {
     commands: new Map(),
     events: new Map(),
-    hooks: new Map(),
     panelRequests: new Map(),
     dataListeners: { storage: new Set(), settings: new Set() }
   }
@@ -163,19 +156,6 @@ export function createPluginWorkerOrcaApi(input: {
             subscription.dispose()
           }
         }
-      }
-    }),
-    hooks: Object.freeze({
-      on(event: PluginHookName, handler: PluginHookHandler) {
-        if (!isPluginHookName(event)) {
-          throw new TypeError(`orca.hooks.on: unknown hook ${String(event)}`)
-        }
-        if (typeof handler !== 'function') {
-          throw new TypeError('orca.hooks.on needs a handler function')
-        }
-        const handlers = tables.hooks.get(event) ?? new Set()
-        tables.hooks.set(event, handlers)
-        return addTo(handlers, handler)
       }
     }),
     host: Object.freeze({

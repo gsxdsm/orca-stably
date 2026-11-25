@@ -80,7 +80,6 @@ export function createWebSettingsApi(): Pick<Partial<PreloadApi>, 'agentAwake'> 
         const stored = getStoredSettings()
         Object.assign(sanitizedUpdates, legacyMatchTerminalSidebarWrite(stored, sanitizedUpdates))
         const localUpdates = { ...sanitizedUpdates }
-        delete localUpdates.nativeChatAutoContinueAfterUsageLimit
         if (runtimeEnvironment) {
           delete localUpdates.worktreeVisibilityDefaults
         }

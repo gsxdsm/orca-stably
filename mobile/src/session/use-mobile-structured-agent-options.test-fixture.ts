@@ -181,10 +181,8 @@ async function settle() {
 
 async function mountOptions(props: Omit<ProbeProps, 'onRender'>) {
   let rendered: Controller | null = null
-  const commits: Controller[] = []
   const onRender = (controller: Controller) => {
     rendered = controller
-    commits.push(controller)
   }
   let renderer: ReactTestRenderer | null = null
   await act(async () => {
@@ -199,7 +197,6 @@ async function mountOptions(props: Omit<ProbeProps, 'onRender'>) {
   }
   return {
     current,
-    commits,
     rerender: async (next: Partial<Omit<ProbeProps, 'onRender'>>) => {
       await act(async () => {
         renderer?.update(createElement(Probe, { ...props, ...next, onRender }))

@@ -32,7 +32,7 @@ export abstract class AgentHookServerStatusRetries extends AgentHookServerStatus
   private readonly claudeHelperKills = new ClaudeHelperKillPoller(this.state, {
     current: (paneKey) => this.state.lastStatusByPaneKey.get(paneKey),
     publish: (event) => {
-      this.applyRestatedStatus(event)
+      this.applyNormalizedStatus(event)
     },
     listening: () =>
       this.server?.listening === true && this.statusHooksEnabled && this.ownerStateInitialized

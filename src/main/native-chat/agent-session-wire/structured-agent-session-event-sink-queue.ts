@@ -21,18 +21,15 @@ export type StructuredAgentSessionSinkOperation = {
 
 type Admitted = StructuredAgentSessionSinkOperation & { superseded?: boolean }
 
-const MAX_PRE_CONTROL_OPERATIONS = 1_024
-const MAX_PRE_CONTROL_BYTES = 32 * 1024 * 1024
-
 export type StructuredAgentSessionDrainWaiter = {
   through: number
   resolve: (result: StructuredAgentSessionSinkBarrier) => void
 }
 
-/** Hand writes to the journal in issuance order; bound startup work until reading can pause. */
+/** Buffer only before bind, then hand writes directly to the journal in issuance order.
+ * Pressure pauses reading but never refuses output a provider already delivered. */
 export class StructuredAgentSessionSinkQueue {
   private readingControl: StructuredAgentSessionReadingControl | undefined
-  private hasBoundReadingControl: boolean
   private target: StructuredAgentSessionEventTarget | null = null
   private closed = false
   private failure: { error: unknown } | null = null
@@ -60,7 +57,6 @@ export class StructuredAgentSessionSinkQueue {
     }
   ) {
     this.readingControl = deps.readingControl
-    this.hasBoundReadingControl = deps.readingControl !== undefined
   }
 
   state = (): StructuredAgentSessionSinkState => ({
@@ -83,7 +79,6 @@ export class StructuredAgentSessionSinkQueue {
 
   bindReadingControl(control: StructuredAgentSessionReadingControl): () => void {
     this.readingControl = control
-    this.hasBoundReadingControl = true
     if (this.backpressured) {
       control.pauseReading()
     }
@@ -149,16 +144,6 @@ export class StructuredAgentSessionSinkQueue {
         : key === undefined
           ? undefined
           : this.waitingPublications.get(key)
-    const queuedBytes =
-      this.queuedBytes + operation.bytes - (replaceAt >= 0 ? (replaced?.bytes ?? 0) : 0)
-    const queuedOperations = this.queuedOperations + (replaceAt >= 0 ? 0 : 1)
-    if (
-      !this.hasBoundReadingControl &&
-      (queuedBytes > MAX_PRE_CONTROL_BYTES || queuedOperations > MAX_PRE_CONTROL_OPERATIONS)
-    ) {
-      this.fail(new Error('Agent journal queue capacity exceeded before reading control bound'))
-      return { accepted: false, reason: 'failed' }
-    }
     const accepted: Admitted = { ...operation, sequence: ++this.acceptedSequence }
     if (replaceAt >= 0) {
       this.buffered.splice(replaceAt, 1)
@@ -166,8 +151,8 @@ export class StructuredAgentSessionSinkQueue {
       // Superseded publications still settle in order as no-ops.
       replaced.superseded = true
     }
-    this.queuedBytes = queuedBytes
-    this.queuedOperations = queuedOperations
+    this.queuedBytes += operation.bytes - (replaced?.bytes ?? 0)
+    this.queuedOperations += replaced ? 0 : 1
     if (this.target) {
       this.handOver(accepted, this.target)
     } else {
@@ -204,7 +189,9 @@ export class StructuredAgentSessionSinkQueue {
   }
 
   private settle(operation: Admitted): void {
-    this.release(operation)
+    if (!operation.superseded) {
+      this.release(operation)
+    }
     this.settledSequence = Math.max(this.settledSequence, operation.sequence)
     this.updateBackpressure()
     this.settleWaiters()

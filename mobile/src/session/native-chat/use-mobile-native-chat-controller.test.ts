@@ -209,7 +209,6 @@ describe('useMobileNativeChatController handleNativeChatSend', () => {
   }): null {
     controller = useMobileNativeChatController({
       client: clientStub as unknown as RpcClient,
-      pairedHostClient: null,
       connState,
       hostId: 'h',
       worktreeId: 'w',
@@ -390,7 +389,6 @@ describe('useMobileNativeChatController ask dismissal across a transcript reload
   function Harness(): null {
     controller = useMobileNativeChatController({
       client: clientStub as unknown as RpcClient,
-      pairedHostClient: null,
       connState: 'connected',
       hostId: 'h',
       worktreeId: 'w',
@@ -612,7 +610,6 @@ describe('useMobileNativeChatController terminal turn', () => {
   function Harness(): null {
     controller = useMobileNativeChatController({
       client: clientStub as unknown as RpcClient,
-      pairedHostClient: null,
       connState: 'connected',
       hostId: 'h',
       worktreeId: 'w',

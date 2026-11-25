@@ -48,15 +48,12 @@ export class ChecksDetailPollingPolicy {
     this.failed = false
   }
 
-  accept(checks: readonly PRCheckDetail[], pipelineCheck: PRCheckDetail | null = null): string {
-    // A GitLab parent pipeline's own status decides cadence; a partial job page cannot settle it.
-    this.status = detailedChecksStatus(pipelineCheck ? [pipelineCheck] : checks)
+  accept(checks: readonly PRCheckDetail[]): string {
+    this.status = detailedChecksStatus(checks)
     this.hasDetails = true
     this.failed = false
     return JSON.stringify(
-      [...(pipelineCheck ? [pipelineCheck] : []), ...checks].map(
-        (check) => `${check.name}:${check.status}:${check.conclusion}`
-      )
+      checks.map((check) => `${check.name}:${check.status}:${check.conclusion}`)
     )
   }
 

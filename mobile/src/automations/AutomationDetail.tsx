@@ -11,7 +11,7 @@ import {
 } from './automation-target-inventory'
 import { Switch, Text, View } from 'react-native'
 import { formatAutomationSchedule } from './automation-schedule-label'
-import { mobileTuiAgentLabel } from '../tasks/mobile-tui-agents'
+import { MOBILE_TUI_AGENT_LABELS } from '../tasks/mobile-tui-agents'
 import type { MobileAutomationRow } from './automation-reply-schema'
 import { AutomationButton, AutomationMetadata } from './AutomationControls'
 import { automationDate } from './automation-run-presentation'
@@ -150,7 +150,7 @@ export function AutomationDetail(props: {
         />
         <AutomationMetadata
           label={t('automations.mobile.agent', 'Agent')}
-          value={mobileTuiAgentLabel(automation.agentId)}
+          value={MOBILE_TUI_AGENT_LABELS[automation.agentId]}
         />
         <AutomationMetadata
           label={t('automations.mobile.project', 'Project')}

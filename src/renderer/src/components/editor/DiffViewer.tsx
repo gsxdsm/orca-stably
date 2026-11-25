@@ -1,5 +1,3 @@
-import { NO_RESOURCE_EVIDENCE } from '@/lib/workspace-copy-owner'
-import { useDiffCommentView } from '../diff-comments/use-diff-comment-owner'
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { DiffEditor, type DiffOnMount } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
@@ -8,10 +6,12 @@ import { diffViewStateCache, setWithLRU } from '@/lib/scroll-cache'
 import { monacoTypographyOptions } from '@/lib/editor-typography'
 import { useEditorTypography } from '@/hooks/use-editor-typography'
 import { useContextualCopySetup } from './useContextualCopySetup'
+import { selectWorktreeDiffComments } from '@/store/worktree-diff-comments-selector'
 import { useDiffCommentDecorator } from '../diff-comments/useDiffCommentDecorator'
 import { toast } from 'sonner'
 import { translate } from '@/i18n/i18n'
 import { applyDiffEditorLineNumberOptions } from './diff-editor-line-number-options'
+import type { DiffComment } from '../../../../shared/diff-comment-types'
 import { isDiffComment } from '@/lib/diff-comment-compat'
 import { installEditorSaveShortcut, installMonacoEditorFindShortcut } from './editor-shortcuts'
 import { diffEditorScrollbarOptions } from './diff-editor-scrollbar-options'
@@ -39,7 +39,6 @@ import { useMonacoTheme } from '@/hooks/use-monaco-theme'
 
 export default function DiffViewer({
   modelKey,
-  modelOwnerKey,
   originalModelKey,
   modifiedModelKey,
   originalContent,
@@ -50,7 +49,6 @@ export default function DiffViewer({
   sideBySide,
   editable,
   worktreeId,
-  noteSource = NO_RESOURCE_EVIDENCE,
   onAddLineComment,
   commentableLineNumbers,
   addLineCommentLabel,
@@ -65,17 +63,16 @@ export default function DiffViewer({
   const diffCollapseUnchangedRegions = useAppStore((s) => s.settings?.diffCollapseUnchangedRegions)
   const monacoTheme = useMonacoTheme()
   const diffTypography = useEditorTypography('diff')
-  // One read: the stable notes array and the copy it belongs to; filter below so unrelated writes don't invalidate.
-  const { owner: commentOwner, comments: allDiffComments } = useDiffCommentView(
-    worktreeId,
-    noteSource
-  )
   const addDiffComment = useAppStore((s) => s.addDiffComment)
   const deleteDiffComment = useAppStore((s) => s.deleteDiffComment)
   const language = usePluginSyntaxLanguage(filePath, coreLanguage)
   const updateDiffComment = useAppStore((s) => s.updateDiffComment)
   const scrollToDiffCommentId = useAppStore((s) => s.scrollToDiffCommentId)
   const setScrollToDiffCommentId = useAppStore((s) => s.setScrollToDiffCommentId)
+  // Select the stable worktree array; filter below so unrelated writes do not invalidate this viewer.
+  const allDiffComments = useAppStore((s): DiffComment[] | undefined =>
+    selectWorktreeDiffComments(s, worktreeId)
+  )
   const diffComments = useMemo(
     () => (allDiffComments ?? []).filter((c) => c.filePath === relativePath && isDiffComment(c)),
     [allDiffComments, relativePath]
@@ -110,11 +107,6 @@ export default function DiffViewer({
     return diffComments.some((c) => c.id === scrollToDiffCommentId) ? scrollToDiffCommentId : null
   }, [scrollToDiffCommentId, diffComments, worktreeId])
 
-  // A draft keeps its captured owner across a same-tab rename but saves under the file's current path.
-  const relativePathRef = useRef(relativePath)
-  useLayoutEffect(() => {
-    relativePathRef.current = relativePath
-  }, [relativePath])
   const handleCreateComment = useCallback(
     async ({
       lineNumber,
@@ -135,17 +127,15 @@ export default function DiffViewer({
       if (!worktreeId) {
         return false
       }
-      const result = await (commentOwner
-        ? addDiffComment(commentOwner, {
-            worktreeId,
-            filePath: relativePathRef.current,
-            source: 'diff',
-            startLine,
-            lineNumber,
-            body,
-            side: 'modified'
-          })
-        : null)
+      const result = await addDiffComment({
+        worktreeId,
+        filePath: relativePath,
+        source: 'diff',
+        startLine,
+        lineNumber,
+        body,
+        side: 'modified'
+      })
       if (!result) {
         toast.error(
           translate('auto.components.editor.diffCommentSaveFailed', 'Failed to save comment')
@@ -153,13 +143,11 @@ export default function DiffViewer({
       }
       return Boolean(result)
     },
-    [commentOwner, addDiffComment, onAddLineComment, worktreeId]
+    [addDiffComment, onAddLineComment, relativePath, worktreeId]
   )
 
   // Only local diffs can edit notes; gate the decorator on a valid comment target.
   useDiffCommentDecorator({
-    captureCreateComment: !onAddLineComment,
-    commentOwner,
     editor: hasLineCommentAction ? modifiedEditor : null,
     monacoModelIdentity: modifiedModelKey ?? modelKey,
     filePath: relativePath,
@@ -171,17 +159,13 @@ export default function DiffViewer({
     onCreateComment: handleCreateComment,
     draftPlaceholder: addLineCommentPlaceholder,
     draftSubmitLabel: addLineCommentLabel,
-    // Notes of an unknown copy can't be added to; hosted review comments have no local copy.
-    canOpenDraft: !renderLimit.limited && (commentOwner !== null || Boolean(onAddLineComment)),
+    canOpenDraft: !renderLimit.limited,
     onDeleteComment: (id) => {
       if (worktreeId) {
-        void (commentOwner && deleteDiffComment(commentOwner, id))
+        void deleteDiffComment(worktreeId, id)
       }
     },
-    onUpdateComment: worktreeId
-      ? (id, body) =>
-          commentOwner ? updateDiffComment(commentOwner, id, body) : Promise.resolve(false)
-      : undefined,
+    onUpdateComment: worktreeId ? (id, body) => updateDiffComment(worktreeId, id, body) : undefined,
     pendingScrollCommentId: pendingScrollForThisViewer,
     onPendingScrollConsumed: () => setScrollToDiffCommentId(null)
   })
@@ -221,7 +205,6 @@ export default function DiffViewer({
   const currentDiffModelPaths = useDiffViewerLargeDiffLifecycle({
     limited: renderLimit.limited,
     modelKey,
-    modelOwnerKey,
     originalModelKey,
     modifiedModelKey,
     diffEditorRef,

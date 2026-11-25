@@ -366,12 +366,7 @@ describe('a message sent to a chat whose start failed', () => {
       failed.sessionId,
       'still there?'
     )
-    // The handed-back message waits in the failed chat's composer, which owns it now.
-    await expect(delivery).resolves.toEqual({
-      delivered: false,
-      failureNotified: true,
-      inComposer: true
-    })
+    await expect(delivery).resolves.toEqual({ delivered: false, failureNotified: true })
     await flushLaunchSettlement()
     expect(getStructuredAgentSessionLaunchLifecycle(WORKTREE_ID, failed.sessionId)).toBe('failed')
     expect(readNativeChatDraftCache(structuredAgentSessionDraftScopeKey(failed.sessionId))).toBe(
@@ -379,5 +374,11 @@ describe('a message sent to a chat whose start failed', () => {
     )
     expect(getStructuredAgentSessionPendingSends(failed.sessionId)).toEqual([])
     expect(mocks.callRuntimeRpc).not.toHaveBeenCalled()
+  })
+
+  it('does nothing for a chat whose start has not failed', () => {
+    expect(
+      relaunchFailedStructuredAgentSessionWithMessage(WORKTREE_ID, 'session-unknown', 'hi')
+    ).toBeNull()
   })
 })

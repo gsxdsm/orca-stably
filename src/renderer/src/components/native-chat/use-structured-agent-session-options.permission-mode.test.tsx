@@ -12,7 +12,6 @@ import { enqueueSessionOptionSettingsWrite } from './native-chat-session-option-
 // @vitest-environment happy-dom
 
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { useLayoutEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ call: vi.fn(), write: vi.fn() }))
@@ -81,14 +80,10 @@ function permission(snapshot: readonly SessionOptionDescriptor[]): string | null
   return entry?.kind.type === 'select' ? entry.kind.currentValue : null
 }
 
-function renderReopened(
-  fence: number,
-  agent: 'codex' | 'claude' = 'codex',
-  onCommit?: (snapshot: readonly SessionOptionDescriptor[]) => void
-) {
+function renderReopened(fence: number, agent: 'codex' | 'claude' = 'codex') {
   return renderHook(
-    (props: { fence: number; stamp: string }) => {
-      const options = useStructuredAgentSessionOptions({
+    (props: { fence: number; stamp: string }) =>
+      useStructuredAgentSessionOptions({
         agent,
         sessionId: 'session-1',
         target: LOCAL_TARGET,
@@ -100,10 +95,7 @@ function renderReopened(
         unloadedTurnRevisions: undefined,
         hostOptionStamp: props.stamp,
         mutate
-      })
-      useLayoutEffect(() => onCommit?.(options.optionSnapshot))
-      return options
-    },
+      }),
     { initialProps: { fence, stamp: 'model-a|ask' } }
   )
 }
@@ -145,18 +137,11 @@ describe('the permission mode another device picks', () => {
       const answer = await read(...args)
       return { ...answer, current: { ...answer.current, reportedPermissionMode: 'full-access' } }
     })
-    const committed: string[] = []
-    const { result, rerender, unmount } = renderReopened(1, 'codex', (snapshot) => {
-      const entry = snapshot.find((descriptor) => descriptor.id === 'permissionMode')
-      committed.push(`${entry?.description}/${entry?.settable}`)
-    })
+    const { result, rerender, unmount } = renderReopened(1)
     const row = () => result.current.optionSnapshot.find((entry) => entry.id === 'permissionMode')
     await waitFor(() => expect(row()).toMatchObject({ description: 'Full access', settable: true }))
     mocks.call.mockImplementation(() => new Promise(() => {}))
-    committed.length = 0
     rerender({ fence: 2, stamp: 'model-a|own' })
-    // Every frame of the new process, including the one before its read lease attaches.
-    expect([...new Set(committed)]).toEqual(['Permissions/false'])
     expect(row()).toMatchObject({ description: 'Permissions', settable: false })
     unmount()
   })
@@ -217,47 +202,6 @@ describe('a permission pick on this device', () => {
     )
     expect(mutate).not.toHaveBeenCalled()
     expect(enqueueSessionOptionSettingsWrite).not.toHaveBeenCalled()
-    unmount()
-  })
-
-  it('keeps a Codex permission pick through refresh while the agent reports the previous turn', async () => {
-    let selected = 'full-access'
-    mocks.call.mockImplementation((_target, method, params) => {
-      if (method === 'agentSession.setOption') {
-        return mocks.write(params)
-      }
-      if (method !== 'agentSession.options') {
-        return new Promise(() => {})
-      }
-      return Promise.resolve({
-        models: [{ id: 'model-a', label: 'Model A', isDefault: true, efforts: [] }],
-        current: {
-          model: 'model-a',
-          permissionMode: selected,
-          reportedPermissionMode: 'full-access'
-        }
-      })
-    })
-    const reply = Promise.withResolvers<AgentSessionMutationResult<AgentSessionOptionResult>>()
-    mocks.write.mockReturnValueOnce(reply.promise)
-    const { result, rerender, unmount } = renderReopened(1, 'codex')
-    await waitFor(() => expect(permission(result.current.optionSnapshot)).toBe('full-access'))
-    let picking!: Promise<boolean>
-    act(() => {
-      picking = result.current.setStructuredOption('permissionMode', 'ask')
-    })
-    expect(permission(result.current.optionSnapshot)).toBe('ask')
-    selected = 'ask'
-    await act(async () => {
-      reply.resolve(acceptedReply('permissionMode', selected))
-      await picking
-    })
-    rerender({ fence: 1, stamp: 'model-a|ask' })
-    await waitFor(() => expect(optionReads()).toBeGreaterThan(1))
-    expect(permission(result.current.optionSnapshot)).toBe('ask')
-    expect(result.current.optionSnapshot.find((row) => row.id === 'permissionMode')?.settable).toBe(
-      true
-    )
     unmount()
   })
 

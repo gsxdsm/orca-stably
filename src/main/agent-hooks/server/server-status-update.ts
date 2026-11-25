@@ -1,11 +1,6 @@
-import { RelaySessionGenerations } from './server-relay-sessions'
 import { retainHookRootContext } from '../../../shared/agent-hook-listener/pane-provider-session'
 import { deriveCliWriterTopology } from './cli-writer-observation'
 import { previewHookPresence } from '../../../shared/agent-hook-presence-transition'
-import {
-  needsHookRootEvidence,
-  readHookProcessVerdict
-} from '../../../shared/agent-hook-owner-presence'
 import {
   reconcileCodexStatusEvent,
   markCodexLeadTurnInterrupted
@@ -33,7 +28,6 @@ export abstract class AgentHookServerStatusUpdate extends AgentHookServerStatusA
   protected readonly claudeOwedNotificationExpiry = new ClaudeOwedNotificationExpiryTimers(
     this.state
   )
-  protected readonly relaySessions = new RelaySessionGenerations()
 
   // Every row mutation passes here, including cancellation and pane moves.
   protected override commitStatusRowMutation(
@@ -44,7 +38,7 @@ export abstract class AgentHookServerStatusUpdate extends AgentHookServerStatusA
     if (after) {
       this.claudeOwedNotificationExpiry.arm(after.paneKey, (row) => {
         if (this.server) {
-          this.applyRestatedStatus(row)
+          this.applyNormalizedStatus(row)
         }
       })
     }
@@ -60,25 +54,11 @@ export abstract class AgentHookServerStatusUpdate extends AgentHookServerStatusA
     newRun = false,
     retireBinding = false
   ): EnrichedAgentHookEventPayload | undefined {
-    const restated = this.restatingStatus
-    this.restatingStatus = false
-    const recordedRow = this.state.lastStatusByPaneKey.get(incoming.paneKey)
-    const sender = incoming.agentPresence?.process
     const rootContext = previewHookPresence(
       incoming,
-      recordedRow,
-      (origin === 'hook' || origin === 'launch') && !restated,
-      retireBinding,
-      // A relay's owner is root proof only with the binding this link issued for the pane; its
-      // PID is never probed here. Without it the baseline never displaces a record.
-      incoming.connectionId
-        ? incoming.rooted && needsHookRootEvidence(recordedRow, sender)
-          ? 'root'
-          : undefined
-        : readHookProcessVerdict(this.state, recordedRow, {
-            paneKey: incoming.paneKey,
-            process: sender
-          })
+      this.state.lastStatusByPaneKey.get(incoming.paneKey),
+      origin === 'hook' || origin === 'launch',
+      retireBinding
     )
     const { event: rootIdentityIncoming, statusAdmissionSession } = rootContext
     const transitioned = rootContext.transitioned
@@ -86,11 +66,11 @@ export abstract class AgentHookServerStatusUpdate extends AgentHookServerStatusA
       return undefined
     }
     const enrichedTransition = { ...rootIdentityIncoming, ...transitioned }
-    const { authorityRestartId, codexRosterAuthority, rooted: _, ...payload } = enrichedTransition
+    const { authorityRestartId, codexRosterAuthority, ...payload } = enrichedTransition
     if (!this.canWriteLegacyStatusRow(payload)) {
       return undefined
     }
-    if (rootContext.exited) {
+    if (payload.agentPresence?.ended) {
       this.reconcileEndedProcessForPaneKeys([payload.paneKey], {
         preserveResumeIdentity: true,
         endedPresence: payload.agentPresence
@@ -136,7 +116,7 @@ export abstract class AgentHookServerStatusUpdate extends AgentHookServerStatusA
     )
     const identity = resolveAgentStatusIdentity({
       existing:
-        previous && !rootContext.acquired && this.sameTerminalOwner(previous, terminalOwnedPayload)
+        previous && this.sameTerminalOwner(previous, terminalOwnedPayload)
           ? {
               agentType: previous.payload.agentType,
               state: previous.payload.state,

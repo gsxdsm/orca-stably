@@ -18,9 +18,7 @@ export async function invokePluginWorkerCommand(
   plugin: ValidDiscoveredPlugin | null,
   workers: Pick<PluginWorkerController, 'ensure'>,
   commandId: string,
-  args?: unknown,
-  /** Epoch ms past which the caller stopped waiting, so a slow start must not run it late. */
-  startBy?: number
+  args?: unknown
 ): Promise<unknown> {
   if (!plugin) {
     throw new Error(`plugin ${pluginKey} is not enabled`)
@@ -29,9 +27,6 @@ export async function invokePluginWorkerCommand(
   const handle = await workers.ensure(plugin)
   if (!handle.commands.includes(commandId)) {
     throw new Error(`plugin ${pluginKey} registered no handler for ${commandId}`)
-  }
-  if (startBy !== undefined && Date.now() > startBy) {
-    throw new Error(`plugin ${pluginKey} started too late to run ${commandId}`)
   }
   return handle.invokeCommand(commandId, args)
 }

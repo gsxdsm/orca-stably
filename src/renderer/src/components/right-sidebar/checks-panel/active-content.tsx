@@ -9,7 +9,7 @@ import { ChecksPanelUpdatedAtMetadata } from '../checks-panel-updated-at-metadat
 import { getChecksPanelRefreshErrorBannerLine } from '../github-refresh-error-copy'
 import { resolveChecksPanelHostedReviewModifierDestination } from '../checks-panel-hosted-review-click-routing'
 import { clearPendingPRCommentAiAck } from '../pr-comments-ai-launch-ack'
-import { getBrokenChecks, isBrokenCheck } from '../../../../../shared/pr-checks-fix-prompt'
+import { getBrokenChecks } from '../../../../../shared/pr-checks-fix-prompt'
 import { PRTriageStrip } from './triage-strip'
 import { ConflictingFilesSection, MergeConflictNotice } from './conflict-summary'
 import { ChecksList } from './checks-list'
@@ -50,7 +50,6 @@ export function ChecksPanelActiveContent({
     detachedHeadDisplay,
     editingTitle,
     getGitLabProjectRef,
-    gitLabPipelineCheck,
     handleAddPRComment,
     handleCancelEdit,
     handleDeleteComment,
@@ -96,11 +95,8 @@ export function ChecksPanelActiveContent({
     return null
   }
   const reviewShortLabel = activeReview.provider === 'gitlab' ? 'MR' : 'PR'
-  // A failed GitLab parent leads even when its partial job list passes; failed jobs keep their Fix.
   const shouldShowReviewTriageStrip =
-    activeConflictReview !== null ||
-    (gitLabPipelineCheck !== null && isBrokenCheck(gitLabPipelineCheck)) ||
-    getBrokenChecks(checks).length > 0
+    activeConflictReview !== null || getBrokenChecks(checks).length > 0
   const hostedReviewModifierHintDestination = resolveChecksPanelHostedReviewModifierDestination(
     settings,
     Boolean(activeWorktreeId)
@@ -207,7 +203,6 @@ export function ChecksPanelActiveContent({
           review={activeConflictReview ?? activeReview}
           reviewKind={reviewShortLabel}
           checks={checks}
-          pipelineCheck={gitLabPipelineCheck}
           isResolvingConflictsWithAI={isResolvingConflictsWithAI}
           onResolveConflictsWithAI={() => void handleResolveConflictsWithAI()}
           resolveConflictsDisabled={Boolean(aiActionDisabledReason)}
@@ -229,10 +224,9 @@ export function ChecksPanelActiveContent({
         </>
       )}
       {/* Conflicts can prevent checks running; do not claim no checks are configured before resolving them. */}
-      {!(activeConflictReview && checks.length === 0 && !gitLabPipelineCheck && !checksLoading) && (
+      {!(activeConflictReview && checks.length === 0 && !checksLoading) && (
         <ChecksList
           checks={checks}
-          pipelineCheck={gitLabPipelineCheck}
           checksError={manualRefreshError ? null : checksError}
           checksLoading={checksLoading}
           checkDetailsContextKey={stateRequestKey}

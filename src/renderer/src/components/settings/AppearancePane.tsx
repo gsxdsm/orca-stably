@@ -29,7 +29,7 @@ import {
 import { getReduceVisualEffectsEntries } from './appearance-reduce-visual-effects-search'
 import { getTerminalAppearanceSearchEntries } from './terminal-search'
 import { TerminalAppearanceSection } from './TerminalAppearanceSection'
-import type { UseTerminalConfigImportReturn } from './useTerminalConfigImport'
+import type { UseGhosttyImportReturn } from './useGhosttyImport'
 import type { UseWarpThemeImportReturn } from './useWarpThemeImport'
 import { AppIconSelector } from './AppIconSelector'
 import { normalizeAppIconId } from '../../../../shared/app-icon'
@@ -52,7 +52,7 @@ type AppearancePaneProps = {
   terminalFontSuggestions: string[]
   onRequestFontSuggestions?: () => void
   systemPrefersDark: boolean
-  terminalConfigImport: UseTerminalConfigImportReturn
+  ghostty: UseGhosttyImportReturn
   warpThemes: UseWarpThemeImportReturn
 }
 
@@ -72,7 +72,7 @@ export function AppearancePane({
   terminalFontSuggestions,
   onRequestFontSuggestions,
   systemPrefersDark,
-  terminalConfigImport,
+  ghostty,
   warpThemes
 }: AppearancePaneProps): React.JSX.Element {
   const searchQuery = useAppStore((state) => state.settingsSearchQuery)
@@ -244,7 +244,7 @@ export function AppearancePane({
             systemPrefersDark={systemPrefersDark}
             terminalFontSuggestions={terminalFontSuggestions}
             onRequestFontSuggestions={onRequestFontSuggestions}
-            terminalConfigImport={terminalConfigImport}
+            ghostty={ghostty}
             warpThemes={warpThemes}
             forceVisiblePrimary={terminalLabelMatches}
           />

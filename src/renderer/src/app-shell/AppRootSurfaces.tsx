@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { ModalBoundary, OverlayBoundary } from './app-root-surface-boundaries'
 import { OnboardingLanguageLoading } from '../components/onboarding/OnboardingLanguageLoading'
 import { useLanguageReadiness } from '../i18n/language-readiness'
+import { NotificationCardStack } from '../components/NotificationCardStack'
 import { memo, Suspense } from 'react'
 import { createPortal } from 'react-dom'
 import { lazyWithRetry as lazy } from '@/lib/lazy-with-retry'
@@ -12,8 +13,10 @@ import { CrashReportDialog } from '../components/crash-report/CrashReportDialog'
 import { MarkdownTemplatePicker } from '../components/editor/MarkdownTemplatePicker'
 import RecentTabSwitcher from '../components/tab-bar/RecentTabSwitcher'
 import { SkillFreshnessUpdateDialog } from '../components/skills/SkillFreshnessUpdateDialog'
-import { StarNagAgentValueMomentObserver } from '../components/star-nag/StarNagAgentValueMomentObserver'
+import { StarNagCard } from '../components/StarNagCard'
+import { CodexSharedSettingsNoticeCard } from '../components/CodexSharedSettingsNoticeCard'
 import { NativeChatResumeOnRestartModal } from '../components/NativeChatResumeRuntimeModal'
+import { StarNagAgentValueMomentObserver } from '../components/star-nag/StarNagAgentValueMomentObserver'
 import { StarNagToastHost } from '../components/star-nag/StarNagToastHost'
 import { TelemetryFirstLaunchSurface } from '../components/TelemetryFirstLaunchSurface'
 import { ZoomOverlay } from '../components/ZoomOverlay'
@@ -22,7 +25,6 @@ import { shouldRenderPetOverlay } from '../components/pet/pet-overlay-visibility
 import { useAppStore } from '../store'
 import type { UpdateStatus } from '../../../shared/update-status-types'
 import { useLazyModalMounts } from './use-lazy-modal-mounts'
-import { AppNotificationCards } from './AppNotificationCards'
 import { usePreloadWorktreeJumpPalette, WorktreeJumpPalette } from './worktree-jump-palette-preload'
 import {
   selectAppRootSurfacePetEnabled,
@@ -65,6 +67,14 @@ const DictationController = lazy(() =>
 const SshPassphraseDialog = lazy(() =>
   import('../components/settings/SshPassphraseDialog').then((module) => ({
     default: module.SshPassphraseDialog
+  }))
+)
+const UpdateCard = lazy(() =>
+  import('../components/UpdateCard').then((module) => ({ default: module.UpdateCard }))
+)
+const UnexpectedSignoutCard = lazy(() =>
+  import('../components/UnexpectedSignoutCard').then((module) => ({
+    default: module.UnexpectedSignoutCard
   }))
 )
 const RemoteServerUpdateDialog = lazy(
@@ -278,12 +288,26 @@ export const AppRootSurfaces = memo(function AppRootSurfaces(props: {
           </OverlayBoundary>
         </Suspense>
       ) : null}
-      <AppNotificationCards
-        activeView={activeView}
-        shouldMountUpdateCard={shouldMountUpdateCard}
-        chatUiHereCornerCardOpen={onboardingGate.chatUiHereCornerCardOpen}
-        onChatUiHereCornerCardClose={() => onboardingGate.setChatUiHereCornerCardOpen(false)}
-      />
+      <NotificationCardStack>
+        {shouldMountUpdateCard ? (
+          <Suspense fallback={null}>
+            <OverlayBoundary boundaryId="overlay.update-card" resetKey={activeView}>
+              <UpdateCard />
+            </OverlayBoundary>
+          </Suspense>
+        ) : null}
+        <Suspense fallback={null}>
+          <OverlayBoundary boundaryId="overlay.unexpected-signout" resetKey={activeView}>
+            <UnexpectedSignoutCard />
+          </OverlayBoundary>
+        </Suspense>
+        <OverlayBoundary boundaryId="overlay.star-nag" resetKey={activeView}>
+          <StarNagCard />
+        </OverlayBoundary>
+        <OverlayBoundary boundaryId="overlay.codex-shared-settings-notice" resetKey={activeView}>
+          <CodexSharedSettingsNoticeCard />
+        </OverlayBoundary>
+      </NotificationCardStack>
       <OverlayBoundary boundaryId="overlay.native-chat-resume-on-restart" resetKey={activeView}>
         <NativeChatResumeOnRestartModal />
       </OverlayBoundary>

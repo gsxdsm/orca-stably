@@ -3,6 +3,8 @@ import {
   agentSessionProviderHandleChainHead,
   agentSessionProviderHandlesEqual,
   appendAgentSessionProviderHandleLink,
+  findAgentSessionProviderHandleLink,
+  isAgentSessionHandleProvider,
   isAgentSessionProviderHandleChain,
   MAX_AGENT_SESSION_PROVIDER_HANDLE_LINKS,
   type AgentSessionProviderHandle,
@@ -30,6 +32,13 @@ function link(overrides: Partial<AgentSessionProviderHandleLink> = {}) {
 }
 
 describe('handle identity', () => {
+  it('rejects unknown persisted provider names instead of defaulting to Codex', () => {
+    expect(isAgentSessionHandleProvider('codex')).toBe(true)
+    expect(isAgentSessionHandleProvider('claude')).toBe(true)
+    expect(isAgentSessionHandleProvider('gemini')).toBe(false)
+    expect(isAgentSessionHandleProvider(undefined)).toBe(false)
+  })
+
   it('keys a Claude handle by session id AND leaf, so two branches are two handles', () => {
     // Concurrent resumes branch one transcript silently; the session id alone cannot name a writer.
     const branchA = agentSessionProviderHandleKey(CLAUDE)
@@ -38,6 +47,13 @@ describe('handle identity', () => {
     expect(agentSessionProviderHandleRoot(CLAUDE)).toEqual(
       agentSessionProviderHandleRoot(claudeProviderHandle('sess-1', 'leaf-2'))
     )
+  })
+
+  it('keys a Codex handle by thread id alone', () => {
+    const codex: AgentSessionProviderHandle = codexProviderHandle('thread-1')
+    expect(agentSessionProviderHandleKey(codex)).toBe('codex:"thread-1"')
+    expect(agentSessionProviderHandleRoot(codex)).toBe('codex:"thread-1"')
+    expect(agentSessionProviderHandlesEqual(codex, codexProviderHandle('thread-2'))).toBe(false)
   })
 
   it('distinguishes a null leaf from an empty-string leaf and rejects malformed handles', () => {
@@ -212,6 +228,22 @@ describe('chain append', () => {
 })
 
 describe('chain lookup and validation', () => {
+  it('finds a link by id and reports the head', () => {
+    const chain = appendAgentSessionProviderHandleLink(
+      [link()],
+      link({
+        linkId: 'link-2',
+        origin: 'resumed',
+        handle: claudeProviderHandle('sess-1', 'leaf-2'),
+        mintedAtFence: 2
+      })
+    )
+    expect(findAgentSessionProviderHandleLink(chain, 'link-1')?.origin).toBe('created')
+    expect(findAgentSessionProviderHandleLink(chain, 'missing')).toBeNull()
+    expect(agentSessionProviderHandleChainHead(chain)?.linkId).toBe('link-2')
+    expect(agentSessionProviderHandleChainHead([])).toBeNull()
+  })
+
   it('rejects a persisted chain that is over the cap or holds a malformed link', () => {
     expect(isAgentSessionProviderHandleChain([{ ...link(), mintedAtFence: -1 }])).toBe(false)
     expect(isAgentSessionProviderHandleChain([{ ...link(), linkId: 'not a link id!' }])).toBe(false)
@@ -345,6 +377,10 @@ describe('adopted chain heads', () => {
         })
       )
     ).toThrow('agent_session_provider_handle_forked')
+  })
+
+  it('accepts an adopted head as a persisted chain', () => {
+    expect(isAgentSessionProviderHandleChain([adopted()])).toBe(true)
   })
 })
 

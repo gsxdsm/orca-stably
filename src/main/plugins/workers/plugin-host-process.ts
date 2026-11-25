@@ -25,7 +25,6 @@ import {
 } from './plugin-worker-requests'
 import { buildPluginWorkerEnv } from './plugin-worker-env'
 import { pipePluginWorkerOutput } from './plugin-worker-output-buffer'
-import { PluginWorkerHostCalls } from './plugin-worker-host-calls'
 
 const PLUGIN_WORKER_SHUTDOWN_GRACE_MS = 2_000
 const PLUGIN_WORKER_EVENT_TIMEOUT_MS = 5 * 60_000
@@ -140,8 +139,8 @@ export async function startPluginWorker(
       rejectAllPending(failure.message)
     })
     child.on('exit', (code) => fail(new Error(`${tag} worker exited before ready (code ${code})`)))
-    const inFlightHostCalls = new PluginWorkerHostCalls()
-    child.once('exit', () => inFlightHostCalls.cancelAll())
+    // A host call the worker cancels leaves this set, so its late answer is dropped.
+    const inFlightHostCalls = new Set<number>()
     child.on('message', (raw) => {
       const message = readPluginEnvelope(raw)
       if (!message) {
@@ -169,17 +168,17 @@ export async function startPluginWorker(
         case 'req': {
           lastActivityAt = Date.now()
           const { id } = message
-          const signal = inFlightHostCalls.start(id)
-          void options.executeHostCall(message.method, message.params, signal).then((outcome) => {
+          inFlightHostCalls.add(id)
+          void options.executeHostCall(message.method, message.params).then((outcome) => {
             lastActivityAt = Date.now()
-            if (inFlightHostCalls.finish(id)) {
+            if (inFlightHostCalls.delete(id)) {
               sendToChild(pluginOutcomeResponse(id, outcome))
             }
           })
           return
         }
         case 'cancel':
-          inFlightHostCalls.cancel(message.id)
+          inFlightHostCalls.delete(message.id)
           return
         case 'evt':
           break
@@ -241,15 +240,6 @@ export async function startPluginWorker(
         timeoutMs,
         name,
         signal
-      )
-    },
-    runHook(event, payload, timeoutMs) {
-      return sendPluginWorkerRequest(
-        requests,
-        WORKER_METHODS.runHook,
-        { event, payload },
-        timeoutMs,
-        `hook ${event}`
       )
     },
     notifyDataChanged(change) {

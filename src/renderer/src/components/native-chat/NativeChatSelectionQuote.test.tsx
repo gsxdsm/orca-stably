@@ -19,7 +19,6 @@ const appendText = vi.fn<(text: string) => void>()
 const acceptsText = vi.fn(() => true)
 const composer: NativeChatComposerHandle = {
   focus: () => true,
-  insertAgentReferences: () => false,
   insertTypedText: () => true,
   appendText,
   acceptsText,

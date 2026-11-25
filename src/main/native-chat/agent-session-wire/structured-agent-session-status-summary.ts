@@ -1,5 +1,5 @@
 import { structuredAgentSessionRuntimePermission } from './structured-agent-session-ran-options'
-import type { AgentSessionConversationView } from '../../../shared/agent-session/lifecycle/agent-session-conversation-view'
+import type { AgentSessionConversationView } from '../../../shared/agent-session-conversation-view'
 import type { AgentSessionStatusSummary } from '../../../shared/agent-session/agent-session-wire'
 import { normalizeOptionalField } from '../../../shared/agent-status-field-normalization'
 import { AGENT_MODEL_MAX_LENGTH } from '../../../shared/agent-status-types'
@@ -26,7 +26,6 @@ export function structuredAgentSessionStatusSummary({
   state,
   stopping,
   starting,
-  usageLimitContinue,
   childWork,
   namingFailure,
   now
@@ -44,7 +43,6 @@ export function structuredAgentSessionStatusSummary({
   record: AgentSessionConversationView | null
   state: StructuredAgentSessionStatusState
   starting?: boolean
-  usageLimitContinue?: AgentSessionStatusSummary['usageLimitContinue']
   stopping: boolean
   childWork: Pick<AgentSessionStatusSummary, 'children' | 'backgroundTasks'>
   namingFailure: StructuredChatNamingFailure | undefined
@@ -62,7 +60,6 @@ export function structuredAgentSessionStatusSummary({
   const launchDirectory = record ? agentSessionPinnedLaunchDirectory(record) : undefined
   return {
     sessionId,
-    ...(usageLimitContinue ? { usageLimitContinue } : {}),
     workspaceId: session.params.location.workspaceId,
     agent: session.params.provider,
     ...(session.child || starting

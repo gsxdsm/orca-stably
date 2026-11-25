@@ -58,8 +58,6 @@ export type PluginApprovalGrants = {
   executionDescription: string
   capabilities: { kind: string; description: string }[]
   contributions: PluginContributionSummaryItem[]
-  /** Commands that run in place of Orca's own actions; absent when there are none. */
-  replacements?: { command: string; action: string }[]
 }
 
 export type PluginApprovalRequest = {
@@ -110,17 +108,8 @@ export function pluginApprovalGrants(manifest: PluginManifest): PluginApprovalGr
       kind: capability.kind,
       description: PLUGIN_CAPABILITY_DESCRIPTIONS[capability.kind]
     })),
-    contributions: pluginContributionSummary(manifest),
-    ...withReplacements(manifest)
+    contributions: pluginContributionSummary(manifest)
   }
-}
-
-// Why only when present: grants feed the approval fingerprint, which must not move for others.
-function withReplacements(manifest: PluginManifest): Pick<PluginApprovalGrants, 'replacements'> {
-  const replacements = manifest.contributes.commands.flatMap((command) =>
-    command.replaces ? [{ command: command.title, action: command.replaces }] : []
-  )
-  return replacements.length > 0 ? { replacements } : {}
 }
 
 function uniqueCapabilities(capabilities: readonly PluginCapability[]): PluginCapability[] {
@@ -189,11 +178,7 @@ export function formatPluginApprovalMessage(request: PluginApprovalRequest, stal
     lead,
     `Approving ${request.name} (${request.pluginKey} ${request.version}${request.isDev ? ', development folder' : ''}) grants:`,
     `- ${request.grants.executionDescription}`,
-    ...request.grants.capabilities.map((capability) => `- ${capability.description}`),
-    ...(request.grants.replacements ?? []).map(
-      (replacement) =>
-        `- Runs "${replacement.command}" instead of Orca's own ${replacement.action} (switch it back on the plugin's page)`
-    )
+    ...request.grants.capabilities.map((capability) => `- ${capability.description}`)
   ]
   if (request.grants.contributions.length > 0) {
     lines.push(

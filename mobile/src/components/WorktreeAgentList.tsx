@@ -26,7 +26,6 @@ type Props = {
   statusLive?: boolean
   isReadOnly?: boolean
   onAgentPress?: (paneKey: string) => void
-  onAgentLongPress?: () => void
   /** The desktop's "Full list" agent activity layout: every row, no summary. */
   fullList?: boolean
 }
@@ -48,7 +47,6 @@ export function WorktreeAgentList({
   statusLive = false,
   isReadOnly = false,
   onAgentPress,
-  onAgentLongPress,
   fullList = false
 }: Props) {
   const roots = useMemo(
@@ -78,7 +76,6 @@ export function WorktreeAgentList({
       unvisited={unvisited}
       isReadOnly={isReadOnly}
       onPress={onAgentPress}
-      onLongPress={onAgentLongPress}
     />
   )
 
@@ -117,9 +114,6 @@ export function WorktreeAgentList({
           depth={node.depth}
           now={now}
           unvisited={unvisited}
-          isReadOnly={isReadOnly}
-          onPress={onAgentPress}
-          onLongPress={onAgentLongPress}
           trailing={
             children.length > 0 ? (
               <WorktreeAgentChildToggle

@@ -5,7 +5,7 @@ import { CommandGroup, CommandItem, CommandList } from '@/components/ui/command'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
 import { getSmartWorkspaceEmptyHint } from '../../../../shared/new-workspace/smart-workspace-source-results'
-import { RowIcon, RowLabel } from './smart-workspace-source-row-content'
+import { getRowItemClassName, RowIcon, RowLabel } from './smart-workspace-source-row-content'
 import type { RowEntry } from './smart-workspace-name-field-model'
 import type { WorkItemSourceSearch } from './use-work-item-source-search'
 
@@ -15,8 +15,7 @@ export function SmartWorkspaceSourceResultList({
   isLinked,
   beforeResults,
   emptyHint,
-  isRowDisabled,
-  focusBehavior
+  isRowDisabled
 }: {
   model: Pick<
     WorkItemSourceSearch,
@@ -41,7 +40,6 @@ export function SmartWorkspaceSourceResultList({
   beforeResults?: React.ReactNode
   emptyHint?: string
   isRowDisabled?: (row: RowEntry) => boolean
-  focusBehavior?: 'page'
 }): React.JSX.Element {
   const {
     mode,
@@ -76,15 +74,16 @@ export function SmartWorkspaceSourceResultList({
               key={id}
               type="button"
               variant={mrStateFilter === id ? 'secondary' : 'ghost'}
-              size="xs"
+              size="sm"
               onClick={() => setMrStateFilter(id)}
+              className="h-6 px-2 text-xs"
             >
               {label}
             </Button>
           ))}
         </div>
       ) : null}
-      <CommandList className="!max-h-none min-h-0 flex-1" data-focus-behavior={focusBehavior}>
+      <CommandList className="!max-h-none min-h-0 flex-1 scrollbar-sleek">
         {beforeResults}
         {typedTextActionRow ? (
           <div
@@ -96,13 +95,7 @@ export function SmartWorkspaceSourceResultList({
               key={typedTextActionRow.value}
               value={typedTextActionRow.value}
               onSelect={() => onSelect(typedTextActionRow)}
-              density="workspace"
-              emphasis={
-                typedTextActionRow.kind === 'use-name' ||
-                typedTextActionRow.kind === 'create-branch'
-                  ? 'pinned'
-                  : 'default'
-              }
+              className={getRowItemClassName(typedTextActionRow, { pinnedAction: true })}
             >
               <RowIcon row={typedTextActionRow} />
               <RowLabel row={typedTextActionRow} />
@@ -164,7 +157,7 @@ export function SmartWorkspaceSourceResultList({
                 : (emptyHint ?? getSmartWorkspaceEmptyHint(mode))}
           </div>
         ) : searchResultRows.length > 0 ? (
-          <CommandGroup>
+          <CommandGroup className="p-1">
             {searchResultRows.map((row) => (
               <CommandItem
                 selection="palette"
@@ -172,7 +165,7 @@ export function SmartWorkspaceSourceResultList({
                 value={row.value}
                 disabled={isLinked?.(row) || isRowDisabled?.(row)}
                 onSelect={() => onSelect(row)}
-                density="workspace"
+                className={getRowItemClassName(row)}
               >
                 <RowIcon row={row} />
                 <RowLabel

@@ -212,7 +212,7 @@ export class AcpAtRestCommandCatalog extends AtRestCommandCatalog {
                 }
               })
               try {
-                options.adoptInitialize(await awaitAcpDiscovery(connection.initialize(), signal))
+                await awaitAcpDiscovery(connection.initialize(), signal)
                 checkSession()
                 check()
                 const started = await awaitAcpDiscovery(

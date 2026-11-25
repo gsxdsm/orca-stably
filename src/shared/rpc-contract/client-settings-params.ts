@@ -129,7 +129,6 @@ export const SettingsUpdate = z
       .unknown()
       .transform((value) => normalizePRBotAuthorOverrides(value))
       .optional(),
-    nativeChatAutoContinueAfterUsageLimit: z.boolean().optional(),
     nativeChatPermissionMode: z.enum(AGENT_CHAT_PERMISSION_MODES).optional()
   })
   .strict()

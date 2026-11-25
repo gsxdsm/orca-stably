@@ -5,8 +5,10 @@ import {
   type KeyboardEventHandler,
   type SetStateAction
 } from 'react'
-import type { ComposerAutocomplete } from '../../../../shared/native-chat/input/native-chat-composer-autocomplete'
-import type { NativeChatPickerItem } from '../../../../shared/native-chat/input/native-chat-picker-items'
+import type {
+  ComposerAutocomplete,
+  NativeChatPickerItem
+} from '../../../../shared/native-chat-composer-autocomplete'
 import { isMacPlatform } from './native-chat-shortcut'
 import type { NativeChatMentionFiles } from './use-native-chat-mention-files'
 import type { NativeChatComposerSendIntent } from './native-chat-composer-types'
@@ -70,9 +72,8 @@ export function useNativeChatComposerKeyDown({
         }
         return
       }
-      // An open layer that keeps focus here, like the context card, already spent this Escape closing
-      // itself; a layer around the composer (a launch panel) leaves an open picker to take it.
-      if (event.key === 'Escape' && event.defaultPrevented && autocomplete.mode === 'none') {
+      // An open layer that keeps focus here, like the context card, already spent this Escape closing itself.
+      if (event.key === 'Escape' && event.defaultPrevented) {
         return
       }
 

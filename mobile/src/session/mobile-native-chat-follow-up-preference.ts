@@ -1,6 +1,6 @@
 import { nativeChatQueueFollowUpsRead } from '../transport/settings-read-operations'
 import type { RpcClient } from '../transport/rpc-client'
-import { nativeChatQueueFollowUps } from '../../../src/shared/native-chat/input/native-chat-follow-up-behavior'
+import { nativeChatQueueFollowUps } from '../../../src/shared/native-chat-follow-up-behavior'
 
 const projections = new WeakMap<RpcClient, MobileNativeChatFollowUpPreference>()
 
@@ -17,7 +17,7 @@ export function mobileNativeChatFollowUpPreference(
 }
 
 class MobileNativeChatFollowUpPreference {
-  private value: boolean | null = null
+  private value = nativeChatQueueFollowUps(null)
   private readonly listeners = new Set<() => void>()
   private stopState?: () => void
   private stopStream?: () => void
@@ -26,8 +26,7 @@ class MobileNativeChatFollowUpPreference {
 
   constructor(private readonly client: RpcClient) {}
 
-  getSnapshot = (): boolean => this.value ?? nativeChatQueueFollowUps(null)
-  getReportedSnapshot = (): boolean | null => this.value
+  getSnapshot = (): boolean => this.value
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
@@ -48,7 +47,7 @@ class MobileNativeChatFollowUpPreference {
     }
   }
 
-  private publish(value: boolean | null): void {
+  private publish(value: boolean): void {
     if (value !== this.value) {
       this.value = value
       for (const listener of this.listeners) {

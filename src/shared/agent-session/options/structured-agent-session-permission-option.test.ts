@@ -39,7 +39,7 @@ function live(agent: string, current: AgentSessionOptionsResult['current'], auto
 }
 
 describe('the permission mode picker', () => {
-  it('shows the selected mode for the next turn, except for own, which follows the report', () => {
+  it('shows the saved mode until a report, except for own, which waits for the report', () => {
     const pr1 = live('codex', { permissionMode: 'ask' })
     expect(permission({ ...pr1, permissionOwnSupported: null })?.settable).toBe(false)
     expect(permission({ ...pr1, permissionOwnSupported: false })).toMatchObject({
@@ -65,7 +65,7 @@ describe('the permission mode picker', () => {
     })
     expect(
       permission({ ...capable, permissionMode: 'full-access', reportedPermissionMode: null })
-    ).toMatchObject({ settable: true, kind: { currentValue: 'full-access' } })
+    ).toMatchObject({ settable: false, kind: { currentValue: undefined } })
   })
 
   it('admits supported Own reset through the same descriptor/readiness predicate', () => {
@@ -98,7 +98,7 @@ describe('the permission mode picker', () => {
         'permissionMode',
         'own'
       )
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('shows the seeded mode before the agent starts, beside the quiet model pill', () => {

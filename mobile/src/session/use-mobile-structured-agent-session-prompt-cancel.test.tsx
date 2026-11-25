@@ -112,7 +112,6 @@ function Harness({
 }): null {
   hook = useMobileStructuredAgentSession({
     client,
-    pairedHostClient: client,
     sessionId: 'session-1',
     sourceIdentity: 'host-a\0workspace-a',
     enabled: true,

@@ -1,7 +1,7 @@
 import {
   lowerActionArgumentChoices,
   demoteActionArgumentChoices
-} from '../../../../../../shared/source-control-action-argument-document'
+} from '../../../../../../shared/source-control-action-argument-choices'
 import {
   sourceControlActionSelectedPreferences,
   sourceControlActionExecutionArgs

@@ -33,7 +33,6 @@ export function useChecksPanelCheckAndReviewActions(model: ChecksPanelCheckAndRe
     fetchPRChecks,
     fetchPRComments,
     fetchPRForBranch,
-    gitLabPipelineCheck,
     gitLabProjectRefRef,
     isCurrentAsyncResult,
     isFixingChecksWithAI,
@@ -64,9 +63,7 @@ export function useChecksPanelCheckAndReviewActions(model: ChecksPanelCheckAndRe
     ) {
       return
     }
-    // A failed parent pipeline joins the prompt by name and link; it has no job log to load.
-    const fixChecks = gitLabPipelineCheck ? [gitLabPipelineCheck, ...checks] : checks
-    const broken = getBrokenChecks(fixChecks)
+    const broken = getBrokenChecks(checks)
     if (broken.length === 0) {
       toast.message(
         translate(
@@ -80,7 +77,7 @@ export function useChecksPanelCheckAndReviewActions(model: ChecksPanelCheckAndRe
     setIsFixingChecksWithAI(true)
     try {
       const checkRunDetailsByCheckKey = await collectFixChecksPromptDetails(
-        fixChecks,
+        checks,
         async (check) => {
           const isGitLabJob = Boolean(check.gitlabJobId)
           if (
@@ -124,7 +121,7 @@ export function useChecksPanelCheckAndReviewActions(model: ChecksPanelCheckAndRe
         reviewNumber: activeReview.number,
         reviewTitle: activeReview.title,
         reviewUrl: activeReview.url,
-        checks: fixChecks,
+        checks,
         checkRunDetailsByCheckKey
       })
       const started = await startFixChecksAgent({
@@ -150,7 +147,6 @@ export function useChecksPanelCheckAndReviewActions(model: ChecksPanelCheckAndRe
     activeWorktreeId,
     checks,
     fetchPRCheckDetails,
-    gitLabPipelineCheck,
     isCurrentAsyncResult,
     isFixingChecksWithAI,
     pr?.prRepo,

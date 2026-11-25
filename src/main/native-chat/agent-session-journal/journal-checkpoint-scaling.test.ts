@@ -141,12 +141,10 @@ async function fixture(history: number) {
   }
 }
 
-// Bounds are exact in population and never mention history, so the grown corner exposes either axis.
 const schedules = ['burst', 'settled'].flatMap((schedule) =>
-  [
-    { history: 10, population: 10 },
-    { history: 1000, population: 100 }
-  ].map((size) => ({ schedule, ...size }))
+  [10, 1000].flatMap((history) =>
+    [10, 100].map((population) => ({ schedule, history, population }))
+  )
 )
 it.each(schedules)(
   'bounds $schedule maintenance for $population chats and $history retained rows',

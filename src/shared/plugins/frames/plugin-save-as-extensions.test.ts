@@ -17,4 +17,11 @@ describe('files.saveAs blocked extensions', () => {
   ])('refuses %s', (name, extension) => {
     expect(blockedPluginSaveAsExtension(name)).toBe(extension)
   })
+
+  it.each(['scene.excalidraw', 'chart.png', 'data.json', 'notes', '.bashrc', 'archive.tar.gz'])(
+    'allows %s',
+    (name) => {
+      expect(blockedPluginSaveAsExtension(name)).toBeNull()
+    }
+  )
 })

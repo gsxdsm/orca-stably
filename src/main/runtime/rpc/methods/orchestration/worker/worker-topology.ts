@@ -104,7 +104,9 @@ export async function createStructuredWorkerSessionForWorktree(args: {
     worktreeId: args.worktreeId,
     agent: args.agent,
     dispatchId: args.dispatchId,
-    ...(options ? { options } : {})
+    ...(options ? { options } : {}),
+    onJournalActivity: (sessionId) =>
+      args.runtime.notifyStructuredSessionJournalActivity?.(sessionId)
   })
   args.effects.push({
     kind: 'terminal',

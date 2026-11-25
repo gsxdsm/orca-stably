@@ -1,13 +1,8 @@
 import { randomInt } from 'node:crypto'
 import type { Store } from '../persistence/loading-store/store'
-import type { GlobalSettings } from '../../shared/global-settings-types'
 import { resolveConsent } from './consent'
-import type {
-  ChatUiLaunchTipCohort,
-  ChatUiLaunchTipTargeting
-} from '../../shared/telemetry-settings-types'
 
-export type { ChatUiLaunchTipCohort }
+export type ChatUiLaunchTipCohort = 'control' | 'treatment'
 
 // Decided once per launch with the cohort, so the tip and its enrollment read the same consent; contributor builds never set it.
 let deferredForConsent = false
@@ -23,13 +18,7 @@ export function ensureChatUiLaunchTipCohort(store: Store): ChatUiLaunchTipCohort
     const settings = store.getSettings()
     const telemetry = settings.telemetry
     const saved = telemetry?.chatUiLaunchTipCohort
-    if (
-      saved === 'control' ||
-      saved === 'treatment' ||
-      saved === 'treatment-live-switch' ||
-      saved === 'treatment-swapped-buttons' ||
-      saved === 'treatment-center'
-    ) {
+    if (saved === 'control' || saved === 'treatment') {
       return saved
     }
     if (
@@ -44,29 +33,8 @@ export function ensureChatUiLaunchTipCohort(store: Store): ChatUiLaunchTipCohort
       deferredForConsent = consent === 'pending_banner'
       return undefined
     }
-    const draw = randomInt(10)
-    const cohort: ChatUiLaunchTipCohort =
-      draw < 7
-        ? 'control'
-        : draw === 7
-          ? 'treatment-center'
-          : draw === 8
-            ? 'treatment'
-            : 'treatment-live-switch'
-    const targeting =
-      cohort === 'control' ? undefined : assignTargeting(settings.agentDefaultSurface)
-    store.updateSettings({
-      telemetry: {
-        ...telemetry,
-        chatUiLaunchTipCohort: cohort,
-        ...(targeting
-          ? {
-              chatUiLaunchTipTargeting: targeting,
-              chatUiLaunchTipButtonEmphasis: randomInt(2) === 0 ? 'normal' : 'swapped'
-            }
-          : {})
-      }
-    })
+    const cohort: ChatUiLaunchTipCohort = randomInt(2) === 0 ? 'control' : 'treatment'
+    store.updateSettings({ telemetry: { ...telemetry, chatUiLaunchTipCohort: cohort } })
     return cohort
   } catch (err) {
     // Startup must not fail over an experiment; unenrolled profiles see the tip as before.
@@ -78,13 +46,4 @@ export function ensureChatUiLaunchTipCohort(store: Store): ChatUiLaunchTipCohort
 /** True when this launch holds the tip back until the telemetry banner is resolved. */
 export function isChatUiLaunchTipDeferredForConsent(): boolean {
   return deferredForConsent
-}
-
-function assignTargeting(
-  defaultSurface: GlobalSettings['agentDefaultSurface']
-): ChatUiLaunchTipTargeting {
-  if (randomInt(2) === 0) {
-    return { mode: 'all' }
-  }
-  return { mode: 'not-switched', eligible: defaultSurface !== 'chat' }
 }

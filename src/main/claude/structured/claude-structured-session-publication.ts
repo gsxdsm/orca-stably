@@ -29,13 +29,12 @@ function claudeSessionInitialization(input: {
   proof: ClaudeSession['initialization']['proof']
   contextActivity: number
   onLateRefusal: ClaudeSession['initialization']['onLateRefusal']
-  startup: ClaudeSession['initialization']['startup']
   connection: ClaudeSession['connection']
   emit: (event: ClaudeStructuredSessionEvent) => void
   naming: ClaudeNamingGeneration | undefined
   requestTimeoutMs: number | undefined
 }): ClaudeSession['initialization'] {
-  const { launch, proof, contextActivity, onLateRefusal, startup, naming, connection } = input
+  const { launch, proof, contextActivity, onLateRefusal, naming, connection } = input
   const facts = naming
     ? readClaudeStartupFacts({
         connection,
@@ -75,8 +74,7 @@ function claudeSessionInitialization(input: {
       covered: !launch.resumesTranscript || launch.resumeLeafUuid === null,
       contextActivity
     },
-    onLateRefusal,
-    startup
+    onLateRefusal
   }
 }
 

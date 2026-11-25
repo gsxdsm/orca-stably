@@ -215,8 +215,7 @@ export function resolveBareOrchestrationRecipient(params: {
     party.terminalHandle === null
       ? undefined
       : (runtime.getLiveTerminalPaneKey(party.terminalHandle) ?? undefined)
-  const dispatches = () => db.getActiveDispatchMailboxOwners(handle, paneKey)
-  const resolution = selectBareRecipientOwner({
+  return selectBareRecipientOwner({
     ...params,
     handle,
     boundRuns: () =>
@@ -225,7 +224,7 @@ export function resolveBareOrchestrationRecipient(params: {
         : paneKey
           ? db.runsBoundToPane(paneKey)
           : [],
-    dispatches,
+    dispatches: () => db.getActiveDispatchMailboxOwners(handle, paneKey),
     ownerRunIds: () => db.getRunMailboxOwnerIdsForHandle(handle, params.legacyAdoptedMailboxOwner),
     fallback: () => {
       if (session) {
@@ -257,16 +256,6 @@ export function resolveBareOrchestrationRecipient(params: {
       }
     }
   })
-  if (resolution.ok || resolution.code !== 'recipient_run_mismatch') {
-    return resolution
-  }
-  // A terminal can coordinate one Run and work a Dispatch in the named one; its mail follows that Dispatch.
-  const worked = dispatches().filter((dispatch) => dispatch.run_id === params.explicitRunId)
-  const runBound =
-    worked.length === 1
-      ? resolveRunBoundDispatchRecipient(runtime, db, worked[0].id, params.explicitRunId)
-      : undefined
-  return runBound ? { ok: true, ...runBound } : resolution
 }
 
 function refused(recipient: string, refusal: SessionRecipientRefusal): BareRecipientResolution {

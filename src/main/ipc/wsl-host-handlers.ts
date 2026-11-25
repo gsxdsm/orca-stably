@@ -109,8 +109,7 @@ function createService(args: WslHostHandlerArgs): WslHostService | null {
   if (!wslHostsServing()) {
     return null
   }
-  // Inline literal so non-e2e builds fold `fake` to null and drop the fake connector module.
-  const fake = import.meta.env.MODE === 'e2e' ? readFakeWslHostsConfig() : null
+  const fake = readFakeWslHostsConfig()
   if (process.platform !== 'win32' && !fake) {
     return null
   }
@@ -183,11 +182,7 @@ function startService(args: WslHostHandlerArgs): WslHostService | null {
     return null
   }
   setWslHostService(created)
-  if (
-    process.platform === 'win32' &&
-    !(import.meta.env.MODE === 'e2e' && readFakeWslHostsConfig()) &&
-    created.hasServerFiles()
-  ) {
+  if (process.platform === 'win32' && !readFakeWslHostsConfig() && created.hasServerFiles()) {
     wireWslNodeRuntimePrefetch({ store: args.store, userDataPath: args.getUserDataPath() })
   }
   args.store.onSettingsChanged((updates, settings) => {

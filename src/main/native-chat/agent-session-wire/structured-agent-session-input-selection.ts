@@ -22,13 +22,9 @@ export function selectStructuredAgentSessionInput(
     (!queued || current.submittedSequence! < queued.submittedSequence!)
       ? current
       : queued
-  // Read only where a card can be chosen: the queue's rule may ask mail authority.
-  const nextCard = (): StructuredInputSelection => {
-    const card = journal.queuedMessages.nextInputCard()
-    return card ? { kind: 'card', card } : { kind: 'none' }
-  }
+  const nextCard = journal.queuedMessages.nextInputCard()
   if (!selected) {
-    return nextCard()
+    return nextCard ? { kind: 'card', card: nextCard } : { kind: 'none' }
   }
   // Explicit card Send intentionally overrides the automatic queue place.
   const override = journal.inputOrder.explicitSend()
@@ -50,7 +46,7 @@ export function selectStructuredAgentSessionInput(
     }
   }
   if (predecessors.head) {
-    return nextCard()
+    return nextCard ? { kind: 'card', card: nextCard } : { kind: 'none' }
   }
   return { kind: 'submission', submission: selected }
 }

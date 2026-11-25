@@ -1,4 +1,3 @@
-import type { DiffCommentOwner } from '@/store/diff-comment-owner'
 import type React from 'react'
 import { EditorContent } from '@tiptap/react'
 import type { Editor } from '@tiptap/react'
@@ -53,7 +52,6 @@ type RichMarkdownEditorSurfaceProps = {
   attentionReviewCommentId: string | null
   copiedReviewNoteId: string | null
   markdownReviewContent: string
-  commentOwner: DiffCommentOwner | null
   worktreeId: string
   filePath: string
   markdownCommentsCount: number
@@ -146,7 +144,6 @@ export function RichMarkdownEditorSurface({
   attentionReviewCommentId,
   copiedReviewNoteId,
   markdownReviewContent,
-  commentOwner,
   worktreeId,
   filePath,
   markdownCommentsCount,
@@ -235,7 +232,6 @@ export function RichMarkdownEditorSurface({
             <RichMarkdownTableControls editor={editor} scrollContainerRef={scrollContainerRef} />
             {reviewRailVisible && notePositions.length > 0 ? (
               <RichMarkdownReviewNoteLayer
-                owner={commentOwner}
                 positions={notePositions}
                 activeCommentId={activeReviewCommentId}
                 attentionCommentId={attentionReviewCommentId}
@@ -333,7 +329,6 @@ export function RichMarkdownEditorSurface({
         />
         {markdownCommentsCount > 0 ? (
           <RichMarkdownReviewRailActions
-            owner={commentOwner}
             worktreeId={worktreeId}
             filePath={filePath}
             noteCount={markdownCommentsCount}

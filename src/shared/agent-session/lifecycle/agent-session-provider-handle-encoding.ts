@@ -7,7 +7,7 @@ import type {
 import type {
   AgentSessionJournalIdentity,
   AgentSessionJournalProviderHandle
-} from '../journal/agent-session-journal-identity'
+} from '../../agent-session-journal-identity'
 
 export const CLAUDE_STRUCTURED_HANDLE_NAMESPACE = {
   transport: 'claude-sdk',

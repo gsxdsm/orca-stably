@@ -3,7 +3,6 @@ import { atom, read, set, Tab, Tabs } from 'orca'
 import { ContentTab } from './content'
 import { DataTab } from './data'
 import { FormsTab } from './forms'
-import { LayoutTab } from './layout'
 
 export const tab = atom('gallery.tab', 'forms', { persist: 'plugin' })
 
@@ -18,9 +17,6 @@ export default function Gallery() {
       </Tab>
       <Tab value="content" label="Content" icon="file-text">
         <ContentTab />
-      </Tab>
-      <Tab value="layout" label="Layout" icon="layers">
-        <LayoutTab />
       </Tab>
     </Tabs>
   )

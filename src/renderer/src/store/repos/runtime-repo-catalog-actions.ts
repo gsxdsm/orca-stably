@@ -21,7 +21,6 @@ import {
 import { getRuntimeTargetHostId } from '../../runtime/runtime-client-target'
 import { mergeFetchedHostProjectCatalog } from '../../../../shared/project-compatibility-host-merge'
 import { scheduleSafeAutoForkSync } from './safe-auto-fork-sync'
-import { noteLiveRepoCatalogApplied } from './saved-host-catalog-rows'
 import {
   withWslMovedRepoIds,
   withWslMovedSetupScriptDismissals
@@ -110,12 +109,7 @@ export function createRuntimeRepoCatalogActions(
                 : {}
               : {}),
             pendingSshRepoReadoptions: reconciliation.pendingReadoptions,
-            ...reconcileFetchedCatalogWorktreeState(
-              s,
-              catalog,
-              finalizedRepos,
-              reconciliation.pendingReadoptions
-            ),
+            ...reconcileFetchedCatalogWorktreeState(s, catalog, finalizedRepos),
             ...mergedProjectCompatibility,
             activeRepoId:
               s.activeRepoId && validRepoIds.has(s.activeRepoId) ? s.activeRepoId : null,
@@ -133,7 +127,6 @@ export function createRuntimeRepoCatalogActions(
             )
           }
         })
-        noteLiveRepoCatalogApplied(get, targetHostId)
         scheduleSafeAutoForkSync(finalizedHostRepos)
         return finalizedHostRepos
       } catch (err) {

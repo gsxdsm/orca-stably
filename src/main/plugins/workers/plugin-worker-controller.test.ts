@@ -53,7 +53,6 @@ function worker(commands: string[]): PluginWorkerHandle & { dispose: ReturnType<
     invokeCommand: vi.fn(async () => null),
     deliverEvent: vi.fn(),
     requestFromPanel: vi.fn(),
-    runHook: vi.fn(),
     notifyDataChanged: vi.fn(),
     lastActivityAt: () => Date.now(),
     inFlightCount: () => 0,

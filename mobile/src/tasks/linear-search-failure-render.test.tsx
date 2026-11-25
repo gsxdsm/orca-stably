@@ -1,4 +1,3 @@
-import type * as DrawerModalHostModule from '../components/bottom-drawer/bottom-drawer-modal-host'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { act, create, type ReactTestRenderer } from 'react-test-renderer'
 import { useMobileTasksTaskListLoading } from './use-mobile-tasks-task-list-loading'
@@ -29,7 +28,7 @@ vi.mock('react-native', async () => {
     InteractionManager: { runAfterInteractions: () => ({ cancel: () => {} }) }
   }
 })
-vi.mock('../components/bottom-drawer/BottomDrawer', () => ({
+vi.mock('../components/BottomDrawer', () => ({
   BottomDrawer: ({ children }: { children: unknown }) => children
 }))
 vi.mock('../components/SmartSourceModeIcon', () => ({ SmartSourceModeIcon: () => null }))
@@ -247,11 +246,4 @@ it('shipping phone Tasks renders the safe server search failure', async () => {
   await mount(<Tasks />)
   await expectText('Unable to load Linear issues. Try again.')
   expect(text()).not.toContain(raw)
-})
-
-vi.mock('../components/bottom-drawer/bottom-drawer-modal-host', async () => {
-  const { BottomDrawerModalHost } = await vi.importMock<
-    Pick<typeof DrawerModalHostModule, 'BottomDrawerModalHost'>
-  >('./mobile-tasks-dependencies')
-  return { BottomDrawerModalHost }
 })

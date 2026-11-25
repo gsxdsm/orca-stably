@@ -2,6 +2,7 @@
 import { mocks, store } from './launch-agent-web-terminal.test-fixture'
 import { expect, it, vi } from 'vitest'
 import { buildAgentSessionForkPrompt } from '@/lib/agent-session-fork-context'
+import type { PreparedAgentSessionFork } from '@/components/terminal-pane/terminal-agent-session-fork'
 import { isWebRuntimeSessionActive } from '@/runtime/web-runtime-session-environment'
 import { pasteDraftWhenAgentReady } from '@/lib/agent-paste-draft'
 import { newAgentPromptOutcome } from '@/lib/new-agent-prompt-outcome'
@@ -44,12 +45,13 @@ it.each(['local', 'web'] as const)(
     })
     const paste = Promise.withResolvers<boolean>()
     vi.mocked(pasteDraftWhenAgentReady).mockReturnValueOnce(paste.promise)
-    const focusSource = vi.fn()
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: this prepared fork only calls terminal.focus on its pane.
+    const pane = { terminal: { focus: vi.fn() } } as unknown as PreparedAgentSessionFork['pane']
     const { startAgentSessionFork } =
       await import('../../src/renderer/src/components/terminal-pane/terminal-agent-session-fork')
     const launcher = await import('../../src/renderer/src/lib/launch-agent-in-new-tab')
     const launched = vi.spyOn(launcher, 'launchAgentInNewTab')
-    const forking = startAgentSessionFork({ prompt, agent, worktreeId: 'wt-1', focusSource })
+    const forking = startAgentSessionFork({ prompt, agent, worktreeId: 'wt-1', pane })
     await vi.waitFor(() => expect(pasteDraftWhenAgentReady).toHaveBeenCalledOnce())
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
     expect(mocks.clipboard).not.toHaveBeenCalled()
@@ -120,17 +122,13 @@ it.skipIf(process.platform === 'win32')(
         ui: { writeTerminalClipboardText: mocks.clipboard }
       }
     })
-    const focusSource = vi.fn()
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the prepared fork reads only terminal.focus from its source pane.
+    const pane = { terminal: { focus: vi.fn() } } as unknown as PreparedAgentSessionFork['pane']
     const { startAgentSessionFork } =
       await import('@/components/terminal-pane/terminal-agent-session-fork')
     const launcher = await import('@/lib/launch-agent-in-new-tab')
     const launched = vi.spyOn(launcher, 'launchAgentInNewTab')
-    const forking = startAgentSessionFork({
-      prompt,
-      agent: 'claude',
-      worktreeId: 'wt-1',
-      focusSource
-    })
+    const forking = startAgentSessionFork({ prompt, agent: 'claude', worktreeId: 'wt-1', pane })
     void forking.catch(() => {})
     try {
       await host.failBindingAfterHandoff(prompt)

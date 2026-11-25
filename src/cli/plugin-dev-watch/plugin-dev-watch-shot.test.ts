@@ -113,7 +113,7 @@ describe('plugin dev watch --shot', () => {
       {
         check: async () => {
           order.push('check')
-          return { ok: true, invalid: [], panels: [], editors: [] }
+          return { ok: true, invalid: [], panels: [] }
         },
         shot: host
       },

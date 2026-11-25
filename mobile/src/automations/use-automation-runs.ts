@@ -11,14 +11,7 @@ export type AutomationRunScope = {
   expectedOwner: AutomationOwnerPrecondition
 } | null
 const GLOBAL_SCOPE = 'global'
-type History = {
-  ids: string[]
-  cursor: string | null
-  loaded: boolean
-  selectionId?: string
-  // An unreadable run may be the selection, so these ids can't show it left history.
-  unreadable?: boolean
-}
+type History = { ids: string[]; cursor: string | null; loaded: boolean; selectionId?: string }
 
 export function useAutomationRuns(
   client: RpcClient | null,
@@ -80,7 +73,6 @@ export function useAutomationRuns(
       const boundary = boundaries.sort(compareAutomationRunsNewestFirst).at(-1)
       const ids = new Set(next ? state.ids : [])
       let cursor = next
-      let unreadable = next ? !!state.unreadable : false
       try {
         for (;;) {
           if (!observation.current) {
@@ -95,7 +87,6 @@ export function useAutomationRuns(
             return
           }
           const page = automationRunsRead.interpret(reply)
-          unreadable ||= page.unreadableRuns > 0
           for (const run of page.runs) {
             records.current.set(run.id, run)
             ids.add(run.id)
@@ -116,8 +107,7 @@ export function useAutomationRuns(
           ids: [...ids],
           cursor: cursor ?? null,
           loaded: true,
-          selectionId: selectedRun?.id,
-          unreadable
+          selectionId: selectedRun?.id
         })
         const retained = new Set([...histories.current.values()].flatMap((entry) => entry.ids))
         if (selection.current) {
@@ -174,7 +164,6 @@ export function useAutomationRuns(
       !error &&
       history.loaded &&
       history.selectionId === selected.id &&
-      !history.unreadable &&
       !history.ids.includes(selected.id),
     cursor: history.cursor,
     loading: connected && loading,

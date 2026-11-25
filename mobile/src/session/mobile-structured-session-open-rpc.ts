@@ -17,24 +17,22 @@ function openingRead<Method extends RpcMethodName, Schema extends z.ZodType>(
     })
   )
 }
-const partyLocationResult = z.object({
-  location: z
-    .discriminatedUnion('kind', [
-      z.object({
-        kind: z.literal('chat'),
-        sessionId: z.string().min(1),
-        worktreeId: z.string().min(1)
-      }),
-      z.object({ kind: z.literal('terminal'), handle: z.string().min(1) })
-    ])
-    .nullable(),
-  lost: z.enum(['chat', 'terminal']).optional()
-})
 export const structuredOpenLocation = openingRead(
   'orchestration.partyLocation',
-  partyLocationResult
+  z.object({
+    location: z
+      .discriminatedUnion('kind', [
+        z.object({
+          kind: z.literal('chat'),
+          sessionId: z.string().min(1),
+          worktreeId: z.string().min(1)
+        }),
+        z.object({ kind: z.literal('terminal'), handle: z.string().min(1) })
+      ])
+      .nullable(),
+    lost: z.enum(['chat', 'terminal']).optional()
+  })
 )
-export const structuredOpenParty = openingRead('orchestration.partyOpen', partyLocationResult)
 export const structuredOpenReveal = openingRead(
   'agentSession.reveal',
   z.union([
@@ -45,10 +43,7 @@ export const structuredOpenReveal = openingRead(
       agent: z.string().min(1),
       readable: z.boolean()
     }),
-    z.object({
-      ok: z.literal(false),
-      refusal: z.object({ code: z.string(), details: z.unknown().optional() })
-    })
+    z.object({ ok: z.literal(false), refusal: z.object({ code: z.string() }) })
   ])
 )
 export const structuredOpenTabs = openingRead(

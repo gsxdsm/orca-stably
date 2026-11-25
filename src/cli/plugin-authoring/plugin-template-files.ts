@@ -23,12 +23,10 @@ export function json(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`
 }
 
-/** `engine`: a newer `engines.orca` floor, for templates that use newer fields. */
 export function manifest(
   input: PluginTemplateInput,
   description: string,
-  fields: Record<string, unknown>,
-  engine = ENGINE
+  fields: Record<string, unknown>
 ): string {
   return json({
     manifestVersion: 2,
@@ -37,7 +35,7 @@ export function manifest(
     name: input.name,
     version: '0.1.0',
     description,
-    engines: { orca: engine },
+    engines: { orca: ENGINE },
     ...fields
   })
 }

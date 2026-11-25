@@ -1,5 +1,7 @@
-import type { StructuredAgentSessionClientDelivery } from './structured-agent-session-client-delivery'
-import { seedSavedStructuredSessionTabs } from './structured-agent-session-saved-status'
+import {
+  seedSavedStructuredSessionTabs,
+  type SavedStructuredStatusGroup
+} from './structured-agent-session-saved-status'
 import type { StructuredAgentSessionHostDeps } from './structured-agent-session-host-types'
 import type { AgentSessionRecord } from '../../../shared/agent-session/lifecycle/agent-session-record'
 import type { AgentSessionRecordStore } from '../../runtime/agent-session/records/agent-session-record-store'
@@ -72,10 +74,8 @@ export function createStructuredAgentSessionTabSurface(
     }
   },
   sessions: TabSessions,
-  delivery: Pick<
-    StructuredAgentSessionClientDelivery,
-    'forgetStatus' | 'publishStatus' | 'publishSavedStatusGroup'
-  >,
+  forgetStatus: (sessionId: string) => void,
+  publishSavedStatusGroup: SavedStructuredStatusGroup,
   recover: (ids: readonly string[]) => Promise<void>
 ) {
   return {
@@ -92,7 +92,7 @@ export function createStructuredAgentSessionTabSurface(
         host.deps,
         ids,
         (visit) =>
-          delivery.publishSavedStatusGroup((publish) =>
+          publishSavedStatusGroup((publish) =>
             visit((record, markerAt) => {
               publish(record, markerAt)
             })
@@ -102,11 +102,7 @@ export function createStructuredAgentSessionTabSurface(
     getPersistedVisibleSessionTabIndex: () => host.deps.store.getVisibleSessionTabIndex(),
     getSessionTabId: (sessionId: string): string | null =>
       host.deps.store.getSessionTabId(sessionId),
-    showSessionTabs: async (sessionIds: readonly string[]) => {
-      const result = await host.deps.store.showSessionTabs(sessionIds)
-      sessionIds.forEach(delivery.publishStatus)
-      return result
-    },
+    showSessionTabs: (sessionIds: readonly string[]) => host.deps.store.showSessionTabs(sessionIds),
     notifySessionTabHidden: (sessionId: string, tabId?: string): void =>
       notifyTabHidden(host, sessionId, tabId),
     setSessionTabVisibility: async (
@@ -137,10 +133,9 @@ export function createStructuredAgentSessionTabSurface(
           notifyTabHidden(host, sessionId, actualId ?? undefined)
         }
       }
-      delivery.publishStatus(sessionId)
       // Tab visibility and handle closure jointly determine status-row lifetime.
       if (!visible && !sessions.get(sessionId)?.child) {
-        delivery.forgetStatus(sessionId)
+        forgetStatus(sessionId)
       }
     }
   }

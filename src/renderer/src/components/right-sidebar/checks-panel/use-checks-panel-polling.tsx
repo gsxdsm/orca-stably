@@ -5,10 +5,7 @@ import {
   nextChecksPollBackoffMs
 } from '../../../../../shared/github/checks-detail-polling-policy'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  gitLabPipelineJobsToPRChecks,
-  gitLabPipelineToPRCheck
-} from '../../../../../shared/gitlab-pipeline-checks'
+import { gitLabPipelineJobsToPRChecks } from '../../../../../shared/gitlab-pipeline-checks'
 import {
   checksPanelAsyncResultKey,
   checksPanelHostedReviewAsyncResultKey
@@ -20,7 +17,6 @@ import { fetchGitLabMRDetailsForChecks, gitLabMRCommentsToPRComments } from './g
 import { checksPanelLoadErrorMessage } from './checks-panel-forge-owner'
 import { forgeOwnerHostIdForWorkspace } from '@/runtime/forge-credential-target'
 import { isWslDistroNotRunningRefusal } from '../../../../../shared/wsl-distro-not-running-refusal'
-import { translate } from '@/i18n/i18n'
 
 export type ChecksPanelPollingInput = Pick<
   ChecksPanelContextState,
@@ -208,11 +204,7 @@ export function useChecksPanelPolling(model: ChecksPanelPollingInput) {
         targetMRNumber,
         targetHeadSha
       )
-      // Without commitAsCurrent the caller only reads for the selected review; skip a target the panel doesn't own.
-      if (
-        isRequestCurrent?.() === false ||
-        (!commitAsCurrent && !isCurrentAsyncResult(requestKey))
-      ) {
+      if (isRequestCurrent?.() === false) {
         return
       }
       if (commitAsCurrent) {
@@ -237,16 +229,10 @@ export function useChecksPanelPolling(model: ChecksPanelPollingInput) {
           throw new Error('GitLab MR details are unavailable')
         }
         gitLabProjectRefRef.current = details.item.projectRef ?? null
-        const result = gitLabPipelineJobsToPRChecks(details.pipelineJobs ?? [])
-        const pipelineCheck = details.pipeline
-          ? gitLabPipelineToPRCheck(
-              details.pipeline,
-              translate('auto.components.GitLabItemDialog.02cbe2de44', 'Pipeline')
-            )
-          : null
-        setChecks(result, pipelineCheck)
+        const result = gitLabPipelineJobsToPRChecks(details?.pipelineJobs ?? [])
+        setChecks(result)
         setComments(gitLabMRCommentsToPRComments(details?.comments))
-        const signature = policyRef.current.accept(result, pipelineCheck)
+        const signature = policyRef.current.accept(result)
         pollIntervalRef.current = nextChecksPollBackoffMs(
           pollIntervalRef.current,
           signature === prevChecksRef.current ? 'unchanged' : 'changed'

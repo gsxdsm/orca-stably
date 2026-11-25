@@ -1,5 +1,4 @@
 import { checkHookOwnerPresence } from '../shared/agent-hook-owner-presence'
-import type { HookRootEvidenceReader } from '../shared/hook-process-root-evidence'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { HOOK_REQUEST_SLOWLORIS_MS } from '../shared/agent-hook-listener/listener-limits'
 import { mergeAgentHookRequestHeaders } from '../shared/agent-hook-listener/hook-envelope'
@@ -14,10 +13,7 @@ import type { AgentHookResultRetryScheduler } from './agent-hook-result-retry-sc
 import { hookBodyEnv, hookBodyVersion } from './agent-hook-envelope-build'
 import { bindOpenCodeTuiSession } from '../shared/agent-hook-listener/opencode-session-registry'
 import type { RelayProviderHookNormalization } from './agent-hook-provider-normalization'
-import {
-  relayHookRootAcquisition,
-  type RelayHookAdmissionOptions
-} from './agent-hook-event-admission'
+import type { RelayHookAdmissionOptions } from './agent-hook-event-admission'
 import { CLAUDE_AGENT_VIEW_PATH } from '../shared/claude-agent-view'
 
 export async function handleRelayHookRequest(
@@ -30,7 +26,6 @@ export async function handleRelayHookRequest(
     env: string
     state: HookListenerState
     checkAgentPresence: (paneKey: string) => Promise<void>
-    readHookRootEvidence?: HookRootEvidenceReader
     providerNormalization: RelayProviderHookNormalization
     isPaneSurfaceRetired: (paneKey: string) => boolean
     getAgentLaunchToken: (paneKey: string) => string | undefined
@@ -94,12 +89,7 @@ export async function handleRelayHookRequest(
       source,
       hookBody,
       options.env,
-      options.checkAgentPresence,
-      relayHookRootAcquisition(options.readHookRootEvidence, options.state, (event) =>
-        options.applyEvent(event, source, hookBodyEnv(hookBody), hookBodyVersion(hookBody), {
-          checkPresence: false
-        })
-      )
+      options.checkAgentPresence
     )
     if (!options.isCurrent()) {
       res.writeHead(204)

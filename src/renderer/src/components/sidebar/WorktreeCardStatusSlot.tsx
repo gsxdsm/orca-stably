@@ -3,7 +3,6 @@ import { Bell, GitBranch, Moon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
-import { observeOffscreenAnimation } from '@/lib/offscreen-animation-pause'
 import { getWorktreeStatusLabel, type WorktreeStatus } from '@/lib/worktree-status'
 import { FilledBellIcon } from './WorktreeCardHelpers'
 import StatusIndicator from './StatusIndicator'
@@ -155,11 +154,10 @@ export function WorktreeCardStatusSlot({
   // Working/permission own the lane; retain unread in accessible copy and restore its dot afterward.
   const showNewCardUnreadAlert =
     newCardStyle && isUnread && showStatus && status !== 'working' && status !== 'permission'
-  const reviewStaleRef = reviewStale ? observeOffscreenAnimation : undefined
   const reviewStatusIconClassName = cn(
     compactReviewAndBranchStatusIconClassName,
     // Same last-known treatment as the hover card's reference rows.
-    reviewStale && 'shimmer shimmer-duration-2400 shimmer-steps-30'
+    reviewStale && 'shimmer shimmer-duration-2400'
   )
   const branchStatusIcon = <GitBranch className={branchStatusIconClassName} aria-hidden="true" />
   const sleepingStatusIcon = <Moon className={sleepingStatusIconClassName} aria-hidden="true" />
@@ -169,10 +167,7 @@ export function WorktreeCardStatusSlot({
       <span className="sr-only">{passiveStatusAnnouncement}</span>
     </span>
   ) : canShowReviewStatus && (collectionChecks || prDisplay) ? (
-    <span
-      ref={reviewStaleRef}
-      className={cn('inline-flex size-5 items-center justify-center p-0.5', className)}
-    >
+    <span className={cn('inline-flex size-5 items-center justify-center p-0.5', className)}>
       {collectionChecks ? (
         <WorkspaceReviewChecksIndicator
           summary={collectionChecks}
@@ -243,10 +238,7 @@ export function WorktreeCardStatusSlot({
           >
             {newCardStyle ? (
               showStatus && canShowReviewStatus && prDisplay ? (
-                <span
-                  ref={reviewStaleRef}
-                  className="inline-flex size-5 items-center justify-center p-0.5"
-                >
+                <span className="inline-flex size-5 items-center justify-center p-0.5">
                   <ReviewIcon
                     review={prDisplay}
                     className={reviewStatusIconClassName}

@@ -4,12 +4,10 @@ import { release } from 'node:os'
 import { getCmdExePath } from '../../../shared/windows-batch-spawn'
 import {
   ensureNodePtySpawnHelperExecutable,
-  getNodePtySpawnHelperCandidates
-} from '../../providers/local-pty/local-pty-executable-spawn'
-import {
+  getNodePtySpawnHelperCandidates,
   validateWorkingDirectoryAsync,
   WorkingDirectoryValidationAbortedError
-} from '../../providers/working-directory-validation'
+} from '../../providers/local-pty-utils'
 import { resolveSafePtyDefaultCwd } from '../../providers/pty-default-cwd'
 import { TerminalAttachCanceledError } from '../daemon-errors'
 import { DaemonProtocolError } from '../types'

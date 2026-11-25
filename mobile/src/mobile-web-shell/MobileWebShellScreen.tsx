@@ -255,8 +255,7 @@ export function MobileWebShellScreen({
     claimed: backClaimed,
     isFocused: () => navigation.isFocused(),
     sendBack: bridge.sendBack,
-    setOptions: navigation.setOptions,
-    parent: navigation.getParent()
+    setOptions: navigation.setOptions
   })
   useReportedShellOverlayLoad(onOverlayLoad, state, pageFrame, downloadProgress)
 
@@ -322,8 +321,6 @@ export function MobileWebShellScreen({
         sessionId={state.sessionId}
         bridgeEnabled={bridge.bridgeEnabled}
         onBridgeMessage={bridge.onBridgeMessage}
-        backEdgeSwipe={backClaimed}
-        onBackEdgeSwipe={bridge.sendBack}
         onExternalNavigation={(event) => {
           const target = cancelledShellNavigationTarget(event.nativeEvent.url)
           if (target === null) {

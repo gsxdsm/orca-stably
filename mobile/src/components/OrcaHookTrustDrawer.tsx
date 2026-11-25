@@ -5,7 +5,7 @@ import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import type { Translate } from '../i18n/mobile-i18n'
-import { BottomDrawer } from './bottom-drawer/BottomDrawer'
+import { BottomDrawer } from './BottomDrawer'
 
 export type OrcaHookTrustPrompt = {
   kind: 'setup' | 'archive'

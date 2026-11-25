@@ -61,7 +61,6 @@ export async function initializeAcpStructuredSession(
   assertStarting()
   const initialized = await connection.initialize()
   assertStarting()
-  options.adoptInitialize(initialized)
   // Choose authentication using the execution host's launch environment.
   const authMethodId = spec.authMethod?.({
     advertised: (initialized.authMethods ?? []).map((method) => method.id),

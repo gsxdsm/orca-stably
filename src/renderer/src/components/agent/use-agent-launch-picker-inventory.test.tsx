@@ -32,11 +32,7 @@ vi.mock('../settings/agent-launch-settings-transport', () => ({
 vi.mock('@/store', () => ({
   useAppStore: Object.assign(
     (select: (state: unknown) => unknown) =>
-      // The setup panel's prompt composer reads its pane's agent status.
-      select({
-        settings: { agentDefaultArgs: { codex: '--desktop-only' } },
-        agentStatusByPaneKey: {}
-      }),
+      select({ settings: { agentDefaultArgs: { codex: '--desktop-only' } } }),
     { getState: () => ({}) }
   )
 }))

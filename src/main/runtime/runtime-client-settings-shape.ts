@@ -34,7 +34,6 @@ export type RuntimeClientSettings = Pick<
   | 'agentSkillSharingEnabled'
   | 'machineName'
   | 'nativeChatPermissionMode'
-  | 'nativeChatAutoContinueAfterUsageLimit'
   | 'nativeChatQueueFollowUps'
   | 'sourceControlGroupOrder'
   | 'sourceControlCompareAgainstUpstream'
@@ -77,5 +76,4 @@ export type RuntimeClientSettingsUpdate = Pick<
   | 'worktreeVisibilityDefaults'
   | 'machineName'
   | 'nativeChatPermissionMode'
-  | 'nativeChatAutoContinueAfterUsageLimit'
 >

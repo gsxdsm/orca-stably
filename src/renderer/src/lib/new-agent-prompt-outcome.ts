@@ -22,17 +22,11 @@ export function newAgentPromptOutcome(args: {
 }): Promise<NewAgentPromptOutcome> {
   return args.delivery.then(
     (result) =>
-      result.delivered || result.inComposer || result.recipientOwned
+      result.delivered || result.inComposer
         ? { delivered: true }
         : result.failureNotified
           ? { delivered: false }
           : { delivered: false, failure: notesFailure(result) },
     () => ({ delivered: false })
   )
-}
-
-export function agentLaunchPromptOwnership(
-  delivery: Promise<StructuredPromptDeliveryResult> | undefined
-): boolean | Promise<boolean> {
-  return delivery ? newAgentPromptOutcome({ delivery }).then((outcome) => outcome.delivered) : true
 }

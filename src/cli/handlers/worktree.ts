@@ -18,7 +18,6 @@ import { RuntimeClientError } from '../runtime-client'
 import {
   getOptionalPositiveIntegerFlag,
   getOptionalStringFlag,
-  getOptionalStringFlagAllowingEmpty,
   getPresentStringFlag,
   getRequiredStringFlag
 } from '../flags'
@@ -244,8 +243,7 @@ export const WORKTREE_HANDLERS: Record<string, CommandHandler> = {
       displayName: getOptionalStringFlag(flags, 'display-name'),
       ...reviewLinks,
       ...linearIssueLink,
-      // An explicit empty value clears the stored comment.
-      comment: getOptionalStringFlagAllowingEmpty(flags, 'comment'),
+      comment: getOptionalStringFlag(flags, 'comment'),
       workspaceStatus: getOptionalStringFlag(flags, 'workspace-status'),
       isUnread,
       parentWorktree: await withWorktreeSelectorRecovery(

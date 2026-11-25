@@ -7,7 +7,7 @@ import type { WatcherProcessSubscription } from '../ipc/filesystem/watcher-proce
 import { resolveWatcherRootPaths } from '../ipc/watcher-event-root-path-rewrite'
 import { watcherDirectoryIdentity } from '../ipc/watcher-directory-identity'
 import { bumpPluginDevRevision, recordPluginDevEdit } from './plugin-dev-revision'
-import { isIgnoredPluginDevPath, pluginDevWatchIgnoreOptions } from './plugin-dev-watcher-ignore'
+import { isIgnoredPluginDevPath, PLUGIN_DEV_WATCH_IGNORE } from './plugin-dev-watcher-ignore'
 
 // Deleted roots can reject unsubscribe after the native stream has stopped.
 function releaseSubscription(subscription: WatcherProcessSubscription): void {
@@ -87,7 +87,7 @@ export class PluginDevWatcher {
         requestedRoot,
         {
           ...(process.platform === 'win32' ? { backend: 'windows' } : {}),
-          ...pluginDevWatchIgnoreOptions()
+          ignore: [...PLUGIN_DEV_WATCH_IGNORE]
         },
         false,
         refresh,

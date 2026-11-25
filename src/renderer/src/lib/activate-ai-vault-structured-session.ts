@@ -26,35 +26,31 @@ type StructuredSessionActivationDeps = StructuredSessionOpenAdapterDeps & {
   hostCannotOpen: (agent?: string) => void
 }
 
-/** `terminalGone` replaces the shared pane-unavailable notice for callers that name the agent themselves. */
-export type StructuredSessionOpenFeedback = Pick<
+export const structuredSessionOpenFeedback: Pick<
   StructuredSessionActivationDeps,
   'unavailable' | 'gone' | 'hostCannotOpen'
-> & { terminalGone?: () => void }
-
-/** The open remedies' words, so labelled opens (the orchestration panel) say the same thing. */
-export const structuredSessionOpenFeedbackText = {
+> = {
   unavailable: () =>
-    translate(
-      'auto.lib.activateAiVaultStructuredSession.unavailable',
-      'The structured agent session is not available yet. Retry in a moment.'
+    toast.error(
+      translate(
+        'auto.lib.activateAiVaultStructuredSession.unavailable',
+        'The structured agent session is not available yet. Retry in a moment.'
+      )
     ),
   gone: () =>
-    translate(
-      'auto.lib.activateAiVaultStructuredSession.gone',
-      'This chat is no longer on this host, so it cannot be reopened here.'
+    toast.error(
+      translate(
+        'auto.lib.activateAiVaultStructuredSession.gone',
+        'This chat is no longer on this host, so it cannot be reopened here.'
+      )
     ),
   hostCannotOpen: () =>
-    translate(
-      'auto.lib.activateAiVaultStructuredSession.hostCannotOpen',
-      "This chat can't be reopened until Orca is updated."
+    toast.error(
+      translate(
+        'auto.lib.activateAiVaultStructuredSession.hostCannotOpen',
+        "This chat can't be reopened until Orca is updated."
+      )
     )
-}
-
-export const structuredSessionOpenFeedback: StructuredSessionOpenFeedback = {
-  unavailable: () => toast.error(structuredSessionOpenFeedbackText.unavailable()),
-  gone: () => toast.error(structuredSessionOpenFeedbackText.gone()),
-  hostCannotOpen: () => toast.error(structuredSessionOpenFeedbackText.hostCannotOpen())
 }
 
 /** Read only structuredSession so history clicks and drag payloads follow the same reveal path. */
@@ -78,26 +74,21 @@ export function openDesktopStructuredSession(
   source: StructuredSessionOpenSource,
   host?: RuntimeClientTarget,
   deps?: StructuredSessionActivationDeps,
-  locate?: StructuredSessionOpenDeps['locate'],
-  feedback?: StructuredSessionOpenFeedback
+  locate?: StructuredSessionOpenDeps['locate']
 ): Promise<StructuredSessionOpenResult> {
   return openDesktopStructuredSessionInteraction(source, {
     target: host,
     deps,
     locate,
     present: (result) =>
-      presentDesktopStructuredSession(
-        result,
-        source,
-        feedback ?? deps ?? structuredSessionOpenFeedback
-      )
+      presentDesktopStructuredSession(result, source, deps ?? structuredSessionOpenFeedback)
   })
 }
 
 function presentDesktopStructuredSession(
   result: StructuredSessionOpenResult,
   source: StructuredSessionOpenSource,
-  deps: StructuredSessionOpenFeedback
+  deps: Pick<StructuredSessionActivationDeps, 'unavailable' | 'gone' | 'hostCannotOpen'>
 ): void {
   if (result.kind === 'opened') {
     const workspace = result.target.worktreeId
@@ -111,20 +102,14 @@ function presentDesktopStructuredSession(
     const agent = source.kind === 'sender' ? (source.displayName ?? '') : (source.agent ?? '')
     if (result.failure.reason === 'workspace-missing') {
       toast.error(
-        result.failure.workspaceKind === 'folder'
-          ? translate(
-              'auto.lib.activateAiVaultStructuredSession.folderWorkspaceRemoved',
-              'The folder workspace was removed.'
-            )
-          : translate(
-              'auto.lib.activateAiVaultStructuredSession.worktreeDeleted',
-              'The worktree was deleted.'
-            )
+        translate(
+          'auto.store.slices.worktrees.c6cf133786',
+          'This workspace is no longer available.'
+        )
       )
     } else if (result.failure.reason === 'gone') {
       if (result.failure.surface === 'terminal') {
-        const terminalGone = deps.terminalGone ?? showAgentPaneUnavailable
-        terminalGone()
+        showAgentPaneUnavailable()
       } else {
         deps.gone(agent)
       }

@@ -55,7 +55,7 @@ vi.mock('lucide-react-native', () => ({
   ShieldCheck: 'ShieldCheck',
   X: 'X'
 }))
-vi.mock('../../../components/bottom-drawer/BottomDrawer', async () => {
+vi.mock('../../../components/BottomDrawer', async () => {
   const React = await import('react')
   return {
     BottomDrawer: ({ visible, children }: { visible: boolean; children?: ReactNode }) =>

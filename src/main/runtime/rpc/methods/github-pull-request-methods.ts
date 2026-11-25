@@ -124,10 +124,7 @@ export const GITHUB_PULL_REQUEST_METHODS = [
         prRepo: params.prRepo ?? null,
         pullRequestId: params.pullRequestId,
         path: params.path,
-        viewed: params.viewed,
-        ...(params.expectedGhAccount !== undefined
-          ? { expectedGhAccount: params.expectedGhAccount }
-          : {})
+        viewed: params.viewed
       })
   })
 ]

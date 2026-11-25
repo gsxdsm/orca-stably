@@ -11,25 +11,15 @@ import { pluginHostCallRevoked, type PluginHostCallScope } from './workers/plugi
 import type { PluginPanelCaller } from '../../shared/plugins/workers/plugin-panel-bridge-protocol'
 import type { PluginPanelBridgeServices } from './workers/plugin-host-panel-method-bindings'
 import type { PluginPanelBridge } from './panels/plugin-panel-bridge'
-import {
-  pluginStatusBarRevision,
-  type PluginStatusBarState
-} from './status-bar/plugin-status-bar-state'
 import type {
   PluginHostCallOutcome,
   PluginSurface
 } from '../../shared/plugins/frames/plugin-protocol'
 import { executePluginHostCallRequest } from './workers/plugin-host-call-adapter'
-import { getPluginHostRendererActions } from './view/plugin-host-renderer-actions'
 
 /** Who made a call: the open panel (frames only), and its host window's WebContents for desktop
  *  IPC calls. */
-export type PluginHostCaller = {
-  webContentsId?: number
-  panel?: PluginPanelCaller
-  /** Aborts when a worker cancels the call or exits. */
-  signal?: AbortSignal
-}
+export type PluginHostCaller = { webContentsId?: number; panel?: PluginPanelCaller }
 
 type FindApprovedPlugin = (
   pluginKey: string,
@@ -46,7 +36,6 @@ export function createPluginHostCallScope(
   const manifestRevision = JSON.stringify(admitted.manifest)
   return {
     callerWebContentsId: caller?.webContentsId,
-    signal: caller?.signal,
     log,
     panel: caller?.panel,
     pluginName: admitted.manifest.name,
@@ -72,7 +61,6 @@ export function resolvePluginServiceHostCallPolicy(input: {
   pluginsDataDir: string
   desktop: PluginDesktopFrameServices | null | undefined
   panels: PluginPanelBridgeServices | null
-  statusBar?: PluginStatusBarState | null
   audit: PluginAuditLog
   log?: (pluginKey: string) => (line: string) => void
 }): PluginHostCallPolicy {
@@ -85,13 +73,7 @@ export function resolvePluginServiceHostCallPolicy(input: {
           pluginsDataDir: input.pluginsDataDir,
           desktop: input.desktop,
           panels: input.panels,
-          renderer: getPluginHostRendererActions(),
-          declaredSettings: plugin?.manifest.contributes.settings,
-          statusBar: input.statusBar,
-          declaredStatusBarItemIds: plugin?.manifest.contributes.statusBarItems.map(
-            (item) => item.id
-          ),
-          statusBarRevision: plugin ? pluginStatusBarRevision(plugin) : undefined
+          declaredSettings: plugin?.manifest.contributes.settings
         })
       : null,
     audit: input.audit,

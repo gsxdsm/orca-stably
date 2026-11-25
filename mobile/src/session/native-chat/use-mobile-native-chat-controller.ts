@@ -19,8 +19,6 @@ import { mobileNativeChatScopeKey } from './mobile-native-chat-scope-key'
 
 export function useMobileNativeChatController(args: {
   client: RpcClient | null
-  /** The route's paired host; differs from `client` only when a server executes the workspace. */
-  pairedHostClient: RpcClient | null
   hostId: string
   worktreeId: string
   activeSessionTab: MobileNativeChatTab | null

@@ -12,18 +12,14 @@ import type {
   ClaudeStructuredSessionEvent
 } from './claude-structured-session-state'
 
-type ClaudeOpenInput = {
+export async function openClaudeStructuredSession(input: {
   request: StructuredAgentSessionProviderOpenInput
   session: ClaudeSession
   sessions: Map<string, ClaudeSession>
   deps: ClaudeStructuredSessionAdapterDeps
   emit: (session: ClaudeSession, event: ClaudeStructuredSessionEvent) => void
-}
-
-export async function openClaudeStructuredSession(
-  input: ClaudeOpenInput
-): Promise<StructuredAgentSessionProviderOpenResult> {
-  const { request, session } = input
+}): Promise<StructuredAgentSessionProviderOpenResult> {
+  const { request, session, sessions, deps, emit } = input
   request.signal.throwIfAborted()
   if (
     session.fence !== request.fence ||
@@ -31,19 +27,7 @@ export async function openClaudeStructuredSession(
   ) {
     throw new Error('claude session was replaced before open')
   }
-  try {
-    return await openStartingClaudeSession(input)
-  } catch (error) {
-    // The start's first ending cause is its report; a Stop stays Stop, so a later result is still taken.
-    throw request.signal.aborted ? error : session.initialization.startup.fail(error)
-  }
-}
-
-async function openStartingClaudeSession(
-  input: ClaudeOpenInput
-): Promise<StructuredAgentSessionProviderOpenResult> {
-  const { request, session, sessions, deps, emit } = input
-  const { proof, account, resumesTranscript, onLateRefusal, startup } = session.initialization
+  const { proof, account, resumesTranscript, onLateRefusal } = session.initialization
   const opened = openClaudeSession({
     session,
     facts:
@@ -72,11 +56,7 @@ async function openStartingClaudeSession(
         acquisitionGeneration: session.acquisitionGeneration
       })
   })
-  // A failure Claude reports while initialize or catch-up is pending fails this open at once.
-  const result = await waitForPromiseWithSignal(
-    startup.race(opened, request.signal),
-    request.signal
-  )
+  const result = await waitForPromiseWithSignal(opened, request.signal)
   const current = () => {
     if (sessions.get(request.sessionId) !== session || request.signal.aborted) {
       throw new Error('claude session closed before startup completed')
@@ -87,31 +67,29 @@ async function openStartingClaudeSession(
   const history = session.initialization.history
   const leafUuid = history.leafUuid
   if (resumesTranscript && leafUuid && session.events) {
-    const catchUp = catchUpClaudeTranscript({
-      sessionId: request.sessionId,
-      providerSessionId: session.providerSessionId,
-      leafUuid,
-      claudeConfigDir: session.initialization.claudeConfigDir,
-      cwd: session.initialization.cwd,
-      sink: session.events,
-      signal: request.signal,
-      assertCurrent: () => {
-        current()
-        if (
-          session.translator?.contextActivity !== history.contextActivity ||
-          session.dispatchSequence !== 0
-        ) {
-          throw new Error('claude made live progress before catch-up completed')
-        }
-      },
-      ...(deps.logger ? { logger: deps.logger } : {})
-    })
     history.covered = await waitForPromiseWithSignal(
-      startup.race(catchUp, request.signal),
+      catchUpClaudeTranscript({
+        sessionId: request.sessionId,
+        providerSessionId: session.providerSessionId,
+        leafUuid,
+        claudeConfigDir: session.initialization.claudeConfigDir,
+        cwd: session.initialization.cwd,
+        sink: session.events,
+        signal: request.signal,
+        assertCurrent: () => {
+          current()
+          if (
+            session.translator?.contextActivity !== history.contextActivity ||
+            session.dispatchSequence !== 0
+          ) {
+            throw new Error('claude made live progress before catch-up completed')
+          }
+        },
+        ...(deps.logger ? { logger: deps.logger } : {})
+      }),
       request.signal
     )
     current()
   }
-  startup.open()
   return { ...result, link: session.link, newConversation: !resumesTranscript }
 }

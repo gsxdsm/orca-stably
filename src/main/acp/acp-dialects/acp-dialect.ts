@@ -9,12 +9,7 @@ import type {
 import type { ProviderTimelineRequestBody } from '../../native-chat/agent-session-timeline/provider-timeline-event'
 import type { AcpAgentError } from '../acp-errors'
 import type { AgentSessionOptionChoice } from '../../../shared/agent-session/agent-session-wire'
-import type {
-  AvailableCommand,
-  InitializeResponse,
-  ModelInfo,
-  ToolCallUpdate
-} from '../generated/acp-protocol.generated'
+import type { ModelInfo, ToolCallUpdate } from '../generated/acp-protocol.generated'
 
 export type AcpRequestPresentation = {
   body: ProviderTimelineRequestBody
@@ -52,7 +47,6 @@ export type AcpDialectNotification =
       started?: boolean
       end?: Omit<AcpTurnEnding, 'at' | 'notSignedIn'>
       failureDetail?: string
-      failure?: Pick<AcpTurnEnding, 'stopReason' | 'failureDetail' | 'usageLimit'>
       usage?: AgentSessionContextUsage
       backgroundTasks?: AcpBackgroundTaskUpdate[]
       subagents?: AcpSubagentUpdate[]
@@ -68,8 +62,6 @@ export type AcpTurnEnding = {
   failureDetail?: string
   notSignedIn?: boolean
   usageLimit?: AgentSessionUsageLimit
-  /** Structured error data shows the model provider failed; runtime only. */
-  providerFailure?: boolean
   hookBlock?: AcpHookBlock
 }
 
@@ -128,7 +120,7 @@ export type AcpDialect = {
   promptFailure?(
     error: AcpAgentError,
     at: number
-  ): Pick<AcpTurnEnding, 'stopReason' | 'usageLimit' | 'providerFailure'> | undefined
+  ): Pick<AcpTurnEnding, 'stopReason' | 'usageLimit'> | undefined
   authenticationRequired?(error: AcpAgentError): boolean
   /** The agent dropped this session; only a new child can reopen it. */
   sessionLost?(error: AcpAgentError, sessionId: string): boolean
@@ -137,8 +129,6 @@ export type AcpDialect = {
   compactionReply?(text: string): AcpCompactionReply | undefined
   /** Hide these commands and reject command-only prompts before dispatch. */
   withheldCommands?: readonly string[]
-  /** Which session rows are the agent's own built-ins, as this process's initialize response proves. */
-  builtinCommands?(initialized: InitializeResponse): (command: AvailableCommand) => boolean
 }
 
 export type AcpChildStops = { subagents: boolean; backgroundTasks: boolean }

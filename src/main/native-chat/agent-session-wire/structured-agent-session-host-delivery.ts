@@ -1,4 +1,5 @@
 import { selectableStructuredSubmission } from './structured-agent-session-input-selection'
+import { structuredAgentSessionReceivingAccount } from './structured-agent-session-receiving-account'
 // Open conversations with queued sends always need delivery; opening also wakes leftover recovery.
 
 import { isQueuedAgentJournalSubmission } from '../../../shared/agent-session/requests/agent-session-queued-submission'
@@ -139,7 +140,17 @@ export function createStructuredAgentSessionConversationDelivery(input: {
         },
         launchAccountHome: async () => {
           const record = deps.store.getRecord(sessionId)
-          return record ? ((await deps.launchAccountHome?.(record, 'identity')) ?? null) : null
+          return record
+            ? (
+                await structuredAgentSessionReceivingAccount(
+                  deps,
+                  record,
+                  session,
+                  next,
+                  'identity'
+                )
+              ).home
+            : null
         },
         logger: deps.logger
       })

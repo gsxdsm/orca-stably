@@ -3,7 +3,6 @@ import { createTestStore } from './store-test-helpers'
 import { createTabsSliceMockApi } from './tabs-slice-test-harness'
 import { browserImportStateForHostUpdate } from './browser/browser-host-state'
 import { mutateDiffComments } from './diff-comment-persistence'
-import { SELF_LOCAL_AUTHORITY } from '../../../../shared/host-authority'
 
 vi.mock('sonner', () => ({ toast: { info: vi.fn(), success: vi.fn(), error: vi.fn() } }))
 createTabsSliceMockApi()
@@ -73,11 +72,7 @@ describe('empty store updates', () => {
     before.switchBrowserTabProfile('missing', null, 'persist:missing')
     before.recordClientHostedBrowserCloseIntents([])
     before.clearClientHostedBrowserCloseIntents('missing', [])
-    mutateDiffComments(
-      store.setState,
-      { kind: 'worktree', worktreeId: 'missing', authority: SELF_LOCAL_AUTHORITY },
-      () => null
-    )
+    mutateDiffComments(store.setState, 'missing', () => null)
     store.setState((state) => browserImportStateForHostUpdate(state, 'runtime:other', null))
 
     expect(store.getState()).toBe(before)

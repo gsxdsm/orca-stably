@@ -29,7 +29,6 @@ const worktreeOwnerIndexCache = new WeakMap<
   {
     entries: ReadonlyMap<string, IndexedWorktreeOwnerEntry>
     ownersById: ReadonlyMap<string, readonly WorktreeOwnerRecord[]>
-    locationsById: ReadonlyMap<string, readonly { bucket: string; position: number }[]>
   }
 >()
 const folderWorkspaceOwnerIndexCache = new WeakMap<
@@ -168,13 +167,9 @@ export function resolveIndexedWorktreeOwner(
   if (!index) {
     const next = new Map<string, IndexedWorktreeOwnerEntry>()
     const ownersById = new Map<string, WorktreeOwnerRecord[]>()
-    const locationsById = new Map<string, { bucket: string; position: number }[]>()
     for (const [bucket, worktrees] of Object.entries(worktreesByRepo)) {
       worktrees.forEach((worktree, position) => {
         const id = worktree.id
-        const locations = locationsById.get(id) ?? []
-        locations.push({ bucket, position })
-        locationsById.set(id, locations)
         const owners = ownersById.get(id)
         if (owners) {
           owners.push(worktree)
@@ -187,7 +182,7 @@ export function resolveIndexedWorktreeOwner(
         }
       })
     }
-    index = { entries: next, ownersById, locationsById }
+    index = { entries: next, ownersById }
     worktreeOwnerIndexCache.set(worktreesByRepo, index)
   }
   return index.entries.get(worktreeId) ?? { kind: 'missing' }
@@ -203,21 +198,6 @@ export function findIndexedWorktreeOwners(
     (worktreesByRepo && worktreeOwnerIndexCache.get(worktreesByRepo)?.ownersById.get(worktreeId)) ??
     NO_WORKTREE_OWNERS
   )
-}
-
-/** Every listed row of `worktreeId` in one repo bucket, duplicates kept in catalog order, typed as the caller's catalog. */
-export function findIndexedWorktreeRows<W extends WorktreeOwnerRecord>(
-  worktreesByRepo: Record<string, readonly W[]> | undefined,
-  repoId: string,
-  worktreeId: string
-): W[] {
-  resolveIndexedWorktreeOwner(worktreesByRepo, worktreeId)
-  const locations =
-    worktreesByRepo && worktreeOwnerIndexCache.get(worktreesByRepo)?.locationsById.get(worktreeId)
-  return (locations ?? []).flatMap(({ bucket, position }) => {
-    const row = bucket === repoId ? worktreesByRepo?.[bucket]?.[position] : undefined
-    return row?.id === worktreeId ? [row] : []
-  })
 }
 
 /**

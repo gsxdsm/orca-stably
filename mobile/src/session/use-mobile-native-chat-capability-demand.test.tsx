@@ -159,7 +159,6 @@ async function mounted(initial: ReturnType<typeof peer>, sessionId: string, conn
     useMobileSessionTabReconciliation(reconciliationScope)
     const lane = useMobileNativeChatSessionLane({
       client: props.peer.client,
-      pairedHostClient: null,
       hostId: props.hostId,
       structured: true,
       resolution: resolveMobileNativeChat({

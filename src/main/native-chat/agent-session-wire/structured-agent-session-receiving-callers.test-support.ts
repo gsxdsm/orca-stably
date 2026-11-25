@@ -1,10 +1,12 @@
-import { join } from 'node:path'
+import {
+  receivingPersistedFixtures,
+  receivingRuntimeStore
+} from './structured-agent-session-receiving-persisted.test-support'
 import { expect, vi } from 'vitest'
-import { Store } from '../../persistence/loading-store/store'
-import { ProfileStateSqliteAuthority } from '../../persistence/profile-state/profile-state-sqlite-authority'
 import { getAppEnvironment, setAppEnvironment } from '../../../shared/app-environment'
 import { testOrcaSessionId } from '../../../shared/orca-session-address-test-fixture'
 import { claudeProviderHandle } from '../../../shared/agent-session/lifecycle/agent-session-provider-handle-encoding'
+import type { ClaudeAccountRecipe } from '../../../shared/agent-session-acquired-account'
 import { computeAgentSessionPayloadFingerprint } from '../../../shared/agent-session/lifecycle/agent-session-mutation-envelope'
 import { agentJournalSubmissionKey } from '../../../shared/agent-session/journal/agent-session-journal-item-key'
 import type { AgentJournalMessageItem } from '../../../shared/agent-session/journal/agent-session-journal-types'
@@ -22,7 +24,7 @@ import {
   structuredWorkerIdentities,
   structuredWorkerProcessIncarnation
 } from '../../runtime/structured-worker-identity'
-import { structuredWorkerOwesWork } from '../../runtime/structured-worker-custody'
+import { structuredNativeWorkReaders } from '../../runtime/structured-native-work-readers'
 import { createRestTestRig, REST_TEST_CALLER } from './structured-agent-session-rest-test-rig'
 import {
   hostTestAttachParams,
@@ -30,36 +32,24 @@ import {
   hostTestOperationId
 } from './structured-agent-session-host-test-data'
 import { setStructuredAgentSessionHost } from './structured-agent-session-registry'
-import { createClaudeAccountRouting } from './structured-agent-session-claude-account-routing.test-support'
 import type { StructuredAgentSessionEventSink } from './structured-agent-session-event-sink'
 
 export const PARENT = testOrcaSessionId('cfe50e96-3a95-4353-9cdc-7a652779c6e8')
 export const WORKER = testOrcaSessionId('4c1b8d7a-975c-4984-a2e4-8149fdd4177a')
+export const HELPER = testOrcaSessionId('8e2ab9f7-0ad7-43f0-9241-539b1e4c5bc7')
+export const HOME_A = { variable: 'CLAUDE_CONFIG_DIR', path: '/qa/claude/a' }
+export const HOME_B = { variable: 'CLAUDE_CONFIG_DIR', path: '/qa/claude/b' }
 
-/** The registered attach path reads launch defaults from the runtime's profile store. */
-function receivingRuntimeStore(root: string) {
-  return new Store({
-    dataFile: join(root, 'runtime-state.json'),
-    profileStateAuthority: new ProfileStateSqliteAuthority(
-      join(root, 'runtime-profile.db'),
-      'receiving'
-    )
-  })
-}
-
-/** Script only external adapter IO (the Claude process and its transcripts); the account router,
- *  Claude launch resolution, reservation, proof, journals, RPC and native transactions are real. */
-export async function createReceivingCallerFixture() {
+/** Script only external adapter IO; reservation, proof, journals, RPC and native transactions are real. */
+export async function createReceivingCallerFixture(options: { reportsRecipe?: boolean } = {}) {
   const previousEnvironment = getAppEnvironment()
+  let selected = HOME_A
   let runtime: ReceivingRuntime | undefined
-  const routing = createClaudeAccountRouting()
-  const rig = await createRestTestRig({
-    // Production wiring: an assigned worker's own open Dispatch keeps its process.
-    hasOpenDispatch: (record) =>
-      structuredWorkerOwesWork(runtime?.getOrchestrationDbIfAvailable() ?? null, record),
-    launchAccountHome: routing.launchAccountHome
-  })
-  const accounts = routing.install(rig.root, () => rig.store)
+  const readers = structuredNativeWorkReaders(
+    () => runtime?.getOrchestrationDbIfAvailable() ?? null,
+    () => runtime?.getExistingOrchestrationDb() ?? null
+  )
+  const rig = await createRestTestRig({ ...readers, launchAccountHome: async () => selected })
   setAppEnvironment({
     ...previousEnvironment,
     getPath: (name) => (name === 'userData' ? rig.root : previousEnvironment.getPath(name))
@@ -75,14 +65,18 @@ export async function createReceivingCallerFixture() {
   const sinks = new Map<string, StructuredAgentSessionEventSink>()
   let generation = 0
   rig.adapter.acquire.mockImplementation(async (input) => {
-    // Production launch resolution picks the account, as the Claude adapter's acquisition does.
-    const launched = await accounts.launch(input)
+    const recipe: ClaudeAccountRecipe = input.accountRecipe ?? {
+      route: 'system',
+      home: selected.path,
+      configDir: selected.path
+    }
     if (input.events) {
       sinks.set(input.identity.sessionId, input.events)
     }
     return {
       acquisitionGeneration: `caller-generation-${++generation}`,
-      ...launched,
+      accountHome: { variable: 'CLAUDE_CONFIG_DIR', path: recipe.home },
+      ...(options.reportsRecipe === false ? {} : { accountRecipe: recipe }),
       process: {
         hostId: 'local',
         pid: 4242,
@@ -91,8 +85,7 @@ export async function createReceivingCallerFixture() {
       },
       link: {
         linkId: `caller-link-${generation}`,
-        // A chat that has answered has a leaf, which a resume elsewhere is checked against.
-        handle: claudeProviderHandle(`provider-${input.identity.sessionId}`, 'leaf-1'),
+        handle: claudeProviderHandle(`provider-${input.identity.sessionId}`, null),
         origin: rig.store.getRecord(input.identity.sessionId)?.providerHandleChain.length
           ? 'resumed'
           : 'created',
@@ -120,7 +113,7 @@ export async function createReceivingCallerFixture() {
       },
       provider: 'claude',
       agent: 'claude',
-      accountHome: accounts.homeA,
+      accountHome: HOME_A,
       providerHandle: { kind: 'claude', sessionId: `provider-${id}`, leafUuid: null }
     })
   const ensure = async (id = PARENT) => {
@@ -196,7 +189,7 @@ export async function createReceivingCallerFixture() {
     )
     await rig.host.flushStreamedEvents(PARENT)
   }
-  const createWorker = async (id: typeof WORKER, creator = PARENT) => {
+  const createWorker = async (id: typeof WORKER | typeof HELPER, creator = PARENT) => {
     const from = caller(creator)
     const taskSpec = `work for ${id}`
     const { bindRun, helperCreator } = resolveWorkerStartRun(service, {
@@ -276,12 +269,16 @@ export async function createReceivingCallerFixture() {
     report,
     sinks,
     nudges,
-    ...accounts,
-    selectB: () => accounts.select('b'),
+    selectB: () => {
+      selected = HOME_B
+    },
+    ...receivingPersistedFixtures({ rig, params }),
     found: async () => {
       await ensure()
       await rig.store.setSessionTabVisibility(PARENT, true)
-      expect(rig.store.requireWritableRecord(PARENT).acquiredAccount).toBeDefined()
+      if (options.reportsRecipe !== false) {
+        expect(rig.store.requireWritableRecord(PARENT).acquiredAccount).toBeDefined()
+      }
     },
     dispose: async (
       stopHost = () => rig.host.flushAllStreamedEvents(),
@@ -289,7 +286,6 @@ export async function createReceivingCallerFixture() {
     ) => {
       service.stopOrchestrationFederationRelay()
       setStructuredAgentSessionHost(null)
-      accounts.uninstall()
       structuredWorkerIdentities.clear()
       await stopHost()
       service.getOrchestrationDbIfAvailable()?.close()

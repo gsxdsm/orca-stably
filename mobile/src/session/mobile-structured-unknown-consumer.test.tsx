@@ -37,7 +37,7 @@ vi.mock('lucide-react-native', () => ({
   ShieldCheck: 'ShieldCheck',
   X: 'X'
 }))
-vi.mock('../components/bottom-drawer/BottomDrawer', () => ({
+vi.mock('../components/BottomDrawer', () => ({
   BottomDrawer: ({ visible, children }: { visible: boolean; children?: ReactNode }) =>
     visible ? createElement('BottomDrawer', null, children) : null
 }))

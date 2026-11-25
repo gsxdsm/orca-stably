@@ -1,9 +1,5 @@
 import { stat } from 'node:fs/promises'
 import {
-  PLUGIN_FRAME_ASSET_MAX_BYTES,
-  PLUGIN_FRAME_CHECKED_MAX_BYTES
-} from '../../../shared/plugins/frames/plugin-frame-entry-limits'
-import {
   parsePluginFrameUrl,
   PLUGIN_DECLARATIVE_HOST_FILE,
   PLUGIN_DECLARATIVE_RUNTIME_FILE
@@ -49,7 +45,10 @@ import {
 
 export { pluginFrameContentType } from './plugin-frame-responses'
 
-export { PLUGIN_FRAME_ASSET_MAX_BYTES, PLUGIN_FRAME_CHECKED_MAX_BYTES }
+/** Streamed assets (images, fonts, media); the whole plugin tree is capped at 50 MiB anyway. */
+export const PLUGIN_FRAME_ASSET_MAX_BYTES = 32 * 1024 * 1024
+/** Documents, scripts and WASM are read whole to check their digest, so they get a lower cap. */
+export const PLUGIN_FRAME_CHECKED_MAX_BYTES = 16 * 1024 * 1024
 /** Concurrent requests one guest session may hold open; more get 503 until some finish. */
 export const PLUGIN_FRAME_MAX_IN_FLIGHT = 32
 

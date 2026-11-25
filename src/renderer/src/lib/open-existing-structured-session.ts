@@ -5,8 +5,7 @@ import {
   type StructuredSessionOpenResult,
   type StructuredSessionOpenDeps,
   type StructuredSessionOpenTarget,
-  type StructuredSessionOpenTab,
-  type StructuredSessionOpenFailure
+  type StructuredSessionOpenTab
 } from '../../../shared/open-structured-agent-session'
 import type { OrchestrationPartyLocationResult } from '../../../shared/orchestration-caller-status'
 import {
@@ -29,8 +28,8 @@ const STRUCTURED_SESSION_RESTORE_TIMEOUT_MS = 5_000
 /** Keep distinct remedies: retry unreachable hosts, stop on a confirmed missing record, or update incompatible hosts/adapters. Failure to answer never proves a chat is gone. */
 export type StructuredSessionRevealOutcome =
   | StructuredSessionOpenTarget
-  | StructuredSessionOpenFailure
   | 'gone'
+  | 'workspace-missing'
   | 'host-cannot-open'
   | 'unreachable'
 
@@ -173,25 +172,23 @@ async function executeDesktopStructuredSession(
   deps: StructuredSessionOpenAdapterDeps,
   locate?: StructuredSessionOpenDeps['locate']
 ): Promise<StructuredSessionOpenResult> {
-  const party =
-    (method: 'orchestration.partyLocation' | 'orchestration.partyOpen') =>
-    async (address: string, messageIds: readonly string[]) => {
-      try {
-        return await withStructuredSessionRestoreTimeout(
-          callRuntimeRpc<OrchestrationPartyLocationResult>(
-            owner,
-            method,
-            { address, ...(messageIds.length ? { messageIds } : {}) },
-            { timeoutMs: STRUCTURED_SESSION_RESTORE_TIMEOUT_MS }
-          )
-        )
-      } catch (error) {
-        return structuredSessionOpenFailure(error)
-      }
-    }
   return openStructuredAgentSession(source, {
-    locate: locate ?? party('orchestration.partyLocation'),
-    ...(locate ? {} : { open: party('orchestration.partyOpen') }),
+    locate:
+      locate ??
+      (async (address, messageIds) => {
+        try {
+          return await withStructuredSessionRestoreTimeout(
+            callRuntimeRpc<OrchestrationPartyLocationResult>(
+              owner,
+              'orchestration.partyLocation',
+              { address, ...(messageIds.length ? { messageIds } : {}) },
+              { timeoutMs: STRUCTURED_SESSION_RESTORE_TIMEOUT_MS }
+            )
+          )
+        } catch (error) {
+          return structuredSessionOpenFailure(error)
+        }
+      }),
     tabs: (target) => deps.tabs(target, owner),
     activate: (tab, target) =>
       deps
@@ -262,7 +259,7 @@ export async function revealStructuredSession(target: {
   }
   // Distinguish a missing record from an existing record the host cannot open; only the first means gone.
   if (result?.refusal?.code === 'agent_session_workspace_removed') {
-    return structuredSessionOpenFailure(result.refusal)
+    return 'workspace-missing'
   }
   return result?.refusal?.code === 'agent_session_identity_required'
     ? 'gone'
@@ -273,7 +270,7 @@ export async function revealStructuredSession(target: {
 
 type AgentSessionRevealReply =
   | { ok: true; sessionId: string; workspaceId: string; agent: string }
-  | { ok: false; refusal: { code?: string; details?: unknown } }
+  | { ok: false; refusal: { code?: string } }
 
 async function refreshStructuredSessionTabs(
   worktreeId: string,

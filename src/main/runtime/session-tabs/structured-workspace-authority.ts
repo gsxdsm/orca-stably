@@ -1,8 +1,5 @@
 import { dirname } from 'node:path'
-import type {
-  AgentSessionExecutionLocation,
-  AgentSessionWorkspaceKind
-} from '../../../shared/agent-session/lifecycle/agent-session-record'
+import type { AgentSessionExecutionLocation } from '../../../shared/agent-session/lifecycle/agent-session-record'
 import {
   getRepoExecutionHostId,
   getRepoSshConnectionId,
@@ -34,10 +31,7 @@ import type { RuntimeStore } from '../runtime-store-contract'
 import type { RuntimeWorktreeScanResult } from '../repo-worktree-resolution-scan'
 
 export class StructuredWorkspaceUnavailable extends Error {
-  constructor(
-    readonly reason: 'removed' | 'unknown' | 'obsolete',
-    readonly workspaceKind?: AgentSessionWorkspaceKind
-  ) {
+  constructor(readonly reason: 'removed' | 'unknown' | 'obsolete') {
     super('Chat workspace is unavailable')
   }
 }
@@ -71,9 +65,7 @@ export async function prepareStructuredWorkspaceAuthority(
       )
     const selected = folderNow()
     if (selected.kind !== 'selected') {
-      throw selected.kind === 'missing'
-        ? new StructuredWorkspaceUnavailable('removed', 'folder')
-        : new StructuredWorkspaceUnavailable('unknown')
+      throw new StructuredWorkspaceUnavailable(selected.kind === 'missing' ? 'removed' : 'unknown')
     }
     const row = selected.value.workspace
     path = row.folderPath
@@ -132,7 +124,7 @@ export async function prepareStructuredWorkspaceAuthority(
       (!isRuntimeFolderWorkspaceIdForRepo(owner, workspaceId) ||
         (workspaceId !== getRuntimeFolderWorkspaceRootId(owner) && !occupant))
     ) {
-      throw new StructuredWorkspaceUnavailable('removed', 'folder')
+      throw new StructuredWorkspaceUnavailable('removed')
     }
     registered = () => {
       const current = store
@@ -179,7 +171,7 @@ export async function prepareStructuredWorkspaceAuthority(
             repoPresent === 'directory' &&
             parentPresent === 'directory'
           ) {
-            throw new StructuredWorkspaceUnavailable('removed', 'git-worktree')
+            throw new StructuredWorkspaceUnavailable('removed')
           }
         }
         if (!affirmative) {

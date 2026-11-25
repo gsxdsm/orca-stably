@@ -1,4 +1,3 @@
-import { useGitHubTaskItems } from '@/hooks/useGitHubTaskItems'
 import { useRef, useState } from 'react'
 import type { RepoSlug } from '@/lib/github-links'
 import type { GitHubWorkItem } from '../../../../shared/github/work-item-types'
@@ -13,8 +12,7 @@ export function useWorkItemSourceState(textOnly: boolean, value: string) {
   const [mode, setMode] = useState<SmartNameMode>(textOnly ? 'text' : 'smart')
   const [mrStateFilter, setMrStateFilter] = useState<MrStateFilter>('opened')
   const [debouncedQuery, setDebouncedQuery] = useState(value)
-  const [rawGithubItems, setGithubItems] = useState<GitHubWorkItem[]>([])
-  const githubItems = useGitHubTaskItems(rawGithubItems)
+  const [githubItems, setGithubItems] = useState<GitHubWorkItem[]>([])
   const [gitlabItems, setGitlabItems] = useState<GitLabWorkItem[]>([])
   const [branches, setBranches] = useState<BaseRefSearchResult[]>([])
   const [branchResultsSource, setBranchResultsSource] = useState<{

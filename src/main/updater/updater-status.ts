@@ -1,6 +1,7 @@
 import { loadElectronAutoUpdater, type ElectronAutoUpdater } from '../electron-updater-loader'
 import { statusesEqual } from '../updater-fallback'
 import type { UpdateCheckOptions, UpdateStatus } from '../../shared/update-status-types'
+import type { UpdateCheckVariant } from './updater-types'
 import { UpdaterState as BaseUpdaterState } from './updater-state'
 
 export abstract class UpdaterStatus extends BaseUpdaterState {
@@ -91,18 +92,11 @@ export abstract class UpdaterStatus extends BaseUpdaterState {
     return { ...status, activeNudgeId: this.activeUpdateNudgeId }
   }
 
-  private decorateStatusWithDelayedUpdate(status: UpdateStatus): UpdateStatus {
-    if (status.state !== 'not-available' || !this.delayedUpdate || status.delayedUpdate) {
-      return status
-    }
-    return { ...status, delayedUpdate: this.delayedUpdate }
-  }
-
   /** `force` re-delivers a status the renderer must not miss even when it repeats the current one. */
   protected sendStatus(status: UpdateStatus, options?: { force?: boolean }): void {
-    const pendingUserInitiatedCheckOptions = this.pendingUserInitiatedCheckAfterInFlight
+    const pendingUserInitiatedCheckVariant = this.pendingUserInitiatedCheckAfterInFlight
     const shouldLaunchPendingUserInitiatedCheck =
-      pendingUserInitiatedCheckOptions !== null &&
+      pendingUserInitiatedCheckVariant !== null &&
       (status.state === 'idle' ||
         status.state === 'not-available' ||
         status.state === 'available' ||
@@ -141,7 +135,7 @@ export abstract class UpdaterStatus extends BaseUpdaterState {
 
     const sourcedStatus: UpdateStatus =
       this.activeUpdateSource === 'release'
-        ? this.decorateStatusWithDelayedUpdate(status)
+        ? status
         : { ...status, source: this.activeUpdateSource }
     const decoratedStatus = this.decorateStatusWithActiveNudge(sourcedStatus)
 
@@ -172,7 +166,7 @@ export abstract class UpdaterStatus extends BaseUpdaterState {
         this.currentStatus = decoratedStatus
         this.sendToMainWindow('updater:status', decoratedStatus)
       }
-      this.launchPendingUserInitiatedCheckAfterInFlight(pendingUserInitiatedCheckOptions)
+      this.launchPendingUserInitiatedCheckAfterInFlight(pendingUserInitiatedCheckVariant)
       return
     }
     if (!options?.force && statusesEqual(this.currentStatus, decoratedStatus)) {
@@ -184,6 +178,6 @@ export abstract class UpdaterStatus extends BaseUpdaterState {
 
   protected abstract finishActiveUpdateCheckAttempt(): void
   protected abstract isUpdateCheckResultState(state: UpdateStatus['state']): boolean
-  protected abstract launchPendingUserInitiatedCheckAfterInFlight(options: UpdateCheckOptions): void
+  protected abstract launchPendingUserInitiatedCheckAfterInFlight(variant: UpdateCheckVariant): void
   protected abstract checkForUpdatesFromMenu(options?: UpdateCheckOptions): void
 }

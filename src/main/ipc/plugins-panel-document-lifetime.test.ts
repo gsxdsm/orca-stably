@@ -121,8 +121,7 @@ async function harness(
     panels,
     whenReady: options.whenReady ?? (async () => {}),
     findApprovedPlugin: () => null,
-    getDiscovered: () => [],
-    options: {}
+    getDiscovered: () => []
   }
   registerPluginHandlers(
     // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: frame entry handlers read only getSettings for the isolation switch.

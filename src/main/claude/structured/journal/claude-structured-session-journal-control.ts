@@ -20,8 +20,7 @@ export function createClaudeSessionJournalTranslator(
   sink: StructuredAgentSessionEventSink | undefined,
   fallbackIdPrefix: string,
   failure: Parameters<typeof createClaudeJournalFailureHandler>[0],
-  currentSession: () => ClaudeSession | null,
-  acceptStartupFailure: (message: Record<string, unknown>) => boolean
+  currentSession: () => ClaudeSession | null
 ): ClaudeJournalTranslator | null {
   const { attempt } = failure
   return sink
@@ -42,8 +41,7 @@ export function createClaudeSessionJournalTranslator(
           currentSession()?.backgroundTasks.goalBackgroundWork ?? 'unverifiable',
         onBackgroundTaskJournalFailure: createClaudeJournalFailureHandler(failure),
         bindPromptItemId: (itemId, promptKey) =>
-          attempt.prompts.bindJournalItemId(itemId, promptKey),
-        acceptStartupFailure
+          attempt.prompts.bindJournalItemId(itemId, promptKey)
       })
     : null
 }

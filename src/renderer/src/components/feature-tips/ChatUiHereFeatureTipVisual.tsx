@@ -215,15 +215,8 @@ function Composer({ prompt, frame }: { prompt: string; frame: ChatDemoFrame }): 
   )
 }
 
-/** The animated chat miniature used by the tip dialog. */
-export function ChatUiDemoCard({
-  loop = true,
-  className
-}: {
-  /** A one-shot demo holds its finished frame; the dialog loops it. */
-  loop?: boolean
-  className?: string
-}): JSX.Element {
+/** A miniature chat that sends one question and draws its reply, then fades and starts over. */
+export function ChatUiHereFeatureTipVisual(): JSX.Element {
   const reducedMotion = usePrefersReducedMotion()
   const copy = getChatDemoCopy()
   const promptLength = Array.from(copy.prompt).length
@@ -233,10 +226,9 @@ export function ChatUiDemoCard({
   )
   const [at, setAt] = useState(0)
   const frame = timeline.frameAt(reducedMotion ? CHAT_DEMO_FINISHED_AT : at)
-  const finished = !loop && at >= CHAT_DEMO_FINISHED_AT
 
   useEffect(() => {
-    if (reducedMotion || finished) {
+    if (reducedMotion) {
       return
     }
     const next = timeline.nextBeat(at)
@@ -245,48 +237,35 @@ export function ChatUiDemoCard({
       next - at
     )
     return () => window.clearTimeout(timeoutId)
-  }, [at, finished, reducedMotion, timeline])
+  }, [at, reducedMotion, timeline])
 
-  return (
-    <div
-      className={cn(
-        'flex h-[22rem] w-full max-w-[22rem] flex-col overflow-hidden rounded-xl border border-border/80 bg-chat-canvas text-left tracking-[0.01em] shadow-xs motion-reduce:**:transition-none',
-        className
-      )}
-      aria-hidden="true"
-    >
-      <div className="flex h-9 shrink-0 items-stretch border-b border-border bg-card">
-        <span className="-mb-px flex max-w-[75%] items-center gap-1.5 border-r border-border bg-chat-canvas px-3 text-[11px] whitespace-nowrap text-foreground">
-          <span className="shrink-0">
-            <AgentIcon agent="claude" size={12} />
-          </span>
-          <span className="truncate">{copy.tabTitle}</span>
-          <X className="ml-1 size-2.5 shrink-0 text-muted-foreground" />
-        </span>
-      </div>
-      <div
-        className="native-chat-appearance flex min-h-0 flex-1 flex-col text-sm leading-relaxed text-chat-foreground"
-        style={CHAT_SCALE}
-      >
-        {/* Bottom-anchored, so a transcript taller than the card keeps its end in view. */}
-        <div className="flex min-h-0 flex-1 flex-col justify-end overflow-hidden px-[calc(var(--spacing)*3+5px)]">
-          <Transcript copy={copy} frame={frame} />
-        </div>
-        <Composer prompt={copy.prompt} frame={frame} />
-      </div>
-    </div>
-  )
-}
-
-/** A miniature chat that sends one question and draws its reply, then fades and starts over. */
-export function ChatUiHereFeatureTipVisual(): JSX.Element {
   return (
     <div
       className="relative flex h-full min-h-[23rem] flex-col items-center justify-center overflow-hidden px-6 py-7"
       aria-hidden="true"
     >
       {/* Turning reduced motion on mid-loop jumps straight to the finished still. */}
-      <ChatUiDemoCard />
+      <div className="flex h-[22rem] w-full max-w-[22rem] flex-col overflow-hidden rounded-xl border border-border/80 bg-chat-canvas text-left tracking-[0.01em] shadow-xs motion-reduce:**:transition-none">
+        <div className="flex h-9 shrink-0 items-stretch border-b border-border bg-card">
+          <span className="-mb-px flex max-w-[75%] items-center gap-1.5 border-r border-border bg-chat-canvas px-3 text-[11px] whitespace-nowrap text-foreground">
+            <span className="shrink-0">
+              <AgentIcon agent="claude" size={12} />
+            </span>
+            <span className="truncate">{copy.tabTitle}</span>
+            <X className="ml-1 size-2.5 shrink-0 text-muted-foreground" />
+          </span>
+        </div>
+        <div
+          className="native-chat-appearance flex min-h-0 flex-1 flex-col text-sm leading-relaxed text-chat-foreground"
+          style={CHAT_SCALE}
+        >
+          {/* Bottom-anchored, so a transcript taller than the card keeps its end in view. */}
+          <div className="flex min-h-0 flex-1 flex-col justify-end overflow-hidden px-[calc(var(--spacing)*3+5px)]">
+            <Transcript copy={copy} frame={frame} />
+          </div>
+          <Composer prompt={copy.prompt} frame={frame} />
+        </div>
+      </div>
     </div>
   )
 }

@@ -41,16 +41,6 @@ function isResultFunction(value: unknown): value is (params: unknown) => unknown
   return typeof value === 'function'
 }
 
-const OK = { ok: true } as const
-
-/** Fire-and-forget methods (their result is `{ ok: true }`, like `statusBar.update`) succeed
- *  unless a test configures otherwise. */
-export function acknowledgesByDefault(spec: {
-  result: { safeParse(value: unknown): { success: boolean } }
-}): boolean {
-  return spec.result.safeParse(OK).success
-}
-
 // What a desktop Orca answers when a test configures nothing for these.
 const DEFAULT_RESULTS: Record<string, unknown> = {
   'workspace.readContext': null,
@@ -157,20 +147,10 @@ export function createMockHost(
       throw hostError('unknown_method', method)
     }
     const builtIn = !results.has(method) && data.handles(method)
-    const acknowledges = acknowledgesByDefault(spec)
-    if (
-      !results.has(method) &&
-      !builtIn &&
-      !Object.hasOwn(DEFAULT_RESULTS, method) &&
-      !acknowledges
-    ) {
+    if (!results.has(method) && !builtIn && !Object.hasOwn(DEFAULT_RESULTS, method)) {
       throw hostError('unavailable', `the test configured no result for ${method}`)
     }
-    const configured: unknown = results.has(method)
-      ? results.get(method)
-      : Object.hasOwn(DEFAULT_RESULTS, method)
-        ? DEFAULT_RESULTS[method]
-        : OK
+    const configured: unknown = results.has(method) ? results.get(method) : DEFAULT_RESULTS[method]
     const value = builtIn
       ? await data.answer(method, checkedParams)
       : isResultFunction(configured)

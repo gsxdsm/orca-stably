@@ -60,14 +60,9 @@ type HookTrustApproval = {
 export async function persistOrcaHookTrustApproval(
   args: HookTrustApproval & { kind: OrcaHookTrustKind }
 ): Promise<PersistedTrustedOrcaHooks> {
-  // Repo-wide trust is ignored when the repo id is on two hosts, so keep this script's approval too.
-  const confirmed = withOrcaHookScriptConfirmed(
-    args.trust,
-    args.repoId,
-    args.kind,
-    args.contentHash
-  )
-  const next = args.alwaysTrust ? withOrcaHookRepoAlwaysTrusted(confirmed, args.repoId) : confirmed
+  const next = args.alwaysTrust
+    ? withOrcaHookRepoAlwaysTrusted(args.trust, args.repoId)
+    : withOrcaHookScriptConfirmed(args.trust, args.repoId, args.kind, args.contentHash)
   taskUiStateWrite.interpret(
     await taskUiStateWrite.request(args.client, { trustedOrcaHooks: next })
   )

@@ -86,7 +86,8 @@ async function createWorker() {
     runtime,
     worktreeId: 'wt-7',
     agent: 'codex',
-    dispatchId: 'dispatch-retry'
+    dispatchId: 'dispatch-retry',
+    onJournalActivity: () => {}
   })
   const deliverPreamble = () =>
     deliverWorkerDispatchPreamble({

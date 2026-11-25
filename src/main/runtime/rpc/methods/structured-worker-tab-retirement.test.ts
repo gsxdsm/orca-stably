@@ -3,7 +3,7 @@ import {
   agentSessionLeaseFixture,
   agentSessionRecordFixture
 } from '../../../../shared/agent-session/lifecycle/agent-session-record.test-fixture'
-import { agentSessionConversationView } from '../../../../shared/agent-session/lifecycle/agent-session-conversation-view'
+import { agentSessionConversationView } from '../../../../shared/agent-session-conversation-view'
 import type { AgentSessionLease } from '../../../../shared/agent-session/lifecycle/agent-session-record'
 /** Every settlement must clear durable restore and prune live worker chat tabs; leftover tabs can reattach released sessions outside orchestration accounting. */
 
@@ -331,7 +331,8 @@ describe('structured worker discard retires the chat tab', () => {
         runtime,
         worktreeId: WORKTREE,
         agent: 'claude',
-        dispatchId: 'd_discard'
+        dispatchId: 'd_discard',
+        onJournalActivity: () => {}
       })
     ).rejects.toThrow(/was refused/)
 

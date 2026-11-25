@@ -6,14 +6,11 @@ import { cn } from '@/lib/utils'
 import { track } from '@/lib/telemetry'
 import { useMountedRef } from '@/hooks/useMountedRef'
 import { GhosttyDiscoveryRow } from './GhosttyDiscoveryRow'
-import type { GlobalSettings } from '../../../../shared/global-settings-types'
+import type { GhosttyImportPreview, GlobalSettings } from '../../../../shared/global-settings-types'
 import type { DiscoveryStatusEmitted } from '../../../../shared/onboarding-state-types'
 import { i18n, translate } from '@/i18n/i18n'
 import { ChromePreview } from './theme-chrome-preview'
-import {
-  terminalConfigImportSettingsUpdate,
-  type TerminalConfigImportPreview
-} from '../../../../shared/terminal-config-import-preview'
+import { withImportedTerminalColorOverrides } from '../../../../shared/terminal-theme-selection'
 import { getSystemPrefersDark } from '@/lib/terminal-theme'
 
 type ThemeStepProps = {
@@ -37,7 +34,7 @@ export function applyOnboardingThemeSelection(
 export type DiscoveryState =
   | { status: 'idle' }
   | { status: 'detecting' }
-  | { status: 'found'; preview: TerminalConfigImportPreview; fields: string[] }
+  | { status: 'found'; preview: GhosttyImportPreview; fields: string[] }
   | { status: 'imported'; fields: string[] }
   | { status: 'absent' }
 type _DiscoveryStatusEmittedSync =
@@ -112,7 +109,7 @@ export function ThemeStep({ theme, onThemeChange, settings, updateSettings }: Th
     }
   }, [])
 
-  const importGhostty = async (preview: TerminalConfigImportPreview) => {
+  const importGhostty = async (preview: GhosttyImportPreview) => {
     if (!settings || importing) {
       return
     }
@@ -134,7 +131,7 @@ export function ThemeStep({ theme, onThemeChange, settings, updateSettings }: Th
         return
       }
       await updateSettings(
-        terminalConfigImportSettingsUpdate(settings, resolved, getSystemPrefersDark())
+        withImportedTerminalColorOverrides(settings, resolved.diff, getSystemPrefersDark())
       )
       // Sync the controller’s local theme so Continue cannot overwrite the imported theme.
       if (resolved.diff.theme && mountedRef.current) {
@@ -269,7 +266,7 @@ function humanFields(diff: Partial<GlobalSettings>): string[] {
     },
     {
       label: translate('auto.components.onboarding.ThemeStep.06a24f4f2d', 'Colors'),
-      keys: ['terminalColorOverrides', 'terminalColorOverridesLight']
+      keys: ['terminalColorOverrides']
     },
     {
       label: translate('auto.components.onboarding.ThemeStep.86c0f1caa2', 'Padding'),

@@ -61,22 +61,11 @@ export function trackChatUiFeatureTipAction(
   }
 }
 
-/** Unenrolled profiles retain the original announcement behavior; treatment arms show unless targeting excludes them. */
+/** Control profiles never see the Chat UI launch tip; unenrolled ones (no consent, contributor builds) do. */
 export function isChatUiLaunchTipHeldOut(
   settings: Pick<GlobalSettings, 'telemetry'> | null
 ): boolean {
-  const telemetry = settings?.telemetry
-  const cohort = telemetry?.chatUiLaunchTipCohort
-  return (
-    cohort === 'control' ||
-    ((cohort === 'treatment' ||
-      cohort === 'treatment-live-switch' ||
-      cohort === 'treatment-swapped-buttons' ||
-      cohort === 'treatment-center') &&
-      (telemetry?.chatUiLaunchTipTargeting?.mode === 'eligible-harnesses' ||
-        telemetry?.chatUiLaunchTipTargeting?.mode === 'not-switched') &&
-      telemetry?.chatUiLaunchTipTargeting?.eligible !== true)
-  )
+  return settings?.telemetry?.chatUiLaunchTipCohort === 'control'
 }
 
 export function wasChatUiLaunchTipShown(
@@ -94,10 +83,7 @@ export function trackChatUiFeatureTipExposure(
     track('chat_ui_feature_tip_exposure', {
       variant: CHAT_UI_TIP_TELEMETRY_VARIANT[variant],
       launch_tip_cohort: settings?.telemetry?.chatUiLaunchTipCohort ?? 'unassigned',
-      shown: !isChatUiLaunchTipHeldOut(settings),
-      ...(settings?.telemetry?.chatUiLaunchTipTargeting
-        ? { targeting: settings.telemetry.chatUiLaunchTipTargeting.mode }
-        : {})
+      shown: !isChatUiLaunchTipHeldOut(settings)
     })
   }
 }

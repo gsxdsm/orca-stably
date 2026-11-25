@@ -1,8 +1,9 @@
-import { useDiffCommentView } from '../diff-comments/use-diff-comment-owner'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useFileOwnerRuntimeTarget } from '@/runtime/use-worktree-runtime-target'
 import { useEditorState, type Editor } from '@tiptap/react'
+import type { DiffComment } from '../../../../shared/diff-comment-types'
 import { useAppStore } from '@/store'
+import { selectWorktreeDiffComments } from '@/store/worktree-diff-comments-selector'
 import { useLocalImagePick } from './useLocalImagePick'
 import { useRichMarkdownSearch } from './useRichMarkdownSearch'
 import type { LinkBubbleState } from './RichMarkdownLinkBubble'
@@ -41,7 +42,6 @@ export default function RichMarkdownEditor({
   worktreeId,
   externalSshTargetId,
   runtimeEnvironmentId,
-  operationProvenance,
   scrollCacheKey,
   onContentChange,
   onDirtyStateHint,
@@ -63,16 +63,13 @@ export default function RichMarkdownEditor({
   const runtimeTarget = useFileOwnerRuntimeTarget(worktreeId, runtimeEnvironmentId)
   const editorFontZoomLevel = useAppStore((s) => s.editorFontZoomLevel)
   const activateMarkdownLink = useAppStore((s) => s.activateMarkdownLink)
-  // One read: the stable notes array and the copy it belongs to; filter below so unrelated writes don't invalidate.
-  const noteSource = { runtimeEnvironmentId, externalSshTargetId, operationProvenance }
-  const { owner: commentOwner, comments: allDiffComments } = useDiffCommentView(
-    worktreeId,
-    noteSource
-  )
   const addDiffComment = useAppStore((s) => s.addDiffComment)
   const deleteDiffComment = useAppStore((s) => s.deleteDiffComment)
   const updateDiffComment = useAppStore((s) => s.updateDiffComment)
   const clearDeliveredDiffComments = useAppStore((s) => s.clearDeliveredDiffComments)
+  const allDiffComments = useAppStore((s): DiffComment[] | undefined =>
+    selectWorktreeDiffComments(s, worktreeId)
+  )
   const { codec, htmlSuperscriptLinkContext, worktreeRoot } = useRichMarkdownSuperscriptLinkSetup({
     filePath,
     runtimeEnvironmentId,
@@ -110,13 +107,11 @@ export default function RichMarkdownEditor({
     editorRef,
     filePath,
     markdownAnnotationFilePath,
-    // Notes of an unknown copy can't be added to.
-    markdownAnnotationsEnabled: markdownAnnotationsEnabled && commentOwner !== null,
+    markdownAnnotationsEnabled,
     markdownReviewContent,
     markdownSourceLineOffset,
     rootRef,
     scrollContainerRef,
-    noteSource,
     worktreeId,
     worktreeRoot
   })
@@ -330,7 +325,6 @@ export default function RichMarkdownEditor({
 
   return (
     <RichMarkdownEditorSurface
-      commentOwner={commentOwner}
       editor={editor}
       editorFontZoomLevel={editorFontZoomLevel}
       rootElement={rootRef.current}
@@ -402,15 +396,11 @@ export default function RichMarkdownEditor({
       onCopyReviewNotes={() => void review.handleCopyMarkdownReviewNotes()}
       onCopyReviewNote={(note) => void review.handleCopyMarkdownReviewNote(note)}
       onToggleReviewRail={() => review.setReviewRailOpen((open) => !open)}
-      onReviewNotesDelivered={(notes) =>
-        void (commentOwner && clearDeliveredDiffComments(commentOwner, notes))
-      }
+      onReviewNotesDelivered={(notes) => void clearDeliveredDiffComments(worktreeId, notes)}
       onReviewNoteSourceClick={review.scrollRichMarkdownReviewNoteSourceIntoView}
-      onDeleteReviewComment={(commentId) =>
-        void (commentOwner && deleteDiffComment(commentOwner, commentId))
-      }
+      onDeleteReviewComment={(commentId) => void deleteDiffComment(worktreeId, commentId)}
       onSubmitReviewCommentEdit={(commentId, body) =>
-        commentOwner ? updateDiffComment(commentOwner, commentId, body) : Promise.resolve(false)
+        updateDiffComment(worktreeId, commentId, body)
       }
       onReviewNoteContentResize={review.syncNotePositions}
       onNavigateTableOfContentsItem={navigateToTableOfContentsItem}

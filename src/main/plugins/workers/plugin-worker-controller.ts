@@ -26,8 +26,7 @@ export type PluginWorkerControllerOptions = {
   executeHostCall: (
     pluginKey: string,
     method: string,
-    params: unknown,
-    signal?: AbortSignal
+    params: unknown
   ) => Promise<PluginHostCallOutcome>
   onPanelPost?: (pluginKey: string, post: PluginWorkerPanelPost) => void
   log: (pluginKey: string) => (level: 'info' | 'warn' | 'error', line: string) => void

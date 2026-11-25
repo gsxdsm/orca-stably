@@ -1,4 +1,3 @@
-import { NativeChatUsageLimitAutoContinue } from './NativeChatUsageLimitAutoContinue'
 import { NativeChatUsageLimitActions } from './NativeChatUsageLimitActions'
 import { agentSessionGoalControlWords } from './agent-session-goal-control-words'
 import { AlertCircle, AlertTriangle, Info } from 'lucide-react'
@@ -186,9 +185,9 @@ export function NativeChatNoticeRow({
   const usageLimitContinue =
     block.usageLimitTurnItemId !== undefined &&
     block.usageLimitTurnItemId === orcaStopView.usageLimitTurnItemId
-  // Only reword auth and missing-conversation text fully described by its fact; host text may also carry command advice.
-  const factSurface =
-    failure?.kind === 'notSignedIn' || failure?.kind === 'savedConversationMissing'
+  // Only reword auth text fully described by its fact; host text may also carry command advice.
+  const authSurface =
+    failure?.kind === 'notSignedIn'
       ? (['row', 'rejection'] as const).find(
           (surface) => block.text === agentSessionFailureSentence(failure, surface, { agentName })
         )
@@ -217,10 +216,10 @@ export function NativeChatNoticeRow({
           },
           sayAgentSessionFailureTranslated
         )
-      : failure && factSurface
+      : failure && authSurface
         ? agentSessionFailureSentence(
             failure,
-            factSurface,
+            authSurface,
             { agentName },
             sayAgentSessionFailureTranslated
           )
@@ -269,9 +268,6 @@ export function NativeChatNoticeRow({
         ) : null}
       </div>
       {usageLimitContinue ? <NativeChatUsageLimitActions /> : null}
-      {usageLimitContinue && orcaStopView.usageLimitAutoContinue ? (
-        <NativeChatUsageLimitAutoContinue state={orcaStopView.usageLimitAutoContinue} />
-      ) : null}
       {claudeSignIn && isClaudeSignInFailureKind(block.failure?.kind) ? (
         <Button
           type="button"

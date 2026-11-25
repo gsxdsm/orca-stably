@@ -41,8 +41,7 @@ export function useAddRepoHostSelection({
   setHostSelectorOpen: (open: boolean) => void
   /** False when the host cannot be selected, so the selection did not change. */
   handleSelectAddProjectHost: (hostId: ExecutionHostId) => Promise<boolean>
-  /** False when the host did not connect (the failure is already toasted). */
-  handleConnectAddProjectHost: (hostId: ExecutionHostId) => Promise<boolean>
+  handleConnectAddProjectHost: (hostId: ExecutionHostId) => Promise<void>
 } {
   const settings = useAppStore((s) => s.settings)
   const setSshConnectionState = useAppStore((s) => s.setSshConnectionState)
@@ -150,7 +149,7 @@ export function useAddRepoHostSelection({
   )
 
   const handleConnectAddProjectHost = useCallback(
-    async (hostId: ExecutionHostId): Promise<boolean> => {
+    async (hostId: ExecutionHostId): Promise<void> => {
       const host = selectableHostOptions.find((candidate) => candidate.id === hostId)
       const parsed = parseExecutionHostId(hostId)
       if (host?.wslDistro !== undefined && parsed?.kind === 'runtime') {
@@ -158,7 +157,6 @@ export function useAddRepoHostSelection({
         try {
           await window.api.runtimeEnvironments.connect({ selector: parsed.environmentId })
           setSelectedAddProjectHostId(hostId)
-          return true
         } catch (err) {
           toast.error(
             err instanceof Error
@@ -168,11 +166,11 @@ export function useAddRepoHostSelection({
                   'Couldn’t start the WSL host.'
                 )
           )
-          return false
         }
+        return
       }
       if (!host || parsed?.kind !== 'ssh') {
-        return false
+        return
       }
 
       const previousState = sshConnectionStates.get(parsed.targetId)
@@ -198,12 +196,11 @@ export function useAddRepoHostSelection({
           setSshConnectionState(parsed.targetId, state)
         }
         if (state?.status !== 'connected') {
-          return false
+          return
         }
         setSelectedAddProjectHostId(hostId)
         setStep('add')
         setHostSelectorOpen(false)
-        return true
       } catch (err) {
         const fallback = translate(
           'auto.components.sidebar.useAddRepoHostSelection.connectionFailed',
@@ -222,7 +219,6 @@ export function useAddRepoHostSelection({
           })
         }
         toastSshConnectFailure(parsed.targetId, err, fallback)
-        return false
       }
     },
     [selectableHostOptions, setSshConnectionState, setStep, sshConnectionStates]

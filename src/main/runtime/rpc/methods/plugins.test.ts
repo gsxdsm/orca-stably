@@ -41,7 +41,6 @@ describe('plugin approval over RPC', () => {
         panels: [],
         commands: [],
         events: [],
-        hooks: [],
         languagePacks: [],
         keybindings: [],
         vmRecipes: [],
@@ -50,8 +49,7 @@ describe('plugin approval over RPC', () => {
         iconThemes: [],
         syntaxes: [],
         customEditors: [],
-        newFiles: [],
-        statusBarItems: []
+        newFiles: []
       }
     }
   }

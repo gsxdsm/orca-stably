@@ -43,10 +43,8 @@ vi.mock(
       }
     )
 )
-vi.mock('./bottom-drawer/BottomDrawer', () => ({ BottomDrawer: 'BottomDrawer' }))
-vi.mock('./bottom-drawer/bottom-drawer-modal-host', () => ({
-  BottomDrawerModalHost: 'BottomDrawerModalHost'
-}))
+vi.mock('./BottomDrawer', () => ({ BottomDrawer: 'BottomDrawer' }))
+vi.mock('./bottom-drawer-modal-host', () => ({ BottomDrawerModalHost: 'BottomDrawerModalHost' }))
 vi.mock('./PickerListDrawer', () => ({ PickerListDrawer: 'PickerListDrawer' }))
 vi.mock('./AutoHeight', () => ({ AutoHeight: 'AutoHeight' }))
 vi.mock('./MobileSwitch', () => ({ MobileSwitch: 'MobileSwitch' }))

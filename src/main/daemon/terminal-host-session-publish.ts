@@ -1,7 +1,6 @@
 import { terminalStartError } from '../../shared/terminal-start-failure'
 import type { PtyCreationDisposition } from '../../shared/claimed-agent-pty-owner'
 import type { SubprocessHandle } from './session-subprocess-handle'
-import type { WslGuestRoot } from '../../shared/wsl-guest-root-marker'
 import { buildStartupCommandSubmission } from '../../shared/startup-command-submission'
 import {
   stageStartupCommand,
@@ -21,10 +20,7 @@ import type { InternalCreateOrAttachOptions } from './terminal-host-agent-sessio
 import type { CreateOrAttachResult } from './terminal-host-create-contract'
 import { resolveDaemonSessionScrollbackRows } from './daemon-session-scrollback-window'
 import { TerminalAttachCanceledError } from './daemon-errors'
-import {
-  recordSessionSpawnPaneKey,
-  recordSessionWslGuestRoot
-} from './terminal-host-session-listing'
+import { recordSessionSpawnPaneKey } from './terminal-host-session-listing'
 import {
   attachSessionInputViewer,
   isSessionInputClosed,
@@ -101,12 +97,6 @@ export async function spawnAndPublishSession(
   const shellReadySupported =
     (opts.shellReadySupported ?? false) &&
     (subprocess.shellPath === undefined || shellPathSupportsPtyStartupBarrier(subprocess.shellPath))
-  // Why: output buffered before the session subscribes replays while it is constructed, so a root
-  // found then is held and recorded once the session exists.
-  let heldRoot: WslGuestRoot | undefined
-  let recordRoot = (root: WslGuestRoot): void => {
-    heldRoot = root
-  }
   const session = new Session({
     sessionId: opts.sessionId,
     cols: size.cols,
@@ -124,8 +114,6 @@ export async function spawnAndPublishSession(
     historySeedChunks: opts.historySeedChunks,
     ...(opts.startupIngress ? { startupIngress: opts.startupIngress } : {}),
     wslDistro,
-    // A WSL guest root rides only this live session's inventory row; it dies with the session.
-    ...(wslDistro ? { onWslGuestRoot: (root) => recordRoot(root) } : {}),
     onExit: createSessionExitHandler(
       deps.onSessionExit,
       opts.sessionId,
@@ -138,10 +126,6 @@ export async function spawnAndPublishSession(
       ? { shellReadyTimeoutMs: opts.shellReadyTimeoutMs }
       : {})
   })
-  recordRoot = (root) => recordSessionWslGuestRoot(session, root)
-  if (heldRoot) {
-    recordRoot(heldRoot)
-  }
   physical.useRecovery(recoverUnpublishedTerminalSession(session))
   opts.onPhysicalOwner?.(session.physicalCompletion, terminalSessionExitCode(session))
   if (!session.isAlive) {

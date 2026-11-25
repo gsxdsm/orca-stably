@@ -16,7 +16,6 @@ import { ClaudeBackgroundTaskTracker } from '../../claude-background-task-tracke
 import { ClaudeChildWorkDecoder } from '../../claude-child-work-decoder'
 import { ClaudeSlashCommandCatalog } from '../../claude-slash-command-catalog'
 import { createClaudeInitProof } from '../claude-structured-init-proof'
-import { createClaudeStartupOutcome } from '../claude-structured-startup-outcome'
 import { claudeProviderHandleLink } from '../claude-structured-owner-identity'
 import {
   claudeStructuredSessionOptionsFrom,
@@ -70,8 +69,7 @@ function sessionFor(setModel: ClaudeSession['connection']['setModel']): ClaudeSe
       claudeConfigDir: '/claude-home',
       cwd: '/work',
       history: { leafUuid: null, covered: true, contextActivity: 0 },
-      onLateRefusal: () => {},
-      startup: createClaudeStartupOutcome()
+      onLateRefusal: () => {}
     }
   }
 }

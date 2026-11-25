@@ -1,6 +1,5 @@
 import type { Session } from 'electron'
 import { isAllowedPluginFrameRequestUrl } from './plugin-frame-request-policy'
-import { notePluginFrameBlockedRequest } from './plugin-frame-guest-diagnostics'
 
 /**
  * Session-wide fences for one plugin partition: no network but the plugin's own origin, no
@@ -9,11 +8,7 @@ import { notePluginFrameBlockedRequest } from './plugin-frame-guest-diagnostics'
  */
 export function applyPluginFrameSessionPolicies(sess: Session, frameKey: string): void {
   sess.webRequest.onBeforeRequest((details, callback) => {
-    const cancel = !isAllowedPluginFrameRequestUrl(details.url, frameKey)
-    if (cancel) {
-      notePluginFrameBlockedRequest(frameKey, details.url, details.resourceType)
-    }
-    callback({ cancel })
+    callback({ cancel: !isAllowedPluginFrameRequestUrl(details.url, frameKey) })
   })
   sess.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
   sess.setPermissionCheckHandler(() => false)

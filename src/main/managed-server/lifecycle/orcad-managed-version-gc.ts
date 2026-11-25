@@ -68,7 +68,11 @@ export async function pruneSupersededOrcadCandidates(
     if (!active) {
       return
     }
-    readiness = await probeOrcadSlotReadiness(slot, active)
+    const identity = await resolveOrcadSlotIdentity(slot, active)
+    readiness = await probeActiveOrcadReadiness(
+      { ...slot, remoteInstallDir: identity.remoteDir },
+      { buildHash: identity.buildHash, fullVersion: identity.version }
+    )
   } catch (error) {
     // Without the incumbent's daemon version a staged tree may still be executing.
     console.warn('[orcad-gc] Skipped pruning staged orcad versions:', error)
@@ -81,18 +85,6 @@ export async function pruneSupersededOrcadCandidates(
     readiness,
     keepStagedWithinDays: STAGED_BUILD_KEEP_DAYS
   })
-}
-
-/** Readiness of the orcad serving `version`, which names its live terminal daemon's build. */
-export async function probeOrcadSlotReadiness(
-  slot: OrcadSlotOptions,
-  version: string
-): Promise<ServeReadiness> {
-  const identity = await resolveOrcadSlotIdentity(slot, version)
-  return probeActiveOrcadReadiness(
-    { ...slot, remoteInstallDir: identity.remoteDir },
-    { buildHash: identity.buildHash, fullVersion: identity.version }
-  )
 }
 
 // Desktops on different releases share hosts; without a grace period each re-uploads what the other pruned.

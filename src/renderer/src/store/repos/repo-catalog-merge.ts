@@ -1,5 +1,3 @@
-import { setPendingLaunchReadoptions } from '@/components/native-chat/native-chat-launch-draft-source'
-import { continueReadoptedLaunchDrafts } from '@/components/native-chat/native-chat-launch-draft-continuity'
 import type { AppState } from '../types'
 import type { SshRepoReadoption } from '../../../../shared/ssh-types'
 import type { ProjectHostSetup } from '../../../../shared/project-types'
@@ -60,8 +58,7 @@ export function mergeFetchedRepoCatalog(
   const repos = mergeFetchedReposForHost(
     currentRepos,
     withoutPendingRuntimeRepoRemovals(catalog.repos, catalog.hostId),
-    catalog.hostId,
-    catalog.reposAtRequest
+    catalog.hostId
   )
   return {
     repos,
@@ -102,11 +99,8 @@ export function filterSetupsForPrunedRepoRows(
 
 export function reconcileReadoptedSshWorktreeState(
   state: Pick<AppState, 'worktreesByRepo' | 'detectedWorktreesByRepo' | 'sortEpoch'>,
-  readoptions: readonly SshRepoReadoption[],
-  remainingReadoptions: readonly SshRepoReadoption[] = readoptions
+  readoptions: readonly SshRepoReadoption[]
 ): Pick<AppState, 'worktreesByRepo' | 'detectedWorktreesByRepo' | 'sortEpoch'> {
-  continueReadoptedLaunchDrafts(readoptions)
-  setPendingLaunchReadoptions(remainingReadoptions)
   const worktreesByRepo = reconcileReadoptedSshWorktreesByRepo(state.worktreesByRepo, readoptions)
   const detectedRows = Object.fromEntries(
     Object.entries(state.detectedWorktreesByRepo).map(([repoId, result]) => [
@@ -142,14 +136,9 @@ export function reconcileFetchedCatalogWorktreeState(
     | 'sortEpoch'
   >,
   catalog: Pick<FetchedRepoCatalog, 'reposAtRequest'>,
-  nextRepos: readonly Repo[],
-  remainingReadoptions: readonly SshRepoReadoption[]
+  nextRepos: readonly Repo[]
 ): Pick<AppState, 'worktreesByRepo' | 'detectedWorktreesByRepo' | 'sortEpoch'> {
-  const readopted = reconcileReadoptedSshWorktreeState(
-    state,
-    state.pendingSshRepoReadoptions,
-    remainingReadoptions
-  )
+  const readopted = reconcileReadoptedSshWorktreeState(state, state.pendingSshRepoReadoptions)
   // Why: a catalog requested before an add may omit it; that add's rows are not this answer's to drop.
   const requested = new Set(catalog.reposAtRequest.map(getRepoHostIdentity))
   const previous = state.repos.filter((repo) => requested.has(getRepoHostIdentity(repo)))

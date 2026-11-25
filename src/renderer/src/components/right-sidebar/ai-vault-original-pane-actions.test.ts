@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import type { AiVaultSession } from '../../../../shared/ai-vault-types'
 import { cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -56,6 +57,14 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('jumpToWorktree', () => {
+  it('activates folder workspaces through the workspace activator', () => {
+    mocks.activateAndRevealWorkspace.mockReturnValue({ primaryTabId: null })
+    const { result } = renderHook(() => useAiVaultOriginalPaneActions())
+    result.current.jumpToWorktree('folder:folder-1')
+    expect(mocks.activateAndRevealWorkspace).toHaveBeenCalledWith('folder:folder-1')
+    expect(mocks.toastError).not.toHaveBeenCalled()
+  })
+
   it('leaves a refused folder to the toast folder activation already showed', () => {
     mocks.activateAndRevealWorkspace.mockReturnValue(false)
     mocks.folderWorkspaces = [folder('local')]
@@ -80,4 +89,36 @@ describe('jumpToWorktree', () => {
         : 'Worktree is no longer available.'
     )
   })
+})
+
+it('keeps the original-pane handled boolean used by the History dialog close callback', async () => {
+  const session: AiVaultSession = {
+    id: 'history-chat',
+    executionHostId: 'local',
+    agent: 'claude',
+    sessionId: 'provider-1',
+    title: 'Saved Chat',
+    cwd: '/repo',
+    branch: null,
+    model: null,
+    filePath: '/fixture/session.jsonl',
+    codexHome: null,
+    createdAt: null,
+    updatedAt: null,
+    modifiedAt: '',
+    messageCount: 0,
+    totalTokens: 0,
+    previewMessages: [],
+    queuedMessageCount: 0,
+    subagentTranscriptCount: 0,
+    resumeCommand: '',
+    subagent: null,
+    structuredSession: { workspaceId: 'workspace', sessionId: 'claude_saved' }
+  }
+  mocks.findStructured.mockReturnValue({})
+  mocks.structured.mockResolvedValue(true)
+  const { result } = renderHook(() => useAiVaultOriginalPaneActions())
+  expect(await result.current.jumpToOriginalPane(session)).toBe(true)
+  expect(mocks.structured).toHaveBeenCalledWith(session)
+  expect(mocks.activateAndRevealWorkspace).not.toHaveBeenCalled()
 })

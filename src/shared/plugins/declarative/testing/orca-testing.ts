@@ -20,15 +20,8 @@ export { hostError } from './testing-host'
 export { test, describe, beforeEach, afterEach } from 'node:test'
 export { default as assert } from 'node:assert/strict'
 export { stored } from './testing-panel'
-export { mockEditorHost } from './testing-editor-host'
-export type {
-  MockEditorEdit,
-  MockEditorFile,
-  MockEditorHost,
-  MockEditorHostOptions
-} from './testing-editor-host'
 export type { MockHost, MockHostOptions, MockHostRefusal } from './testing-host'
-export type { HookDecision, TestWorker, WorkerModule } from './testing-worker'
+export type { TestWorker, WorkerModule } from './testing-worker'
 export type { TestPanel, PanelIssue, PersistedState } from './testing-panel'
 export type { TestElement, TestQuery, TreeSnapshot } from './testing-tree'
 
@@ -59,22 +52,6 @@ function fieldsOf(list: unknown, field: string): string[] {
     : []
 }
 
-/** `contributes.hooks` entries: each hook and what a failure does. */
-function hookEntriesOf(list: unknown): { event: string; onError?: 'pass' | 'deny' }[] {
-  return Array.isArray(list)
-    ? list.flatMap((entry: unknown) =>
-        isRecord(entry) && typeof entry.event === 'string'
-          ? [
-              {
-                event: entry.event,
-                ...(entry.onError === 'deny' ? { onError: 'deny' as const } : {})
-              }
-            ]
-          : []
-      )
-    : []
-}
-
 function contributes(manifest: Record<string, unknown> | null): Record<string, unknown> {
   return manifest && isRecord(manifest.contributes) ? manifest.contributes : {}
 }
@@ -96,7 +73,6 @@ export function mountWorker(
   return mountTestWorker(module, {
     host: options.host ?? mockHost(),
     events: options.events ?? fieldsOf(contributes(manifest).events, 'on'),
-    hooks: options.hooks ?? hookEntriesOf(contributes(manifest).hooks),
     commands: options.commands ?? (manifest ? fieldsOf(contributes(manifest).commands, 'id') : null)
   })
 }

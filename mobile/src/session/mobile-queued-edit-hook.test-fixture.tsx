@@ -150,7 +150,6 @@ export function mobileQueuedEditHarness() {
     state.bottomText = useMobileNativeChatDraft('original-bottom')
     state.hook = useMobileStructuredAgentSession({
       client: transport,
-      pairedHostClient: transport,
       sessionId,
       sourceIdentity: 'host-a',
       enabled,

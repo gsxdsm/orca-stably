@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { activeProviderContext } from './agent-session-provider-context'
+import {
+  activeProviderContext,
+  isAgentSessionProviderContextBoundary
+} from './agent-session-provider-context'
 import { agentSessionRecordFixture } from './lifecycle/agent-session-record.test-fixture'
 import { isPersistedAgentSessionRecord } from './lifecycle/agent-session-record'
 import { encodeAgentSessionRecord } from './lifecycle/agent-session-record-stored-form'
@@ -7,6 +10,16 @@ import { encodeAgentSessionRecord } from './lifecycle/agent-session-record-store
 const boundary = { operationId: 'clear-operation', afterFence: 3, clearedAt: 5000 }
 
 describe('provider context after clear', () => {
+  it('has no provider handle while the fresh context has not started', () => {
+    expect(
+      activeProviderContext({ providerHandleChain: [], providerContextBoundary: boundary })
+    ).toEqual({
+      head: null,
+      handleChain: [],
+      pendingClear: true
+    })
+  })
+
   it('uses the chain head after fresh creation without filtering or replacing proof', () => {
     const original = agentSessionRecordFixture()
     const first = original.providerHandleChain[0]
@@ -50,4 +63,13 @@ describe('provider context after clear', () => {
       )
     ).toBe(false)
   })
+
+  it.each([
+    {},
+    { ...boundary, afterFence: -1 },
+    { ...boundary, clearedAt: Number.NaN },
+    { ...boundary, operationId: '' }
+  ])('rejects malformed boundary metadata', (value) =>
+    expect(isAgentSessionProviderContextBoundary(value)).toBe(false)
+  )
 })

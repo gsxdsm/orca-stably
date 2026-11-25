@@ -1,4 +1,3 @@
-import type { AgentSessionRecord } from '../../../shared/agent-session/lifecycle/agent-session-record'
 // Command receipts prove acceptance; other plans use ledger rows and journal replay.
 
 import { readNoChoiceOptionResult } from './structured-agent-session-option-observation'
@@ -56,7 +55,6 @@ export type MutationPlan<TValue> = {
   method: string
   fields: Record<string, unknown>
   operationIdScope?: 'global'
-  acceptanceRecord?: (record: AgentSessionRecord) => AgentSessionRecord
   /** Needs no writer lease. */
   conversationWrite?: true
   run: (ctx: AgentSessionTurnContext) => Promise<TurnOutcome<TValue>>

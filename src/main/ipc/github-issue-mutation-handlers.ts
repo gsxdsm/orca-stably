@@ -1,5 +1,3 @@
-import type { GhAccountBinding } from '../../shared/github/account-binding'
-import { OptionalGhAccountExpectation } from '../../shared/rpc-contract/github-repo-target-params'
 import { ipcMain } from 'electron'
 import type { GitHubOwnerRepo } from '../../shared/github/pull-request-types'
 import type { GitHubIssueUpdate } from '../../shared/issue-mutation-types'
@@ -99,27 +97,10 @@ export function registerGitHubIssueMutationHandlers(store: Store): void {
 
   ipcMain.handle(
     'gh:listLabels',
-    (
-      _event,
-      args: GitHubRepoScopedArgs & {
-        ownerRepo?: GitHubOwnerRepo
-        expectedGhAccount?: GhAccountBinding | null
-      }
-    ) => {
+    (_event, args: GitHubRepoScopedArgs & { ownerRepo?: GitHubOwnerRepo }) => {
       const repo = assertRegisteredGitHubRepo(args, store)
       const localGitOptions = getGitHubLocalGitOptionArgs(store, repo)
       const connectionId = getGitHubRepoConnectionId(repo)
-      const expectedGhAccount = OptionalGhAccountExpectation.parse(args.expectedGhAccount)
-      if (expectedGhAccount !== undefined) {
-        return listLabels(
-          repo.path,
-          repo.issueSourcePreference,
-          connectionId,
-          localGitOptions[0],
-          args.ownerRepo,
-          expectedGhAccount
-        )
-      }
       if (args.ownerRepo) {
         return listLabels(
           repo.path,
@@ -135,27 +116,10 @@ export function registerGitHubIssueMutationHandlers(store: Store): void {
 
   ipcMain.handle(
     'gh:listAssignableUsers',
-    (
-      _event,
-      args: GitHubRepoScopedArgs & {
-        ownerRepo?: GitHubOwnerRepo
-        expectedGhAccount?: GhAccountBinding | null
-      }
-    ) => {
+    (_event, args: GitHubRepoScopedArgs & { ownerRepo?: GitHubOwnerRepo }) => {
       const repo = assertRegisteredGitHubRepo(args, store)
       const localGitOptions = getGitHubLocalGitOptionArgs(store, repo)
       const connectionId = getGitHubRepoConnectionId(repo)
-      const expectedGhAccount = OptionalGhAccountExpectation.parse(args.expectedGhAccount)
-      if (expectedGhAccount !== undefined) {
-        return listAssignableUsers(
-          repo.path,
-          repo.issueSourcePreference,
-          connectionId,
-          localGitOptions[0],
-          args.ownerRepo,
-          expectedGhAccount
-        )
-      }
       if (args.ownerRepo) {
         return listAssignableUsers(
           repo.path,

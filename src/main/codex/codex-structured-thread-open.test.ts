@@ -326,21 +326,16 @@ describe('openCodexThread', () => {
       )
     })
 
-    it('explains a missing saved conversation without replacing it', async () => {
+    it('keeps the resume failure for a thread a resume already proved', async () => {
       const request = codexWithoutRollout()
-      const error = await openCodexThread(
-        connectionFor(request),
-        { cwd: '/workspace', resumeThreadId: 'thread-unsaved' },
-        2_000
-      ).catch((error: unknown) => error)
 
-      expect(providerStartupFailureFact(error)).toMatchObject({
-        kind: 'savedConversationMissing',
-        detail: {
-          text: expect.stringContaining('no rollout found for thread id thread-unsaved'),
-          audience: 'log'
-        }
-      })
+      await expect(
+        openCodexThread(
+          connectionFor(request),
+          { cwd: '/workspace', resumeThreadId: 'thread-unsaved' },
+          2_000
+        )
+      ).rejects.toThrow('no rollout found for thread id thread-unsaved')
       expect(request).toHaveBeenCalledOnce()
     })
 
