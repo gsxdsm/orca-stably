@@ -1,7 +1,10 @@
 import type { MobileQuickCommandLaunch } from '../../terminal/quick-commands/quick-commands'
 import type { MobileSessionTab } from '../tabs/mobile-session-tabs'
 import type { TuiAgent } from '../../../../src/shared/agent-launch/catalog/tui-agent'
-import { AGENT_LAUNCH_PLACEMENT_RUNTIME_CAPABILITY } from '../../../../src/shared/agent-launch/contracts/agent-launch-runtime-capability'
+import {
+  AGENT_LAUNCH_PLACEMENT_RUNTIME_CAPABILITY,
+  AGENT_LAUNCH_SURFACE_RUNTIME_CAPABILITY
+} from '../../../../src/shared/agent-launch/contracts/agent-launch-runtime-capability'
 import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
 import { triggerError, triggerSuccess } from '../../platform/haptics/haptics'
 import { launchAgentInExistingWorkspace } from './mobile-existing-agent-launch'
@@ -62,6 +65,13 @@ export async function launchNewTabAgentThroughHost(args: {
   reportCreateFailure: (hostReason: string) => void
   setCreateError: (message: string) => void
 }): Promise<boolean> {
+  // Hermes has no terminal launch here; a host that can't take a surface can't start it.
+  if (
+    args.agent === 'hermes' &&
+    !args.hostCapabilities?.includes(AGENT_LAUNCH_SURFACE_RUNTIME_CAPABILITY)
+  ) {
+    return false
+  }
   const { options, pendingSelectionRef, showToast } = args
   const prompt = options?.agentPrompt ?? options?.initialPrompt
   const reservation = reserveMobileAgentLaunch(args.agent, args.hostCapabilities, randomV4Uuid)

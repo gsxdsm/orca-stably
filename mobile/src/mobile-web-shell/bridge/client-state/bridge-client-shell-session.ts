@@ -1,4 +1,7 @@
-import { TERMINAL_SETTINGS_STORAGE_KEYS } from '../../page-storage/page-storage-keys'
+import {
+  TERMINAL_SETTINGS_STORAGE_KEYS,
+  pageRefreshKeepsStoredValue
+} from '../../page-storage/page-storage-keys'
 import { readShellSession, type BridgeShellSession } from './bridge-client-session'
 import { bridgeRouteMoved } from '../page-lifecycle/bridge-route-update'
 import {
@@ -128,7 +131,9 @@ export function createBridgeClientShellSession(args: {
       if (refreshSettings && storage) {
         for (const key of TERMINAL_SETTINGS_STORAGE_KEYS) {
           if (sentStorage[key] === undefined) {
-            delete storage[key]
+            if (!pageRefreshKeepsStoredValue(key)) {
+              delete storage[key]
+            }
           } else {
             storage[key] = sentStorage[key]
           }

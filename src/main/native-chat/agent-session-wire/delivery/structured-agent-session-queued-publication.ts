@@ -81,7 +81,7 @@ export function structuredQueueSendGate(
 
 /** Waiting and returned rows only. `paused` is a per-card hold (a failed conversion); a person's
  *  Stop pauses the queue, published once beside it. */
-function computePublishedQueuedMessages(
+export function computePublishedQueuedMessages(
   rows: readonly QueuedMessageRow[]
 ): AgentSessionQueuedMessage[] {
   const published: AgentSessionQueuedMessage[] = []

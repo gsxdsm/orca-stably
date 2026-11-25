@@ -68,6 +68,8 @@ export function useMobileSessionNativeChatDictation(
     nativeChatInputLeaseReady,
     connState,
     agentSessionHostSupport,
+    // The sheet reads this list itself. The overlay only sees what is passed here.
+    hostCapabilities: scope.hostCapabilities,
     onSendError: nativeChatSendError.show,
     onQueuedEditNotice: showToast,
     onSendResolved: nativeChatSendError.clear
