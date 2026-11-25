@@ -13,7 +13,6 @@ function scopeWithGesture(start: { x: number; y: number }, lastMove: { x: number
   return { scope, postToHost }
 }
 
-// oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the classifier reads only clientX/clientY
 const touchAt = (x: number, y: number) => ({ clientX: x, clientY: y }) as Touch
 
 describe('reportSwipeDown', () => {
@@ -31,5 +30,15 @@ describe('reportSwipeDown', () => {
     reportSwipeDown(sideways.scope, touchAt(180, 170))
     expect(short.postToHost).not.toHaveBeenCalled()
     expect(sideways.postToHost).not.toHaveBeenCalled()
+  })
+
+  it('reports a rightward swipe as back unless a zoomed terminal pans sideways', () => {
+    const flat = scopeWithGesture({ x: 20, y: 300 }, { x: 90, y: 305 })
+    reportSwipeDown(flat.scope, touchAt(120, 310))
+    expect(flat.postToHost).toHaveBeenCalledWith({ type: 'terminal-swipe-back' })
+
+    const zoomed = scopeWithGesture({ x: 20, y: 300 }, { x: 90, y: 305 })
+    reportSwipeDown(zoomed.scope, touchAt(120, 310), true)
+    expect(zoomed.postToHost).not.toHaveBeenCalled()
   })
 })

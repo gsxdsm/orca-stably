@@ -7,7 +7,7 @@ import {
   type TerminalLiveInputFocusTarget,
   type TerminalLiveInputFocusTimerRef
 } from './terminal-live-input'
-import { dismissTerminalKeyboard } from './terminal-keyboard-dismiss'
+import { dismissTerminalKeyboard } from '../keyboard/terminal-keyboard-dismiss'
 
 type TerminalLiveInputFocusContext = {
   readonly canSend: boolean
@@ -17,8 +17,8 @@ type TerminalLiveInputFocusContext = {
 type UseTerminalLiveInputFocusOptions<T extends TerminalLiveInputFocusTarget> =
   TerminalLiveInputFocusContext & {
     readonly activeHandleRef: RefObject<string | null>
-    readonly dismissKeyboard: () => void
     readonly inputRef: RefObject<T | null>
+    readonly dismissKeyboard: () => void
     readonly lifecycleIdentity: object | null
     readonly lifecycleKey: string
     readonly timerRef: TerminalLiveInputFocusTimerRef
@@ -72,7 +72,7 @@ export function useTerminalLiveInputFocus<T extends TerminalLiveInputFocusTarget
   // A tap or downward swipe on the terminal while the keyboard is up puts it away, in either input mode.
   const dismissKeyboardForGesture = useCallback(
     (handle: string): boolean => {
-      if (handle !== activeHandleRef.current || contextRef.current.keyboardHeight <= 0) {
+      if (handle !== activeHandleRef.current || currentSoftKeyboardHeight() <= 0) {
         return false
       }
       dismissTerminalKeyboard({

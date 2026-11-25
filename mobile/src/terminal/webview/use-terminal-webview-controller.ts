@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the controller keeps the fork swipe gestures beside upstream terminal font wiring. */
 import { parseTerminalKittyKeyboardFlags } from '../../../../src/shared/terminal/protocol/input-modes/terminal-kitty-keyboard-flags'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { readTerminalCellBox, type TerminalCellBox } from '../viewport/terminal-cell-box'
@@ -53,6 +54,7 @@ export function useTerminalWebViewController(
     onTerminalInteraction,
     onTerminalTap,
     onTerminalSwipeDown,
+    onTerminalSwipeBack,
     onFileTap,
     onOpenUrl,
     onTextScaleChange,
@@ -178,7 +180,7 @@ export function useTerminalWebViewController(
           onTerminalInput: interactionActive ? onTerminalInput : undefined,
           onTerminalInteraction: interactionActive ? onTerminalInteraction : undefined,
           onTerminalTap: interactionActive ? onTerminalTap : undefined,
-          onTerminalSwipeDown: interactionActive ? onTerminalSwipeDown : undefined,
+          ...(interactionActive ? { onTerminalSwipeDown, onTerminalSwipeBack } : {}),
           onFileTap: interactionActive ? onFileTap : undefined,
           onOpenUrl: interactionActive ? onOpenUrl : undefined,
           onTextScaleChange
@@ -202,6 +204,7 @@ export function useTerminalWebViewController(
       onTerminalInteraction,
       onTerminalTap,
       onTerminalSwipeDown,
+      onTerminalSwipeBack,
       onFileTap,
       onOpenUrl,
       onTextScaleChange,

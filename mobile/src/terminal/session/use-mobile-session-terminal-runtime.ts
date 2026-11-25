@@ -150,6 +150,7 @@ export function useMobileSessionTerminalRuntime(scope: MobileSessionScreenStateM
       activeHandleRef,
       canSend,
       dismissKeyboard: () => Keyboard.dismiss(),
+      inputRef: liveInputRef,
       lifecycleIdentity: client,
       lifecycleKey: JSON.stringify([hostId, worktreeId, connState]),
       reopenFocusedInputWhenKeyboardHidden: reopensFocusedInputWhenKeyboardHidden(),
