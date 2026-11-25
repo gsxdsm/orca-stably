@@ -15,7 +15,7 @@ import type {
   NativeChatLiveTurnIndicator,
   NativeChatSettledTurns
 } from '../../../../src/shared/native-chat/transcript/turns/native-chat-turn-status'
-import type { ComponentProps, ReactNode } from 'react'
+import type { ComponentProps } from 'react'
 import type { NativeChatSubagentActivity } from '../../../../src/shared/native-chat/input/native-chat-activity'
 import type { NativeChatTaskSeedList } from '../../../../src/shared/native-chat/input/native-chat-claude-task-updates'
 import type { MobileNativeChatSubagentRead } from './input/use-mobile-native-chat-subagent-page'
@@ -41,8 +41,6 @@ export type MobileNativeChatViewProps = MobileNativeChatSendProps &
     readSubagentPage?: MobileNativeChatSubagentRead | null
     initialSubagentId?: string | null
     dismissalScope?: MobileDismissedSubagentScope | null
-    /** Drawn at the activity bar's trailing edge. */
-    activityBar?: ReactNode
     status: MobileNativeChatStatus
     error?: string
     // Permanent read failure replaces the pane because further chat actions cannot succeed.

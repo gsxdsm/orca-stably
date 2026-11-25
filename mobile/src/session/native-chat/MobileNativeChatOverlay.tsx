@@ -28,8 +28,6 @@ import { MobileNativeChatNoticeContext } from './transcript/notices/mobile-nativ
 import type { MobileNativeChatImageSource } from './visual/mobile-native-chat-image-preview'
 import type { MobileNativeChatHostOutage } from './status/mobile-native-chat-host-outage'
 import { MobileMarkdownLinksContext } from '../../components/markdown/links/mobile-markdown-links-context'
-import { MobileSessionCrewActivity } from './input/MobileSessionCrewActivity'
-import { FORK_CREW_VIEW_ENABLED } from '../../../../src/shared/fork-crew-view-flag'
 import type { ConnectionState } from '../../transport/connection/connection-state'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
 
@@ -63,8 +61,6 @@ type Props = {
   keyboardInset: number
   /** The Orca host that runs this chat, named for notices; null when unnamed. */
   hostName: string | null
-  /** Terminal handle for the crew subscription; agent chats use sessionId. */
-  crewTerminal?: string | null
   /** Opens the accounts of the host that runs this chat; absent when the phone can't reach them. */
   onOpenAccounts?: () => void
   /** Opens tapped links in Orca's browser; absent where the host can't open a browser tab. */
@@ -121,7 +117,6 @@ function MobileNativeChatOverlayContent({
   getSendCompletionGeneration,
   keyboardInset,
   hostName,
-  crewTerminal = null,
   onOpenUrlInOrca,
   linkOpenMode,
   onRunInTerminal,
@@ -410,16 +405,6 @@ function MobileNativeChatOverlayContent({
                         hostId && worktreeId ? { hostId, worktreeId, sessionId } : null
                       }
                       keyboardInset={keyboardInset}
-                      activityBar={
-                        FORK_CREW_VIEW_ENABLED ? (
-                          <MobileSessionCrewActivity
-                            client={imageSource?.client ?? null}
-                            sessionId={sessionId}
-                            terminal={crewTerminal}
-                            setComposerText={controller.setChatComposerText}
-                          />
-                        ) : null
-                      }
                     />
                   </MobileNativeChatNoticeContext.Provider>
                 </MobileNativeChatReplyRevealsContext.Provider>

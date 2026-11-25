@@ -1,6 +1,5 @@
 import { buildOrchestrationTaskDisplayMetadata } from '../../../../shared/orchestration/orchestration-task-display'
 import type { TaskRow } from '../db/orchestration-records'
-import { FORK_CREW_VIEW_ENABLED } from '../../../../shared/fork-crew-view-flag'
 
 export function crewTaskDisplay(
   task: Pick<TaskRow, 'spec' | 'task_title' | 'display_name'> | undefined
@@ -20,35 +19,6 @@ export function creatorFirstParent<T>(
   coordinatorIsSelf: boolean
 ): T | undefined {
   return creator ?? (coordinatorIsSelf ? undefined : coordinator)
-}
-
-/** Done is a settled assignment. An open dispatch whose agent is not working is idle, even if the last turn reported done. */
-export function crewRowStatus(
-  activityState: string | undefined,
-  assignmentStatus: string | undefined
-): string {
-  if (!FORK_CREW_VIEW_ENABLED) {
-    return (
-      activityState ??
-      (assignmentStatus
-        ? ['pending', 'dispatched'].includes(assignmentStatus)
-          ? 'working'
-          : 'done'
-        : 'unknown')
-    )
-  }
-  if (
-    activityState === 'working' ||
-    activityState === 'monitoring' ||
-    activityState === 'waiting' ||
-    activityState === 'blocked'
-  ) {
-    return activityState
-  }
-  if (assignmentStatus === 'pending' || assignmentStatus === 'dispatched') {
-    return 'idle'
-  }
-  return activityState ?? (assignmentStatus ? 'done' : 'unknown')
 }
 
 export function crewDisplayName(...names: (string | null | undefined)[]): string | null {

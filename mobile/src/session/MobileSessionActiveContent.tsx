@@ -2,7 +2,7 @@
 import { MobileSessionBotIdentity } from './native-chat/MobileSessionBotIdentity'
 import { MobileBotCardHostProvider } from './native-chat/transcript/bot-cards/MobileBotCardHostProvider'
 import { nativeChatTerminalRunner } from './native-chat/native-chat-terminal-runner'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { computeActiveTerminalKeyboardLift } from '../terminal/keyboard/terminal-keyboard-avoidance-lift'
 import {
   terminalPaneDirection,
@@ -22,7 +22,6 @@ import { mobileSessionNativeChatHostOutage } from './native-chat/status/mobile-n
 import { MobileAgentMessageProvider } from './native-chat/transcript/agent-messages/MobileAgentMessageProvider'
 import { MobileNativeChatForkProvider } from './MobileNativeChatForkProvider'
 import { useMobileAgentMessageNavigation } from './use-mobile-agent-message-navigation'
-import { mobileCrewTerminal, useMobileSenderRoute } from './mobile-session-crew-route'
 import { MobileNativeChatDictationPreviewContext } from './native-chat/composer/dictation/mobile-native-chat-dictation-preview-context'
 import { resolveMobileNativeChatSessionId } from './native-chat/conversation/mobile-native-chat-eligibility'
 import { colors } from '../theme/mobile-theme'
@@ -142,7 +141,15 @@ export function MobileSessionActiveContent({
     [client, worktreeId]
   )
   const openNativeChatAccounts = useOpenHostAccounts(controller.router, hostId)
-  const navigateToSender = useMobileSenderRoute(controller.router, hostId, executionHost)
+  const navigateToSender = useCallback(
+    (senderWorktreeId: string, paneKey: string) => {
+      const execution = executionHost ? `&executionHost=${encodeURIComponent(executionHost)}` : ''
+      controller.router.push(
+        `/h/${encodeURIComponent(hostId)}/session/${encodeURIComponent(senderWorktreeId)}?paneKey=${encodeURIComponent(paneKey)}${execution}`
+      )
+    },
+    [controller.router, hostId, executionHost]
+  )
   const openSender = useMobileAgentMessageNavigation(
     client,
     navigateToSender,
@@ -388,7 +395,6 @@ export function MobileSessionActiveContent({
                     worktreeId={worktreeId}
                     getSendCompletionGeneration={controller.getSendCompletionGeneration}
                     keyboardInset={keyboardLift}
-                    crewTerminal={mobileCrewTerminal(controller.activeSessionTab)}
                     // A workspace routed to another server stops with that server, whose name the phone lacks.
                     hostName={executionHost === undefined && hostProfile ? hostTitle : null}
                     onOpenUrlInOrca={openUrlInOrca}
