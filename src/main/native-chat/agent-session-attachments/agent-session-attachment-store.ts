@@ -1,9 +1,11 @@
+/* eslint-disable max-lines -- Why: the fork's additions sit beside upstream's in this owner after the upstream merge. */
 // Per-upload directories preserve original filenames without collisions; atomic commit hides partial bytes.
 
 import { readAttachmentTextChunk } from './agent-session-attachment-text-read'
 import type { AttachmentTextRequest } from '../../../shared/attachment-text/attachment-text-source'
 import { createHash, randomUUID } from 'node:crypto'
 import { access, appendFile, mkdir, readdir, rm, writeFile } from 'node:fs/promises'
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { extname, join } from 'node:path'
 import {
   sanitizeAgentSessionAttachmentName,
@@ -11,7 +13,10 @@ import {
 } from '../../../shared/agent-session/agent-session-attachments'
 import type { RuntimeFilePreviewResult } from '../../../shared/file-content/runtime-file-read'
 import { readAuthorizedDocPreviewFile } from '../../../shared/document-preview/doc-preview-file-access'
-import { renameFileWithWindowsRetryAsync } from '../../../shared/file-write/windows-retry-file-operations'
+import {
+  renameFileWithWindowsRetry,
+  renameFileWithWindowsRetryAsync
+} from '../../../shared/file-write/windows-retry-file-operations'
 import { IMAGE_FILE_MIME_TYPES } from '../../../shared/file-preview/image-mime-types'
 import {
   LOCAL_PREVIEWABLE_BINARY_MAX_BYTES,
@@ -21,6 +26,7 @@ import {
 import { ChunkedUploadRegistry, nextChunkedUploadLength } from './chunked-upload-registry'
 import {
   AGENT_SESSION_ATTACHMENT_PART_FILE,
+  isAgentSessionAttachmentUploadId,
   parseAgentSessionAttachmentStorePath
 } from './agent-session-attachment-references'
 
@@ -56,6 +62,7 @@ export class AgentSessionAttachmentStore {
     onExpire: (upload) => void removeQuietly(upload.uploadDir)
   })
 
+  private readonly imageOnce = new Map<string, string>()
   // Latest content write per folder, and pending writes by file so a re-send queues nothing.
   private readonly contentWrites = new Map<string, Promise<void>>()
   private readonly pendingContent = new Set<string>()
@@ -157,6 +164,27 @@ export class AgentSessionAttachmentStore {
   /** Fresh files rely on the sweep's one-hour grace rather than in-flight tracking. */
   async storeFile(name: string, bytes: Buffer): Promise<string> {
     return this.storeWith(name, (partPath) => writeFile(partPath, bytes, { flag: 'wx' }))
+  }
+
+  /** Same committed path for one filename, so a transcript reread does not duplicate the bytes. */
+  storeImageOnce(name: string, bytes: Buffer): string | null {
+    const safe = sanitizeAgentSessionAttachmentName(name)
+    const cached = this.imageOnce.get(safe)
+    if (cached && existsSync(cached)) {
+      return cached
+    }
+    const found = this.findCommittedName(safe)
+    if (found) {
+      this.imageOnce.set(safe, found)
+      return found
+    }
+    try {
+      const stored = this.storeFileSync(safe, bytes)
+      this.imageOnce.set(safe, stored)
+      return stored
+    } catch {
+      return null
+    }
   }
 
   /** One committed upload whose hidden part file `write` fills, renamed into place; returns its
@@ -272,6 +300,44 @@ export class AgentSessionAttachmentStore {
 
   clearInFlightForTests(): void {
     this.uploads.clear()
+  }
+
+  private storeFileSync(name: string, bytes: Buffer): string {
+    const uploadDir = join(this.rootDir, randomUUID())
+    const finalPath = join(uploadDir, name)
+    try {
+      mkdirSync(uploadDir, { recursive: true })
+      const partPath = join(uploadDir, AGENT_SESSION_ATTACHMENT_PART_FILE)
+      writeFileSync(partPath, bytes, { flag: 'wx' })
+      renameFileWithWindowsRetry(partPath, finalPath)
+    } catch (error) {
+      rmSync(uploadDir, { recursive: true, force: true })
+      throw error
+    }
+    return finalPath
+  }
+
+  private findCommittedName(name: string): string | null {
+    let entries: string[]
+    try {
+      entries = readdirSync(this.rootDir)
+    } catch {
+      return null
+    }
+    for (const entry of entries) {
+      if (!isAgentSessionAttachmentUploadId(entry)) {
+        continue
+      }
+      const candidate = join(this.rootDir, entry, name)
+      try {
+        if (statSync(candidate).isFile()) {
+          return candidate
+        }
+      } catch {
+        // A swept or partial directory is not a committed image.
+      }
+    }
+    return null
   }
 
   private requireOwned(uploadId: string, callerKey: string): InFlightUpload {

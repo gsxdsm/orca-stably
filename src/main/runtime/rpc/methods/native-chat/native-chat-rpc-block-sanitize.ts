@@ -6,6 +6,7 @@ import { fitInteractivePrompt } from '../../../../../shared/agent-status/contrac
 import { parseAskFromToolInput } from '../../../../../shared/native-chat/input/native-chat-ask'
 import type {
   NativeChatBlock,
+  NativeChatMessage,
   NativeChatSubagentState
 } from '../../../../../shared/native-chat/native-chat-types'
 import { boundSubagentEntryId } from '../../../../native-chat/subagent-entry-id-bounds'
@@ -25,6 +26,23 @@ const TRUNCATION_MARKER = '\n… (truncated)'
 
 function clip(text: string, cap: number): string {
   return text.length > cap ? sliceAtCodeUnitLimit(text, cap) + TRUNCATION_MARKER : text
+}
+
+export function sanitizeNativeChatRpcMessage(
+  message: NativeChatMessage,
+  clientKind: RpcContext['clientKind']
+): NativeChatMessage {
+  return {
+    ...message,
+    blocks: message.blocks.map((block) => sanitizeNativeChatRpcBlock(block, clientKind))
+  }
+}
+
+export function sanitizeNativeChatRpcMessages(
+  messages: readonly NativeChatMessage[],
+  clientKind: RpcContext['clientKind']
+): NativeChatMessage[] {
+  return messages.map((message) => sanitizeNativeChatRpcMessage(message, clientKind))
 }
 
 export function sanitizeNativeChatRpcBlock(
