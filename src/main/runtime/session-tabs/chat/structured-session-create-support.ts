@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the fork's additions sit beside upstream's in this owner after the upstream merge. */
 import { AGENT_CHAT_PERMISSION_MODE_OPTION_ID } from '../../../../shared/agent-launch/permissions/agent-chat-permission-mode'
 import { resolveStructuredAgentSessionForkIntent } from '../../../native-chat/agent-session-wire/acquisition/structured-agent-session-fork-intent'
 import {
@@ -29,6 +30,8 @@ import { getProfileUserDataPath } from '../../../orca-profiles/profile-storage-p
 import { isFloatingWorkspaceSelector } from '../../../../shared/workspace/identity/floating-workspace-worktree'
 import type { AgentSessionAccountHome } from '../../../../shared/agent-session/lifecycle/accounts/agent-session-account-home'
 import type { StructuredAgentId } from '../../../../shared/agent-session/lifecycle/provider-handles/agent-session-provider-handle'
+import { hermesAcpLoadSessionId } from '../../../../shared/hermes-session-id'
+import { withHermesLoadSessionId } from '../../agent-session/structured-agent-hermes-replay'
 import type { StructuredAgentCreateSupportReply } from '../../../../shared/agent-session/lifecycle/operations/structured-agent-create-support-reply'
 import type { AgentCliInstallationProblem } from '../../../../shared/agent-launch/catalog/agent-cli-installation-problem'
 
@@ -169,9 +172,14 @@ export abstract class OrcaRuntimeWithGetStructuredAgentSessionCreateSupport exte
   ): Promise<AgentSessionAttachParams & { hostLaunchDirectory?: string }> {
     const support = await this.getStructuredAgentSessionCreateSupport(input.worktree, input.agent)
     // Adopting a conversation reads the agent's own transcript, so only an agent registered with an
-    // importer adopts.
+    // importer adopts. Hermes reloads an ACP uuid; a TUI timestamp is not that id.
     const transcriptImport = structuredAgentRuntimeMetadata(input.agent)?.transcriptImport
-    if (!resolveAccountHome || !support.supported || (input.resumeFrom && !transcriptImport)) {
+    const hermesLoadId = hermesAcpLoadSessionId(input.agent, input.resumeFrom)
+    if (
+      !resolveAccountHome ||
+      !support.supported ||
+      (input.resumeFrom && !transcriptImport && !hermesLoadId)
+    ) {
       throw agentSessionRefusalError('structured_agent_session_unsupported', {
         reason: 'hostUnsupported',
         ...(support.installation ? { agentInstallation: support.installation } : {})
@@ -197,7 +205,7 @@ export abstract class OrcaRuntimeWithGetStructuredAgentSessionCreateSupport exte
       ...(options ? { options } : {})
     })
     if (committedReplay) {
-      return committedReplay
+      return withHermesLoadSessionId(committedReplay, hermesLoadId)
     }
     const resumeFrom = input.resumeFrom
     if (resumeFrom) {
@@ -264,7 +272,9 @@ export abstract class OrcaRuntimeWithGetStructuredAgentSessionCreateSupport exte
               conversationName: adoption.conversationName
             })
           }
-        : {}),
+        : hermesLoadId
+          ? { acpLoadSessionId: hermesLoadId }
+          : {}),
       ...(adoption && adoption.folder !== workspaceCwd
         ? { hostLaunchDirectory: adoption.folder }
         : {}),

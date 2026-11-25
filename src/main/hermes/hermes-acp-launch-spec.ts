@@ -4,10 +4,7 @@ import { HERMES_ACP_DIALECT } from '../acp/acp-dialects/hermes-dialect'
 import { directoryAccountBinding, type AcpAccountBinding } from '../acp/launch/acp-account-binding'
 import { isLegacyAgentSessionAccountHome } from '../../shared/agent-session/lifecycle/accounts/agent-session-account-home'
 import { agentSessionSetupFor } from '../../shared/agent-session/lifecycle/launch/agent-session-setup-commands'
-import {
-  resumeInvocationFromOptions,
-  type StructuredAgentSessionHistory
-} from '../native-chat/conversation-adoption/structured-agent-cli-conversations'
+import { HERMES_SESSION_HISTORY } from './hermes-session-history'
 import {
   getHermesHome,
   resolveDefaultHermesHome,
@@ -16,17 +13,6 @@ import {
 import { HERMES_TRANSCRIPT_IMPORT } from './hermes-transcript-import'
 import { deliverHermesInstructions } from '../acp/launch/acp-instructions'
 import { publishHermesSessionToolEnv } from './hermes-session-tool-env'
-
-// Chats and terminals share the profile's session store; `--resume` also takes a session title.
-const HERMES_SESSION_HISTORY: StructuredAgentSessionHistory = {
-  rowAgents: ['hermes'],
-  rowSessionId: (link) => link.handle.nativeId,
-  parseResumeArgs: (args) =>
-    resumeInvocationFromOptions(args, {
-      targetless: ['-c', '--continue'],
-      markers: ['-r', '--resume']
-    })
-}
 
 const hermesHome = (homePath: string, env: NodeJS.ProcessEnv) =>
   resolveDefaultHermesHome({ homeDir: homePath, env })
@@ -49,13 +35,15 @@ function hermesAccountBinding(): AcpAccountBinding {
 export const HERMES_LAUNCH_SPEC: AcpLaunchSpec = {
   agent: 'hermes',
   command: 'hermes',
-  // No bypass flag: Hermes freezes launch flags into the session, so full access answers requests.
-  args: () => ['acp'],
-  env: {},
+  // `hermes acp --yolo` is rejected; the parent CLI consumes `--yolo` before `acp`.
+  args: ({ fullAccess }) => (fullAccess ? ['--yolo', 'acp'] : ['acp']),
+  env: { HERMES_YOLO_MODE: '0' },
   // Bare `--version` checks for updates over the network first.
   versionArgs: ['acp'],
   dialect: HERMES_ACP_DIALECT,
   loginCommand: agentSessionSetupFor('hermes')?.loginCommand ?? [],
+  // `hermes-setup` is interactive and authenticates only after credentials exist.
+  authMethod: ({ advertised }) => advertised.find((id) => id !== 'hermes-setup'),
   account: hermesAccountBinding(),
   // The installers' command folders: ~/.local/bin, and the home's own bin on Windows.
   installDirectories: ({ env, homePath }) => [
@@ -67,6 +55,7 @@ export const HERMES_LAUNCH_SPEC: AcpLaunchSpec = {
   // Its modes only gate edits; command approvals follow the profile, so Orca answers them in full access.
   permissionModeConfig: {
     values: { ask: 'ask', 'accept-edits': 'workspace_session', 'full-access': 'session' },
+    fullAccessAtLaunch: true,
     fullAccessAnswersRequests: true
   },
   // Only a session lists models, and Hermes stores it at session/new without an ACP delete, so its

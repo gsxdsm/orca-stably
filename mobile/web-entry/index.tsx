@@ -200,18 +200,18 @@ bootstrapShellPage({
     })
     startBlurringOnKeyboardClose()
     // Without a host in init, leave every storage key unwritable for older shells.
+    const readNativeStorage = async (key: string) =>
+      storageReadResultSchema.parse(
+        (await client.callNativeVerb('native.storage.read', { key })).result
+      ).value
     publishPageStorage(
       session.storage,
       (key, value) => client.notifyStorageWrite(key, value),
       session.host?.id ?? '',
       session.route?.pathname ?? '',
       session.storageOversize,
-      session.ownsHostArea
-        ? async (key) =>
-            storageReadResultSchema.parse(
-              (await client.callNativeVerb('native.storage.read', { key })).result
-            ).value
-        : null
+      session.ownsHostArea ? readNativeStorage : null,
+      readNativeStorage
     )
     // An open-target boot paints the shell's target first, so that is the screen to preload and restore.
     const route = bootRoute(session.route?.params?.[BRIDGE_OPEN_ROUTE_PARAM])
