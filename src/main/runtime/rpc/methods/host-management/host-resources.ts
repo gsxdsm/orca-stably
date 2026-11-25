@@ -1,7 +1,7 @@
 import os from 'node:os'
-import { HOST_RESOURCES_METHOD } from '../../../../shared/host-resources'
-import { collectHostResources } from '../../../memory/host-resources'
-import { defineMethod } from '../core'
+import { HOST_RESOURCES_METHOD } from '../../../../../shared/host-resources'
+import { collectHostResources } from '../../../../memory/host-resources'
+import { defineMethod } from '../../core'
 
 export const HOST_RESOURCES_METHODS = [
   defineMethod({

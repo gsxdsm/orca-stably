@@ -73,7 +73,7 @@ export function CpuSparkline({ samples }: { samples: readonly number[] }) {
         style={styles.sparkline}
       >
         {samples.map((value, index) => (
-          <View key={`sample-${samples.length - index}`} style={styles.sparkTrack}>
+          <View key={index} style={styles.sparkTrack}>
             <View
               style={[
                 styles.sparkFill,
@@ -104,21 +104,19 @@ export function CoreBars({ cores }: { cores: readonly { percent: number | null }
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       >
-        {cores
-          .map((core, index) => ({ id: `core-${index}`, core }))
-          .map(({ id, core }) => (
-            <View key={id} style={styles.coreTrack}>
-              <View
-                style={[
-                  styles.coreFill,
-                  {
-                    width: `${core.percent === null ? 0 : clampPercent(core.percent)}%`,
-                    backgroundColor: usageBandColor(core.percent)
-                  }
-                ]}
-              />
-            </View>
-          ))}
+        {cores.map((core, index) => (
+          <View key={index} style={styles.coreTrack}>
+            <View
+              style={[
+                styles.coreFill,
+                {
+                  width: `${core.percent === null ? 0 : clampPercent(core.percent)}%`,
+                  backgroundColor: usageBandColor(core.percent)
+                }
+              ]}
+            />
+          </View>
+        ))}
       </View>
       <View style={styles.legend}>
         <BandLegend percent={0} label={t('resources.screen.bandLow', 'Under 60%')} />

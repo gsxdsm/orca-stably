@@ -9,18 +9,12 @@ import { MobileResourcesScreen } from './MobileResourcesScreen'
 
 const transport = vi.hoisted(() => {
   const sendRequest = vi.fn()
-  const state: {
-    state: 'connected' | 'disconnected'
-    capabilities: readonly string[] | null | undefined
-    sendRequest: typeof sendRequest
-    client: { sendRequest: typeof sendRequest }
-  } = {
-    state: 'connected',
-    capabilities: ['host.resources.v1'],
+  return {
+    state: 'connected' as 'connected' | 'disconnected',
+    capabilities: ['host.resources.v1'] as string[],
     sendRequest,
     client: { sendRequest }
   }
-  return state
 })
 
 vi.mock('react-native', () => ({
@@ -74,12 +68,12 @@ vi.mock('../transport/connection/host-client-hooks', () => ({
   })
 }))
 
-vi.mock('../transport/connection/runtime-status-probe', () => ({
-  startRuntimeStatusProbe: (
+vi.mock('../transport/connection/runtime-capability-probe', () => ({
+  startRuntimeCapabilityProbe: (
     _client: unknown,
-    onStatus: (status: { capabilities: readonly string[] | undefined } | null) => void
+    onCapabilities: (capabilities: readonly string[]) => void
   ) => {
-    onStatus(transport.capabilities === null ? null : { capabilities: transport.capabilities })
+    onCapabilities(transport.capabilities)
     return () => {}
   }
 }))
@@ -165,21 +159,6 @@ describe('MobileResourcesScreen', () => {
     transport.capabilities = []
     const tree = await render()
     expect(text(tree)).toContain('Update the server to see CPU, memory, and disk.')
-    expect(transport.sendRequest).not.toHaveBeenCalled()
-  })
-
-  it('asks for a server update when status omits capabilities', async () => {
-    transport.capabilities = undefined
-    const tree = await render()
-    expect(text(tree)).toContain('Update the server to see CPU, memory, and disk.')
-    expect(transport.sendRequest).not.toHaveBeenCalled()
-  })
-
-  it('shows a read error when the status probe cannot decode the host', async () => {
-    transport.capabilities = null
-    const tree = await render()
-    expect(text(tree)).toContain('Could not read server resources.')
-    expect(text(tree)).not.toContain('Update the server to see CPU, memory, and disk.')
     expect(transport.sendRequest).not.toHaveBeenCalled()
   })
 

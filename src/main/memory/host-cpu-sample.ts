@@ -3,7 +3,6 @@ import type { HostResourcesSnapshot } from '../../shared/host-resources'
 
 const CPU_SAMPLE_MAX_AGE_MS = 10_000
 const CPU_RESAMPLE_WAIT_MS = 200
-const CPU_MIN_BASELINE_WINDOW_MS = 1_000
 
 export type CpuTimeSample = {
   user: number
@@ -60,9 +59,7 @@ export async function readHostCpu(readers: HostCpuReaders): Promise<HostResource
   }
   const prior = baseline ?? started
   const usage = cpuPercentsFromDelta(prior.times, current.times)
-  if (stale || current.at - prior.at >= CPU_MIN_BASELINE_WINDOW_MS) {
-    cpuBaseline = { at: current.at, times: current.times }
-  }
+  cpuBaseline = { at: current.at, times: current.times }
   return {
     percent: usage.percent,
     coreCount: current.coreCount,

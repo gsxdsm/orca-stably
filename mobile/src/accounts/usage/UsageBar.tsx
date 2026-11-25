@@ -52,19 +52,12 @@ export function formatUsageBarValue(
     : `${shown}%`
 }
 
-// Match desktop barColor: green under 60, amber under 80, red from 80.
+// Fork meters (composer, server resources) color a percent without drawing a bar.
 export function usageBandColor(usedPercent: number | null): string {
   if (usedPercent == null || !Number.isFinite(usedPercent)) {
     return colors.textMuted
   }
-  const used = Math.max(0, Math.min(100, Math.round(usedPercent)))
-  if (used >= 80) {
-    return colors.statusRed
-  }
-  if (used >= 60) {
-    return colors.statusAmber
-  }
-  return colors.statusGreen
+  return usageBarFill(usedPercent, false, 'used').color
 }
 
 // Match desktop/harness consumption meters: fresh empty/green, depleted full/red.

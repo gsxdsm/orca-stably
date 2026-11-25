@@ -17,7 +17,7 @@ import { useRouteHandoff } from '../navigation/route-handoff'
 import { colors, spacing } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useHostClient } from '../transport/connection/host-client-hooks'
-import { startRuntimeStatusProbe } from '../transport/connection/runtime-status-probe'
+import { startRuntimeCapabilityProbe } from '../transport/connection/runtime-capability-probe'
 import {
   appendCpuSampleHistory,
   hostResourcesPollDelayMs,
@@ -26,7 +26,7 @@ import {
 import { styles } from './mobile-resources-screen-styles'
 import { ResourcesSections } from './resource-sections'
 
-type Capability = 'unknown' | 'present' | 'absent' | 'unreadable'
+type Capability = 'unknown' | 'present' | 'absent'
 type SampleProblem = 'unreadable' | 'failed'
 
 export function MobileResourcesScreen() {
@@ -73,16 +73,8 @@ export function MobileResourcesScreen() {
     if (client === null || connState !== 'connected') {
       return
     }
-    return startRuntimeStatusProbe(client, (status) => {
-      if (status === null) {
-        setCapability('unreadable')
-        return
-      }
-      setCapability(
-        (status.capabilities ?? []).includes(HOST_RESOURCES_RUNTIME_CAPABILITY)
-          ? 'present'
-          : 'absent'
-      )
+    return startRuntimeCapabilityProbe(client, (capabilities) => {
+      setCapability(capabilities.includes(HOST_RESOURCES_RUNTIME_CAPABILITY) ? 'present' : 'absent')
     })
   }, [client, connState, hostId])
 
@@ -96,17 +88,25 @@ export function MobileResourcesScreen() {
 
   useEffect(() => {
     if (pollDelay === null || client === null || !hostId) {
-      return () => {}
+      return
     }
     const requestHostId = hostId
     let cancelled = false
-    let inFlight = false
+    let timer: ReturnType<typeof setTimeout> | null = null
 
-    const sample = async () => {
-      if (cancelled || inFlight) {
+    const schedule = () => {
+      if (cancelled) {
         return
       }
-      inFlight = true
+      timer = setTimeout(() => {
+        void sample()
+      }, pollDelay)
+    }
+
+    const sample = async () => {
+      if (cancelled) {
+        return
+      }
       try {
         const response = await client.sendRequest(HOST_RESOURCES_METHOD)
         if (cancelled || hostIdRef.current !== requestHostId) {
@@ -133,16 +133,16 @@ export function MobileResourcesScreen() {
           return
         }
         setSampleProblem('failed')
-      } finally {
-        inFlight = false
       }
+      schedule()
     }
 
     void sample()
-    const timer = setInterval(() => void sample(), pollDelay)
     return () => {
       cancelled = true
-      clearInterval(timer)
+      if (timer !== null) {
+        clearTimeout(timer)
+      }
     }
   }, [client, hostId, pollDelay])
 
@@ -164,8 +164,6 @@ export function MobileResourcesScreen() {
         {t('resources.screen.updateServer', 'Update the server to see CPU, memory, and disk.')}
       </Text>
     )
-  } else if (capability === 'unreadable') {
-    body = <Text style={styles.problem}>{problemCopy('failed', t)}</Text>
   } else if (snapshot === null && sampleProblem === null) {
     body = (
       <View style={styles.loading}>

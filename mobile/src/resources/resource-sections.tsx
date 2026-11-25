@@ -102,7 +102,7 @@ export function ResourcesSections({
         {snapshot.volumes.length === 0 ? (
           <Text style={styles.empty}>{t('resources.screen.noDisks', 'No disks reported')}</Text>
         ) : (
-          snapshot.volumes.map((volume) => {
+          snapshot.volumes.map((volume, index) => {
             const occurrence = seenRoles.get(volume.role) ?? 0
             seenRoles.set(volume.role, occurrence + 1)
             const label = volumeTitle(volume.role, occurrence, t)
@@ -111,7 +111,7 @@ export function ResourcesSections({
             const percent = Math.round(clampPercent(volume.usedPercent))
             return (
               <ResourceMeter
-                key={`${volume.role}-${occurrence}`}
+                key={`${volume.role}-${index}`}
                 label={label}
                 caption={t('resources.screen.volumeFree', '{{free}} free of {{total}}', {
                   free,

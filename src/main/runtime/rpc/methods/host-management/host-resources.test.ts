@@ -1,16 +1,16 @@
 import os from 'node:os'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { HOST_RESOURCES_RUNTIME_CAPABILITY } from '../../../../shared/host-resources'
-import { RUNTIME_CAPABILITIES } from '../../../../shared/protocol-version'
-import type { OrcaRuntimeService } from '../../orca-runtime'
-import { MOBILE_RPC_METHOD_ROUTES } from '../server/runtime-rpc-mobile-method-routing'
+import { HOST_RESOURCES_RUNTIME_CAPABILITY } from '../../../../../shared/host-resources'
+import { RUNTIME_CAPABILITIES } from '../../../../../shared/remote-runtime/protocol/protocol-version'
+import type { OrcaRuntimeService } from '../../../orca-runtime'
+import { MOBILE_RPC_METHOD_ROUTES } from '../../server/runtime-rpc-mobile-method-routing'
 import { HOST_RESOURCES_METHODS } from './host-resources'
 
 const { collectHostResources } = vi.hoisted(() => ({
   collectHostResources: vi.fn()
 }))
 
-vi.mock('../../../memory/host-resources', () => ({
+vi.mock('../../../../memory/host-resources', () => ({
   collectHostResources
 }))
 
@@ -33,7 +33,8 @@ describe('host.resources', () => {
   it('passes the home directory and each repo path to the collector', async () => {
     vi.spyOn(os, 'homedir').mockReturnValue('/home/tester')
     const listRepos = vi.fn(() => [{ path: '/work/a' }, { path: '/work/b' }])
-    const runtime: OrcaRuntimeService = Object.assign(Object.create(null), { listRepos })
+    // SAFETY: host.resources only reads listRepos().path.
+    const runtime = { listRepos } as unknown as OrcaRuntimeService
     if (!hostResources) {
       throw new Error('missing host.resources')
     }
