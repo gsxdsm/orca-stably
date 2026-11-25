@@ -1,9 +1,9 @@
-import { RuntimeRpcCallError } from '@/runtime/runtime-rpc-result'
+import { RuntimeRpcCallError } from '@/runtime/rpc/calls/runtime-rpc-result'
 import { isRecoverableRemoteRuntimeConnectionError } from '../../../../shared/remote-runtime/remote-runtime-client-error-classification'
-import { createBrowserUuid } from '@/lib/browser-uuid'
+import { createBrowserUuid } from '../../../../shared/non-secure-context-uuid'
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { callRuntimeRpc } from '@/runtime/runtime-rpc-client'
-import { getRemoteRuntimePtyOwner } from '@/runtime/runtime-terminal-stream'
+import { callRuntimeRpc } from '@/runtime/rpc/calls/runtime-rpc-call'
+import { getRemoteRuntimePtyOwner } from '@/runtime/hosted-terminals/identity/remote-runtime-pty-owner'
 import { toHostSessionPaneKey } from '../../../../shared/workspace-layout/terminal-surface-id'
 import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
 import {
@@ -13,9 +13,9 @@ import {
   type NativeChatTerminalQueueSnapshot
 } from '../../../../shared/native-chat/native-chat-terminal-queue'
 import { projectQueuedMessageCards } from '../../../../shared/agent-session/view/structured-agent-session-queued-cards'
-import type { StructuredAgentSessionQueuedMessagesController } from './use-structured-agent-session-queued-messages'
-import { useStructuredAgentSessionHostCapabilityState } from '@/runtime/structured-agent-session-host-capability'
-import type { NativeChatComposerHandle } from './native-chat-composer-types'
+import type { StructuredAgentSessionQueuedMessagesController } from './queue/use-structured-agent-session-queued-messages'
+import { useStructuredAgentSessionHostCapabilityState } from '@/runtime/native-chat/host-capabilities/structured-agent-session-host-capability'
+import type { NativeChatComposerHandle } from './composer/native-chat-composer-types'
 
 export function useNativeChatTerminalQueue(args: {
   paneKey: string

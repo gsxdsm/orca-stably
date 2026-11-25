@@ -27,7 +27,6 @@ import { useNativeChatTerminalPromptCard } from './prompts/use-native-chat-inter
 import { NativeChatPromptStrip } from './prompts/NativeChatPromptCollapse'
 import { NativeChatEmptyState } from './host-access/NativeChatEmptyState'
 import { useNativeChatInteractiveSend } from './session/terminal/send/use-native-chat-interactive-send'
-import { shouldClearNativeChatWorkingSuppression } from '../../../../shared/native-chat/native-chat-working-suppression'
 import { useNativeChatWorkingSuppression } from './use-native-chat-working-suppression'
 import { resolveNativeChatTerminalTurn } from '../../../../shared/native-chat/native-chat-terminal-turn'
 import { useNativeChatTerminalTurnTiming } from './conversation/turns/use-native-chat-terminal-turn-timing'
@@ -65,7 +64,7 @@ import { useNativeChatImageRuntimeContext } from './media/images/native-chat-ima
 import { handleNativeChatPaneShortcut } from './pane/routing/native-chat-pane-shortcut'
 import { formatShortcutLabel } from '@/hooks/useShortcutLabel'
 import { useNativeChatTerminalQueue, queueSendEpoch } from './use-native-chat-terminal-queue'
-import { NativeChatQueuedMessageList } from './NativeChatQueuedMessageList'
+import { NativeChatQueuedMessageList } from './queue/NativeChatQueuedMessageList'
 
 export function NativeChatResolvedView({
   paneKey,

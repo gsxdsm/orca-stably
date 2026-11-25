@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { RpcClient } from '../../transport/rpc-client'
+import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
 import { randomV4Uuid } from '../../platform/random-v4-uuid'
 import {
   NativeChatTerminalQueueSnapshotSchema,
@@ -7,15 +7,15 @@ import {
   type NativeChatTerminalQueueSnapshot,
   type NativeChatTerminalQueueRequest
 } from '../../../../src/shared/native-chat/native-chat-terminal-queue'
-import type { MobileStructuredQueuedMessageControls } from '../use-mobile-structured-queued-message-controls'
-import { mobileQueuedMessageCards } from '../mobile-structured-queued-message-cards'
+import type { MobileStructuredQueuedMessageControls } from './input/use-mobile-structured-queued-message-controls'
+import { mobileQueuedMessageCards } from './input/mobile-structured-queued-message-cards'
 import type { z } from 'zod'
 import { NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY } from '../../../../src/shared/native-chat/native-chat-terminal-queue-capability'
 import { mobileTerminalChatQueueSend } from './mobile-terminal-chat-queue-send'
-import type { MobileNativeChatSendOutcome } from './mobile-native-chat-send'
-import { isRpcDeliveryUnknown } from '../../transport/rpc-delivery-ambiguity'
-import { isLogicalClientCutoverError } from '../../transport/stable-logical-rpc-client'
-import { UNCONFIRMED_SEND_MESSAGE } from './use-mobile-native-chat-unconfirmed-sends'
+import type { MobileNativeChatSendOutcome } from './composer/mobile-native-chat-send'
+import { isRpcDeliveryUnknown } from '../../transport/rpc/rpc-delivery-ambiguity'
+import { isLogicalClientCutoverError } from '../../transport/connection/stable-logical-rpc-client'
+import { UNCONFIRMED_SEND_MESSAGE } from './composer/use-mobile-native-chat-unconfirmed-sends'
 
 export function useMobileTerminalChatQueue(args: {
   client: RpcClient | null
