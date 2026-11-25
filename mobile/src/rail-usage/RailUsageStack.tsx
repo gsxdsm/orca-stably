@@ -6,7 +6,7 @@ import { MobileSegmentedControl } from '../components/controls/MobileSegmentedCo
 import { USAGE_PROVIDER_NAMES, type UsageProviderKey } from '../composer-usage/agent-usage-provider'
 import { useAccountsSnapshot } from '../composer-usage/accounts-snapshot-store'
 import { ComposerUsageSheet } from '../composer-usage/ComposerUsageSheet'
-import { useNow } from '../hooks/use-now'
+import { useSharedNow } from '../hooks/use-now'
 import { spacing } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useHostClient } from '../transport/connection/host-client-hooks'
@@ -44,7 +44,8 @@ export function RailUsageStack({
   snapshot: AccountsSnapshot | null
 }): React.JSX.Element | null {
   const usages = listRailUsage(snapshot)
-  const now = useNow(60_000)
+  // The composer bar reads the same clock, so a ring and the bar never disagree by a minute.
+  const now = useSharedNow(60_000)
   const [selected, setSelected] = useState<UsageProviderKey | null>(null)
   // Kept after close so the sheet slides out still showing what it showed.
   const [shown, setShown] = useState<UsageProviderKey | null>(null)

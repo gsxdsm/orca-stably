@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import Svg, { Line, Path } from 'react-native-svg'
 import {
@@ -10,6 +11,7 @@ import { composerUsageMeterReadout } from '../composer-usage/composer-usage-mete
 import { useComposerUsageDisplay } from '../composer-usage/composer-usage-display-preference'
 import { computeUsagePace, usagePaceMarkerPercent } from '../composer-usage/usage-window-pace'
 import { usagePaceColor } from '../composer-usage/usage-pace-color'
+import { usageResetLabel } from '../composer-usage/usage-reset-label'
 import { MiniMaxIcon, OpenCodeGoIcon } from '../components/icons/AgentIcons'
 import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
@@ -33,6 +35,8 @@ const GLYPH_SIZE = 13
 // The pace tick crosses the stroke and stops at the ring's edge.
 const TICK_INNER = RADIUS - STROKE / 2 - 1
 const TICK_OUTER = RADIUS + STROKE / 2
+// The ring's inner chord at the reset label's lower edge (8pt below centre) is ~30pt; keep 1pt clear each side.
+const RESET_LABEL_ROOM = 2 * Math.sqrt((RADIUS - STROKE / 2) ** 2 - 8 ** 2) - 2
 
 export function RailUsageProviderGlyph({
   provider,
@@ -63,6 +67,8 @@ export function RailUsageRing({
   useMobileColorScheme()
   const t = useMobileTranslation()
   const display = useComposerUsageDisplay()
+  // "3d 2h" when it fits inside the ring, else its largest unit ("3d", "5h", "40m").
+  const [fullLabelWidth, setFullLabelWidth] = useState<number | null>(null)
   const entry = pickRailUsageWindow(usage.windows)
   if (!entry) {
     return null
@@ -76,6 +82,11 @@ export function RailUsageRing({
     window: formatUsageWindowLength(entry.window.windowMinutes),
     percent: readout.shown
   }
+  const resetsIn = usageResetLabel(entry.window, now)
+  const label =
+    fullLabelWidth !== null && fullLabelWidth <= RESET_LABEL_ROOM
+      ? resetsIn
+      : usageResetLabel(entry.window, now, 'compact')
   const tick = marker === null ? null : marker / 100
   const tickInner = tick === null ? null : railRingPoint(CENTER, TICK_INNER, tick)
   const tickOuter = tick === null ? null : railRingPoint(CENTER, TICK_OUTER, tick)
@@ -132,7 +143,16 @@ export function RailUsageRing({
       <View style={styles.inside} pointerEvents="none">
         <RailUsageProviderGlyph provider={usage.provider} size={GLYPH_SIZE} />
         <Text style={styles.window} numberOfLines={1} allowFontScaling={false}>
-          {vars.window}
+          {label}
+        </Text>
+      </View>
+      <View style={styles.measure} pointerEvents="none" aria-hidden>
+        <Text
+          style={styles.window}
+          allowFontScaling={false}
+          onLayout={(event) => setFullLabelWidth(event.nativeEvent.layout.width)}
+        >
+          {resetsIn}
         </Text>
       </View>
       <View style={[styles.labelRow, styles.percentRow]} pointerEvents="none">
@@ -181,11 +201,21 @@ const styles = themedStyleSheet(() => ({
     color: colors.textPrimary,
     fontVariant: ['tabular-nums']
   },
+  // Zero-height and clipped, but wide, so a two-word label measures on one line without showing.
+  measure: {
+    position: 'absolute',
+    width: 1000,
+    height: 0,
+    overflow: 'hidden',
+    flexDirection: 'row'
+  },
   window: {
     fontSize: 8,
     lineHeight: 9,
     fontWeight: '600',
     color: colors.textSecondary,
-    fontVariant: ['tabular-nums']
+    fontVariant: ['tabular-nums'],
+    // Keeps the zero-width measure from squeezing the label below its own width.
+    flexShrink: 0
   }
 }))
