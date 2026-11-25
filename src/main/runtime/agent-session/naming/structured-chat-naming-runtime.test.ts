@@ -233,12 +233,13 @@ describe('structured chat naming runtime', () => {
       expect(mocks.titleOwner).not.toHaveBeenCalled()
     }
   )
-  it.each(['grok', 'antigravity'] as const)(
+  it.each(['grok', 'antigravity', 'hermes'] as const)(
     'codes %s native naming failures without exposing provider text',
     async (provider) => {
       const state = rig()
       const record = agentSessionRecordFixture()
       record.provider = provider
+      const label = provider === 'grok' ? 'Grok' : provider === 'hermes' ? 'Hermes' : 'Antigravity'
       for (const outcome of ['throw', 'empty'] as const) {
         if (outcome === 'throw') {
           mocks.native.mockRejectedValueOnce(new Error('private provider diagnostic'))
@@ -247,7 +248,7 @@ describe('structured chat naming runtime', () => {
         }
         expect(await state.deps.generate(record, 'Repair login')).toEqual({
           errorCode: `${provider}Failed`,
-          error: `${provider === 'grok' ? 'Grok' : 'Antigravity'} could not name this chat. Try generating the name again.`
+          error: `${label} could not name this chat. Try generating the name again.`
         })
       }
     }

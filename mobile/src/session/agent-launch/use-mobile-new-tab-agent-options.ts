@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { hashKey, useQueryClient } from '@tanstack/react-query'
 import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
 import { hostConnectionEpoch } from '../../query/host-status-query'
@@ -12,6 +12,12 @@ import {
   type MobileDetectedAgents
 } from './mobile-agent-launch-queries'
 import { newTabAgentOptionsFrom } from './mobile-new-tab-agent-loader'
+import {
+  loadMobileStructuredChatLaunchContext,
+  readMobileStructuredChatLaunchContext,
+  subscribeMobileStructuredChatLaunch,
+  withMobileStructuredChatLaunch
+} from '../mobile-structured-chat-launch'
 import type { MobileNewTabAgentOption } from './mobile-new-tab-agent-options'
 import type { MobileNewTabAgentLoadState } from './mobile-agent-load-state'
 
@@ -113,5 +119,23 @@ export function useMobileNewTabAgentOptions(args: {
         : NO_OPTIONS,
     [detected, loadState, settings.data]
   )
-  return { loadState, options }
+  const launchContext = useSyncExternalStore(
+    subscribeMobileStructuredChatLaunch,
+    readMobileStructuredChatLaunchContext,
+    readMobileStructuredChatLaunchContext
+  )
+  useEffect(() => {
+    if (!client || connState !== 'connected') {
+      return
+    }
+    void loadMobileStructuredChatLaunchContext({
+      client,
+      hostCapabilities: args.hostCapabilities
+    }).catch(() => null)
+  }, [args.hostCapabilities, client, connState])
+  const chatOptions = useMemo(
+    () => withMobileStructuredChatLaunch(options, launchContext),
+    [launchContext, options]
+  )
+  return { loadState, options: chatOptions }
 }

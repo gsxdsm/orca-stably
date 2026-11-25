@@ -75,7 +75,10 @@ export async function initializeAcpStructuredSession(
   const setup = {
     authMethodId,
     authMethodUnavailableMessage: spec.authMethodUnavailableMessage,
-    resumePreference: spec.resumePreference
+    resumePreference: spec.resumePreference,
+    ...(spec.dialect.loadedSessionMissing
+      ? { loadedSessionMissing: spec.dialect.loadedSessionMissing }
+      : {})
   }
   const resume = launch.resume
   let started: Awaited<ReturnType<AcpStructuredConnection['start']>> | null = null
