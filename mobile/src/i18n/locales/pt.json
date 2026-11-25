@@ -2433,6 +2433,7 @@
       "pasteFromClipboard": "Colar da área de transferência",
       "paste": "Colar",
       "addCustomShortcut": "Adicionar atalho personalizado",
+      "keysMode": "Teclas",
       "control": "Ctrl",
       "alt": "Alt",
       "shift": "Shift"
@@ -2562,7 +2563,11 @@
     "commandDock": {
       "liveInputHint": "O texto digitado é enviado diretamente ao terminal ativo.",
       "liveInputLabel": "Entrada em tempo real no terminal",
-      "tapToShowKeyboard": "Toque para mostrar o teclado"
+      "tapToShowKeyboard": "Toque para mostrar o teclado",
+      "sendCommand": "Enviar comando",
+      "messageAgentPlaceholder": "Mensagem para {{agent}}",
+      "theAgent": "o agente",
+      "writeCommandPlaceholder": "Escreva um comando e envie"
     },
     "contentRow": {
       "dismissCreationWarning": "Dispensar aviso de criação do espaço de trabalho"

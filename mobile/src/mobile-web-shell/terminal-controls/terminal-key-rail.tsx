@@ -59,8 +59,7 @@ export function terminalKeyRailKeys(
   return [
     'toggleKeyboard',
     'toggleDisplayMode',
-    // Only older pages still have a composer to switch to.
-    ...(toolbar.canCompose ? (['toggleInputMode'] as const) : []),
+    'toggleInputMode',
     ...(toolbar.runsAgent ? AGENT_ROW : SHELL_ROW),
     ...ARROW_IDS,
     'moreKeys'

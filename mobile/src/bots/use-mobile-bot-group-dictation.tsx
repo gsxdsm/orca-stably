@@ -14,6 +14,7 @@ import { renderAnimatedToast, useTransientToast } from '../components/feedback/T
 import { View } from 'react-native'
 
 const noTerminal = () => Promise.resolve(false)
+const noTerminalDraft = () => {}
 
 /** The room composer's mic: the page's one dictation, as an agent's chat drives it, into the room's draft. */
 export function useMobileBotGroupDictation({
@@ -59,7 +60,9 @@ export function useMobileBotGroupDictation({
       router,
       dictationMode,
       setDictationMode,
-      setDictationEnabled
+      setDictationEnabled,
+      terminalMessageMode: false,
+      setTerminalDraft: noTerminalDraft
     },
     {
       showNativeChat: true,

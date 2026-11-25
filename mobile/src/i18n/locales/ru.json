@@ -3232,6 +3232,7 @@
       "pasteFromClipboard": "Вставить из буфера обмена",
       "paste": "Вставить",
       "addCustomShortcut": "Добавить пользовательское сочетание клавиш",
+      "keysMode": "Клавиши",
       "control": "Control",
       "alt": "Alt",
       "shift": "Shift"
@@ -3378,6 +3379,9 @@
     "commandDock": {
       "liveInputHint": "Вводимый текст отправляется прямо в активный терминал",
       "liveInputLabel": "Прямой ввод в терминал",
+      "sendCommand": "Отправить команду",
+      "messageAgentPlaceholder": "Сообщение для {{agent}}",
+      "theAgent": "агент",
       "tapToShowKeyboard": "Нажмите, чтобы показать клавиатуру"
     },
     "contentRow": {

@@ -148,7 +148,8 @@ export function useMobileSessionTerminalRuntime(scope: MobileSessionScreenStateM
   const { handleTerminalTap, resetLiveInputFocus } = useTerminalLiveInputFocus({
     activeHandleRef,
     canSend,
-    inputRef: liveInputRef,
+    // A terminal tap opens the keyboard on the field its mode types into.
+    inputRef: scope.terminalMessageMode ? scope.messageInputRef : liveInputRef,
     lifecycleIdentity: client,
     lifecycleKey: JSON.stringify([hostId, worktreeId, connState]),
     reopenFocusedInputWhenKeyboardHidden: reopensFocusedInputWhenKeyboardHidden(),
