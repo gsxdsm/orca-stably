@@ -71,6 +71,7 @@ export function UsageBar({
   wideLabel = false,
   display: displayOverride,
   paceMarkerPercent = null,
+  fillColor,
   style
 }: {
   label: string
@@ -86,6 +87,8 @@ export function UsageBar({
   display?: UsagePercentageDisplay
   /** Tick where an even burn would put the fill (0–100, in the bar's display); null hides it. */
   paceMarkerPercent?: number | null
+  /** Overrides the used-level band, e.g. with the window's pace colour. */
+  fillColor?: string
   style?: StyleProp<ViewStyle>
 }) {
   useMobileColorScheme()
@@ -116,7 +119,7 @@ export function UsageBar({
                   styles.usageFill,
                   {
                     width: `${shown ?? 0}%`,
-                    backgroundColor: color
+                    backgroundColor: fillColor ?? color
                   }
                 ]}
               />
