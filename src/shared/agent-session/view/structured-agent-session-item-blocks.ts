@@ -5,6 +5,7 @@ import { connectorMessageShown } from '../../connector-asker-prompt'
 import { structuredAgentSessionStatusBlock } from './structured-agent-session-status-block'
 import {
   isStructuredAgentSessionToolAction,
+  journalToolImageBlocks,
   structuredAgentSessionToolCallBlock
 } from './messages/structured-agent-session-tool-call-block'
 
@@ -49,7 +50,8 @@ export function itemBlocks(item: AgentJournalRenderItem): {
                 isError: agentJournalToolCallLifecycle(body) === 'failed'
               }
             ]
-          : [])
+          : []),
+        ...journalToolImageBlocks(body.images)
       ]
     }
   }

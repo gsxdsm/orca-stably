@@ -10,7 +10,7 @@ import { extractString } from '../../../shared/text/trimmed-string'
 import { parseJsonObject } from '../../ai-vault/parsing/session-json-object'
 import { timestampMs } from '../../ai-vault/parsing/session-record-time'
 import { imageSourcePathFromText } from '../../../shared/native-chat/transcript/images/native-chat-image-transcript-markers'
-import { claudeContentBlocks } from './transcript-record-blocks'
+import { claudeContentBlocks, movePendingToolResultImages } from './transcript-record-blocks'
 import { isClaudeToolResultContent } from '../../../shared/agent-hook-listener/providers/claude/transcripts/claude-tool-content'
 import { isKnownRasterImageMimeType } from '../../../shared/file-preview/raster-image-preview-limits'
 import { unwrapClaudePastedContentBlock } from '../../../shared/agent-hook-listener/providers/claude/transcripts/claude-pasted-content'
@@ -71,7 +71,9 @@ function withEditPatch(blocks: NativeChatBlock[], patch: NativeChatEditPatch): N
       return block
     }
     attached = true
-    return { ...block, editPatch: patch }
+    const patched = { ...block, editPatch: patch }
+    movePendingToolResultImages(block, patched)
+    return patched
   })
 }
 
@@ -250,8 +252,11 @@ function claudeMessageRole(
   content: unknown
 ): NativeChatMessage['role'] {
   if (role === 'user') {
-    const onlyToolResults = blocks.every((block) => block.type === 'tool-result')
-    return onlyToolResults && blocks.length > 0 ? 'tool' : 'user'
+    // Image refs ride with the tool result; an image-only turn stays a user message.
+    const toolCarrier =
+      blocks.some((block) => block.type === 'tool-result') &&
+      blocks.every((block) => block.type === 'tool-result' || block.type === 'image-ref')
+    return toolCarrier ? 'tool' : 'user'
   }
   return isThinkingOnlyContent(content) ? 'reasoning' : role
 }

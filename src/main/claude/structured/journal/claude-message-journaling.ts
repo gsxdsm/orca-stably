@@ -19,6 +19,10 @@ import {
   readClaudeMessageEnvelope,
   type ClaudeToolUse
 } from './claude-structured-item-translation'
+import {
+  resolveToolResultImageRefs,
+  toolInputFilePath
+} from '../../../native-chat/tool-result-images'
 import { claudeEnvelopeStopHookFeedbackRow } from './claude-stop-hook-feedback'
 import { AGENT_SESSION_GOAL_CHECK_PRESENTATION } from '../../../../shared/agent-session/thread-goals/agent-session-goal-check-display'
 import {
@@ -198,7 +202,14 @@ export function journalClaudeMessage(
       input: null
     }
     const resultIdentity = claudeToolIdentity(envelope.sessionId, result.toolUseId)
-    const resultBody = claudeToolBody({ tool, result })
+    const resultBody = claudeToolBody({
+      tool,
+      result,
+      images: resolveToolResultImageRefs({
+        sources: result.images ?? [],
+        filePath: toolInputFilePath(tool.input)
+      })
+    })
     ctx.sink.appendItem(resultIdentity, resultBody, {
       ...stamp(resultIdentity, resultBody),
       lifecycle: true

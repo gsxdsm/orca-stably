@@ -8,7 +8,7 @@ import { asRecord } from '../../ai-vault/parsing/session-record-fields'
 import { extractString } from '../../../shared/text/trimmed-string'
 import { parseJsonObject } from '../../ai-vault/parsing/session-json-object'
 import { timestampMs } from '../../ai-vault/parsing/session-record-time'
-import { claudeContentBlocks, toolResultOutput } from './transcript-record-blocks'
+import { claudeContentBlocks, toolResultBlocks } from './transcript-record-blocks'
 import { CODEX_EVENT_TURN_ABORTED } from './transcript-turn-markers'
 
 /** Paginated completed items own visible messages; response tools retain their legacy format. */
@@ -122,7 +122,7 @@ function codexResponseItem(
     return {
       id,
       role: 'tool',
-      blocks: [codexToolResult(payload.output, extractString(payload.call_id))],
+      blocks: codexToolResult(payload.output, extractString(payload.call_id)),
       timestamp,
       source: 'transcript'
     }
@@ -268,15 +268,13 @@ function codexCallInput(payload: Record<string, unknown>): unknown {
   return payload.input ?? payload.action ?? null
 }
 
-function codexToolResult(output: unknown, callId: string | null): NativeChatBlock {
+function codexToolResult(output: unknown, callId: string | null): NativeChatBlock[] {
   const record = asRecord(output)
   const isError = record?.success === false || record?.is_error === true
-  return {
-    type: 'tool-result',
-    output: toolResultOutput(record?.content ?? record?.output ?? output),
+  return toolResultBlocks(record?.content ?? record?.output ?? output, {
     ...(callId ? { callId } : {}),
     ...(isError ? { isError: true } : {})
-  }
+  })
 }
 
 function codexSummaryText(summary: unknown): string | null {
