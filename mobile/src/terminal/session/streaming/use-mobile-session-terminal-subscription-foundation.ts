@@ -13,6 +13,7 @@ export function useMobileSessionTerminalSubscriptionFoundation(
     terminalUnsubsRef,
     subscribingHandlesRef,
     leaseOnlyHandlesRef,
+    replacedHandlesRef,
     initializedHandlesRef,
     terminalDiagnosticsRef,
     viewportResubscribeBudgetRef,
@@ -74,6 +75,7 @@ export function useMobileSessionTerminalSubscriptionFoundation(
     terminalUnsubsRef.current.clear()
     subscribingHandlesRef.current.clear()
     leaseOnlyHandlesRef.current.clear()
+    replacedHandlesRef.current.clear()
     initializedHandlesRef.current.clear()
     terminalResume.forget()
     terminalDiagnosticsRef.current.clearTerminalCache()
