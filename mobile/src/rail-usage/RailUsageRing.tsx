@@ -11,7 +11,7 @@ import { composerUsageMeterReadout } from '../composer-usage/composer-usage-mete
 import { useComposerUsageDisplay } from '../composer-usage/composer-usage-display-preference'
 import { computeUsagePace, usagePaceMarkerPercent } from '../composer-usage/usage-window-pace'
 import { MiniMaxIcon, OpenCodeGoIcon } from '../components/icons/AgentIcons'
-import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
+import { hasMobileAgentIcon, MobileAgentIcon } from '../components/icons/MobileAgentIcon'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { DUO_STATUS_GLYPH_SIZE } from '../layout/duo-status-row'
 import { colors, feedback } from '../theme/mobile-theme'
@@ -47,6 +47,19 @@ function toneColor(tone: RailUsageTone, used: number): string {
     case 'unpaced':
       return usageBandColor(used)
   }
+}
+
+const USAGE_TAB_LOGO_SIZE = 18
+
+/** A provider's logo for a tab, or undefined where it has none and the tab keeps its name. */
+export function usageProviderTabLogo(provider: UsageProviderKey): React.JSX.Element | undefined {
+  const drawn =
+    provider === 'opencodeGo' ||
+    provider === 'minimax' ||
+    hasMobileAgentIcon(RAIL_USAGE_PROVIDER_AGENT[provider])
+  return drawn ? (
+    <RailUsageProviderGlyph provider={provider} size={USAGE_TAB_LOGO_SIZE} />
+  ) : undefined
 }
 
 export function RailUsageProviderGlyph({
