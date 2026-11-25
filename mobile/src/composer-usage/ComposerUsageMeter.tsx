@@ -6,6 +6,7 @@ import {
   MESSAGE_TEXT_INSET
 } from '../components/composer-input/composer-input-styles'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
+import { useResponsiveLayout } from '../layout/responsive-layout'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
@@ -31,6 +32,7 @@ import {
 import { useComposerUsagePosition } from './composer-usage-position-preference'
 import { useComposerUsageWindow } from './composer-usage-window-preference'
 import { ComposerUsageSheet } from './ComposerUsageSheet'
+import { composerUsageWideMeterWidth } from './composer-usage-wide-meter'
 import { usagePaceColor } from './usage-pace-color'
 import { computeUsagePace } from './usage-window-pace'
 
@@ -148,13 +150,35 @@ export function ComposerUsageMeter({
       ? composerUsageMeterWidth(lengthWidth + LABEL_GAP + TRACK_MIN_WIDTH, percentWidth)
       : null
   useEffect(() => onFullWidth?.(fullWidth), [fullWidth, onFullWidth])
+  const wideWidth = composerUsageWideMeterWidth(room, useResponsiveLayout().isTabletLayout)
   if (!reading) {
     return null
   }
   const fit = composerUsageMeterFit(room, lengthWidth, percentWidth)
   return (
     <>
-      {fit.meter ? (
+      {wideWidth !== null ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={reading.accessibilityLabel}
+          hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+          onPress={() => setOpen(true)}
+          style={({ pressed }) => [
+            styles.wideMeter,
+            { width: wideWidth },
+            pressed && composerInputStyles.pressed
+          ]}
+          testID="composer-usage-meter"
+        >
+          <Text style={[styles.wideText, styles.window]} numberOfLines={1}>
+            {reading.length}
+          </Text>
+          <ComposerUsageTrack readout={reading.readout} color={reading.color} wide />
+          <Text style={[styles.wideText, styles.widePercent]} numberOfLines={1}>
+            {reading.percentLabel}
+          </Text>
+        </Pressable>
+      ) : fit.meter ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={reading.accessibilityLabel}
@@ -250,13 +274,15 @@ export function ComposerUsageStrip({
 
 function ComposerUsageTrack({
   readout,
-  color
+  color,
+  wide = false
 }: {
   readout: ComposerUsageMeterReadout
   color: string
+  wide?: boolean
 }): React.JSX.Element {
   return (
-    <View style={styles.track}>
+    <View style={[styles.track, wide && styles.wideTrack]}>
       <View style={[styles.fill, { width: `${readout.shown}%`, backgroundColor: color }]} />
     </View>
   )
@@ -340,6 +366,28 @@ const styles = themedStyleSheet(() => ({
   },
   window: {
     color: colors.textMuted
+  },
+  // One line, label · bar · percent, sized from the composer's free room on a tablet.
+  wideMeter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: 32,
+    borderRadius: radii.pill
+  },
+  wideText: {
+    fontSize: typography.bodySize,
+    lineHeight: 18,
+    color: colors.textSecondary,
+    flexShrink: 0,
+    fontVariant: ['tabular-nums']
+  },
+  widePercent: {
+    fontWeight: '600',
+    color: colors.textPrimary
+  },
+  wideTrack: {
+    height: 6
   },
   track: {
     flexGrow: 1,
