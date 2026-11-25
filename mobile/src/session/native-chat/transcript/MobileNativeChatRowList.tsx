@@ -32,6 +32,7 @@ type Props = Pick<
   /** With a header, the row below it anchors the native list's visible content. */
   hasHeader: boolean
   pinchGesture: LegacyComposedGesture
+  pinchTarget?: (node: unknown) => void
 }
 
 export function MobileNativeChatRowList(props: Props): ReactElement {

@@ -1,4 +1,5 @@
 import { writeNativeChatFontSize } from '@/components/native-chat/appearance/native-chat-font-size-write'
+import { chatWheelPinchOwnsZoom } from '@/components/native-chat/native-chat-wheel-pinch'
 import { applyUIZoom } from '@/app-shell/chrome/ui-zoom'
 import {
   computeEditorFontSize,
@@ -25,6 +26,10 @@ import {
 export function registerZoomIpcBridge(unsubs: (() => void)[]): void {
   unsubs.push(
     window.api.ui.onTerminalZoom((direction) => {
+      // The chat under the pinch already stepped its text size. A second apply would zoom the app or double-step.
+      if (chatWheelPinchOwnsZoom()) {
+        return
+      }
       const store = useAppStore.getState()
       const { activeView, activeTabType, editorFontZoomLevel, setEditorFontZoomLevel, settings } =
         store
