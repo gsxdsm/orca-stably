@@ -2401,6 +2401,7 @@
       "collapse": "Collapse"
     },
     "nativeChatFloatingControls": {
+      "previousMessage": "Previous message",
       "scrollToLatest": "Scroll to latest"
     },
     "nativeChatFullContent": {
