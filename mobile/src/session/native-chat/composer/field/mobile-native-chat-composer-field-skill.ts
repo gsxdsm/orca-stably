@@ -2,6 +2,10 @@ import type { RefObject } from 'react'
 import type { TextInputProps, TextInputInstance } from 'react-native'
 import { colors } from '../../../../theme/mobile-theme'
 import { themedStyleSheet } from '../../../../theme/themed-styles'
+import type {
+  MobileComposerImagePasteHandler,
+  MobileComposerPastedImage
+} from '../mobile-native-chat-composer-image-paste'
 
 export type MobileNativeChatComposerFieldProps = Omit<
   TextInputProps,
@@ -15,6 +19,8 @@ export type MobileNativeChatComposerFieldProps = Omit<
   // Dictation heard so far, shown between the draft's halves without becoming part of its value.
   dictationPreview?: { before: string; text: string; after: string } | null
   ref?: RefObject<TextInputInstance | null>
+  onPasteImages?: MobileComposerImagePasteHandler
+  readClipboardImage?: () => Promise<MobileComposerPastedImage | null>
 }
 
 // Use the field’s exact font so the web overlay and transparent textarea occupy identical space.
