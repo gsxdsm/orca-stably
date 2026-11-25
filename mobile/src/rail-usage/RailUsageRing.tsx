@@ -1,6 +1,5 @@
 import { Pressable, Text, View } from 'react-native'
 import Svg, { Line, Path } from 'react-native-svg'
-import { usageBandColor } from '../accounts/usage/UsageBar'
 import {
   formatUsageWindowLength,
   USAGE_PROVIDER_NAMES,
@@ -10,6 +9,7 @@ import {
 import { composerUsageMeterReadout } from '../composer-usage/composer-usage-meter-readout'
 import { useComposerUsageDisplay } from '../composer-usage/composer-usage-display-preference'
 import { computeUsagePace, usagePaceMarkerPercent } from '../composer-usage/usage-window-pace'
+import { usagePaceColor } from '../composer-usage/usage-pace-color'
 import { MiniMaxIcon, OpenCodeGoIcon } from '../components/icons/AgentIcons'
 import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
@@ -21,9 +21,7 @@ import {
   pickRailUsageWindow,
   RAIL_USAGE_PROVIDER_AGENT,
   railRingArc,
-  railRingPoint,
-  railUsageTone,
-  type RailUsageTone
+  railRingPoint
 } from './rail-usage-model'
 
 // The same ring as the iOS status glyph above it.
@@ -35,21 +33,6 @@ const GLYPH_SIZE = 13
 // The pace tick crosses the stroke and stops at the ring's edge.
 const TICK_INNER = RADIUS - STROKE / 2 - 1
 const TICK_OUTER = RADIUS + STROKE / 2
-
-function toneColor(tone: RailUsageTone, used: number): string {
-  switch (tone) {
-    case 'under':
-      return colors.statusGreen
-    case 'on-pace':
-      return colors.textPrimary
-    case 'ahead':
-      return colors.statusAmber
-    case 'over':
-      return colors.statusRed
-    case 'unpaced':
-      return usageBandColor(used)
-  }
-}
 
 export function RailUsageProviderGlyph({
   provider,
@@ -85,7 +68,7 @@ export function RailUsageRing({
     return null
   }
   const readout = composerUsageMeterReadout(entry.window.usedPercent, display)
-  const fill = toneColor(railUsageTone(computeUsagePace(entry.window, now)), readout.used)
+  const fill = usagePaceColor(computeUsagePace(entry.window, now), readout.used)
   const marker = usagePaceMarkerPercent(entry.window, now, display)
   const provider = USAGE_PROVIDER_NAMES[usage.provider]
   const vars = {

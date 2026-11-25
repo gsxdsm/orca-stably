@@ -6,7 +6,6 @@ import {
   type UsageProviderKey,
   type UsageWindowEntry
 } from '../composer-usage/agent-usage-provider'
-import type { UsagePace } from '../composer-usage/usage-window-pace'
 
 const RAIL_USAGE_PROVIDERS = Object.keys(USAGE_PROVIDER_NAMES).filter(
   (key): key is UsageProviderKey => key in USAGE_PROVIDER_NAMES
@@ -35,23 +34,11 @@ export function pickRailUsageWindow(windows: readonly UsageWindowEntry[]): Usage
   return tightest
 }
 
-export type RailUsageTone = 'under' | 'on-pace' | 'ahead' | 'over' | 'unpaced'
-
-/** Same reading as the sheet's pace line: ahead turns red once the burn would run out before reset. */
-export function railUsageTone(pace: UsagePace): RailUsageTone {
-  switch (pace.kind) {
-    case 'unknown':
-      return 'unpaced'
-    case 'exhausted':
-      return 'over'
-    case 'on-pace':
-      return 'on-pace'
-    case 'under':
-      return 'under'
-    case 'ahead':
-      return pace.runOutBeforeResetMs === null ? 'ahead' : 'over'
-  }
-}
+// The rings read pace like the composer bar and the pop-up do.
+export {
+  usagePaceTone as railUsageTone,
+  type UsagePaceTone as RailUsageTone
+} from '../composer-usage/usage-pace-color'
 
 /** Glyph for a provider: the agent icon of the CLI that spends its quota. */
 export const RAIL_USAGE_PROVIDER_AGENT: Record<UsageProviderKey, string> = {
