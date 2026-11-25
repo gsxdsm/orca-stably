@@ -3,11 +3,6 @@ import {
   type MobileNativeChatScrollNode
 } from './mobile-native-chat-reading-place'
 
-type PreviewNode = {
-  style: { transform: string; transformOrigin: string; willChange: string }
-  getBoundingClientRect: () => { top: number; left: number }
-}
-
 type Box = { top: number; bottom: number }
 type Anchor = { row: { getBoundingClientRect: () => Box }; fraction: number; pageY: number }
 
@@ -29,87 +24,68 @@ function elementAtPage(
   return { row: hit, fraction: height > 0 ? Math.min(1, Math.max(0, (y - box.top) / height)) : 0 }
 }
 
-// Web pinch preview: a compositor-only scale of the transcript, so a pinch never re-renders or relays out rows per frame.
-export type MobileNativeChatPinchPreview = {
-  /** Ref for the transcript box the preview scales; only DOM nodes (web) take part. */
+// Web pinch anchor: the text under the fingers stays put as each live text size rewraps the transcript.
+export type MobileNativeChatPinchAnchor = {
+  /** Ref for the transcript box the pinch's focal point is measured from; only DOM nodes (web) take part. */
   attach: (node: unknown) => void
-  /** The transcript's scroller, read when a pinch ends to find the row under it. */
+  /** The transcript's scroller, read before each resize to find the text under the pinch. */
   bindScroller: (scroller: (() => MobileNativeChatScrollNode | null) | null) => void
-  active: () => boolean
   begin: (focalX: number, focalY: number) => void
-  scale: (ratio: number) => void
-  /** Keep the preview up until the new size draws (`commit`), or drop it now. */
-  release: (commit: boolean) => void
-  /** Drops the preview; the returned reader says how far to scroll so the pinched point sits where it was. */
+  /** Reads the point under the pinch from the current layout; call just before a new size renders. */
+  mark: () => void
+  end: () => void
+  /** Takes the mark; the returned reader says how far to scroll so the pinched point sits where it was. */
   settle: () => (() => number) | null
 }
 
-function isPreviewNode(node: unknown): node is PreviewNode {
+type BoxNode = { getBoundingClientRect: () => { top: number; left: number } }
+
+function isBoxNode(node: unknown): node is BoxNode {
   return (
     typeof node === 'object' &&
     node !== null &&
-    'style' in node &&
     'getBoundingClientRect' in node &&
     typeof node.getBoundingClientRect === 'function'
   )
 }
 
-export function createMobileNativeChatPinchPreview(): MobileNativeChatPinchPreview {
-  let node: PreviewNode | null = null
+export function createMobileNativeChatPinchAnchor(): MobileNativeChatPinchAnchor {
+  let node: BoxNode | null = null
   let scroller: (() => MobileNativeChatScrollNode | null) | null = null
   let pageX = 0
   let pageY: number | null = null
   let anchor: Anchor | null = null
-  const clear = (): void => {
-    if (node) {
-      node.style.transform = ''
-      node.style.transformOrigin = ''
-      node.style.willChange = ''
-    }
-    pageY = null
-  }
   return {
     attach: (next) => {
-      node = isPreviewNode(next) ? next : null
+      node = isBoxNode(next) ? next : null
     },
     bindScroller: (next) => {
       scroller = next
     },
-    active: () => node !== null,
     begin: (focalX, focalY) => {
+      anchor = null
       if (!node) {
+        pageY = null
         return
       }
-      clear()
-      anchor = null
-      // The origin is the one point a scale leaves in place; read it before any transform applies.
       const box = node.getBoundingClientRect()
       pageX = box.left + focalX
       pageY = box.top + focalY
-      node.style.transformOrigin = `${focalX}px ${focalY}px`
-      node.style.willChange = 'transform'
     },
-    scale: (ratio) => {
-      if (node && pageY !== null) {
-        node.style.transform = `scale(${ratio})`
-      }
-    },
-    release: (commit) => {
+    mark: () => {
       const s = scroller?.()
-      // The origin's content is the same under any scale, so the old layout can be read with the preview still up.
       const at =
-        commit && s && pageY !== null
+        s && pageY !== null
           ? (elementAtPage(s, pageX, pageY) ?? mobileNativeChatRowAtPageY(s, pageY))
           : undefined
       anchor = at && pageY !== null ? { ...at, pageY } : null
-      if (!commit) {
-        clear()
-      }
+    },
+    end: () => {
+      pageY = null
     },
     settle: () => {
       const held = anchor
       anchor = null
-      clear()
       // A row taken out by the rewrap has no place to put back.
       if (!held || ('isConnected' in held.row && held.row.isConnected === false)) {
         return null
