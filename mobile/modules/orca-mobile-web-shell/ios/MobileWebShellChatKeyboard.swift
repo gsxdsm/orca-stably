@@ -42,14 +42,16 @@ final class MobileWebShellChatWebView: WKWebView {
 
   override init(frame: CGRect, configuration: WKWebViewConfiguration) {
     configuration.userContentController.add(keyboardReceiver, name: "orcaChatKeyboard")
-    configuration.userContentController.addUserScript(WKUserScript(
-      source: chatKeyboardPolicy, injectionTime: .atDocumentStart, forMainFrameOnly: true
-    ))
+    configuration.userContentController.addUserScript(Self.keyboardPolicyScript())
     super.init(frame: frame, configuration: configuration)
     keyboardReceiver.view = self
   }
 
   required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+  static func keyboardPolicyScript() -> WKUserScript {
+    WKUserScript(source: chatKeyboardPolicy, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+  }
 
   func resetChatKeyboard() { acceptsChatReturn = false }
 

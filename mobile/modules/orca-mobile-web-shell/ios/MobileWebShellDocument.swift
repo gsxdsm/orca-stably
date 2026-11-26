@@ -370,6 +370,7 @@ final class MobileWebShellDocument: NSObject, WKNavigationDelegate, WKUIDelegate
       controller.removeScriptMessageHandler(forName: MobileWebShellBridge.handlerName)
       controller.removeAllUserScripts()
       controller.addUserScript(Self.makeBlockerScript())
+      controller.addUserScript(MobileWebShellChatWebView.keyboardPolicyScript())
     }
     bridgeInstalled = bridgeEnabled
   }
