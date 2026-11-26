@@ -94,6 +94,9 @@ export class UsageHistoryRecorder {
       }
       this.lastReadingAt.set(provider, limits.updatedAt)
       const account = usageReadingAccountKey(limits)
+      if (!this.activeAccounts.has(provider) && account !== '') {
+        this.adoptUnattributedSeries(provider, account)
+      }
       if (this.activeAccounts.get(provider) !== account) {
         this.activeAccounts.set(provider, account)
         changed = true
@@ -138,6 +141,16 @@ export class UsageHistoryRecorder {
     clearTimeout(this.saveTimer)
     this.saveTimer = null
     return this.save()
+  }
+
+  /** A version 1 file kept no accounts: its series belong to whichever login is read first. */
+  private adoptUnattributedSeries(provider: string, account: string): void {
+    for (const [key, entry] of this.series) {
+      if (entry.provider === provider && entry.account === '') {
+        this.series.delete(key)
+        this.series.set(seriesKey(provider, account, entry.windowId), { ...entry, account })
+      }
+    }
   }
 
   /** Drops ended windows, then the stalest series past the cap, keeping active accounts first. */

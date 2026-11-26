@@ -95,7 +95,7 @@ describe('UsageHistoryRecorder', () => {
     expect(percents(reloaded)).toEqual([5])
   })
 
-  it('carries over a version 1 file as the unattributed account', async () => {
+  it('carries a version 1 file over to the first account read', async () => {
     const file = historyFile()
     const series = { resetsAt: now + 86_400_000, windowMinutes: 10080 }
     writeFileSync(
@@ -107,5 +107,7 @@ describe('UsageHistoryRecorder', () => {
     const recorder = new UsageHistoryRecorder(file)
     await recorder.loaded
     expect(percents(recorder)).toEqual([9])
+    recorder.record({ claude: limits(11, now - HOUR / 2, 'work') }, now)
+    expect(percents(recorder)).toEqual([9, 11])
   })
 })
