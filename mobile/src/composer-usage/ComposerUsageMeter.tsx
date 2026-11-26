@@ -1,6 +1,5 @@
 import { useContext, useEffect, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
-import { useSharedNow } from '../hooks/use-now'
 import {
   composerInputStyles,
   MESSAGE_TEXT_INSET
@@ -32,6 +31,7 @@ import { useComposerUsageWindow } from './composer-usage-window-preference'
 import { ComposerUsageSheet } from './ComposerUsageSheet'
 import { usagePaceColor } from './usage-pace-color'
 import { usageResetLabel } from './usage-reset-label'
+import { useResetCountdownNow } from './use-reset-countdown-now'
 import { computeUsagePace } from './usage-window-pace'
 
 type Props = {
@@ -65,8 +65,7 @@ function useComposerUsageReading(agent: string | null | undefined): Reading | nu
   const choice = useComposerUsageWindow()
   const display = useComposerUsageDisplay()
   const usage = selectAgentUsage(snapshot, usageAgent)
-  // The rail rings read the same clock, so a bar and a ring never disagree by a minute.
-  const now = useSharedNow(60_000)
+  const now = useResetCountdownNow(usage?.windows.flatMap((e) => e.window.resetsAt ?? []) ?? [])
   // A missing chosen window (no 5-hour limit on the plan) falls back to the one the provider reports.
   const entry = usage ? pickComposerUsageWindow(usage.windows, choice) : null
   if (!usage || !entry) {
