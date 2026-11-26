@@ -88,25 +88,35 @@ export function computeUsageWindowStats(
   }
 }
 
+export type UsageChartPoint = { at: number; value: number }
+
 export type UsageChartModel = {
-  /** The x-axis: the recorded history, at least six hours, ending now. */
+  /** The x-axis: the whole window, last reset to next reset, however little history there is. */
   startsAt: number
   endsAt: number
-  /** Samples inside the window, oldest first, values as the display counts them. */
-  points: { at: number; value: number }[]
+  /** Recorded runs inside the window, oldest first; a break between runs is time nothing was read. */
+  runs: UsageChartPoint[][]
+  /** The first stored reading: before it the chart shows no data, not zero. */
+  firstAt: number
   /** The even-burn line's values at `startsAt` and `endsAt`; null without a reset time. */
   pace: { from: number; to: number } | null
   now: number
 }
 
-// Two readings make a line; a lone point says nothing about the trend.
-export const MIN_CHART_SAMPLES = 2
-// Two close readings stretched edge to edge would exaggerate a small step.
-const MIN_CHART_SPAN_MS = 6 * HOUR_MS
+// The desktop polls every 15 minutes; a missed poll or two is not a gap.
+const MIN_GAP_MS = 45 * 60_000
+// The store keeps about this many points per window, so its spacing grows with the window.
+const STORED_POINTS_PER_WINDOW = 168
 
-/** The chart's domain and series, or null while history is too thin to draw. Spanning the whole
- *  window left a few hours of history as a sliver beside an empty future, so the axis zooms to
- *  the history (never less than six hours, or the window when shorter) and ends at now. */
+/** Longest spacing still drawn as one line: past it the desktop was not reading usage. */
+export function usageChartGapMs(windowMs: number, points: readonly UsageChartPoint[]): number {
+  const steps = points.slice(1).map((point, index) => point.at - (points[index]?.at ?? point.at))
+  steps.sort((a, b) => a - b)
+  const typical = steps[Math.floor(steps.length / 2)] ?? 0
+  return Math.max(MIN_GAP_MS, (2.5 * windowMs) / STORED_POINTS_PER_WINDOW, 2.5 * typical)
+}
+
+/** The chart's domain and series, or null before the first reading in this window. */
 export function buildUsageChartModel(
   window: UsagePaceWindow,
   samples: readonly UsageHistorySample[],
@@ -114,29 +124,39 @@ export function buildUsageChartModel(
   display: 'used' | 'remaining'
 ): UsageChartModel | null {
   const windowMs = window.windowMinutes * 60_000
-  const windowStart = window.resetsAt != null ? window.resetsAt - windowMs : null
+  if (windowMs <= 0) {
+    return null
+  }
+  // Without a reset time the window is the span that ends now.
+  const endsAt = window.resetsAt ?? now
+  const startsAt = endsAt - windowMs
   const shown = (used: number): number =>
     display === 'remaining' ? 100 - clampPercent(used) : clampPercent(used)
   const points = samples
-    .filter((sample) => (windowStart === null || sample.at >= windowStart) && sample.at <= now)
+    .filter((sample) => sample.at >= startsAt && sample.at <= Math.min(now, endsAt))
     .map((sample) => ({ at: sample.at, value: shown(sample.usedPercent) }))
   const first = points[0]
-  if (points.length < MIN_CHART_SAMPLES || !first) {
+  if (!first) {
     return null
   }
-  const minSpanMs = windowMs > 0 ? Math.min(windowMs, MIN_CHART_SPAN_MS) : MIN_CHART_SPAN_MS
-  const startsAt = Math.max(windowStart ?? first.at, Math.min(first.at, now - minSpanMs))
-  const endsAt = now
-  if (endsAt <= startsAt) {
-    return null
+  const gapMs = usageChartGapMs(windowMs, points)
+  const runs: UsageChartPoint[][] = []
+  let run: UsageChartPoint[] = []
+  for (const point of points) {
+    const previous = run.at(-1)
+    if (previous && point.at - previous.at > gapMs) {
+      runs.push(run)
+      run = []
+    }
+    run.push(point)
   }
-  const evenBurn = (at: number): number =>
-    windowStart === null ? 0 : shown(((at - windowStart) / windowMs) * 100)
+  runs.push(run)
   return {
     startsAt,
     endsAt,
-    points,
-    pace: windowStart !== null ? { from: evenBurn(startsAt), to: evenBurn(endsAt) } : null,
-    now
+    runs,
+    firstAt: first.at,
+    pace: window.resetsAt != null ? { from: shown(0), to: shown(100) } : null,
+    now: Math.min(Math.max(now, startsAt), endsAt)
   }
 }
