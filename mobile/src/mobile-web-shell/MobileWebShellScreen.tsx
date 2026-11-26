@@ -35,6 +35,7 @@ import { useShellPageBack } from './routing/use-shell-page-back'
 import { useShellStackPop } from './routing/use-shell-stack-pop'
 import { usePageLocationOnFold } from './page-geometry/page-location-on-fold'
 import { usePageOpenTarget } from './routing/page-open-target'
+import { useDocumentReportEpoch } from './session/use-shell-document-facts'
 import { useMobileWebShellSession } from './session/use-mobile-web-shell-session'
 import { useShellPageStorageRefresh } from './page-storage/use-shell-page-storage-refresh'
 import { useDuoChatWidthPublish } from './use-duo-chat-width-publish'
@@ -129,6 +130,7 @@ export function MobileWebShellScreen({
     reportPageBackClaim,
     reportSwapSafe,
     pageReady,
+    documentLoaded,
     pageFrame,
     backClaimed,
     ownsHostArea,
@@ -176,20 +178,30 @@ export function MobileWebShellScreen({
       !overlay &&
       routeGrants.includes(BRIDGE_TERMINAL_KEY_RAIL_GRANT)
   )
-  // What this document last reported about itself; a new document starts unknown.
-  const [pageLocation, setPageLocation] = useState<{ sessionId: string; href: string } | null>(null)
+  // What this document last reported about itself; a restarted document starts unknown.
+  const reportEpoch = useDocumentReportEpoch(documentLoaded)
+  const [pageLocation, setPageLocation] = useState<{
+    sessionId: string
+    epoch: number
+    href: string
+  } | null>(null)
   const [pageCover, setPageCover] = useState<{
     sessionId: string
+    epoch: number
     covered: boolean
     free: BridgeSideStripFree | null
   } | null>(null)
-  const currentCover = pageCover?.sessionId === readySessionId ? pageCover : null
+  const currentCover =
+    pageCover?.sessionId === readySessionId && pageCover.epoch === reportEpoch ? pageCover : null
   const stripRoom = pageSideStripRoom({
     ownsHostArea,
     routeGrants,
     covered: currentCover?.covered ?? null,
     free: currentCover?.free ?? null,
-    location: pageLocation?.sessionId === readySessionId ? pageLocation.href : null,
+    location:
+      pageLocation?.sessionId === readySessionId && pageLocation.epoch === reportEpoch
+        ? pageLocation.href
+        : null,
     keyRailClaimed: keyRail.keys.length > 0
   })
   // A chat that leaves part of the column empty shares it with the rings only when the user wants them there.
@@ -334,7 +346,7 @@ export function MobileWebShellScreen({
     onPageLocation: (href) => {
       openTarget.recordLocation(href)
       if (readySessionId !== null) {
-        setPageLocation({ sessionId: readySessionId, href })
+        setPageLocation({ sessionId: readySessionId, epoch: reportEpoch, href })
       }
       return onPageLocation === undefined
         ? holdPageLocation(href, ownsHostArea)
@@ -344,7 +356,7 @@ export function MobileWebShellScreen({
     onPageSwapSafe: reportSwapSafe,
     onSideStripCover: (covered, free) => {
       if (readySessionId !== null) {
-        setPageCover({ sessionId: readySessionId, covered, free })
+        setPageCover({ sessionId: readySessionId, epoch: reportEpoch, covered, free })
       }
     },
     onTerminalKeyRailClaim: keyRail.reportClaim,
