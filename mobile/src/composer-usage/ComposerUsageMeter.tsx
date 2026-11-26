@@ -177,7 +177,7 @@ export function ComposerUsageMeter({
           testID="composer-usage-meter"
         >
           <Text style={[styles.wideText, styles.window]} numberOfLines={1}>
-            {reading.length}
+            {wideWidth >= WIDE_FULL_RESET_LABEL_WIDTH ? reading.resetsIn : reading.resetsInCompact}
           </Text>
           <ComposerUsageTrack readout={reading.readout} color={reading.color} wide />
           <Text style={[styles.wideText, styles.widePercent]} numberOfLines={1}>
@@ -301,6 +301,8 @@ function ComposerUsageTrack({
 }
 
 const LABEL_GAP = spacing.xs
+/** Narrower wide meters show the reset's largest unit ("3d") so the bar keeps its length. */
+const WIDE_FULL_RESET_LABEL_WIDTH = 200
 const TRACK_MIN_WIDTH = 24
 
 function composerUsageMeterWidth(barLineWidth: number, percentWidth: number): number {
