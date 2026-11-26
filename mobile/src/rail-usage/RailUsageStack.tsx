@@ -1,12 +1,13 @@
-import { useState } from 'react'
-import { ScrollView, useWindowDimensions } from 'react-native'
+import { useContext, useState } from 'react'
+import { ScrollView, View, useWindowDimensions } from 'react-native'
 import type { AccountsSnapshot } from '../accounts/accounts-snapshot'
 import { BottomDrawerModalHost } from '../components/bottom-drawer/bottom-drawer-modal-host'
+import { MobileEdgeFade } from '../components/list/MobileEdgeFade'
 import type { UsageProviderKey } from '../composer-usage/agent-usage-provider'
 import { useAccountsSnapshot } from '../composer-usage/accounts-snapshot-store'
 import { ComposerUsageSheet } from '../composer-usage/ComposerUsageSheet'
 import { useResetCountdownNow } from '../composer-usage/use-reset-countdown-now'
-import { spacing } from '../theme/mobile-theme'
+import { colors, spacing } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useHostClient } from '../transport/connection/host-client-hooks'
 import { DUO_STATUS_RING_DIAMETER, duoStatusGlyphMidX } from '../layout/duo-status-row'
@@ -15,6 +16,18 @@ import { useSideRailStrip } from '../layout/side-rail'
 import type { SideRailStrip } from '../layout/side-rail-strip'
 import { listRailUsage, railRingCenter } from './rail-usage-model'
 import { RailUsageRing } from './RailUsageRing'
+import { RailBandAtStripTopContext } from './RailUsageSpan'
+import { railRingStackFit } from './rail-ring-stack-fit'
+
+/** The percent label below a ring hangs this far past its bottom edge. */
+const RING_LABEL_OVERHANG = 5
+const MIN_RING_GAP = spacing.sm
+const CUT_FADE = spacing.md
+/**
+ * The reported status column reaches this far below the Wi-Fi ring's dots (23pt folded, 26pt
+ * unfolded, iOS 27.1 simulator); a stack at the strip's top rises into it, to sit one gap under them.
+ */
+const STATUS_COLUMN_SLACK = 22
 
 /** The rings in a rail of their own (a tablet's), sized for its larger screen. */
 export const STANDALONE_RING_DIAMETER = 60
@@ -58,6 +71,22 @@ export function RailUsageStack({
   const [shown, setShown] = useState<UsageProviderKey | null>(null)
   const strip = useSideRailStrip()
   const center = useRailRingCenter(strip)
+  // The band the rail gives the stack; a chat's composer can leave less than the whole column.
+  const [room, setRoom] = useState<number | null>(null)
+  const atStripTop = useContext(RailBandAtStripTopContext)
+  // A tablet's own rail has the room it needs; only the Duo's column rises and fits.
+  const lift = !standalone && atStripTop ? STATUS_COLUMN_SLACK : 0
+  const fit = railRingStackFit({
+    count: standalone ? 0 : usages.length,
+    room,
+    ring: DUO_STATUS_RING_DIAMETER,
+    overhang: RING_LABEL_OVERHANG,
+    gap: COLUMN_GAP,
+    minGap: MIN_RING_GAP,
+    paddingTop: COLUMN_PADDING_TOP,
+    paddingBottom: COLUMN_PADDING_BOTTOM,
+    peek: CUT_FADE
+  })
   if (usages.length === 0 || (strip === null && !standalone)) {
     return null
   }
@@ -68,25 +97,44 @@ export function RailUsageStack({
   }
   return (
     <>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[
-          styles.column,
-          standalone ? styles.centered : { paddingLeft: center - DUO_STATUS_RING_DIAMETER / 2 }
-        ]}
-        showsVerticalScrollIndicator={false}
-        testID="rail-usage-stack"
+      <View
+        style={[styles.scroll, { marginTop: -lift }]}
+        onLayout={(event) => setRoom(event.nativeEvent.layout.height)}
       >
-        {usages.map((usage) => (
-          <RailUsageRing
-            key={usage.provider}
-            usage={usage}
-            now={now}
-            diameter={standalone ? STANDALONE_RING_DIAMETER : undefined}
-            onPress={() => open(usage.provider)}
-          />
-        ))}
-      </ScrollView>
+        <ScrollView
+          style={fit.height === null ? styles.scroll : { flexGrow: 0, height: fit.height }}
+          contentContainerStyle={[
+            styles.column,
+            standalone
+              ? styles.centered
+              : {
+                  paddingLeft: center - DUO_STATUS_RING_DIAMETER / 2,
+                  gap: fit.gap,
+                  paddingBottom: fit.paddingBottom
+                }
+          ]}
+          showsVerticalScrollIndicator={false}
+          // Shown in part, the stack rests on whole rings.
+          snapToInterval={fit.height === null ? undefined : fit.pitch}
+          decelerationRate={fit.height === null ? undefined : 'fast'}
+          testID="rail-usage-stack"
+        >
+          {usages.map((usage) => (
+            <RailUsageRing
+              key={usage.provider}
+              usage={usage}
+              now={now}
+              diameter={standalone ? STANDALONE_RING_DIAMETER : undefined}
+              onPress={() => open(usage.provider)}
+            />
+          ))}
+        </ScrollView>
+        {fit.height === null ? null : (
+          <View style={[styles.cut, { top: fit.height - CUT_FADE }]} pointerEvents="none">
+            <MobileEdgeFade edge="bottom" size={CUT_FADE} color={colors.bgBase} />
+          </View>
+        )}
+      </View>
       <BottomDrawerModalHost>
         <ComposerUsageSheet
           visible={selected !== null}
@@ -100,6 +148,10 @@ export function RailUsageStack({
   )
 }
 
+const COLUMN_GAP = spacing.md
+const COLUMN_PADDING_TOP = spacing.md
+const COLUMN_PADDING_BOTTOM = spacing.lg
+
 const styles = themedStyleSheet(() => ({
   scroll: {
     flex: 1
@@ -107,12 +159,18 @@ const styles = themedStyleSheet(() => ({
   // Every ring starts at the same inset, so all share the status glyph's axis; the padding is set inline.
   column: {
     alignItems: 'flex-start',
-    gap: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg
+    gap: COLUMN_GAP,
+    paddingTop: COLUMN_PADDING_TOP,
+    paddingBottom: COLUMN_PADDING_BOTTOM
   },
   centered: {
     alignItems: 'center',
     gap: spacing.lg
+  },
+  cut: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: CUT_FADE
   }
 }))

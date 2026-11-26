@@ -142,11 +142,12 @@ export function duoRailJumpFrames(
 
 /** The span of the column a collapsed chat leaves empty: below Back, above the jump arrows' slot. */
 export function duoRailFreeBand(
-  args: DuoStatusRowArgs & { composerTop: number }
+  args: DuoStatusRowArgs & { composerTop: number; backShown: boolean }
 ): { top: number; bottom: number } | null {
   const back = duoRailBackFrame(args)
   const gap = spacing.sm
-  const top = back.top + back.size + gap
+  // With no rail Back the band starts at the window top, and the shell places it under the status glyph.
+  const top = args.backShown ? back.top + back.size + gap : 0
   // Reserved even while the arrows are hidden, so the band doesn't jump as they come and go.
   const bottom = args.composerTop - 3 * gap - 2 * back.size
   return bottom > top ? { top, bottom } : null
