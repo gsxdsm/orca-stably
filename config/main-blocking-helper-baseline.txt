@@ -54,7 +54,6 @@
 15 src/main/ai-vault/scanners/hermes/session-scanner-hermes-sqlite.ts
 1 src/main/ai-vault/scanners/omp/omp-session-root.ts
 2 src/main/ai-vault/scanners/opencode/reader-transport/opencode-wsl-runtime-preparation.ts
-17 src/main/ai-vault/scanners/opencode/reader-transport/session-scanner-opencode-sqlite-dispatch.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/ai-vault/scanners/opencode/reader-transport/session-scanner-opencode-sqlite-process-entry.ts
 5 src/main/ai-vault/scanners/opencode/reader-transport/session-scanner-opencode-sqlite-worker-spawn.ts
 2 src/main/ai-vault/scanners/opencode/reader-transport/session-scanner-opencode-wsl-client.ts
@@ -809,15 +808,12 @@
 3 src/main/native-chat/transcript-filesystem/process/wsl-transcript-fs-process-dispatch.ts
 1 src/main/native-chat/transcript-filesystem/process/wsl-transcript-fs-process-spawn.ts
 2 src/main/native-chat/transcript-filesystem/wsl-transcript-fs-access.ts
-6 src/main/native-chat/transcript-hermes-sqlite.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/native-chat/transcript-hermes.ts # fork-only (gsxdsm/orca), not for upstream
 2 src/main/native-chat/transcript-history/codex/codex-rollout-history-source.ts
 7 src/main/native-chat/transcript-history/hermes/transcript-hermes-sqlite.ts
 3 src/main/native-chat/transcript-history/opencode/transcript-opencode-database.ts
 7 src/main/native-chat/transcript-history/opencode/transcript-opencode-sqlite-query.ts
 2 src/main/native-chat/transcript-history/opencode/transcript-opencode.ts
-2 src/main/native-chat/transcript-history/opencode/transcript-opencode2-fork-coverage.ts
-2 src/main/native-chat/transcript-history/opencode/transcript-opencode2-sqlite.ts
 2 src/main/native-chat/transcript-live-tail.ts # fork-only (gsxdsm/orca), not for upstream
 2 src/main/native-chat/transcript-read-cache.ts # fork-only (gsxdsm/orca), not for upstream
 5 src/main/native-chat/transcript-reader.ts # fork-only (gsxdsm/orca), not for upstream
