@@ -16,6 +16,9 @@ import type { SideRailStrip } from '../layout/side-rail-strip'
 import { listRailUsage, railRingCenter } from './rail-usage-model'
 import { RailUsageRing } from './RailUsageRing'
 
+/** The rings in a rail of their own (a tablet's), sized for its larger screen. */
+export const STANDALONE_RING_DIAMETER = 60
+
 /** The host's usage rings for the Duo side rail; empty until it reports a provider. */
 export function HostRailUsageStack({ hostId }: { hostId: string }): React.JSX.Element | null {
   const { client } = useHostClient(hostId)
@@ -76,6 +79,7 @@ export function RailUsageStack({
             key={usage.provider}
             usage={usage}
             now={now}
+            diameter={standalone ? STANDALONE_RING_DIAMETER : undefined}
             onPress={() => open(usage.provider)}
           />
         ))}
@@ -105,6 +109,7 @@ const styles = themedStyleSheet(() => ({
     paddingBottom: spacing.lg
   },
   centered: {
-    alignItems: 'center'
+    alignItems: 'center',
+    gap: spacing.lg
   }
 }))

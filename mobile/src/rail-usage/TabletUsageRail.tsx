@@ -6,7 +6,6 @@ import type { AccountsSnapshot } from '../accounts/accounts-snapshot'
 import { useAccountsSnapshot } from '../composer-usage/accounts-snapshot-store'
 import { composerInputStyles } from '../components/composer-input/composer-input-styles'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { DUO_STATUS_RING_DIAMETER } from '../layout/duo-status-row'
 import { useReservedRegions } from '../layout/reserved-regions'
 import { useResponsiveLayout } from '../layout/responsive-layout'
 import { useSideRailStrip } from '../layout/side-rail'
@@ -15,14 +14,14 @@ import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useHostClient } from '../transport/connection/host-client-hooks'
 import { listRailUsage } from './rail-usage-model'
-import { RailUsageStack } from './RailUsageStack'
+import { RailUsageStack, STANDALONE_RING_DIAMETER } from './RailUsageStack'
 import {
   setTabletUsageRailExpanded,
   useTabletUsageRailExpanded
 } from './tablet-usage-rail-preference'
 
 // Room for a ring and the percent label that overhangs its sides.
-const EXPANDED_WIDTH = DUO_STATUS_RING_DIAMETER + spacing.lg * 2
+const EXPANDED_WIDTH = STANDALONE_RING_DIAMETER + spacing.md * 2
 const COLLAPSED_WIDTH = 44
 
 export type TabletUsageRailState = {
