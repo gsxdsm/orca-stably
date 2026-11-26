@@ -1,6 +1,5 @@
 import { useContext, useEffect, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
-import { useNow } from '../hooks/use-now'
 import {
   composerInputStyles,
   MESSAGE_TEXT_INSET
@@ -33,6 +32,8 @@ import { useComposerUsageWindow } from './composer-usage-window-preference'
 import { ComposerUsageSheet } from './ComposerUsageSheet'
 import { composerUsageWideMeterWidth } from './composer-usage-wide-meter'
 import { usagePaceColor } from './usage-pace-color'
+import { usageResetLabel } from './usage-reset-label'
+import { useResetCountdownNow } from './use-reset-countdown-now'
 import { computeUsagePace } from './usage-window-pace'
 
 type Props = {
@@ -48,6 +49,9 @@ type Reading = {
   /** The bar's fill, by pace like the rail rings and the pop-up. */
   color: string
   length: string
+  /** Time left until reset ("3d 2h"), and its largest unit alone ("3d") for a tight row. */
+  resetsIn: string
+  resetsInCompact: string
   provider: string
   percentLabel: string
   accessibilityLabel: string
@@ -64,7 +68,7 @@ function useComposerUsageReading(agent: string | null | undefined): Reading | nu
   const choice = useComposerUsageWindow()
   const display = useComposerUsageDisplay()
   const usage = selectAgentUsage(snapshot, usageAgent)
-  const now = useNow(60_000)
+  const now = useResetCountdownNow(usage?.windows.flatMap((e) => e.window.resetsAt ?? []) ?? [])
   // A missing chosen window (no 5-hour limit on the plan) falls back to the one the provider reports.
   const entry = usage ? pickComposerUsageWindow(usage.windows, choice) : null
   if (!snapshot || !usage || !entry) {
@@ -81,6 +85,8 @@ function useComposerUsageReading(agent: string | null | undefined): Reading | nu
     readout,
     color: usagePaceColor(computeUsagePace(entry.window, now), readout.used),
     length,
+    resetsIn: usageResetLabel(entry.window, now),
+    resetsInCompact: usageResetLabel(entry.window, now, 'compact'),
     provider,
     percentLabel: remaining
       ? t('composerUsage.meter.left', '{{percent}}% left', { percent: readout.shown })
@@ -127,14 +133,14 @@ export function ComposerUsageSlot({ agent, spanSideStrip }: Props): React.JSX.El
   )
 }
 
-/** Window label and percent over a full-width bar: narrow enough to leave the model pill its name. */
+/** Time-to-reset label and percent over a full-width bar: narrow enough to leave the model pill its name. */
 export function ComposerUsageMeter({
   agent,
   spanSideStrip = false,
   room = null,
   onFullWidth
 }: Props & {
-  /** The slot's width: short of the full meter, the window label and then the meter drop. */
+  /** The slot's width: short of the full meter, the reset label shortens, then it and the meter drop. */
   room?: number | null
   onFullWidth?: (width: number | null) => void
 }): React.JSX.Element | null {
@@ -142,18 +148,19 @@ export function ComposerUsageMeter({
   const reading = useComposerUsageReading(agent)
   const [open, setOpen] = useState(false)
   // The labels' own widths, measured off the row, so a dropped label still reports its need.
-  const [lengthWidth, setLengthWidth] = useState<number | null>(null)
+  const [resetWidth, setResetWidth] = useState<number | null>(null)
+  const [compactWidth, setCompactWidth] = useState<number | null>(null)
   const [percentWidth, setPercentWidth] = useState<number | null>(null)
   const fullWidth =
-    reading && lengthWidth !== null && percentWidth !== null
-      ? composerUsageMeterWidth(lengthWidth + LABEL_GAP + TRACK_MIN_WIDTH, percentWidth)
+    reading && resetWidth !== null && percentWidth !== null
+      ? composerUsageMeterWidth(resetWidth + LABEL_GAP + TRACK_MIN_WIDTH, percentWidth)
       : null
   useEffect(() => onFullWidth?.(fullWidth), [fullWidth, onFullWidth])
   const wideWidth = composerUsageWideMeterWidth(room)
   if (!reading) {
     return null
   }
-  const fit = composerUsageMeterFit(room, lengthWidth, percentWidth)
+  const fit = composerUsageMeterFit(room, resetWidth, compactWidth, percentWidth)
   return (
     <>
       {wideWidth !== null ? (
@@ -190,9 +197,9 @@ export function ComposerUsageMeter({
             {reading.percentLabel}
           </Text>
           <View style={styles.barLine}>
-            {fit.length ? (
+            {fit.label ? (
               <Text style={[styles.text, styles.window]} numberOfLines={1}>
-                {reading.length}
+                {fit.label === 'full' ? reading.resetsIn : reading.resetsInCompact}
               </Text>
             ) : null}
             <ComposerUsageTrack readout={reading.readout} color={reading.color} />
@@ -208,9 +215,15 @@ export function ComposerUsageMeter({
       >
         <Text
           style={styles.text}
-          onLayout={(event) => setLengthWidth(event.nativeEvent.layout.width)}
+          onLayout={(event) => setResetWidth(event.nativeEvent.layout.width)}
         >
-          {reading.length}
+          {reading.resetsIn}
+        </Text>
+        <Text
+          style={styles.text}
+          onLayout={(event) => setCompactWidth(event.nativeEvent.layout.width)}
+        >
+          {reading.resetsInCompact}
         </Text>
         <Text
           style={styles.text}
@@ -253,7 +266,7 @@ export function ComposerUsageStrip({
         testID="composer-usage-strip"
       >
         <Text style={[styles.text, styles.window]} numberOfLines={1}>
-          {`${reading.provider} · ${reading.length}`}
+          {`${reading.provider} · ${reading.resetsIn}`}
         </Text>
         <ComposerUsageTrack readout={reading.readout} color={reading.color} />
         <Text style={styles.text} numberOfLines={1}>
@@ -297,16 +310,18 @@ function composerUsageMeterWidth(barLineWidth: number, percentWidth: number): nu
 /** What fits in `room`; everything shows until it is measured. */
 function composerUsageMeterFit(
   room: number | null,
-  lengthWidth: number | null,
+  resetWidth: number | null,
+  compactWidth: number | null,
   percentWidth: number | null
-): { meter: boolean; length: boolean } {
-  if (room === null || lengthWidth === null || percentWidth === null) {
-    return { meter: true, length: true }
+): { meter: boolean; label: 'full' | 'compact' | null } {
+  if (room === null || resetWidth === null || compactWidth === null || percentWidth === null) {
+    return { meter: true, label: 'full' }
   }
-  const bare = composerUsageMeterWidth(TRACK_MIN_WIDTH, percentWidth)
+  const needs = (labelWidth: number): number =>
+    composerUsageMeterWidth(labelWidth + LABEL_GAP + TRACK_MIN_WIDTH, percentWidth)
   return {
-    meter: room >= bare,
-    length: room >= composerUsageMeterWidth(lengthWidth + LABEL_GAP + TRACK_MIN_WIDTH, percentWidth)
+    meter: room >= composerUsageMeterWidth(TRACK_MIN_WIDTH, percentWidth),
+    label: room >= needs(resetWidth) ? 'full' : room >= needs(compactWidth) ? 'compact' : null
   }
 }
 
@@ -348,10 +363,10 @@ const styles = themedStyleSheet(() => ({
     marginBottom: spacing.xs,
     borderRadius: radii.pill
   },
-  // Zero-size and clipped: its labels lay out at their own width without showing or taking room.
+  // Zero-height and clipped, but wide, so a two-word label measures on one line without showing.
   measure: {
     position: 'absolute',
-    width: 0,
+    width: 1000,
     height: 0,
     overflow: 'hidden',
     flexDirection: 'row'

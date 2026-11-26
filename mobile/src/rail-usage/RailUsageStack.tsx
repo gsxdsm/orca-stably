@@ -5,7 +5,7 @@ import { BottomDrawerModalHost } from '../components/bottom-drawer/bottom-drawer
 import type { UsageProviderKey } from '../composer-usage/agent-usage-provider'
 import { useAccountsSnapshot } from '../composer-usage/accounts-snapshot-store'
 import { ComposerUsageSheet } from '../composer-usage/ComposerUsageSheet'
-import { useNow } from '../hooks/use-now'
+import { useResetCountdownNow } from '../composer-usage/use-reset-countdown-now'
 import { spacing } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useHostClient } from '../transport/connection/host-client-hooks'
@@ -49,7 +49,10 @@ export function RailUsageStack({
   standalone?: boolean
 }): React.JSX.Element | null {
   const usages = listRailUsage(snapshot)
-  const now = useNow(60_000)
+  // Ticks at each ring's next label change, like the composer bar, so the two flip together.
+  const now = useResetCountdownNow(
+    usages.flatMap((usage) => usage.windows.flatMap((entry) => entry.window.resetsAt ?? []))
+  )
   const [selected, setSelected] = useState<UsageProviderKey | null>(null)
   // Kept after close so the sheet slides out still showing what it showed.
   const [shown, setShown] = useState<UsageProviderKey | null>(null)
