@@ -12,6 +12,7 @@ import { MobileSessionCommandDock } from './MobileSessionCommandDock'
 import {
   sideStripMargin,
   sideStripPadding,
+  SideStripReservedByRowProvider,
   useSessionSideStripInset
 } from './session-side-strip-inset'
 import { MobileDictationLiveContext } from '../dictation/mobile-dictation-live-context'
@@ -37,46 +38,48 @@ export function MobileSessionContentRow({ controller }: { controller: MobileSess
   const dictationLive = useMobileDictationLive(dictation, cancelDictation, hostId)
   const strip = useSessionSideStripInset(canDockPanel && activePanel !== null)
   return (
-    <View
-      style={[styles.sessionContentRow, sideStripPadding(strip.row)]}
-      onLayout={handleSessionContentRowLayout}
-    >
-      <View style={styles.sessionContentMain}>
-        {createWarning ? (
-          <View style={[styles.createWarningBanner, sideStripMargin(strip.main)]}>
-            <AlertTriangle size={16} color={colors.statusAmber} strokeWidth={2.2} />
-            <Text style={styles.createWarningText}>{createWarning}</Text>
-            <Pressable
-              style={({ pressed }) => [styles.createWarningDismiss, pressed && pressedStyle]}
-              onPress={() => setCreateWarningState(dismissMobileSessionCreateWarningState)}
-              accessibilityLabel={t(
-                'session.contentRow.dismissCreationWarning',
-                'Dismiss workspace creation warning'
-              )}
-              hitSlop={8}
-            >
-              <X size={16} color={colors.textMuted} strokeWidth={2.2} />
-            </Pressable>
-          </View>
-        ) : null}
-        <MobileDictationLiveContext.Provider value={dictationLive}>
-          <MobileSessionActiveContent controller={controller} />
-          {/* Why: translate instead of resize so keyboard toggles don't trigger a server-side PTY viewport change. */}
-          <View style={sideStripMargin(strip.main)}>
-            <MobileSessionCommandDock controller={controller} />
-          </View>
-        </MobileDictationLiveContext.Provider>
+    <SideStripReservedByRowProvider value={strip.row !== null}>
+      <View
+        style={[styles.sessionContentRow, sideStripPadding(strip.row)]}
+        onLayout={handleSessionContentRowLayout}
+      >
+        <View style={styles.sessionContentMain}>
+          {createWarning ? (
+            <View style={[styles.createWarningBanner, sideStripMargin(strip.main)]}>
+              <AlertTriangle size={16} color={colors.statusAmber} strokeWidth={2.2} />
+              <Text style={styles.createWarningText}>{createWarning}</Text>
+              <Pressable
+                style={({ pressed }) => [styles.createWarningDismiss, pressed && pressedStyle]}
+                onPress={() => setCreateWarningState(dismissMobileSessionCreateWarningState)}
+                accessibilityLabel={t(
+                  'session.contentRow.dismissCreationWarning',
+                  'Dismiss workspace creation warning'
+                )}
+                hitSlop={8}
+              >
+                <X size={16} color={colors.textMuted} strokeWidth={2.2} />
+              </Pressable>
+            </View>
+          ) : null}
+          <MobileDictationLiveContext.Provider value={dictationLive}>
+            <MobileSessionActiveContent controller={controller} />
+            {/* Why: translate instead of resize so keyboard toggles don't trigger a server-side PTY viewport change. */}
+            <View style={sideStripMargin(strip.main)}>
+              <MobileSessionCommandDock controller={controller} />
+            </View>
+          </MobileDictationLiveContext.Provider>
+        </View>
+        {canDockPanel && activePanel !== null && (
+          <SessionDockColumn
+            activePanel={activePanel}
+            hostId={hostId}
+            worktreeId={worktreeId}
+            name={worktreeName || ''}
+            availableWidth={sessionContentRowWidth}
+            onRequestClose={() => setActivePanel(null)}
+          />
+        )}
       </View>
-      {canDockPanel && activePanel !== null && (
-        <SessionDockColumn
-          activePanel={activePanel}
-          hostId={hostId}
-          worktreeId={worktreeId}
-          name={worktreeName || ''}
-          availableWidth={sessionContentRowWidth}
-          onRequestClose={() => setActivePanel(null)}
-        />
-      )}
-    </View>
+    </SideStripReservedByRowProvider>
   )
 }
