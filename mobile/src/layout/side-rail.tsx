@@ -11,7 +11,6 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useReservedRegions } from './reserved-regions'
 import { useKeyboardOcclusion } from '../platform/keyboard/keyboard-occlusion'
-import { railDebug } from '../rail-usage/rail-debug-log'
 import {
   getSideRailStrip,
   hasTerminalDirectionPadSpace,
@@ -41,19 +40,11 @@ function createRailStore() {
       }
     },
     show: (owner: SideRailOwner, node: ReactNode) => {
-      railDebug('rail-show', {
-        owner: owner.description,
-        replaced: content?.owner.description ?? null
-      })
       content = { owner, node }
       notify()
     },
     // Only the screen that showed it takes it down, so a screen leaving never hides its successor's.
     hide: (owner: SideRailOwner) => {
-      railDebug('rail-hide', {
-        owner: owner.description,
-        held: content?.owner.description ?? null
-      })
       if (content?.owner === owner) {
         content = null
         notify()
@@ -136,13 +127,11 @@ export function useSideRailDirectionPadAvailable(): boolean {
   return useContext(SideRailContext)?.directionPadAvailable ?? false
 }
 
-let debugOwnerCount = 0
-
 /** Draws `node` in the side strip while this screen is mounted; null draws nothing. */
 export function useSideRailContent(node: ReactNode | null): void {
   // The store outlives strip changes, which replace the context value; re-registering on them would flash the rail.
   const store = useContext(SideRailContext)?.store
-  const [owner] = useState(() => Symbol(`side-rail-owner-${++debugOwnerCount}`))
+  const [owner] = useState(() => Symbol('side-rail-owner'))
   useEffect(() => {
     if (!store || node === null) {
       return
