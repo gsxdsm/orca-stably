@@ -333,10 +333,10 @@ const styles = themedStyleSheet(() => ({
     marginBottom: spacing.xs,
     borderRadius: radii.pill
   },
-  // Zero-size and clipped: its labels lay out at their own width without showing or taking room.
+  // Zero-height and clipped, but wide, so a two-word label measures on one line without showing.
   measure: {
     position: 'absolute',
-    width: 0,
+    width: 1000,
     height: 0,
     overflow: 'hidden',
     flexDirection: 'row'
