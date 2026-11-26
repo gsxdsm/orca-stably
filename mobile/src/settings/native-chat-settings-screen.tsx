@@ -16,6 +16,10 @@ import {
   type NativeChatFont
 } from '../session/native-chat/preferences/native-chat-text-settings'
 import { useMobileDefaultSessionViewPreference } from '../session/use-mobile-default-session-view-preference'
+import {
+  setChatHardwareEnterToSend,
+  useChatHardwareEnterToSend
+} from '../session/native-chat/preferences/mobile-chat-keyboard-settings'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import {
   nativeChatLineSpacingSegments,
@@ -61,6 +65,11 @@ export default function NativeChatSettingsScreen({ onBack }: { onBack?: () => vo
 
   const { defaultView, setDefaultView } = useMobileDefaultSessionViewPreference()
   const chatDefault = defaultView === 'chat'
+  const enterToSend = useChatHardwareEnterToSend()
+  const enterLabel = t(
+    'settings.nativeChatSettingsScreen.hardwareEnterToSend',
+    'Enter to send (hardware keyboard)'
+  )
   const label = t('settings.nativeChatSettingsScreen.openInChatUi', 'Open sessions in Chat UI')
 
   // The slider's gesture needs a root here, as Terminal settings has.
@@ -147,6 +156,26 @@ export default function NativeChatSettingsScreen({ onBack }: { onBack?: () => vo
                 accessibilityLabel={label}
                 value={chatDefault}
                 onValueChange={(next) => setDefaultView(next ? 'chat' : 'terminal')}
+              />
+            }
+          />
+        </SettingsSection>
+
+        <SettingsSection
+          title={t('settings.nativeChatSettingsScreen.composerHeading', 'COMPOSER')}
+          footer={t(
+            'settings.nativeChatSettingsScreen.hardwareEnterDescription',
+            'Return sends a chat message; Shift+Return adds a new line. The on-screen keyboard always adds a new line. Terminal keys are unchanged.'
+          )}
+        >
+          <ListRow
+            key="hardwareEnter"
+            title={enterLabel}
+            accessory={
+              <MobileSwitch
+                accessibilityLabel={enterLabel}
+                value={enterToSend}
+                onValueChange={(next) => void setChatHardwareEnterToSend(next)}
               />
             }
           />

@@ -76,6 +76,9 @@
       "defaultViewHeading": "DEFAULT VIEW",
       "defaultViewDescription": "Choose how supported agent sessions (Claude, Codex, and other chat-capable agents) open on this device. Terminal shows the raw CLI; Chat UI shows a chat interface like the desktop app. You can still switch any individual session from its long-press menu.",
       "openInChatUi": "Open sessions in Chat UI",
+      "composerHeading": "COMPOSER",
+      "hardwareEnterToSend": "Enter to send (hardware keyboard)",
+      "hardwareEnterDescription": "Return sends a chat message; Shift+Return adds a new line. The on-screen keyboard always adds a new line. Terminal keys are unchanged.",
       "on": "On",
       "off": "Off"
     },

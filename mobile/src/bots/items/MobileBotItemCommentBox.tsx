@@ -285,6 +285,7 @@ export function MobileBotItemCommentBox({
             ref={input}
             value={menu.display.text}
             skillToken={menu.skillToken}
+            dictating={micActive || mic?.micStarting || mic?.micProcessing}
             dictationPreview={shownDictationPreview(dictation.preview)}
             onChangeText={menu.onFieldChange}
             onFocus={() => focusMobileNativeChatTextDestination(scope)}
