@@ -1,4 +1,4 @@
-import { useContext, useState } from 'react'
+import { useState } from 'react'
 import { ScrollView, View, useWindowDimensions } from 'react-native'
 import type { AccountsSnapshot } from '../accounts/accounts-snapshot'
 import { BottomDrawerModalHost } from '../components/bottom-drawer/bottom-drawer-modal-host'
@@ -16,18 +16,12 @@ import { useSideRailStrip } from '../layout/side-rail'
 import type { SideRailStrip } from '../layout/side-rail-strip'
 import { listRailUsage, railRingCenter } from './rail-usage-model'
 import { RailUsageRing } from './RailUsageRing'
-import { RailBandAtStripTopContext } from './RailUsageSpan'
 import { railRingStackFit } from './rail-ring-stack-fit'
 
-/** The percent label below a ring hangs this far past its bottom edge. */
+/** The percent label below a ring hangs this far past its bottom edge (4.25pt, rounded up). */
 const RING_LABEL_OVERHANG = 5
 const MIN_RING_GAP = spacing.sm
 const CUT_FADE = spacing.md
-/**
- * The reported status column reaches this far below the Wi-Fi ring's dots (23pt folded, 26pt
- * unfolded, iOS 27.1 simulator); a stack at the strip's top rises into it, to sit one gap under them.
- */
-const STATUS_COLUMN_SLACK = 22
 
 /** The rings in a rail of their own (a tablet's), sized for its larger screen. */
 export const STANDALONE_RING_DIAMETER = 60
@@ -73,9 +67,6 @@ export function RailUsageStack({
   const center = useRailRingCenter(strip)
   // The band the rail gives the stack; a chat's composer can leave less than the whole column.
   const [room, setRoom] = useState<number | null>(null)
-  const atStripTop = useContext(RailBandAtStripTopContext)
-  // A tablet's own rail has the room it needs; only the Duo's column rises and fits.
-  const lift = !standalone && atStripTop ? STATUS_COLUMN_SLACK : 0
   const fit = railRingStackFit({
     count: standalone ? 0 : usages.length,
     room,
@@ -97,10 +88,7 @@ export function RailUsageStack({
   }
   return (
     <>
-      <View
-        style={[styles.scroll, { marginTop: -lift }]}
-        onLayout={(event) => setRoom(event.nativeEvent.layout.height)}
-      >
+      <View style={styles.scroll} onLayout={(event) => setRoom(event.nativeEvent.layout.height)}>
         <ScrollView
           style={fit.height === null ? styles.scroll : { flexGrow: 0, height: fit.height }}
           contentContainerStyle={[
@@ -156,6 +144,8 @@ const styles = themedStyleSheet(() => ({
   scroll: {
     flex: 1
   },
+  // The strip starts at the status column's reported bottom, not the Wi-Fi dots: a Focus icon above
+  // the clock pushes them into the column's slack. So the first ring clears whatever the column draws.
   // Every ring starts at the same inset, so all share the status glyph's axis; the padding is set inline.
   column: {
     alignItems: 'flex-start',

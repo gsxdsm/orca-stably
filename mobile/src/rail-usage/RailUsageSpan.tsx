@@ -1,4 +1,4 @@
-import { createContext, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { View, useWindowDimensions } from 'react-native'
 import { DUO_STATUS_RING_DIAMETER } from '../layout/duo-status-row'
 import { useSideRailStrip } from '../layout/side-rail'
@@ -7,9 +7,6 @@ import { spacing } from '../theme/mobile-theme'
 
 /** A ring and its percent below it; a span shorter than this holds no ring. */
 const MIN_SPAN_HEIGHT = DUO_STATUS_RING_DIAMETER + spacing.md + spacing.sm
-
-/** Whether the rail content starts at the strip's own top, right under the status glyph's column. */
-export const RailBandAtStripTopContext = createContext(true)
 
 /** Confines rail content to one span of the strip, in window points, while a chat uses the rest. */
 export function RailUsageSpan({
@@ -39,9 +36,7 @@ export function RailUsageSpan({
         height: bottom - top
       }}
     >
-      <RailBandAtStripTopContext.Provider value={top <= strip.top}>
-        {children}
-      </RailBandAtStripTopContext.Provider>
+      {children}
     </View>
   )
 }
