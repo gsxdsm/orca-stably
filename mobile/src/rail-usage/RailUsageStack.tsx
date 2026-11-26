@@ -31,10 +31,10 @@ const CUT_FADE = spacing.md
 const STATUS_COLUMN_SLACK_FOLDED = 23
 const STATUS_COLUMN_SLACK_UNFOLDED = 26
 /**
- * Kept below the dots on top of the column gap: a Focus icon above the clock pushes the dots ~10pt
- * into the slack, and the first ring must still clear them by 8pt.
+ * Kept below the dots on top of the column gap: a Focus icon above the clock pushes the
+ * dots ~10pt into the slack, leaving the same gap as between rings.
  */
-const FOCUS_ROW_MARGIN = 6
+const FOCUS_ROW_MARGIN = 13
 
 /** The host's usage rings for the Duo side rail; empty until it reports a provider. */
 export function HostRailUsageStack({ hostId }: { hostId: string }): React.JSX.Element | null {
