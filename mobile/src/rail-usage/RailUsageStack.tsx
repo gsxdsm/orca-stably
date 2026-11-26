@@ -6,7 +6,7 @@ import { MobileSegmentedControl } from '../components/controls/MobileSegmentedCo
 import { USAGE_PROVIDER_NAMES, type UsageProviderKey } from '../composer-usage/agent-usage-provider'
 import { useAccountsSnapshot } from '../composer-usage/accounts-snapshot-store'
 import { ComposerUsageSheet } from '../composer-usage/ComposerUsageSheet'
-import { useSharedNow } from '../hooks/use-now'
+import { useResetCountdownNow } from '../composer-usage/use-reset-countdown-now'
 import { spacing } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useHostClient } from '../transport/connection/host-client-hooks'
@@ -44,8 +44,10 @@ export function RailUsageStack({
   snapshot: AccountsSnapshot | null
 }): React.JSX.Element | null {
   const usages = listRailUsage(snapshot)
-  // The composer bar reads the same clock, so a ring and the bar never disagree by a minute.
-  const now = useSharedNow(60_000)
+  // Ticks at each ring's next label change, like the composer bar, so the two flip together.
+  const now = useResetCountdownNow(
+    usages.flatMap((usage) => usage.windows.flatMap((entry) => entry.window.resetsAt ?? []))
+  )
   const [selected, setSelected] = useState<UsageProviderKey | null>(null)
   // Kept after close so the sheet slides out still showing what it showed.
   const [shown, setShown] = useState<UsageProviderKey | null>(null)
