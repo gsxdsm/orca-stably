@@ -1,3 +1,4 @@
+import { acpCatalogModels } from '../options/acp-catalog-models'
 import { retryAcpRequest } from '../protocol/acp-request-retry'
 import { observeAcpForkSupport } from '../capabilities/acp-fork-support'
 import {
@@ -89,7 +90,7 @@ export async function readSessionModels(
   }
   const options = new AcpStructuredOptions(spec.dialect)
   options.adoptSession(started.response, 'new')
-  let models = [...options.read().models]
+  let models = acpCatalogModels(spec.dialect, options)
   const attemptedModels: string[] = []
   const partial = () => {
     stopped = true

@@ -1,3 +1,4 @@
+import type { AgentSessionModelOption } from '../../../shared/agent-session/options/model-catalog/agent-session-model-option'
 import type { AgentSessionAccountKind } from '../../../shared/agent-session/failures/agent-session-availability'
 import type { AgentSessionContextUsage } from '../../../shared/agent-session/conversation-context/agent-session-context-usage'
 import type { AgentSessionUsageLimit } from '../../../shared/agent-session/failures/agent-session-usage-limit'
@@ -245,6 +246,8 @@ export type AcpDialect = {
   compactionUpdate?(update: SessionUpdate): CompactionUpdate | undefined
   /** The agent's own command for /compact. */
   compactCommand?: string
+  /** The account's models from a session's listing, adding ones its CLI takes only at launch. */
+  catalogModels?(listed: readonly AgentSessionModelOption[]): AgentSessionModelOption[]
   /** Orca's catalog ids (the agent CLI's) its chat server names differently, as the server's ids. */
   chatModelIds?: ReadonlyMap<string, string>
   /** Resolves a CLI model id the chat server does not list to a listed model plus its effort,
