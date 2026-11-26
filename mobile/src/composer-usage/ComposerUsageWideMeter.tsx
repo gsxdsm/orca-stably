@@ -17,6 +17,7 @@ export function ComposerUsageWideMeter({
   percentLabel,
   readout,
   color,
+  paceMarkerPercent,
   onPress
 }: {
   layout: { width: number; label: 'full' | 'compact' }
@@ -26,6 +27,7 @@ export function ComposerUsageWideMeter({
   percentLabel: string
   readout: ComposerUsageMeterReadout
   color: string
+  paceMarkerPercent: number | null
   onPress: () => void
 }): React.JSX.Element {
   return (
@@ -44,7 +46,12 @@ export function ComposerUsageWideMeter({
       <Text style={[styles.text, styles.label]} numberOfLines={1}>
         {layout.label === 'full' ? resetsIn : resetsInCompact}
       </Text>
-      <ComposerUsageTrack readout={readout} color={color} wide />
+      <ComposerUsageTrack
+        readout={readout}
+        color={color}
+        wide
+        paceMarkerPercent={paceMarkerPercent}
+      />
       <Text style={[styles.text, styles.percent]} numberOfLines={1}>
         {percentLabel}
       </Text>
