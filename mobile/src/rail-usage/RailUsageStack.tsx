@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useContext, useState } from 'react'
 import { ScrollView, View, useWindowDimensions } from 'react-native'
 import type { AccountsSnapshot } from '../accounts/accounts-snapshot'
 import { BottomDrawerModalHost } from '../components/bottom-drawer/bottom-drawer-modal-host'
@@ -17,12 +17,24 @@ import { useSideRailStrip } from '../layout/side-rail'
 import type { SideRailStrip } from '../layout/side-rail-strip'
 import { listRailUsage, railRingCenter } from './rail-usage-model'
 import { RailUsageRing } from './RailUsageRing'
+import { RailBandAtStripTopContext } from './RailUsageSpan'
 import { railRingStackFit } from './rail-ring-stack-fit'
 
 /** The percent label below a ring hangs this far past its bottom edge (4.25pt, rounded up). */
 const RING_LABEL_OVERHANG = 5
 const MIN_RING_GAP = spacing.sm
 const CUT_FADE = spacing.md
+/**
+ * How far the reported status column runs below the Wi-Fi ring's page dots (iOS 27.1 simulator).
+ * iOS reports no frame for what the column draws, so these are calibrated, not measured.
+ */
+const STATUS_COLUMN_SLACK_FOLDED = 23
+const STATUS_COLUMN_SLACK_UNFOLDED = 26
+/**
+ * Kept below the dots on top of the column gap: a Focus icon above the clock pushes the dots ~10pt
+ * into the slack, and the first ring must still clear them by 8pt.
+ */
+const FOCUS_ROW_MARGIN = 6
 
 /** The host's usage rings for the Duo side rail; empty until it reports a provider. */
 export function HostRailUsageStack({ hostId }: { hostId: string }): React.JSX.Element | null {
@@ -44,6 +56,16 @@ function useRailRingCenter(strip: SideRailStrip | null): number {
   })
 }
 
+/** How far a stack at the strip's top rises into the column's slack: one gap plus margin under the dots. */
+function useStatusColumnLift(atStripTop: boolean): number {
+  const { hasFoldDivision } = useReservedRegions()
+  if (!atStripTop) {
+    return 0
+  }
+  const slack = hasFoldDivision ? STATUS_COLUMN_SLACK_UNFOLDED : STATUS_COLUMN_SLACK_FOLDED
+  return slack - FOCUS_ROW_MARGIN
+}
+
 /** A scrolling column of usage rings; a tap opens the usage sheet on that provider, with tabs for the rest. */
 export function RailUsageStack({
   snapshot
@@ -62,6 +84,7 @@ export function RailUsageStack({
   const center = useRailRingCenter(strip)
   // The band the rail gives the stack; a chat's composer can leave less than the whole column.
   const [room, setRoom] = useState<number | null>(null)
+  const lift = useStatusColumnLift(useContext(RailBandAtStripTopContext))
   const fit = railRingStackFit({
     count: usages.length,
     room,
@@ -83,7 +106,10 @@ export function RailUsageStack({
   }
   return (
     <>
-      <View style={styles.scroll} onLayout={(event) => setRoom(event.nativeEvent.layout.height)}>
+      <View
+        style={[styles.scroll, { marginTop: -lift }]}
+        onLayout={(event) => setRoom(event.nativeEvent.layout.height)}
+      >
         <ScrollView
           style={fit.height === null ? styles.scroll : { flexGrow: 0, height: fit.height }}
           contentContainerStyle={[
@@ -152,8 +178,6 @@ const styles = themedStyleSheet(() => ({
   scroll: {
     flex: 1
   },
-  // The strip starts at the status column's reported bottom, not the Wi-Fi dots: a Focus icon above
-  // the clock pushes them into the column's slack. So the first ring clears whatever the column draws.
   // Every ring starts at the same inset, so all share the status glyph's axis; the padding is set inline.
   column: {
     alignItems: 'flex-start',
