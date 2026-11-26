@@ -61,6 +61,7 @@ import {
 import { usePageFoldDivision, usePublishedFoldDivision } from './page-geometry/page-fold-division'
 import { usePublishedShellKeyRail, useShellKeyRail } from './terminal-controls/use-shell-key-rail'
 import { useShellUsageRail } from '../rail-usage/use-shell-usage-rail'
+import { railDebug } from '../rail-usage/rail-debug-log'
 import { pageSideStripRoom } from '../rail-usage/side-strip-holder'
 import { useRailRingsDuringChats } from '../rail-usage/rail-rings-during-chats-preference'
 import type { BridgeSideStripFree } from './bridge/page-geometry/bridge-side-strip-cover'
@@ -194,6 +195,36 @@ export function MobileWebShellScreen({
   })
   // A chat that leaves part of the column empty shares it with the rings only when the user wants them there.
   const ringsDuringChats = useRailRingsDuringChats()
+  // TEMPORARY rail debug record.
+  const debugRoom = JSON.stringify(stripRoom)
+  const debugCover = JSON.stringify(currentCover)
+  useEffect(() => {
+    railDebug('room', {
+      screen: route.pathname,
+      focused: shellFocused,
+      overlay,
+      state: state.kind,
+      sid: readySessionId?.slice(0, 8) ?? null,
+      owns: ownsHostArea,
+      loc: pageLocation?.sessionId === readySessionId ? (pageLocation?.href ?? null) : null,
+      cover: debugCover,
+      room: debugRoom,
+      keyRail: keyRail.keys.length,
+      rings: ringsDuringChats
+    })
+  }, [
+    route.pathname,
+    shellFocused,
+    overlay,
+    state.kind,
+    readySessionId,
+    ownsHostArea,
+    pageLocation,
+    debugCover,
+    debugRoom,
+    keyRail.keys.length,
+    ringsDuringChats
+  ])
   useShellUsageRail(
     hostId,
     shellFocused && !overlay && state.kind === 'ready'
@@ -343,6 +374,12 @@ export function MobileWebShellScreen({
     // A newer build swaps in only on a resume where the page has nothing to lose (no draft, upload or open sheet).
     onPageSwapSafe: reportSwapSafe,
     onSideStripCover: (covered, free) => {
+      railDebug('cover', {
+        screen: route.pathname,
+        sid: readySessionId?.slice(0, 8) ?? null,
+        covered,
+        free: free ?? null
+      })
       if (readySessionId !== null) {
         setPageCover({ sessionId: readySessionId, covered, free })
       }
