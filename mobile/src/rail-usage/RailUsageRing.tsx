@@ -35,8 +35,8 @@ const GLYPH_SIZE = 13
 // The pace tick crosses the stroke and stops at the ring's edge.
 const TICK_INNER = RADIUS - STROKE / 2 - 1
 const TICK_OUTER = RADIUS + STROKE / 2
-// The ring's inner chord at the reset label's lower edge (8pt below centre) is ~30pt; keep 1pt clear each side.
-const RESET_LABEL_ROOM = 2 * Math.sqrt((RADIUS - STROKE / 2) ** 2 - 8 ** 2) - 2
+// The ring's inner chord at the reset label's lower edge (8pt below centre), ~30pt.
+const RESET_LABEL_ROOM = 2 * Math.sqrt((RADIUS - STROKE / 2) ** 2 - 8 ** 2)
 
 export function RailUsageProviderGlyph({
   provider,
