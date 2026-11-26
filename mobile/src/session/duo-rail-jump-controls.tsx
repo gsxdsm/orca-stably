@@ -16,6 +16,7 @@ import { useWindowSafeAreaInsets } from '../layout/side-safe-area'
 import { useDuoChatExpanded } from './duo-chat-width'
 import { duoRailJumpPlacement } from './duo-rail-jump'
 import { publishDuoRailFreeBand } from './duo-rail-free-band'
+import { useDuoRailBackShown } from './use-duo-rail-back-shown'
 import { spacing } from '../theme/mobile-theme'
 import { MobileNativeChatFloatingControls } from './native-chat/lower-region/MobileNativeChatFloatingControls'
 
@@ -59,6 +60,7 @@ function useRailFrames(
   const { width, height } = useWindowDimensions()
   const insets = useWindowSafeAreaInsets()
   const { occlusions } = useReservedRegions()
+  const backShown = useDuoRailBackShown()
   const strip = getSideRailStrip({
     windowWidth: width,
     windowHeight: height,
@@ -75,7 +77,8 @@ function useRailFrames(
             windowHeight: height,
             strip,
             occlusions,
-            composerTop
+            composerTop,
+            backShown
           })
         : composerTop > spacing.sm
           ? { top: 0, bottom: composerTop - spacing.sm }
