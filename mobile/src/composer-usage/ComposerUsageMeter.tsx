@@ -6,7 +6,6 @@ import {
   MESSAGE_TEXT_INSET
 } from '../components/composer-input/composer-input-styles'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { useResponsiveLayout } from '../layout/responsive-layout'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
@@ -150,7 +149,7 @@ export function ComposerUsageMeter({
       ? composerUsageMeterWidth(lengthWidth + LABEL_GAP + TRACK_MIN_WIDTH, percentWidth)
       : null
   useEffect(() => onFullWidth?.(fullWidth), [fullWidth, onFullWidth])
-  const wideWidth = composerUsageWideMeterWidth(room, useResponsiveLayout().isTabletLayout)
+  const wideWidth = composerUsageWideMeterWidth(room)
   if (!reading) {
     return null
   }
