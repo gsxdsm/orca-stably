@@ -30,7 +30,13 @@ import {
 import { useComposerUsagePosition } from './composer-usage-position-preference'
 import { useComposerUsageWindow } from './composer-usage-window-preference'
 import { ComposerUsageSheet } from './ComposerUsageSheet'
-import { composerUsageWideMeterWidth } from './composer-usage-wide-meter'
+import { composerUsageWideMeterLayout } from './composer-usage-wide-meter'
+import { ComposerUsageTrack, TRACK_MIN_WIDTH } from './ComposerUsageTrack'
+import {
+  COMPOSER_USAGE_WIDE_GAP,
+  ComposerUsageWideMeasure,
+  ComposerUsageWideMeter
+} from './ComposerUsageWideMeter'
 import { usagePaceColor } from './usage-pace-color'
 import { usageResetLabel } from './usage-reset-label'
 import { useResetCountdownNow } from './use-reset-countdown-now'
@@ -151,39 +157,37 @@ export function ComposerUsageMeter({
   const [resetWidth, setResetWidth] = useState<number | null>(null)
   const [compactWidth, setCompactWidth] = useState<number | null>(null)
   const [percentWidth, setPercentWidth] = useState<number | null>(null)
+  // The same two at the wide meter's size, so it keeps the full reset label and shortens the bar.
+  const [wideResetWidth, setWideResetWidth] = useState<number | null>(null)
+  const [widePercentWidth, setWidePercentWidth] = useState<number | null>(null)
   const fullWidth =
     reading && resetWidth !== null && percentWidth !== null
       ? composerUsageMeterWidth(resetWidth + LABEL_GAP + TRACK_MIN_WIDTH, percentWidth)
       : null
   useEffect(() => onFullWidth?.(fullWidth), [fullWidth, onFullWidth])
-  const wideWidth = composerUsageWideMeterWidth(room)
+  const wide = composerUsageWideMeterLayout({
+    room,
+    fullLabelWidth: wideResetWidth,
+    percentWidth: widePercentWidth,
+    gap: COMPOSER_USAGE_WIDE_GAP
+  })
   if (!reading) {
     return null
   }
   const fit = composerUsageMeterFit(room, resetWidth, compactWidth, percentWidth)
   return (
     <>
-      {wideWidth !== null ? (
-        <Pressable
-          accessibilityRole="button"
+      {wide !== null ? (
+        <ComposerUsageWideMeter
+          layout={wide}
           accessibilityLabel={reading.accessibilityLabel}
-          hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+          resetsIn={reading.resetsIn}
+          resetsInCompact={reading.resetsInCompact}
+          percentLabel={reading.percentLabel}
+          readout={reading.readout}
+          color={reading.color}
           onPress={() => setOpen(true)}
-          style={({ pressed }) => [
-            styles.wideMeter,
-            { width: wideWidth },
-            pressed && composerInputStyles.pressed
-          ]}
-          testID="composer-usage-meter"
-        >
-          <Text style={[styles.wideText, styles.window]} numberOfLines={1}>
-            {wideWidth >= WIDE_FULL_RESET_LABEL_WIDTH ? reading.resetsIn : reading.resetsInCompact}
-          </Text>
-          <ComposerUsageTrack readout={reading.readout} color={reading.color} wide />
-          <Text style={[styles.wideText, styles.widePercent]} numberOfLines={1}>
-            {reading.percentLabel}
-          </Text>
-        </Pressable>
+        />
       ) : fit.meter ? (
         <Pressable
           accessibilityRole="button"
@@ -231,6 +235,12 @@ export function ComposerUsageMeter({
         >
           {reading.percentLabel}
         </Text>
+        <ComposerUsageWideMeasure
+          resetsIn={reading.resetsIn}
+          percentLabel={reading.percentLabel}
+          onResetWidth={setWideResetWidth}
+          onPercentWidth={setWidePercentWidth}
+        />
       </View>
       <ComposerUsageSheet
         visible={open}
@@ -284,26 +294,7 @@ export function ComposerUsageStrip({
   )
 }
 
-function ComposerUsageTrack({
-  readout,
-  color,
-  wide = false
-}: {
-  readout: ComposerUsageMeterReadout
-  color: string
-  wide?: boolean
-}): React.JSX.Element {
-  return (
-    <View style={[styles.track, wide && styles.wideTrack]}>
-      <View style={[styles.fill, { width: `${readout.shown}%`, backgroundColor: color }]} />
-    </View>
-  )
-}
-
 const LABEL_GAP = spacing.xs
-/** Narrower wide meters show the reset's largest unit ("3d") so the bar keeps its length. */
-const WIDE_FULL_RESET_LABEL_WIDTH = 200
-const TRACK_MIN_WIDTH = 24
 
 function composerUsageMeterWidth(barLineWidth: number, percentWidth: number): number {
   return Math.max(barLineWidth, percentWidth)
@@ -382,40 +373,5 @@ const styles = themedStyleSheet(() => ({
   },
   window: {
     color: colors.textMuted
-  },
-  // One line, label · bar · percent, sized from the composer's free room on a tablet.
-  wideMeter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    minHeight: 32,
-    borderRadius: radii.pill
-  },
-  wideText: {
-    fontSize: typography.bodySize,
-    lineHeight: 18,
-    color: colors.textSecondary,
-    flexShrink: 0,
-    fontVariant: ['tabular-nums']
-  },
-  widePercent: {
-    fontWeight: '600',
-    color: colors.textPrimary
-  },
-  wideTrack: {
-    height: 6
-  },
-  track: {
-    flexGrow: 1,
-    flexShrink: 1,
-    minWidth: TRACK_MIN_WIDTH,
-    height: 4,
-    borderRadius: radii.pill,
-    backgroundColor: colors.translucentFill,
-    overflow: 'hidden'
-  },
-  fill: {
-    height: '100%',
-    borderRadius: radii.pill
   }
 }))
