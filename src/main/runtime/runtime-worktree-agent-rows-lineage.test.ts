@@ -60,7 +60,8 @@ describe('worktree agent rows nest orchestration workers across folder workspace
           parentTerminalHandle: 'term_coord'
         }
       },
-      getSummary: (id) => summaries.get(id) ?? null
+      getSummary: (id) => summaries.get(id) ?? null,
+      mirrorCrossWorkspace: true
     })
     const nested = summaries.get('folder:orca')?.agents ?? []
     expect(nested.map((row) => [row.paneKey, row.parentPaneKey])).toEqual([
@@ -132,7 +133,8 @@ describe('worktree agent rows nest orchestration workers across folder workspace
           return summaries.get(childId) ?? null
         }
         return null
-      }
+      },
+      mirrorCrossWorkspace: true
     })
     expect(summaries.get(parentId)?.agents.map((row) => row.paneKey)).toEqual([coordinator, worker])
     expect(summaries.get(parentId)?.hasHostSidebarActivity).toBe(false)
@@ -155,7 +157,8 @@ describe('worktree agent rows nest orchestration workers across folder workspace
       ]),
       terminalTitleEvidenceByRow: new Map(),
       orchestrationByPaneKey: { [worker]: { parentPaneKey: coordinator } },
-      getSummary: (id) => summaries.get(id) ?? null
+      getSummary: (id) => summaries.get(id) ?? null,
+      mirrorCrossWorkspace: true
     })
     expect(summaries.get('folder:orca')?.sidebarStatus).toBe('inactive')
     expect(summaries.get('folder:orca')?.hasHostSidebarActivity).toBe(false)
@@ -183,7 +186,8 @@ describe('worktree agent rows nest orchestration workers across folder workspace
         [worker]: { parentPaneKey: coordinator },
         [helper]: { parentPaneKey: worker }
       },
-      getSummary: (id) => summaries.get(id) ?? null
+      getSummary: (id) => summaries.get(id) ?? null,
+      mirrorCrossWorkspace: true
     })
     expect(summaries.get('folder:orca')?.agents.map((row) => row.paneKey)).toEqual([
       coordinator,
@@ -217,7 +221,8 @@ describe('worktree agent rows nest orchestration workers across folder workspace
       getSummary: (id) =>
         id === parentId || id === parentAlias
           ? (summaries.get(parentId) ?? null)
-          : (summaries.get(id) ?? null)
+          : (summaries.get(id) ?? null),
+      mirrorCrossWorkspace: true
     })
     expect(summaries.get(parentId)?.agents.map((row) => row.paneKey)).toEqual([coordinator, worker])
   })
@@ -244,7 +249,8 @@ describe('worktree agent rows nest orchestration workers across folder workspace
         [worker]: { parentPaneKey: coordinator },
         [helper]: { parentPaneKey: worker }
       },
-      getSummary: (id) => summaries.get(id) ?? null
+      getSummary: (id) => summaries.get(id) ?? null,
+      mirrorCrossWorkspace: true
     })
     const mirrored = summaries.get('folder:orca')?.agents.find((row) => row.paneKey === helper)
     expect(mirrored?.homeWorktreeId).toBe('folder:babysitter')
@@ -254,5 +260,27 @@ describe('worktree agent rows nest orchestration workers across folder workspace
       worker,
       helper
     ])
+  })
+
+  it('does not mirror cross-workspace workers onto the coordinator by default while the fork flag is off', () => {
+    const coordinator = 'tab-coord:leaf-coord'
+    const worker = 'tab-worker:leaf-worker'
+    const summaries = new Map([
+      ['folder:orca', summary('folder:orca')],
+      ['folder:babysitter', summary('folder:babysitter')]
+    ])
+    attachRuntimeWorktreeAgentRows({
+      summaries,
+      rowSources: new Map([
+        [coordinator, source(coordinator, 'folder:orca', 'term_coord')],
+        [worker, source(worker, 'folder:babysitter', 'term_worker')]
+      ]),
+      terminalTitleEvidenceByRow: new Map(),
+      orchestrationByPaneKey: { [worker]: { parentPaneKey: coordinator } },
+      getSummary: (id) => summaries.get(id) ?? null
+    })
+    expect(summaries.get('folder:orca')?.agents.map((row) => row.paneKey)).toEqual([coordinator])
+    expect(summaries.get('folder:babysitter')?.agents.map((row) => row.paneKey)).toEqual([worker])
+    expect(summaries.get('folder:babysitter')?.agents[0]?.parentPaneKey).toBe(coordinator)
   })
 })

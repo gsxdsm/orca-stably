@@ -28,6 +28,7 @@ import {
   formatOrcaSessionAddress,
   isOrcaSessionId
 } from '../../../../shared/agent-session/identity/orca-session-address'
+import { FORK_CROSS_WORKSPACE_MIRROR_ENABLED } from '../../../../shared/fork-cross-workspace-mirror-flag'
 
 type OrchestrationDisplay = {
   taskTitle?: string | null
@@ -181,6 +182,8 @@ export function attachRuntimeWorktreeAgentRows(args: {
   conversationName?: (source: RuntimeWorktreeAgentSource) => string | null
   /** The desktop window's Agents-list verdicts; null when no window has published them. */
   agentList?: AgentListPublication | null
+  /** Fork override for tests; defaults to FORK_CROSS_WORKSPACE_MIRROR_ENABLED. */
+  mirrorCrossWorkspace?: boolean
 }): void {
   const { rowSources } = args
   const now = Date.now()
@@ -246,7 +249,9 @@ export function attachRuntimeWorktreeAgentRows(args: {
       rowsBySummary.set(summary, [row])
     }
   }
-  mirrorCrossWorkspaceChildren(rowsBySummary, rowSources, args.summaries, args.getSummary)
+  if (args.mirrorCrossWorkspace ?? FORK_CROSS_WORKSPACE_MIRROR_ENABLED) {
+    mirrorCrossWorkspaceChildren(rowsBySummary, rowSources, args.summaries, args.getSummary)
+  }
   for (const [summary, rows] of rowsBySummary) {
     rows.sort((a, b) => a.stateStartedAt - b.stateStartedAt)
     summary.agents = rows
