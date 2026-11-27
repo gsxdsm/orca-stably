@@ -137,6 +137,8 @@ export function createBridgeRpcClient(options: BridgeRpcClientOptions): BridgeRp
 
   // Requests still unanswered when the app left: the user may be waiting on an upload or a save.
   let sentBeforeLeaving: readonly string[] | null = null
+  // The last cover the page reported, resent to each new init like the rail claim.
+  let sideStripCovered: boolean | null = null
   const pageDocument: Document | undefined = globalThis.document
   const swapSafety = pageDocument === undefined ? null : createPageSwapSafety(pageDocument)
   const readInboundFrame = createBridgeInboundFrameReader({
@@ -149,6 +151,9 @@ export function createBridgeRpcClient(options: BridgeRpcClientOptions): BridgeRp
       shellSession.accept(message)
       back.reassert()
       terminalKeys.reassert()
+      if (sideStripCovered !== null) {
+        notifications.notifySideStripCover(sideStripCovered)
+      }
     },
     acceptState: (connection) => acceptState(cache.apply(connection)),
     acceptConnectionPath: (connection) => acceptState(cache.applyPath(connection)),
@@ -321,11 +326,16 @@ export function createBridgeRpcClient(options: BridgeRpcClientOptions): BridgeRp
     notifyHaptics: notifications.notifyHaptics,
     notifyPageFault: notifications.notifyPageFault,
     notifyPagePainted: notifications.notifyPagePainted,
+    notifySideStripCover: (covered) => {
+      sideStripCovered = covered
+      notifications.notifySideStripCover(covered)
+    },
     notifyPageLocation: (href) => {
       swapSafety?.navigated()
       notifications.notifyPageLocation(href)
     },
     claimBack: back.claim,
+    pressBack: () => back.dispatch() || notifications.notifyNavigateBack(),
     close,
     ...shellSessionListeners(shellSession),
     claimTerminalKeyRail: terminalKeys.claim,

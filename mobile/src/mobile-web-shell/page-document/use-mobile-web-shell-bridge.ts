@@ -113,6 +113,7 @@ export type MobileWebShellBridgeArgs = {
   onPageBackClaim: (claimed: boolean) => void
   onPageLocation: (href: string) => void
   onPageSwapSafe: (safe: boolean, round: number) => void
+  onSideStripCover: (covered: boolean) => void
   /** The page shows a terminal with its key row, or stopped; false again on each new document. */
   onTerminalKeyRailClaim: (
     claimed: boolean,

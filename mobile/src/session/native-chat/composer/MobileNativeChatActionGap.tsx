@@ -12,7 +12,7 @@ export function MobileNativeChatActionGap({
 }): React.JSX.Element {
   return (
     <>
-      <ComposerUsageSlot agent={agent} spanSideStrip />
+      <ComposerUsageSlot agent={agent} />
       {toggle ? <MobileNativeChatWidthToggle {...toggle} /> : null}
     </>
   )

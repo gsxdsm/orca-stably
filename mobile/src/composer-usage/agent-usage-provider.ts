@@ -23,6 +23,9 @@ export type UsageProviderKey =
   | 'antigravity'
   | 'grok'
   | 'cursor'
+  | 'minimax'
+  | 'zcode'
+  | 'muse'
 
 // Only agents that spend the provider plan the desktop polls; others (e.g. aider, openclaude) bring their own keys.
 const AGENT_USAGE_PROVIDERS = new Map<string, UsageProviderKey>([
@@ -35,7 +38,9 @@ const AGENT_USAGE_PROVIDERS = new Map<string, UsageProviderKey>([
   ['kimi', 'kimi'],
   ['antigravity', 'antigravity'],
   ['grok', 'grok'],
-  ['cursor', 'cursor']
+  ['cursor', 'cursor'],
+  ['zcode', 'zcode'],
+  ['muse', 'muse']
 ])
 
 const PROVIDER_IDS: Record<UsageProviderKey, ProviderRateLimits['provider']> = {
@@ -46,7 +51,10 @@ const PROVIDER_IDS: Record<UsageProviderKey, ProviderRateLimits['provider']> = {
   kimi: 'kimi',
   antigravity: 'antigravity',
   grok: 'grok',
-  cursor: 'cursor'
+  cursor: 'cursor',
+  minimax: 'minimax',
+  zcode: 'zcode',
+  muse: 'muse'
 }
 
 export const USAGE_PROVIDER_NAMES: Record<UsageProviderKey, string> = {
@@ -57,7 +65,10 @@ export const USAGE_PROVIDER_NAMES: Record<UsageProviderKey, string> = {
   kimi: 'Kimi',
   antigravity: 'Antigravity',
   grok: 'Grok',
-  cursor: 'Cursor'
+  cursor: 'Cursor',
+  minimax: 'MiniMax',
+  zcode: 'ZCode',
+  muse: 'Muse'
 }
 
 export type ComposerUsageWindowChoice = 'session' | 'weekly'
@@ -93,39 +104,20 @@ export function selectAgentUsage(
   agent: string | null | undefined
 ): AgentUsage | null {
   const provider = usageProviderForAgent(agent)
-  if (!snapshot || !provider) {
+  return provider ? selectProviderUsage(snapshot, provider) : null
+}
+
+/** One provider's usage windows, or null when the host reports none for it. */
+export function selectProviderUsage(
+  snapshot: AccountsSnapshot | null,
+  provider: UsageProviderKey
+): AgentUsage | null {
+  if (!snapshot) {
     return null
   }
   const limits = readProviderLimits(snapshot, provider)
   const windows = limits ? listUsageWindows(limits) : []
   return windows.length > 0 ? { provider, windows } : null
-}
-
-const PROVIDER_ORDER: readonly UsageProviderKey[] = [
-  'claude',
-  'codex',
-  'gemini',
-  'opencodeGo',
-  'kimi',
-  'antigravity',
-  'grok',
-  'cursor'
-]
-
-/** Every polled provider with windows, the given one first, for the sheet's provider tabs. */
-export function listProviderUsages(
-  snapshot: AccountsSnapshot | null,
-  first: UsageProviderKey
-): AgentUsage[] {
-  if (!snapshot) {
-    return []
-  }
-  const ordered = [first, ...PROVIDER_ORDER.filter((provider) => provider !== first)]
-  return ordered.flatMap((provider) => {
-    const limits = readProviderLimits(snapshot, provider)
-    const windows = limits ? listUsageWindows(limits) : []
-    return windows.length > 0 ? [{ provider, windows }] : []
-  })
 }
 
 const UsageHistoryCarrierSchema = z.object({ usageHistory: z.unknown().optional() })

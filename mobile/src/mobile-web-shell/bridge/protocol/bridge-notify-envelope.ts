@@ -6,6 +6,7 @@ import { BRIDGE_BACK_CLAIM_NOTIFY } from '../page-lifecycle/bridge-page-back'
 import { BRIDGE_PAGE_LOCATION } from '../page-lifecycle/bridge-page-location'
 import { BRIDGE_SWAP_SAFE_NOTIFY } from '../page-lifecycle/bridge-app-resumed'
 import { BRIDGE_PAGE_PAINTED } from '../page-lifecycle/bridge-page-painted'
+import { BRIDGE_SIDE_STRIP_COVER_NOTIFY } from '../page-geometry/bridge-side-strip-cover'
 import {
   BRIDGE_TERMINAL_KEY_RAIL_CLAIM_NOTIFY,
   BridgeTerminalToolbarSchema
@@ -134,6 +135,13 @@ export const BridgeNotifySchema = z.discriminatedUnion('name', [
     claimed: z.boolean(),
     inputOwner: z.string().min(1).max(128).optional(),
     toolbar: BridgeTerminalToolbarSchema.optional()
+  }),
+  // Behind the `sideStripCover` grant, so a shell that never asked refuses nothing.
+  z.object({
+    v: versionSchema,
+    type: z.literal('notify'),
+    name: z.literal(BRIDGE_SIDE_STRIP_COVER_NOTIFY),
+    covered: z.boolean()
   })
 ])
 

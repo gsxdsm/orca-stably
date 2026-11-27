@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the fork's additions sit beside upstream's in this owner after the upstream merge. */
 import { mobileWaitingAgentMailRows } from './transcript/agent-messages/MobileWaitingAgentMailRows'
 import { MobileBotFirstScreen, useMobileBotFirstScreen } from './MobileBotFirstScreen'
 import { MobileBotCardSendContext } from './transcript/bot-cards/mobile-bot-card-host'
@@ -35,7 +36,6 @@ import { useMobileNativeChatTurnDisclosure } from './transcript/turn-state/use-m
 import { mobileNativeChatComposerPlaceholder } from './composer/field/use-mobile-native-chat-input-lease'
 import { MobileNativeChatLiveLine } from './transcript/messages/MobileNativeChatLiveLine'
 import { MobileNativeChatAwaitingInputRow } from './transcript/messages/MobileNativeChatAwaitingInputRow'
-import { MobileNativeChatFloatingControls } from './lower-region/MobileNativeChatFloatingControls'
 import { MobileNativeChatDraftComposer } from './composer/MobileNativeChatDraftComposer'
 import { MobileNativeChatPromptCard } from './input/prompts/MobileNativeChatPromptCard'
 import { useMobileNativeChatWorkerApprovalSlot } from './input/prompts/MobileNativeChatWorkerApproval'
@@ -51,6 +51,8 @@ import {
 } from './composer/menus/use-mobile-native-chat-composer-tray'
 import { MobileNativeChatScrollRootsBoundary } from './transcript/viewport/MobileNativeChatScrollRootsBoundary'
 import { useChatBottomFit } from './composer/use-chat-bottom-fit'
+import { DuoRailComposerTop, MobileNativeChatJumpControls } from '../duo-rail-jump-controls'
+import { useMobileNativeChatPreviousStops } from './transcript/use-mobile-native-chat-previous-stops'
 import { MobileNativeChatRowList } from './transcript/MobileNativeChatRowList'
 import { useMobileNativeChatRowRenderer } from './transcript/projection/use-mobile-native-chat-row-renderer'
 import { MobileNativeChatOpenFileContext } from './links/mobile-native-chat-open-file-context'
@@ -161,7 +163,7 @@ export function MobileNativeChatView({
     sendSurfaceId
   )
   const tail = useMobileNativeChatTailFollow({ hasItems: data.length > 0, scopeKey: sendSurfaceId })
-  const { jumpToTail, recordScrollMetrics, scrollMayLoadEarlier } = tail
+  const { jumpToTail, recordScrollMetrics, scrollMayLoadEarlier, jumpToPreviousMessage } = tail
 
   // Lock only terminal-backed Send: it can answer an agent prompt, while drafting is harmless and structured sends queue.
   const promptShown = !collapsedPrompt && (ask ?? permission ?? question) != null
@@ -280,6 +282,7 @@ export function MobileNativeChatView({
   const header = mobileNativeChatListHeader(hasMore, olderPages, loadEarlier)
   // Changing text size, face or spacing relays out every row, so preserve the page’s reading anchor.
   const layoutKey = `${fontScale}:${font}:${lineSpacing}`
+  useMobileNativeChatPreviousStops(tail, turns, rowKeys.keyOf, layoutKey)
   const mailRows = mobileWaitingAgentMailRows(tray.waitingAgentMail, fontScale, tail.viewport)
   const footer = mobileNativeChatListFooter(liveStatus, turns.waitingRows, renderItem, mailRows)
   const emptyState = mobileNativeChatEmptyState(status, agent, error, sessionLive, clearing)
@@ -334,7 +337,7 @@ export function MobileNativeChatView({
         {...{ permission, onRespondPermission, question, onAnswerQuestion, onCollapsePrompt }}
         {...{ onAnswerInTerminal, collapsedPrompt, notice }}
       />
-      <View style={promptOwnsInput ? styles.hidden : undefined}>
+      <DuoRailComposerTop keyboardInset={keyboardInset} hidden={promptOwnsInput}>
         <MobileNativeChatDraftComposer
           {...composerFit}
           draftScopeKey={composerScopeKey}
@@ -355,7 +358,7 @@ export function MobileNativeChatView({
           {...{ filePaths, onNeedFiles, fileReference, skillDiscovery, onNeedSkills }}
           stop={canStop ? { onStop, held: turnIndicator?.stopRequestInFlight === true } : null}
         />
-      </View>
+      </DuoRailComposerTop>
     </>
   )
 
@@ -407,9 +410,11 @@ export function MobileNativeChatView({
                 </MobileMarkdownBotCardContext.Provider>
               </MobileBotCardSendContext.Provider>
             </MobileNativeChatDisclosureContext.Provider>
-            <MobileNativeChatFloatingControls
+            <MobileNativeChatJumpControls
               showJumpToTail={tail.showJumpToTail}
               onJumpToTail={jumpToTail}
+              showPreviousMessage={tail.showPreviousMessage}
+              onJumpToPrevious={jumpToPreviousMessage}
             />
           </GestureHandlerRootView>
         )}

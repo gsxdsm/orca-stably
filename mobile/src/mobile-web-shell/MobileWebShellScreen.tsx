@@ -60,6 +60,8 @@ import {
 } from './page-geometry/page-safe-area-insets'
 import { usePageFoldDivision, usePublishedFoldDivision } from './page-geometry/page-fold-division'
 import { usePublishedShellKeyRail, useShellKeyRail } from './terminal-controls/use-shell-key-rail'
+import { useShellUsageRail } from '../rail-usage/use-shell-usage-rail'
+import { pageHoldsSideStrip } from '../rail-usage/side-strip-holder'
 import { hostProfileUnreadableLine, pageFaultLine } from './diagnostics/shell-lifecycle-log'
 import { recordShellLifecycleLine } from './diagnostics/shell-lifecycle-line-recorder'
 
@@ -172,6 +174,16 @@ export function MobileWebShellScreen({
       !overlay &&
       routeGrants.includes(BRIDGE_TERMINAL_KEY_RAIL_GRANT)
   )
+  // What this document last reported about itself; a new document starts unknown.
+  const [pageLocation, setPageLocation] = useState<{ sessionId: string; href: string } | null>(null)
+  const [pageCover, setPageCover] = useState<{ sessionId: string; covered: boolean } | null>(null)
+  const pageHoldsStrip = pageHoldsSideStrip({
+    ownsHostArea,
+    routeGrants,
+    covered: pageCover?.sessionId === readySessionId ? pageCover.covered : null,
+    location: pageLocation?.sessionId === readySessionId ? pageLocation.href : null
+  })
+  useShellUsageRail(hostId, shellFocused && !overlay && state.kind === 'ready' && !pageHoldsStrip)
   const {
     snapshot,
     unreadable,
@@ -301,12 +313,20 @@ export function MobileWebShellScreen({
     // A caller that tracks the location takes it; pages from #34484 desktops report it only for a fold to reopen.
     onPageLocation: (href) => {
       openTarget.recordLocation(href)
+      if (readySessionId !== null) {
+        setPageLocation({ sessionId: readySessionId, href })
+      }
       return onPageLocation === undefined
         ? holdPageLocation(href, ownsHostArea)
         : onPageLocation(href)
     },
     // A newer build swaps in only on a resume where the page has nothing to lose (no draft, upload or open sheet).
     onPageSwapSafe: reportSwapSafe,
+    onSideStripCover: (covered) => {
+      if (readySessionId !== null) {
+        setPageCover({ sessionId: readySessionId, covered })
+      }
+    },
     onTerminalKeyRailClaim: keyRail.reportClaim,
     onRouteParamClear: openTarget.onRouteParamClear,
     onRouteRefused: (issue) => {

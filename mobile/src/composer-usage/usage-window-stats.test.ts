@@ -65,35 +65,34 @@ describe('buildUsageChartModel', () => {
     { at: NOW - HOUR, usedPercent: 20 }
   ]
 
-  it('needs two readings inside the window', () => {
-    expect(buildUsageChartModel(weekly(20), samples.slice(1), NOW, 'used')).toBeNull()
+  it('spans the whole window however little history there is', () => {
+    const model = buildUsageChartModel(weekly(20), samples.slice(1), NOW, 'used')
+    expect(model?.startsAt).toBe(NOW - 2 * DAY)
+    expect(model?.endsAt).toBe(NOW + 5 * DAY)
+    expect(model?.firstAt).toBe(NOW - HOUR)
     expect(
-      buildUsageChartModel(
-        weekly(20),
-        [{ at: NOW - 3 * DAY, usedPercent: 50 }, ...samples.slice(1)],
-        NOW,
-        'used'
-      )
+      buildUsageChartModel(weekly(20), [{ at: NOW - 3 * DAY, usedPercent: 50 }], NOW, 'used')
     ).toBeNull()
   })
 
   it('mirrors values and the pace line when counting what remains', () => {
     const model = buildUsageChartModel(weekly(20), samples, NOW, 'remaining')
-    expect(model?.points.map((point) => point.value)).toEqual([98, 80])
-    // Two days into a week: the even burn has spent 2/7 by now.
-    expect(model?.pace?.from).toBeCloseTo(100 - 100 / 7 / 24, 6)
-    expect(model?.pace?.to).toBeCloseTo(100 - 200 / 7, 6)
+    expect(model?.runs.flat().map((point) => point.value)).toEqual([98, 80])
+    expect(model?.pace).toEqual({ from: 100, to: 0 })
   })
 
-  it('zooms to the recorded history, never less than six hours, ending now', () => {
-    const recent = [
-      { at: NOW - 2 * HOUR, usedPercent: 30 },
-      { at: NOW - HOUR, usedPercent: 35 }
-    ]
-    const zoomed = buildUsageChartModel(weekly(35), recent, NOW, 'used')
-    expect(zoomed?.startsAt).toBe(NOW - 6 * HOUR)
-    expect(zoomed?.endsAt).toBe(NOW)
-    const long = buildUsageChartModel(weekly(20), samples, NOW, 'used')
-    expect(long?.startsAt).toBe(NOW - 2 * DAY + HOUR)
+  it('breaks the line where readings stopped instead of bridging the gap', () => {
+    const hourly = (from: number, count: number) =>
+      Array.from({ length: count }, (_, index) => ({
+        at: from + index * HOUR,
+        usedPercent: 10 + index
+      }))
+    const model = buildUsageChartModel(
+      weekly(30),
+      [...hourly(NOW - 30 * HOUR, 6), ...hourly(NOW - 10 * HOUR, 10)],
+      NOW,
+      'used'
+    )
+    expect(model?.runs.map((run) => run.length)).toEqual([6, 10])
   })
 })

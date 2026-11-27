@@ -126,6 +126,8 @@ export type BridgeHostOptions = {
   onPageLocation: (href: string) => void
   // The page's answer to sendAppResumed: whether reloading it onto a newer build now loses nothing.
   onPageSwapSafe?: (safe: boolean, round: number) => void
+  // Whether the page lays itself across the side strip; only pages granted `sideStripCover` report it.
+  onSideStripCover?: (covered: boolean) => void
   /** The page shows a terminal with its key row, or stopped; false also arrives each time a
    *  document starts or ends, and the page claims again on the `init` that follows. */
   onTerminalKeyRailClaim?: (
