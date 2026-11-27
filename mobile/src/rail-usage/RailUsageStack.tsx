@@ -7,8 +7,9 @@ import type { UsageProviderKey } from '../composer-usage/agent-usage-provider'
 import { useAccountsSnapshot } from '../composer-usage/accounts-snapshot-store'
 import { ComposerUsageSheet } from '../composer-usage/ComposerUsageSheet'
 import { useResetCountdownNow } from '../composer-usage/use-reset-countdown-now'
-import { colors, spacing } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
+import { spacing } from '../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
+import { useMobileColors } from '../theme/use-mobile-color-scheme'
 import { useHostClient } from '../transport/connection/host-client-hooks'
 import { DUO_STATUS_RING_DIAMETER, duoStatusGlyphMidX } from '../layout/duo-status-row'
 import { useReservedRegions } from '../layout/reserved-regions'
@@ -77,6 +78,8 @@ export function RailUsageStack({
   /** Centred in its own column rather than on the Duo status glyph's axis. */
   standalone?: boolean
 }): React.JSX.Element | null {
+  const colors = useMobileColors()
+  const styles = useThemedStyles(stylesSheet)
   const usages = listRailUsage(snapshot)
   // Ticks at each ring's next label change, like the composer bar, so the two flip together.
   const now = useResetCountdownNow(
@@ -156,7 +159,6 @@ export function RailUsageStack({
           onClose={() => setSelected(null)}
           usage={sheetUsage}
           snapshot={snapshot}
-          spanSideStrip
         />
       </BottomDrawerModalHost>
     </>
@@ -167,20 +169,19 @@ const COLUMN_GAP = spacing.md
 const COLUMN_PADDING_TOP = spacing.md
 const COLUMN_PADDING_BOTTOM = spacing.lg
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet(() => ({
   scroll: {
     flex: 1
   },
   // Every ring starts at the same inset, so all share the status glyph's axis; the padding is set inline.
   column: {
     alignItems: 'flex-start',
-    gap: COLUMN_GAP,
-    paddingTop: COLUMN_PADDING_TOP,
-    paddingBottom: COLUMN_PADDING_BOTTOM
+    paddingTop: COLUMN_PADDING_TOP
   },
   centered: {
     alignItems: 'center',
-    gap: spacing.lg
+    gap: spacing.lg,
+    paddingBottom: COLUMN_PADDING_BOTTOM
   },
   cut: {
     position: 'absolute',
