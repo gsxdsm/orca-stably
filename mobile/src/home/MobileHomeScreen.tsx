@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { useOpenMobileAccounts } from '../accounts/use-open-mobile-accounts'
 import { useFocusedUsageRail } from '../rail-usage/use-shell-usage-rail'
+import { homeRailBotsSource } from '../rail-usage/rail-bot-targets'
 import { ActionSheetModal } from '../components/sheets/ActionSheetModal'
 import { ConfirmModal } from '../components/sheets/ConfirmModal'
 import { getHostListActionSheetActions } from '../host-list-action-sheet-actions'
@@ -166,10 +167,16 @@ export function MobileHomeScreen() {
             ),
     [openBotHome, router, t]
   )
-  const { bots, allClients } = data
+  const { bots, allClients, hostStates } = data
+  const fallbackHostName = t('bots.items.thisComputer', 'The computer')
+  const railBots = useMemo(
+    () => homeRailBotsSource({ bots, allClients, hostStates, fallbackHostName }),
+    [bots, allClients, hostStates, fallbackHostName]
+  )
   // Every tab leaves the Duo's status column free; its rings show the first connected desktop's plans.
   useFocusedUsageRail(
-    data.sortedHosts.map((host) => data.accountsByHost[host.id]).find(Boolean) ?? null
+    data.sortedHosts.map((host) => data.accountsByHost[host.id]).find(Boolean) ?? null,
+    railBots
   )
   // + shows only when a connected computer takes a new bot; the tab's lines say why not.
   const canCreateBot = useMemo(
