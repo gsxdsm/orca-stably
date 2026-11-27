@@ -4,9 +4,9 @@ import Svg, { Circle, Defs, Line, Path, Pattern, Rect, Text as SvgText } from 'r
 import { formatResetDuration } from '../../../src/shared/agent-usage/rate-limits/rate-limit-reset-format'
 import { getUiIntlLocale } from '../i18n/ui-intl-locale'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { colors, spacing, typography } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { spacing, typography } from '../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
+import { useMobileColors } from '../theme/use-mobile-color-scheme'
 import type { UsageChartModel } from './usage-window-stats'
 
 const PLOT_HEIGHT = 112
@@ -53,7 +53,8 @@ export function UsageHistoryChart({
   seriesLabel: string
   accessibilityLabel: string
 }): React.JSX.Element {
-  useMobileColorScheme()
+  const colors = useMobileColors()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const [width, setWidth] = useState(0)
   const span = model.endsAt - model.startsAt
@@ -326,7 +327,7 @@ export function UsageHistoryChart({
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   wrap: {
     gap: spacing.xs
   },
