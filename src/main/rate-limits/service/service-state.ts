@@ -1,9 +1,12 @@
+import type { LocalAccountRuntimeTarget } from '../../../shared/agent-accounts/local-account-runtime'
 import type { BrowserWindow } from 'electron'
 import type {
+  AntigravityAccountUsage,
   InactiveAccountUsage,
   ProviderRateLimits,
   RateLimitState
 } from '../../../shared/agent-usage/rate-limits/rate-limit-types'
+import type { AntigravityAccountUsageRecorder } from '../providers/antigravity/antigravity-account-usage'
 import {
   type ActiveRateLimitProvider,
   type InactiveCodexAccountInfo,
@@ -13,6 +16,8 @@ import {
   type ClaudeAuthPreparationResolver,
   type OpenCodeGoRateLimitConfig,
   type MiniMaxRateLimitConfig,
+  type AntigravityUsageEnabledResolver,
+  type AntigravityUsageSourceResolver,
   type ClaudeOAuthUsageEnabledResolver,
   type MuseUsageEnabledResolver,
   type ZcodePlanRateLimitConfig,
@@ -23,6 +28,7 @@ import type { NormalizedClaudeAccountSelectionTarget } from '../../claude-accoun
 import type { InactiveClaudeAccount } from '../providers/claude/claude-managed-account-usage'
 import type { NetworkProxySettings } from '../../../shared/network/network-proxy'
 import { readGrokAuthSession } from '../providers/grok/grok-auth'
+import type { UsageHistoryRecorder } from '../usage-history/usage-history-recorder'
 
 export abstract class RateLimitServiceState {
   protected state: InternalRateLimitState = {
@@ -30,6 +36,7 @@ export abstract class RateLimitServiceState {
     codex: null,
     opencodeGo: null,
     kimi: null,
+    antigravity: null,
     minimax: null,
     grok: null,
     cursor: null,
@@ -51,6 +58,7 @@ export abstract class RateLimitServiceState {
     kimi: 0,
     minimax: 0,
     grok: 0,
+    antigravity: 0,
     cursor: 0,
     zcode: 0,
     muse: 0
@@ -63,6 +71,7 @@ export abstract class RateLimitServiceState {
     kimi: 0,
     minimax: 0,
     grok: 0,
+    antigravity: 0,
     cursor: 0,
     zcode: 0,
     muse: 0
@@ -97,6 +106,7 @@ export abstract class RateLimitServiceState {
   protected opencodeFetchGeneration = 0
   protected minimaxFetchGeneration = 0
   protected zcodeFetchGeneration = 0
+  protected antigravityFetchGeneration = 0
   protected lastOpencodeConfigHash = ''
   protected lastMiniMaxConfigHash = ''
   protected lastZcodeConfigHash = ''
@@ -121,10 +131,17 @@ export abstract class RateLimitServiceState {
     | (() => ZcodePlanRateLimitConfig | Promise<ZcodePlanRateLimitConfig>)
     | null = null
   protected claudeOAuthUsageEnabledResolver: ClaudeOAuthUsageEnabledResolver | null = null
+  protected antigravityUsageEnabledResolver: AntigravityUsageEnabledResolver | null = null
+  protected antigravityUsageSourceResolver: AntigravityUsageSourceResolver | null = null
+  protected liveAntigravityUsage: ProviderRateLimits | null = null
+  protected antigravityFetchTarget: LocalAccountRuntimeTarget = { runtime: 'host', wslDistro: null }
+  protected antigravityAccountUsageRecorder: AntigravityAccountUsageRecorder | null = null
+  protected antigravityAccounts: AntigravityAccountUsage[] = []
   protected museUsageEnabledResolver: MuseUsageEnabledResolver | null = null
   protected inactiveClaudeAccountsResolver: (() => InactiveClaudeAccount[]) | null = null
   protected inactiveCodexAccountsResolver: (() => InactiveCodexAccountInfo[]) | null = null
   protected networkProxySettingsResolver: (() => NetworkProxySettings) | null = null
+  protected usageHistory: UsageHistoryRecorder | null = null
   protected inactiveClaudeCache = new Map<string, ProviderRateLimits>()
   protected inactiveCodexCache = new Map<string, ProviderRateLimits>()
   protected inactiveClaudeFetching = new Set<string>()
@@ -196,6 +213,7 @@ export abstract class RateLimitServiceState {
 
   protected updateState(next: InternalRateLimitState): void {
     this.state = next
+    this.usageHistory?.record(next)
     this.pushToRenderer()
   }
 

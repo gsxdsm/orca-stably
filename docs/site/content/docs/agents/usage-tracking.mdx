@@ -2,9 +2,7 @@
 title: Usage & rate-limit tracking
 ---
 
-Orca fetches usage for Claude Code, Codex, OpenCode Go, Kimi Code, MiniMax, Grok, Cursor, and GLM Coding Plan and surfaces it in the status bar, so you know how close you are to a rate limit before an agent stalls.
-
-Orca doesn't read Antigravity usage. agy supports outside clients only through ACP, so Orca doesn't run agy to read quota.
+Orca fetches usage for Claude Code, Codex, OpenCode Go, Kimi Code, MiniMax, Grok, Antigravity, Cursor, and GLM Coding Plan and surfaces it in the status bar, so you know how close you are to a rate limit before an agent stalls.
 
 ## What's shown
 
@@ -15,6 +13,10 @@ Orca doesn't read Antigravity usage. agy supports outside clients only through A
 ## How it works
 
 Orca asks each provider for your usage over the network, using the login that agent already has or a key or session cookie you add in Orca Settings.
+
+### Antigravity usage
+
+Orca never runs `agy` just to read quota. While an Antigravity chat or another `agy` session is running on this machine, Orca reads that process's own status on `127.0.0.1` and shows each model's rolling 5-hour quota, with the most-used model as the headline. When no `agy` is running, the last reading stays until its window resets.
 
 ### Claude usage polling
 

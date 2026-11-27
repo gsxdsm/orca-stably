@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+/* eslint-disable max-lines -- Why: the fork's additions sit beside upstream's in this owner after the upstream merge. */
+import { useEffect, useState, useCallback } from 'react'
 import { Alert, Linking, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useNavigation, useNavigationContainerRef, useRouter } from 'expo-router'
+import { useFocusEffect, useNavigation, useNavigationContainerRef, useRouter } from 'expo-router'
 import { OrcaMobileWebShellView } from '../../modules/orca-mobile-web-shell/src/index'
 import { parseMobileWebShellLoadState } from '../../modules/orca-mobile-web-shell/src/load-state'
 import { HostRouteNoticeBanner } from '../components/host-connection/HostRouteNoticeBanner'
@@ -21,6 +22,9 @@ import { playPageHaptic } from './native-capabilities/page-haptics'
 import { useMobileWebShellBridge } from './page-document/use-mobile-web-shell-bridge'
 import type { MobileWebShellRuntime } from './session/mobile-web-shell-runtime'
 import { useKeyboardOcclusion } from '../platform/keyboard/keyboard-occlusion'
+import { useSideRailStrip } from '../layout/side-rail'
+import { useClaimSideRelease } from '../layout/released-side-inset'
+import { BRIDGE_TERMINAL_KEY_RAIL_GRANT } from './bridge/native-capabilities/bridge-terminal-key'
 import { useNativeDeviceVerbs } from '../platform/use-native-device-verbs'
 import { useNativePdfViewer } from '../platform/pdf-viewing/native-pdf-view'
 import { useNativeImageActions } from '../platform/image-actions/native-image-actions'
@@ -33,6 +37,7 @@ import { usePageLocationOnFold } from './page-geometry/page-location-on-fold'
 import { usePageOpenTarget } from './routing/page-open-target'
 import { useMobileWebShellSession } from './session/use-mobile-web-shell-session'
 import { useShellPageStorageRefresh } from './page-storage/use-shell-page-storage-refresh'
+import { useDuoChatWidthPublish } from './use-duo-chat-width-publish'
 import { usePageHostSnapshot } from './host-gates/use-page-host-snapshot'
 import { useReportedHostAreaServing } from './host-gates/host-area-serving'
 import { isHostRouteOf } from './routing/page-route-policy'
@@ -55,6 +60,11 @@ import {
 } from './page-geometry/page-safe-area-insets'
 import { usePageFoldDivision, usePublishedFoldDivision } from './page-geometry/page-fold-division'
 import { usePublishedShellKeyRail, useShellKeyRail } from './terminal-controls/use-shell-key-rail'
+import { useShellUsageRail } from '../rail-usage/use-shell-usage-rail'
+import { TabletUsageRail, useTabletUsageRail } from '../rail-usage/TabletUsageRail'
+import { pageSideStripRoom } from '../rail-usage/side-strip-holder'
+import { useRailRingsDuringChats } from '../rail-usage/rail-rings-during-chats-preference'
+import type { BridgeSideStripFree } from './bridge/page-geometry/bridge-side-strip-cover'
 import { hostProfileUnreadableLine, pageFaultLine } from './diagnostics/shell-lifecycle-log'
 import { recordShellLifecycleLine } from './diagnostics/shell-lifecycle-line-recorder'
 
@@ -152,6 +162,50 @@ export function MobileWebShellScreen({
   })
   const readySessionId = state.kind === 'ready' ? state.sessionId : null
   const keyRail = useShellKeyRail({ sessionId: readySessionId, overlay, routeGrants })
+  // The session page lays its chat across the status column, so this screen gives up its padding while focused.
+  const [shellFocused, setShellFocused] = useState(false)
+  useFocusEffect(
+    useCallback(() => {
+      setShellFocused(true)
+      return () => setShellFocused(false)
+    }, [])
+  )
+  const strip = useSideRailStrip()
+  const tabletRail = useTabletUsageRail(hostId, pageFold.onShellLayout, !overlay)
+  useClaimSideRelease(
+    shellFocused &&
+      strip !== null &&
+      !overlay &&
+      routeGrants.includes(BRIDGE_TERMINAL_KEY_RAIL_GRANT)
+  )
+  // What this document last reported about itself; a new document starts unknown.
+  const [pageLocation, setPageLocation] = useState<{ sessionId: string; href: string } | null>(null)
+  const [pageCover, setPageCover] = useState<{
+    sessionId: string
+    covered: boolean
+    free: BridgeSideStripFree | null
+  } | null>(null)
+  const currentCover = pageCover?.sessionId === readySessionId ? pageCover : null
+  const stripRoom = pageSideStripRoom({
+    ownsHostArea,
+    routeGrants,
+    covered: currentCover?.covered ?? null,
+    free: currentCover?.free ?? null,
+    location: pageLocation?.sessionId === readySessionId ? pageLocation.href : null,
+    keyRailClaimed: keyRail.keys.length > 0
+  })
+  // A chat that leaves part of the column empty shares it with the rings only when the user wants them there.
+  const ringsDuringChats = useRailRingsDuringChats()
+  useShellUsageRail(
+    hostId,
+    shellFocused && !overlay && state.kind === 'ready'
+      ? stripRoom.kind === 'whole'
+        ? 'whole'
+        : stripRoom.kind === 'span' && ringsDuringChats
+          ? { top: stripRoom.top, bottom: stripRoom.bottom }
+          : null
+      : null
+  )
   const {
     snapshot,
     unreadable,
@@ -281,12 +335,20 @@ export function MobileWebShellScreen({
     // A caller that tracks the location takes it; pages from #34484 desktops report it only for a fold to reopen.
     onPageLocation: (href) => {
       openTarget.recordLocation(href)
+      if (readySessionId !== null) {
+        setPageLocation({ sessionId: readySessionId, href })
+      }
       return onPageLocation === undefined
         ? holdPageLocation(href, ownsHostArea)
         : onPageLocation(href)
     },
     // A newer build swaps in only on a resume where the page has nothing to lose (no draft, upload or open sheet).
     onPageSwapSafe: reportSwapSafe,
+    onSideStripCover: (covered, free) => {
+      if (readySessionId !== null) {
+        setPageCover({ sessionId: readySessionId, covered, free })
+      }
+    },
     onTerminalKeyRailClaim: keyRail.reportClaim,
     onRouteParamClear: openTarget.onRouteParamClear,
     onRouteRefused: (issue) => {
@@ -317,6 +379,7 @@ export function MobileWebShellScreen({
 
   // paneKey changes keep the session mounted; the host deduplicates routes and preserves in-flight frames.
   useShellPageStorageRefresh(refreshStorage, bridge.publishStorage)
+  useDuoChatWidthPublish(bridge.publishStorage)
   useEffect(() => bridge.publishRoute(pageRoute), [bridge.publishRoute, pageRoute])
 
   usePublishedSafeAreaInsets(bridge.publishSafeAreaInsets, pageInsets)
@@ -393,8 +456,12 @@ export function MobileWebShellScreen({
         key={state.sessionId}
         ref={bridge.viewRef}
         // Overlays cannot cover the screen beneath; hide their opaque WebView until first paint.
-        style={[styles.shellView, overlay && pageFrame !== 'painted' && styles.unpaintedOverlay]}
-        onLayout={pageFold.onShellLayout}
+        style={[
+          styles.shellView,
+          overlay && pageFrame !== 'painted' && styles.unpaintedOverlay,
+          tabletRail.pageStyle
+        ]}
+        onLayout={tabletRail.onPageLayout}
         generationDirectory={state.generationDirectory}
         sessionId={state.sessionId}
         bridgeEnabled={bridge.bridgeEnabled}
@@ -426,6 +493,7 @@ export function MobileWebShellScreen({
           }
         }}
       />
+      <TabletUsageRail rail={tabletRail} />
       {overlay ? null : <ShellPageCover visible={pageFrame === 'unpainted'} />}
       <ShellDevFacts state={state} droppedBinaryFrames={droppedBinaryFrames} />
     </View>

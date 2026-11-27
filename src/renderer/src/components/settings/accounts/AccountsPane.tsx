@@ -378,6 +378,8 @@ export function AccountsPane({
         target={{ runtime: accountRuntime.runtime, wslDistro: accountRuntime.wslDistro }}
         label={accountRuntimeSentenceLabel}
         ownerPlatform={accountOwnerPlatform}
+        usageSettings={usageHostSettings}
+        recordFeatureInteraction={recordFeatureInteraction}
       />
     ) : null,
     matchesSettingsSearch(searchQuery, getAccountsOpencodeSearchEntries())

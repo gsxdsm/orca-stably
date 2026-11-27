@@ -11,6 +11,7 @@ import {
 import { useUsagePercentageDisplay } from './usage-percentage-display-preference'
 import type { Translate } from '../../i18n/mobile-i18n'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
+import { UsagePaceTick } from './UsagePaceTick'
 
 import './usage-selectors'
 
@@ -52,6 +53,14 @@ export function formatUsageBarValue(
     : `${shown}%`
 }
 
+// Fork meters (composer, server resources) color a percent without drawing a bar.
+export function usageBandColor(usedPercent: number | null): string {
+  if (usedPercent == null || !Number.isFinite(usedPercent)) {
+    return colors.textMuted
+  }
+  return usageBarFill(usedPercent, false, 'used').color
+}
+
 // Match desktop/harness consumption meters: fresh empty/green, depleted full/red.
 export function UsageBar({
   label,
@@ -59,7 +68,11 @@ export function UsageBar({
   unavailable,
   loading,
   resetText,
+  labelWidth,
   wideLabel = false,
+  display: displayOverride,
+  paceMarkerPercent = null,
+  fillColor,
   style
 }: {
   label: string
@@ -67,31 +80,52 @@ export function UsageBar({
   unavailable: boolean
   loading?: boolean
   resetText?: string | null
+  // 0 hides the chip. A positive width keeps the fork's fixed session chip.
+  labelWidth?: number
   /** For long pool names: the label sits on its own line above the track. */
   wideLabel?: boolean
+  /** Overrides the accounts used/remaining preference, for meters with their own toggle. */
+  display?: UsagePercentageDisplay
+  /** Tick where an even burn would put the fill (0–100, in the bar's display); null hides it. */
+  paceMarkerPercent?: number | null
+  /** Overrides the used-level band, e.g. with the window's pace colour. */
+  fillColor?: string
   style?: StyleProp<ViewStyle>
 }) {
   useMobileColorScheme()
   const t = useMobileTranslation()
-  const display = useUsagePercentageDisplay()
+  const preferredDisplay = useUsagePercentageDisplay()
+  const display = displayOverride ?? preferredDisplay
   const { shown, color } = usageBarFill(usedPercent, unavailable, display)
+  const showLabel = labelWidth === 0 ? false : label !== ''
   return (
     <View style={[wideLabel ? styles.usageBarStack : styles.usageBarRow, style]}>
-      <Text style={styles.usageLabel} numberOfLines={1}>
-        {label}
-      </Text>
+      {showLabel ? (
+        <Text
+          style={[
+            styles.usageLabel,
+            labelWidth != null && labelWidth > 0 ? { width: labelWidth } : null
+          ]}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+      ) : null}
       <View style={[styles.usageBarBody, !wideLabel && styles.usageBarBodyBeside]}>
         <View style={styles.usageBar}>
-          <View style={styles.usageTrack}>
-            <View
-              style={[
-                styles.usageFill,
-                {
-                  width: `${shown ?? 0}%`,
-                  backgroundColor: color
-                }
-              ]}
-            />
+          <View style={styles.usageTrackSlot}>
+            <View style={styles.usageTrack}>
+              <View
+                style={[
+                  styles.usageFill,
+                  {
+                    width: `${shown ?? 0}%`,
+                    backgroundColor: fillColor ?? color
+                  }
+                ]}
+              />
+            </View>
+            {paceMarkerPercent != null ? <UsagePaceTick percent={paceMarkerPercent} /> : null}
           </View>
           {loading ? (
             <ActivityIndicator
@@ -141,8 +175,11 @@ const styles = themedStyleSheet(() => ({
     color: colors.textMuted,
     minWidth: 22
   },
-  usageTrack: {
+  usageTrackSlot: {
     flex: 1,
+    justifyContent: 'center'
+  },
+  usageTrack: {
     height: 6,
     borderRadius: 3,
     backgroundColor: colors.bgRaised,

@@ -1,3 +1,4 @@
+import type { UsageHistoryByWindow } from './usage-window-history'
 export type RateLimitWindow = {
   /** Percentage of the window consumed (0–100). */
   usedPercent: number
@@ -86,6 +87,8 @@ export type UsageRateLimitMetadata = {
   unverifiableOwner?: boolean
   /** Renderer-only: set up on this device but not on the remote host that owns usage. Hosts never set it. */
   ownerNotSetUp?: OwnerNotSetUpPlaceholder
+  /** Antigravity: the native login verified before and after the read; id is null for an unsaved login. */
+  account?: { id: string | null; email: string | null }
   /** Claude/Codex: set only on a successful reading of one saved account; older hosts omit it. */
   readingAccount?: UsageReadingAccount
   /** Codex: the managed login this auth rejection actually came from. */
@@ -100,6 +103,7 @@ export type ProviderRateLimits = {
     | 'kimi'
     | 'minimax'
     | 'grok'
+    | 'antigravity'
     | 'cursor'
     | 'zcode'
     | 'muse'
@@ -113,7 +117,7 @@ export type ProviderRateLimits = {
   monthly?: RateLimitWindow | null
   /** Overage / pay-as-you-go balance the plan spends into once its windows cap. */
   extraUsage?: ExtraUsageBalance | null
-  /** Named per-model buckets (Cursor plan pools). */
+  /** Named per-model buckets (Antigravity models, Cursor plan pools). */
   buckets?: RateLimitBucket[]
   /** Available earned Codex rate-limit reset credits, if reported. */
   rateLimitResetCredits?: {
@@ -134,6 +138,8 @@ export type ProviderRateLimits = {
   updatedAt: number
   /** Human-readable error message, null when status is 'ok'. */
   error: string | null
+  /** Shown beside an 'ok' reading that needs explaining, e.g. Muse before its first turn in a window. */
+  notice?: string | null
   status: ProviderRateLimitStatus
   usageMetadata?: UsageRateLimitMetadata
 }
@@ -155,6 +161,16 @@ export type InactiveAccountUsage = {
   rateLimits: ProviderRateLimits | null
   updatedAt: number
   isFetching: boolean
+}
+
+/** One saved Antigravity account's last verified reading on the runtime the meter reads. */
+export type AntigravityAccountUsage = {
+  accountId: string
+  email: string | null
+  /** True when this account is the native agy login right now. */
+  active: boolean
+  /** Null until a reading verified as this account succeeded; `updatedAt` is when it was read. */
+  rateLimits: ProviderRateLimits | null
 }
 
 export type GrokAccountStatus = {
@@ -181,6 +197,7 @@ export type RateLimitState = {
   codex: ProviderRateLimits | null
   opencodeGo: ProviderRateLimits | null
   kimi: ProviderRateLimits | null
+  antigravity: ProviderRateLimits | null
   minimax: ProviderRateLimits | null
   grok: ProviderRateLimits | null
   cursor: ProviderRateLimits | null
@@ -202,8 +219,10 @@ export type RateLimitState = {
   codexTarget: RateLimitRuntimeTarget
   inactiveClaudeAccounts: InactiveAccountUsage[]
   inactiveCodexAccounts: InactiveAccountUsage[]
-  /** Retired with Antigravity usage and always empty; older clients read it unguarded. */
-  antigravityAccounts?: []
+  /** Saved Antigravity accounts; agy has one shared login, so only the active one is ever read. */
+  antigravityAccounts: AntigravityAccountUsage[]
+  /** Used-percent samples of each active provider window since its last reset; absent on older hosts. */
+  usageHistory?: UsageHistoryByWindow
 }
 
 export type RuntimeTargetUsageProvider = 'claude' | 'codex'

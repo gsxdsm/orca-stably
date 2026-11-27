@@ -889,6 +889,7 @@
         "sshToggleDescription": "Показывать настроенные SSH-серверы и удалённые серверы Orca, если они есть.",
         "resourceUsageToggleDescription": "Показывать диспетчер ресурсов. Нажмите, чтобы посмотреть загрузку процессора, использование памяти и список сессий, управлять демоном и проверить, сколько места рабочие пространства занимают на диске.",
         "portsToggleDescription": "Показывать активные порты рабочего пространства. Нажмите для просмотра портов рабочего пространства и внешних слушающих процессов.",
+        "antigravityToggleDescription": "Показывать использование подписки Antigravity для активного рабочего пространства.",
         "grokToggleDescription": "Показывать расход кредитов подписки Grok при входе через Grok CLI.",
         "cursorToggleDescription": "Показывать использование тарифа Cursor при входе через cursor-agent или Cursor IDE.",
         "zcodeToggleDescription": "Показывать использование квоты ZCode Coding Plan.",
@@ -5901,6 +5902,7 @@
             "c0e972d726": "Отмена",
             "3bbf140864": "Использование MiniMax",
             "remoteServerLabel": "Удалённый сервер",
+            "antigravityUsage": "Использование Antigravity",
             "grokUsageMenu": "Использование Grok",
             "floatingTerminalNewActivity": "{{label}}, новая активность",
             "4fba7dc1e7": "баланс {{value0}}",
@@ -6414,9 +6416,16 @@
             "mainWorktree": "основное рабочее дерево",
             "detached": "отсоединено"
           },
+          "antigravity": {
+            "unknownAccount": "Аккаунт Google",
+            "accounts": "Сохранённые аккаунты Antigravity",
+            "readAgo": "Считано {{time}}",
+            "notRead": "Использование неизвестно: данные ещё не считаны"
+          },
           "AccountSwitchList": {
             "used": "Использовано",
             "left": "Осталось",
+            "reset": "Сброс",
             "accounts": "Аккаунты"
           },
           "InlineUsageBars": {
@@ -11414,6 +11423,7 @@
             "d77537b580": "opencode-go",
             "a9d56852eb": "opencode",
             "7f72de7cbe": "Показывать расход токенов и стоимость OpenCode Go в строке состояния.",
+            "51b0ccd6a2": "google",
             "97957e374e": "openai",
             "8dfd676c28": "codex",
             "e9e4412545": "Показывать расход токенов и стоимость Codex в строке состояния.",
@@ -11455,6 +11465,8 @@
               "pr": "pr",
               "duplicate": "дублировать"
             },
+            "antigravityUsageDescription": "Показывать использование подписки Antigravity в строке состояния.",
+            "antigravityKeyword": "antigravity",
             "e7d1b0f3a5": "Показывать недельный расход кредитов Grok через OAuth Grok CLI.",
             "d6c0a9e2f4": "grok",
             "c5b9f8d1e3": "xai",
@@ -11508,7 +11520,8 @@
             "c29089716e": "Использование Kimi",
             "96e32c1118": "Использование MiniMax",
             "e8d2710689": "Использование Muse",
-            "aff6e6afdf": "Шрифт IDE"
+            "aff6e6afdf": "Шрифт IDE",
+            "ba1f9d39a6": "Использование Antigravity"
           }
         },
         "auto": {
@@ -15200,7 +15213,8 @@
             "windows": "процент окна",
             "reset": "время до сброса, например 3h 15m",
             "resetAt": "время сброса по часам, например 20:50",
-            "optional": "опускается, если плейсхолдер внутри пуст"
+            "optional": "опускается, если плейсхолдер внутри пуст",
+            "usagePools": "именованные пулы использования, например модели Antigravity"
           }
         },
         "RepositoryRemoveProjectSection": {
@@ -25998,6 +26012,8 @@
       "retry": "Повторить",
       "changed": "Учётная запись agy изменилась. Снова выберите сохранённую учётную запись перед запуском agy.",
       "refresh": "Обновить учётные записи",
+      "usage": "Обновить расход",
+      "usageWithReading": "Обновить данные об использовании ({{reading}})",
       "saved": "Сохранённая учётная запись Google",
       "remove": "Удалить",
       "searchDescription": "Сохраняйте и выбирайте учётные записи Google для agy на сервере выполнения.",
@@ -26018,6 +26034,8 @@
       "settingsIncomplete": "Выберите тип аккаунта Antigravity и укажите проект и регион Google Cloud.",
       "settingsLoadFailed": "Orca не удалось загрузить настройки входа в Antigravity. Попробуйте ещё раз.",
       "settingsSaveFailed": "Orca не удалось сохранить настройки входа в Antigravity. Попробуйте ещё раз.",
+      "lastReading": "{{reading}} · Считано {{time}}",
+      "noReading": "Использование неизвестно: данные ещё не считаны",
       "fd47b5a5dd": "Учётные записи Antigravity",
       "personalOption": "Ваш личный тариф Google AI",
       "enterpriseOption": "Лицензия вашей организации",
@@ -26048,6 +26066,7 @@
       "currentNotSaved": "Текущая учётная запись agy · не сохранена",
       "noEmailNotSaved": "agy не сообщил адрес электронной почты · не сохранено",
       "saveShort": "Сохранить",
+      "readAt": "Данные получены {{time}}",
       "active": "Активна",
       "runtime": "Среда выполнения",
       "terminalTitle": "agy в терминале",

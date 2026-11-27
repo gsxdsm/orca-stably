@@ -45,6 +45,9 @@ const edge = (borderColor: string) =>
 const noOwnRing = { outlineWidth: 0 } as const
 
 // The chat composer's look, shared by every text input so they cannot drift apart; plain fields add the edge.
+/** The message text's side inset; a line drawn over the text lines up with it. */
+export const MESSAGE_TEXT_INSET = 6
+
 export const composerInputStyles = themedStyleSheet(() => ({
   box: {
     ...edge(colors.composerBorder),
@@ -87,6 +90,14 @@ export const composerInputStyles = themedStyleSheet(() => ({
     ...noOwnRing,
     minHeight: FORM_MESSAGE_MIN_HEIGHT
   },
+  // Only bars floating over content cast a shadow; an inline box would shade its own thread.
+  docked: {
+    shadowColor: '#000',
+    shadowOpacity: 0.45,
+    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8
+  },
   messageText: {
     width: '100%',
     minHeight: MESSAGE_MIN_HEIGHT,
@@ -94,7 +105,7 @@ export const composerInputStyles = themedStyleSheet(() => ({
     fontSize: COMPOSER_TEXT_SIZE,
     lineHeight: COMPOSER_LINE_HEIGHT,
     color: colors.textPrimary,
-    paddingHorizontal: 6,
+    paddingHorizontal: MESSAGE_TEXT_INSET,
     paddingTop: MESSAGE_PADDING_VERTICAL,
     paddingBottom: MESSAGE_PADDING_VERTICAL
   },
@@ -176,6 +187,9 @@ export const composerInputStyles = themedStyleSheet(() => ({
   },
   mono: {
     fontFamily: typography.monoFamily
+  },
+  hiddenText: {
+    color: 'transparent'
   },
   disabled: {
     opacity: feedback.disabledOpacity

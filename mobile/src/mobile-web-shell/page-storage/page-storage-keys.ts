@@ -33,6 +33,12 @@ export const TERMINAL_SETTINGS_STORAGE_KEYS = [
   'orca:usagePercentageDisplay'
 ] as const
 
+// Terminal settings, Chat UI, the device-wide Duo chat width, and the pinched chat text size.
+export const LIVE_PAGE_STORAGE_KEYS = [
+  ...TERMINAL_SETTINGS_STORAGE_KEYS,
+  'orca:duoChatExpanded'
+] as const
+
 export const PAGE_STORAGE_EXACT_KEYS = [
   'orca:last-visited-worktree',
   'orca:hostSidebarWidth',
@@ -48,6 +54,14 @@ export const PAGE_STORAGE_EXACT_KEYS = [
   'orca:terminalLinkOpenMode',
   /** The split terminal's chosen direction. */
   'orca:terminalSplitLayout',
+  /** Which usage window the composer meter shows. */
+  'orca:composerUsageWindow',
+  /** Whether that meter shows percent used or percent left. */
+  'orca:composerUsageDisplay',
+  /** Whether the chat composer's meter sits in its controls row or above the text. */
+  'orca:composerUsagePosition',
+  /** Whether every Duo chat runs across the status column. */
+  'orca:duoChatExpanded',
   /** Terminal font, line spacing and weight. */
   'orca:terminalFontStyle',
   /** Chat text size, font and spacing; a pinch in a chat saves here. */
@@ -65,6 +79,10 @@ export const PAGE_STORAGE_EXACT_KEYS = [
  */
 export const NEGOTIATED_PAGE_STORAGE_KEYS = [
   'orca:terminalSplitLayout',
+  'orca:composerUsageWindow',
+  'orca:composerUsageDisplay',
+  'orca:composerUsagePosition',
+  'orca:duoChatExpanded',
   'orca:terminalFontStyle',
   'orca:nativeChatText',
   'orca:newAgentSurface',

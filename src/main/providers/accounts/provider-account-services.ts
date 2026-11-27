@@ -1,4 +1,7 @@
 // Keep Electron imports out: both desktop and orcad bundle these account services.
+import { join } from 'node:path'
+import { getAppEnvironment, hasAppEnvironment } from '../../../shared/app-lifecycle/app-environment'
+import { UsageHistoryRecorder } from '../../rate-limits/usage-history/usage-history-recorder'
 import { getClaudeAgentViewService } from '../../claude/agent-view/agent-view-service'
 import type { Store } from '../../persistence/loading-store/store'
 import { RateLimitService } from '../../rate-limits/service/rate-limit-service'
@@ -8,6 +11,7 @@ import { ClaudeRuntimeAuthService } from '../../claude-accounts/runtime-auth-ser
 import { ClaudeAccountService } from '../../claude-accounts/service'
 import { getInitialCodexRateLimitTarget } from '../../rate-limits/providers/codex/codex-rate-limit-target'
 import { getInitialClaudeRateLimitTarget } from '../../rate-limits/providers/claude/claude-rate-limit-target'
+import { UsageLastGoodStore } from '../../rate-limits/usage-last-good/usage-last-good-store'
 import { resolveKimiHome } from '../../kimi/kimi-runtime-home'
 import { resolveLocalAccountUsageTarget } from '../../../shared/agent-accounts/local-account-runtime'
 import { resolveCodexRateLimitHomeUnlessStopped } from '../../rate-limits/providers/codex/codex-rate-limit-wsl-home-gate'
@@ -15,6 +19,17 @@ import { readMiniMaxSessionCookie } from '../../minimax/minimax-cookie-store'
 import { readMiniMaxApiKey } from '../../minimax/minimax-api-key-store'
 import { readZcodePlanApiKey } from '../../zcode/zcode-plan-api-key-store'
 import { readOpenCodeGoApiKey } from '../../opencode/accounts/opencode-go-api-key-store'
+import {
+  getAntigravityAccountService,
+  setAntigravityNativeCredentialChangeListener
+} from '../../antigravity/native-account-host'
+import { setAntigravityStatusLineListener } from '../../antigravity/statusline/antigravity-statusline-feed'
+import { syncAntigravityStatusLine } from '../../antigravity/statusline/antigravity-statusline-install'
+import {
+  antigravityUsageReadsAcp,
+  antigravityUsageReadsStatusLine,
+  normalizeAntigravityUsageSource
+} from '../../../shared/agent-usage/rate-limits/antigravity-usage-source'
 import { createAccountRuntimeTargetSettingsSync } from '../../rate-limits/service/account-runtime-target-sync'
 import { resolveInactiveCodexAccounts } from '../../rate-limits/inactive-codex-accounts'
 import { normalizeClaudeRuntimeSelection } from '../../claude-accounts/selection/runtime-selection'
@@ -41,6 +56,13 @@ export function createProviderAccountServices(
   const agentView = getClaudeAgentViewService()
   void agentView.reconcile(store.getSettings())
   const rateLimits = new RateLimitService()
+  rateLimits.setUsageHistoryRecorder(
+    new UsageHistoryRecorder(
+      hasAppEnvironment()
+        ? join(getAppEnvironment().getPath('userData'), 'orca-usage-window-history.json')
+        : null
+    )
+  )
   const codexRuntimeHome = new CodexRuntimeHomeService(store)
   const codexAccounts = new CodexAccountService(
     store,
@@ -63,7 +85,15 @@ export function createProviderAccountServices(
   rateLimits.setKimiHomeResolver(() =>
     resolveKimiHome(resolveLocalAccountUsageTarget(store.getSettings()))
   )
+  rateLimits.setAntigravityFetchTarget(resolveLocalAccountUsageTarget(store.getSettings()))
   rateLimits.setClaudeFetchTarget(getInitialClaudeRateLimitTarget(store.getSettings()))
+  void rateLimits.setUsageLastGoodStore(
+    new UsageLastGoodStore(
+      hasAppEnvironment()
+        ? join(getAppEnvironment().getPath('userData'), 'orca-usage-last-good.json')
+        : null
+    )
+  )
   const syncAccountRuntimeTargets = createAccountRuntimeTargetSettingsSync(
     rateLimits,
     store.getSettings()
@@ -120,6 +150,33 @@ export function createProviderAccountServices(
         )
       })
     }
+    if ('antigravityUsageSource' in updates || 'agentStatusHooksEnabled' in updates) {
+      const nextSource = normalizeAntigravityUsageSource(settings.antigravityUsageSource)
+      if (hasAppEnvironment()) {
+        try {
+          syncAntigravityStatusLine(
+            settings.agentStatusHooksEnabled !== false &&
+              antigravityUsageReadsStatusLine(nextSource)
+          )
+        } catch (error) {
+          console.warn(
+            '[antigravity] Failed to sync status-line feed after settings change:',
+            error
+          )
+        }
+      }
+      if ('antigravityUsageSource' in updates) {
+        rateLimits.applyAntigravityUsageSourceChange(nextSource)
+        if (antigravityUsageReadsAcp(nextSource)) {
+          void rateLimits.refresh().catch((error: unknown) => {
+            console.warn(
+              '[rate-limits] Failed to refresh Antigravity usage after source change:',
+              error
+            )
+          })
+        }
+      }
+    }
   })
   rateLimits.setClaudeAuthPreparationResolver((target) =>
     claudeRuntimeAuth.prepareForRateLimitFetch(target)
@@ -151,8 +208,40 @@ export function createProviderAccountServices(
     apiKey: (await readZcodePlanApiKey()) ?? ''
   }))
   rateLimits.setClaudeOAuthUsageEnabledResolver(() => store.getSettings().claudeOAuthUsageEnabled)
+  // Reuse the meter switch so hidden Antigravity usage does not scan ports unless paired clients watch.
+  rateLimits.setAntigravityUsageEnabledResolver(() =>
+    store.getUI().statusBarItems.includes('antigravity')
+  )
+  rateLimits.setAntigravityUsageSourceResolver(() =>
+    normalizeAntigravityUsageSource(store.getSettings().antigravityUsageSource)
+  )
+  setAntigravityStatusLineListener((reading) => {
+    rateLimits.ingestLiveAntigravityRateLimits(reading)
+  })
+  if (hasAppEnvironment()) {
+    try {
+      const initialSettings = store.getSettings()
+      syncAntigravityStatusLine(
+        initialSettings.agentStatusHooksEnabled !== false &&
+          antigravityUsageReadsStatusLine(
+            normalizeAntigravityUsageSource(initialSettings.antigravityUsageSource)
+          )
+      )
+    } catch (error) {
+      console.warn('[antigravity] Failed to sync status-line feed on startup:', error)
+    }
+  }
   // Hidden Muse meters must not spawn the Muse CLI.
   rateLimits.setMuseUsageEnabledResolver(() => store.getUI().statusBarItems.includes('muse'))
+  setAntigravityNativeCredentialChangeListener(() =>
+    rateLimits.invalidateAntigravityCredentialState()
+  )
+  // agy has one shared login: attribute readings to saved accounts instead of switching to read others.
+  rateLimits.setAntigravityAccountUsageRecorder({
+    begin: async (target) => (await getAntigravityAccountService(target)).beginUsageRead(),
+    finish: async (target, login, limits) =>
+      (await getAntigravityAccountService(target)).finishUsageRead(login, limits)
+  })
   rateLimits.setNetworkProxySettingsResolver(() => store.getSettings())
   rateLimits.setInactiveClaudeAccountsResolver(() => {
     const settings = store.getSettings()

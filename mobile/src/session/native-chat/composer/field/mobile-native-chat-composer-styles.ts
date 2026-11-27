@@ -7,23 +7,33 @@ export const COMPOSER_INSET_TOP = 6
 /** How far a box docked on the composer's top edge reaches under it, past its rounded corners. */
 export const COMPOSER_TUCK = 12
 
+const composerInset = {
+  paddingHorizontal: spacing.md,
+  paddingTop: COMPOSER_INSET_TOP,
+  paddingBottom: spacing.sm
+}
+
 export const mobileNativeChatComposerStyles = themedStyleSheet(() => ({
-  composerInset: {
-    paddingHorizontal: spacing.md,
-    paddingTop: COMPOSER_INSET_TOP,
-    paddingBottom: spacing.sm
-  },
-  bar: composerInputStyles.box,
-  leadingControls: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.sm
+  composerInset,
+  // Bottom margin matches the sides, so the box sits evenly in the screen's corners.
+  composerInsetCornerFit: { ...composerInset, paddingBottom: 10 },
+  bar: { ...composerInputStyles.box, ...composerInputStyles.docked },
+  // Wider bottom corners stay concentric with the rounded screen instead of poking into it.
+  barCornerFit: {
+    ...composerInputStyles.box,
+    ...composerInputStyles.docked,
+    borderBottomLeftRadius: 34,
+    borderBottomRightRadius: 34,
+    paddingBottom: 14
   },
   // One line while dictating: a long computer name truncates instead of wrapping and growing the composer.
   dictationLeading: {
-    flexWrap: 'nowrap'
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 'auto',
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm
   }
 }))

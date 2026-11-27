@@ -6,6 +6,12 @@ import {
 } from './service-sibling-provider-result'
 import { disabledUsageSnapshot } from './disabled-usage-snapshot'
 import { prepareMuseUsageFetch } from './service-muse-usage-fetch'
+import {
+  antigravityUsageReadsAcp,
+  antigravityUsageReadsStatusLine,
+  pickFresherAntigravityReading
+} from '../../../shared/agent-usage/rate-limits/antigravity-usage-source'
+import { hasUsageWindows, withoutResetWindows } from './service-result-policy'
 import type { ProviderRateLimits } from '../../../shared/agent-usage/rate-limits/rate-limit-types'
 
 function hasKnownProvenanceChange(
@@ -48,11 +54,13 @@ export abstract class RateLimitServiceFullCycleApplication extends RateLimitServ
       miniMaxGeneration,
       zcodeConfigChanged,
       zcodeGeneration,
+      antigravityGeneration,
       claudeFetchGated,
       results: [claudeResult, codexResult, opencodeGoResult, kimiResult, miniMaxResult],
       grokResultPromise,
       cursorResultPromise,
-      zcodeResultPromise
+      zcodeResultPromise,
+      antigravityResultPromise
     } = prepared
     if (signal.aborted) {
       return
@@ -192,10 +200,11 @@ export abstract class RateLimitServiceFullCycleApplication extends RateLimitServ
         : this.state.minimax
     })
 
-    const [grokSettled, cursorSettled, zcodeSettled] = await Promise.all([
+    const [grokSettled, cursorSettled, zcodeSettled, antigravitySettled] = await Promise.all([
       grokResultPromise,
       cursorResultPromise,
-      zcodeResultPromise
+      zcodeResultPromise,
+      antigravityResultPromise
     ])
     if (signal.aborted) {
       return
@@ -214,6 +223,8 @@ export abstract class RateLimitServiceFullCycleApplication extends RateLimitServ
           error: 'ZCode Coding Plan account changed during refresh'
         }
     const shouldApplyZcode = zcodeGeneration === this.zcodeFetchGeneration
+    const antigravity = settleSiblingProviderResult('antigravity', antigravitySettled)
+    const shouldApplyAntigravity = antigravityGeneration === this.antigravityFetchGeneration
     // Discard Cursor stale usage only for a known account change; unidentified transient failures retain their last reading.
     const cursorAccountChanged = hasKnownProvenanceChange(previousState.cursor, cursor)
     const previousZcodeAccount = previousState.zcode?.usageMetadata?.authProvenance
@@ -227,6 +238,34 @@ export abstract class RateLimitServiceFullCycleApplication extends RateLimitServ
     if (shouldApplyZcode) {
       this.trackActiveFailureStreak('zcode', zcode)
     }
+    if (shouldApplyAntigravity) {
+      this.trackActiveFailureStreak('antigravity', antigravity)
+    }
+    const antigravitySource = this.getAntigravityUsageSource()
+    const resolvedAntigravity = (() => {
+      if (!shouldApplyAntigravity) {
+        return this.state.antigravity
+      }
+      if (!antigravityUsageReadsAcp(antigravitySource)) {
+        return this.antigravityUsageWithoutAcp()
+      }
+      // Another runtime's last reading must not stand in for this runtime's failure.
+      const applied = hasKnownProvenanceChange(previousState.antigravity, antigravity)
+        ? antigravity
+        : this.applyStalePolicy(antigravity, previousState.antigravity)
+      if (!antigravityUsageReadsStatusLine(antigravitySource)) {
+        return applied
+      }
+      const now = Date.now()
+      const currentLive =
+        this.state.antigravity?.usageMetadata?.source === 'live-session'
+          ? withoutResetWindows(this.state.antigravity, now)
+          : null
+      if (!currentLive || !hasUsageWindows(currentLive)) {
+        return applied
+      }
+      return pickFresherAntigravityReading(currentLive, applied, now) ?? applied
+    })()
     this.updateState({
       ...this.state,
       grok: this.applyStalePolicy(grok, previousState.grok),
@@ -237,7 +276,8 @@ export abstract class RateLimitServiceFullCycleApplication extends RateLimitServ
           ? zcode
           : zcode.status === 'error' && !sameZcodeAccount
             ? zcode
-            : this.applyStalePolicy(zcode, previousState.zcode)
+            : this.applyStalePolicy(zcode, previousState.zcode),
+      antigravity: resolvedAntigravity
     })
 
     // Published separately so a slow Muse CLI never delays the sibling batch above.

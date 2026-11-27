@@ -1,4 +1,4 @@
-import { useCallback, useContext, useMemo } from 'react'
+import { useCallback, useContext, useMemo, type ComponentProps } from 'react'
 import { Text, View } from 'react-native'
 import { styles } from './mobile-session-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
@@ -17,6 +17,25 @@ import { WorkspaceServerContext } from '../worktree/execution-hosts/workspace-se
 import { useSessionTitleCard } from './tabs/use-session-title-card'
 import { useDetailCardScope } from '../components/detail-cards/use-detail-card-scope'
 import { useShellSideRail } from '../layout/use-shell-side-rail'
+import { useReleasedSideInset } from '../layout/released-side-inset'
+import { sideStripPadding } from './session-side-strip-inset'
+import { DuoRailBackButton } from './DuoRailBackButton'
+import { DuoRailJumpHost, DuoRailJumpOverlay } from './duo-rail-jump-controls'
+import { useKeyboardOcclusion } from '../platform/keyboard/keyboard-occlusion'
+import { useSessionRailBack } from './use-duo-rail-back'
+
+// Read the keyboard here, so a keyboard change re-renders only these shells and not the whole session.
+function KeyboardDuoRailJumpHost(
+  props: Omit<ComponentProps<typeof DuoRailJumpHost>, 'keyboardInset'>
+) {
+  return <DuoRailJumpHost {...props} keyboardInset={useKeyboardOcclusion()} />
+}
+
+function KeyboardDuoRailBackButton(
+  props: Omit<ComponentProps<typeof DuoRailBackButton>, 'keyboardInset'>
+) {
+  return <DuoRailBackButton {...props} keyboardInset={useKeyboardOcclusion()} />
+}
 
 export function MobileSessionSurface({ controller }: { controller: MobileSessionController }) {
   useMobileColorScheme()
@@ -25,6 +44,7 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
   const server = useContext(WorkspaceServerContext)
   const layout = useResponsiveLayout()
   const sideRail = useShellSideRail()
+  const releasedStrip = useReleasedSideInset()
   const hasTabs = controller.visibleTabs.length > 0
   const besideTabs = (layout.isLandscapePhone || sideRail) && hasTabs
   const titleVisible =
@@ -95,35 +115,46 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
   // Only a proven local record belongs to this route's desktop or server.
   const hostName =
     controller.worktreeHostId === 'local' ? (server ? server.name : controller.hostName) : null
+  const onRailBack = useSessionRailBack(() => {
+    if (!details.closeFirst()) {
+      controller.requestLeaveSession()
+    }
+  })
   return (
-    <View ref={setMobileSessionRootRef} style={styles.container}>
-      <View style={styles.kavInner}>
-        <MobileSessionHeader controller={controller} details={details} />
-        <MobileWorkerAutoCloseStrip controller={controller} />
-        {/* A chat's item chips open the item's page in the bot panel. */}
-        <BotItemOpenContext.Provider value={openItem}>
-          <BotChatOpenContext.Provider value={openChat}>
-            <BotPanelOpenContext.Provider value={panelOpener}>
-              <MobileSessionContentRow controller={controller} />
-            </BotPanelOpenContext.Provider>
-          </BotChatOpenContext.Provider>
-        </BotItemOpenContext.Provider>
+    <KeyboardDuoRailJumpHost chatVisible={controller.showNativeChat}>
+      <View ref={setMobileSessionRootRef} style={styles.container}>
+        <View style={styles.kavInner}>
+          <MobileSessionHeader controller={controller} details={details} />
+          <View style={sideStripPadding(releasedStrip)}>
+            <MobileWorkerAutoCloseStrip controller={controller} />
+          </View>
+          {/* A chat's item chips open the item's page in the bot panel. */}
+          <BotItemOpenContext.Provider value={openItem}>
+            <BotChatOpenContext.Provider value={openChat}>
+              <BotPanelOpenContext.Provider value={panelOpener}>
+                <MobileSessionContentRow controller={controller} />
+              </BotPanelOpenContext.Provider>
+            </BotChatOpenContext.Provider>
+          </BotItemOpenContext.Provider>
+        </View>
+        <KeyboardDuoRailBackButton chatVisible={controller.showNativeChat} onBack={onRailBack} />
+        <DuoRailJumpOverlay />
+        <AnchoredDetailCardLayer
+          card={details}
+          obscured={obscured}
+          title={controller.worktreeName || t('session.header.terminalTitle', 'Terminal')}
+          detail={controller.worktreePath}
+          footer={
+            hostName ? (
+              <>
+                <StatusDot state={controller.connState} verdict={controller.connectionVerdict} />
+                <Text style={styles.sessionMetaText}>{hostName}</Text>
+              </>
+            ) : null
+          }
+        />
+        <MobileSessionSheets controller={controller} />
       </View>
-      <AnchoredDetailCardLayer
-        card={details}
-        obscured={obscured}
-        title={controller.worktreeName || t('session.header.terminalTitle', 'Terminal')}
-        detail={controller.worktreePath}
-        footer={
-          hostName ? (
-            <>
-              <StatusDot state={controller.connState} verdict={controller.connectionVerdict} />
-              <Text style={styles.sessionMetaText}>{hostName}</Text>
-            </>
-          ) : null
-        }
-      />
-      <MobileSessionSheets controller={controller} />
-    </View>
+    </KeyboardDuoRailJumpHost>
   )
 }
