@@ -23,15 +23,17 @@ export function botPlaceClient(paired: RpcClient, place: BotHomePlace): RpcClien
  *  never fails the open. `homeDraft` lands in that chat's composer. `current` false by the time the
  *  host answers drops the open. `standalone` opens it in place of that computer's list, for Home,
  *  whose bot lists span computers. */
+type OpenBotHomeOptions = { homeDraft?: string; current?: () => boolean }
+
 export function useOpenBotHome({ standalone = false } = {}): (
   place: BotHomePlace,
   bot: HostBot,
-  options?: { homeDraft?: string; current?: () => boolean }
+  options?: OpenBotHomeOptions
 ) => void {
   const openMobileSession = useOpenMobileSession()
   const clients = useRpcClientContext()
   return useCallback(
-    (place, bot, { homeDraft, current } = {}) => {
+    (place: BotHomePlace, bot: HostBot, { homeDraft, current }: OpenBotHomeOptions = {}) => {
       const openHome = () =>
         openMobileSession({
           hostId: place.pairedHostId,
