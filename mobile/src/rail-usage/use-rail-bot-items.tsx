@@ -191,10 +191,14 @@ export function useRailBotItems({
     })
   }, [])
 
-  const picked = targets.filter((target) => pickedKeys?.includes(target.key))
-  const effectivePickedKeys =
-    picked.length > 0 && picked.length < targets.length ? picked.map((target) => target.key) : null
-  const shownTargets = effectivePickedKeys === null ? targets : picked
+  const { effectivePickedKeys, shownTargets } = useMemo(() => {
+    const picked = targets.filter((target) => pickedKeys?.includes(target.key))
+    const keys =
+      picked.length > 0 && picked.length < targets.length
+        ? picked.map((target) => target.key)
+        : null
+    return { effectivePickedKeys: keys, shownTargets: keys === null ? targets : picked }
+  }, [targets, pickedKeys])
   const showHostNames = useMemo(
     () => new Set(targets.map((target) => target.hostKey)).size > 1,
     [targets]
