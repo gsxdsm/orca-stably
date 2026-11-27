@@ -3,15 +3,14 @@ import { Minus, Plus } from 'lucide-react-native'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { triggerSelection } from '../platform/haptics/haptics'
 import {
-  colors,
   concentricRadius,
   feedback,
   radii,
   spacing,
   typography
 } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
+import { useMobileColors } from '../theme/use-mobile-color-scheme'
 import {
   updateGreenPaceThreshold,
   updateYellowPaceThreshold,
@@ -42,6 +41,8 @@ function ThresholdStepper({
   incrementLabel: string
   testIDPrefix: string
 }): React.JSX.Element {
+  const colors = useMobileColors()
+  const styles = useThemedStyles(stylesSheet)
   const canDecrement = value > USAGE_PACE_THRESHOLD_MIN
   const canIncrement = value < USAGE_PACE_THRESHOLD_MAX
   return (
@@ -107,7 +108,8 @@ export function UsagePaceColorThresholdsPicker({
 }: {
   inSettings?: boolean
 }): React.JSX.Element {
-  useMobileColorScheme()
+  const colors = useMobileColors()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const thresholds = useUsagePaceColorThresholds()
   const isDefault = isDefaultUsagePaceColorThresholds(thresholds)
@@ -183,7 +185,7 @@ export function UsagePaceColorThresholdsPicker({
 
 const STEPPER_INSET = 3
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   container: {
     gap: spacing.sm,
     paddingVertical: spacing.md

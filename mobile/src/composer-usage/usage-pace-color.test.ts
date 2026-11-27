@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { usageBandColor } from '../accounts/usage/usage-band-color'
-import { colors } from '../theme/mobile-theme'
+import { getMobilePalette } from '../theme/mobile-theme'
+
+const colors = getMobilePalette()
 import { composerUsageMeterReadout } from './composer-usage-meter-readout'
 import {
   DEFAULT_USAGE_PACE_COLOR_THRESHOLDS,

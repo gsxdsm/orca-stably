@@ -5,9 +5,9 @@ import { UsageBar } from '../accounts/usage/UsageBar'
 import type { Translate } from '../i18n/mobile-i18n'
 import { getUiIntlLocale } from '../i18n/ui-intl-locale'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { colors, radii, spacing, typography } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { radii, spacing, typography } from '../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
+import { useMobileColors } from '../theme/use-mobile-color-scheme'
 import { formatUsageWindowLength, type UsageWindowEntry } from './agent-usage-provider'
 import { useComposerUsageDisplay } from './composer-usage-display-preference'
 import { usageWindowPaceColor } from './usage-pace-color'
@@ -147,6 +147,7 @@ function StatTile({
   color?: string
   testID: string
 }) {
+  const styles = useThemedStyles(stylesSheet)
   return (
     <View style={styles.tile} testID={testID}>
       <Text style={styles.tileLabel} numberOfLines={1}>
@@ -172,14 +173,15 @@ export function ComposerUsageWindowDetail({
   samples: readonly UsageHistorySample[]
   now: number
 }) {
-  useMobileColorScheme()
+  const colors = useMobileColors()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const display = useComposerUsageDisplay()
   const thresholds = useUsagePaceColorThresholds()
   const remaining = display === 'remaining'
   const used = Math.round(Math.max(0, Math.min(100, entry.window.usedPercent)))
   const pace = computeUsagePace(entry.window, now)
-  const fill = usageWindowPaceColor(entry.window, now, thresholds)
+  const fill = usageWindowPaceColor(entry.window, now, thresholds, colors)
   const status = paceStatus(pace, fill, t)
   const runOut =
     pace.kind === 'ahead' && pace.runOutBeforeResetMs !== null ? paceCopy(pace, fill, t) : null
@@ -306,7 +308,7 @@ export function ComposerUsageWindowDetail({
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   detail: {
     gap: spacing.sm,
     paddingVertical: spacing.md

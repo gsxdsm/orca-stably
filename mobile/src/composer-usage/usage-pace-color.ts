@@ -1,5 +1,5 @@
 import { usageBandColor } from '../accounts/usage/usage-band-color'
-import { colors } from '../theme/mobile-theme'
+import { getMobilePalette, type MobilePalette } from '../theme/mobile-theme'
 import { usageExpectedPercent, type UsagePaceWindow } from './usage-window-pace'
 
 export type UsagePaceColorBand = 'green' | 'yellow' | 'red'
@@ -145,7 +145,8 @@ export function usagePaceColorBand(
 export function usagePaceColor(
   usedPercent: number | null,
   expectedPercent: number | null,
-  thresholds?: Partial<UsagePaceColorThresholds> | null
+  thresholds?: Partial<UsagePaceColorThresholds> | null,
+  colors: MobilePalette = getMobilePalette()
 ): string {
   switch (usagePaceColorBand(usedPercent, expectedPercent, thresholds)) {
     case 'green':
@@ -155,7 +156,7 @@ export function usagePaceColor(
     case 'red':
       return colors.statusRed
     case null:
-      return usageBandColor(usedPercent)
+      return usageBandColor(usedPercent, colors)
   }
 }
 
@@ -163,7 +164,8 @@ export function usagePaceColor(
 export function usageWindowPaceColor(
   window: UsagePaceWindow,
   now: number,
-  thresholds?: Partial<UsagePaceColorThresholds> | null
+  thresholds?: Partial<UsagePaceColorThresholds> | null,
+  colors: MobilePalette = getMobilePalette()
 ): string {
   const used = Number.isFinite(window.usedPercent)
     ? Math.max(0, Math.min(100, window.usedPercent))
@@ -172,5 +174,5 @@ export function usageWindowPaceColor(
   if (used !== null && expected !== null && used >= 100) {
     return colors.statusRed
   }
-  return usagePaceColor(used, expected, thresholds)
+  return usagePaceColor(used, expected, thresholds, colors)
 }

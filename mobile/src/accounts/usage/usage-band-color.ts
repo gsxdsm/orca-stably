@@ -3,13 +3,14 @@ import {
   getDisplayedUsagePercentage,
   type UsagePercentageDisplay
 } from '../../../../src/shared/agent-usage/display/usage-percentage-display'
-import { colors } from '../../theme/mobile-theme'
+import { getMobilePalette, type MobilePalette } from '../../theme/mobile-theme'
 
 /** A meter's fill: the shown percent (used or left) and its consumption colour, shared by every usage meter. */
 export function usageBarFill(
   usedPercent: number | null,
   unavailable: boolean,
-  display: UsagePercentageDisplay
+  display: UsagePercentageDisplay,
+  colors: MobilePalette = getMobilePalette()
 ): { shown: number | null; color: string } {
   // Why: round then clamp so bar width, color, and label share one value (desktop parity).
   const used = usedPercent == null ? null : clampUsedPercent(usedPercent)
@@ -30,9 +31,12 @@ export function usageBarFill(
 }
 
 // Fork meters (composer, server resources) color a percent without drawing a bar.
-export function usageBandColor(usedPercent: number | null): string {
+export function usageBandColor(
+  usedPercent: number | null,
+  colors: MobilePalette = getMobilePalette()
+): string {
   if (usedPercent == null || !Number.isFinite(usedPercent)) {
     return colors.textMuted
   }
-  return usageBarFill(usedPercent, false, 'used').color
+  return usageBarFill(usedPercent, false, 'used', colors).color
 }
