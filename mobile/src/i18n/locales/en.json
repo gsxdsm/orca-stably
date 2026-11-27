@@ -78,8 +78,8 @@
       "openInChatUi": "Open sessions in Chat UI",
       "on": "On",
       "off": "Off",
-      "composerUsageHeading": "COMPOSER USAGE",
-      "composerUsageDescription": "Chat and agent terminal composers show your agent plan as used or left. Tap the meter for every window, reset times and pace.",
+      "composerUsageHeading": "USAGE METERS",
+      "composerUsageDescription": "Chat and agent terminal composers, and the side rail rings, show your chosen window as used or left. Tap a meter or ring for every window, reset times and pace.",
       "railRingsDuringChats": "Show usage rings in the side rail during chats",
       "railRingsDuringChatsHint": "When a chat leaves the status column free. A chat that fills the column always hides them."
     },
@@ -8556,7 +8556,7 @@
       "exhausted": "Limit reached for this window"
     },
     "picker": {
-      "label": "Show in composer",
+      "label": "Usage window",
       "session": "5-hour",
       "weekly": "Weekly"
     },

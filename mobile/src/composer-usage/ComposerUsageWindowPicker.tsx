@@ -1,16 +1,22 @@
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { composerUsageWindowToggleChoices, type UsageWindowEntry } from './agent-usage-provider'
+import {
+  composerUsageWindowToggleChoices,
+  type ComposerUsageWindowChoice,
+  type UsageWindowEntry
+} from './agent-usage-provider'
 import { ComposerUsageChoiceRow } from './ComposerUsageChoiceRow'
 import { setComposerUsageWindow, useComposerUsageWindow } from './composer-usage-window-preference'
 
-/** Picks the window the composer meter shows; lives in Settings and in the usage sheet. */
+/** Picks the window the composer meter and side rail rings show; lives in Settings and in the usage sheet. */
 export function ComposerUsageWindowPicker({
   inSettings = false,
-  windows
+  windows,
+  onChange
 }: {
   inSettings?: boolean
   /** The open provider's windows. Settings has no provider, so it keeps both choices. */
   windows?: readonly UsageWindowEntry[]
+  onChange?: (choice: ComposerUsageWindowChoice) => void
 }) {
   const t = useMobileTranslation()
   const choice = useComposerUsageWindow()
@@ -29,10 +35,13 @@ export function ComposerUsageWindowPicker({
   }))
   return (
     <ComposerUsageChoiceRow
-      label={t('composerUsage.picker.label', 'Show in composer')}
+      label={t('composerUsage.picker.label', 'Usage window')}
       segments={segments}
       selected={choice}
-      onSelect={setComposerUsageWindow}
+      onSelect={(next) => {
+        setComposerUsageWindow(next)
+        onChange?.(next)
+      }}
       inSettings={inSettings}
       testIDPrefix="composer-usage-window-"
     />

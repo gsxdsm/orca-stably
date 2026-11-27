@@ -1,8 +1,10 @@
 import type { AccountsSnapshot } from '../accounts/accounts-snapshot'
 import {
+  pickComposerUsageWindow,
   selectProviderUsage,
   USAGE_PROVIDER_NAMES,
   type AgentUsage,
+  type ComposerUsageWindowChoice,
   type UsageProviderKey,
   type UsageWindowEntry
 } from '../composer-usage/agent-usage-provider'
@@ -19,19 +21,12 @@ export function listRailUsage(snapshot: AccountsSnapshot | null): AgentUsage[] {
   })
 }
 
-/** Weekly when the plan has one, else the window closest to its limit. */
-export function pickRailUsageWindow(windows: readonly UsageWindowEntry[]): UsageWindowEntry | null {
-  const weekly = windows.find((entry) => entry.kind === 'weekly')
-  if (weekly) {
-    return weekly
-  }
-  let tightest: UsageWindowEntry | null = null
-  for (const entry of windows) {
-    if (!tightest || entry.window.usedPercent > tightest.window.usedPercent) {
-      tightest = entry
-    }
-  }
-  return tightest
+/** The chosen 5-hour or weekly window when the provider reports it, matching the composer meter. */
+export function pickRailUsageWindow(
+  windows: readonly UsageWindowEntry[],
+  choice: ComposerUsageWindowChoice = 'session'
+): UsageWindowEntry | null {
+  return pickComposerUsageWindow(windows, choice)
 }
 
 /** Glyph for a provider: the agent icon of the CLI that spends its quota. */

@@ -30,7 +30,11 @@ export const TERMINAL_SETTINGS_STORAGE_KEYS = [
   /** Chat text size, font and spacing, so an open chat follows Settings too. */
   'orca:nativeChatText',
   /** Used or remaining on usage bars, so an open Accounts page follows Settings. */
-  'orca:usagePercentageDisplay'
+  'orca:usagePercentageDisplay',
+  /** Composer & rail usage meter window, display and position, so open chats follow Settings and the rail sheet. */
+  'orca:composerUsageWindow',
+  'orca:composerUsageDisplay',
+  'orca:composerUsagePosition'
 ] as const
 
 // Terminal settings, Chat UI, the device-wide Duo chat width, and the pinched chat text size.
