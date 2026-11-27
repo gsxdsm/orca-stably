@@ -1,7 +1,7 @@
 import { View } from 'react-native'
 import { UsagePaceTick } from '../accounts/usage/UsagePaceTick'
-import { colors, radii } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
+import { radii } from '../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
 import type { ComposerUsageMeterReadout } from './composer-usage-meter-readout'
 
 export const TRACK_MIN_WIDTH = 24
@@ -19,6 +19,7 @@ export function ComposerUsageTrack({
   /** Where an even burn would put the fill; wide only, null hides it. */
   paceMarkerPercent?: number | null
 }): React.JSX.Element {
+  const styles = useThemedStyles(stylesSheet)
   const fill = (
     <View style={[styles.fill, { width: `${readout.shown}%`, backgroundColor: color }]} />
   )
@@ -34,7 +35,7 @@ export function ComposerUsageTrack({
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   flex: {
     flexGrow: 1,
     flexShrink: 1,
