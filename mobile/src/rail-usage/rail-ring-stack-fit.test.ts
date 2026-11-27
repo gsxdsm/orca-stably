@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { duoRailFreeBand } from '../layout/duo-status-row'
+import { getSideRailStrip } from '../layout/side-rail-strip'
 import { railRingStackFit, type RailRingStackFit } from './rail-ring-stack-fit'
 
 const base = {
@@ -66,5 +68,53 @@ describe('railRingStackFit', () => {
     const cut = railRingStackFit({ ...base, count: 5, room: 200, leadingHeight: 41 })
     expect(cut).toEqual({ clearGap: 8, gap: 13, paddingBottom: 7, height: 113, pitch: 54 })
     expect(12 + 41 + cut.clearGap + cut.height!).toBeLessThanOrEqual(200)
+  })
+
+  it('fits all 5 rings with Back and Items on folded and unfolded Duo when jump buttons are hidden', () => {
+    const cover = {
+      windowWidth: 466,
+      windowHeight: 678,
+      insets: { top: 0, right: 84, bottom: 34, left: 0 },
+      occlusions: [
+        { x: 399.67, y: 29.33, width: 37, height: 37 },
+        { x: 382, y: 0, width: 84, height: 174 }
+      ]
+    }
+    const coverStrip = getSideRailStrip(cover)!
+    const coverBand = duoRailFreeBand({
+      ...cover,
+      strip: coverStrip,
+      composerTop: 600,
+      backShown: true,
+      visibleJumpButtons: 0
+    })!
+    const coverRoom =
+      Math.min(coverBand.bottom, cover.windowHeight - coverStrip.bottom) -
+      Math.max(coverBand.top, coverStrip.top)
+    // 5 rings + Items button (41 + 3 visual slack) fit without clipping or fading.
+    const coverFit = railRingStackFit({ ...base, count: 5, room: coverRoom, leadingHeight: 44 })
+    expect(coverFit.height).toBeNull()
+    expect(coverFit.clearGap).toBe(12)
+
+    const inner = {
+      windowWidth: 951,
+      windowHeight: 669,
+      insets: { top: 0, right: 84, bottom: 34, left: 0 },
+      occlusions: [{ x: 867, y: 0, width: 84, height: 124 }]
+    }
+    const innerStrip = getSideRailStrip(inner)!
+    const innerBand = duoRailFreeBand({
+      ...inner,
+      strip: innerStrip,
+      composerTop: 585,
+      backShown: false,
+      visibleJumpButtons: 0
+    })!
+    const innerRoom =
+      Math.min(innerBand.bottom, inner.windowHeight - innerStrip.bottom) -
+      Math.max(innerBand.top, innerStrip.top)
+    const innerFit = railRingStackFit({ ...base, count: 5, room: innerRoom, leadingHeight: 44 })
+    expect(innerFit.height).toBeNull()
+    expect(innerFit.clearGap).toBe(12)
   })
 })

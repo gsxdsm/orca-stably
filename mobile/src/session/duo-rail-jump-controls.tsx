@@ -60,7 +60,8 @@ function sameActions(left: JumpActions | null, right: JumpActions | null): boole
 function useRailFrames(
   chatVisible: boolean,
   keyboardInset: number,
-  composerTop: number | null
+  composerTop: number | null,
+  actions: JumpActions | null
 ): DuoRailJumpFrames | null {
   const expanded = useDuoChatExpanded()
   const { width, height } = useWindowDimensions()
@@ -73,6 +74,20 @@ function useRailFrames(
     insets,
     occlusions
   })
+  const frames = duoRailJumpPlacement({
+    chatVisible,
+    expanded,
+    strip,
+    keyboardInset,
+    composerTop,
+    windowWidth: width,
+    windowHeight: height,
+    occlusions
+  })
+  const visibleJumpButtons =
+    frames !== null && actions !== null
+      ? (actions.showJumpToTail ? 1 : 0) + (actions.showPreviousMessage ? 1 : 0)
+      : 0
   // Without the status occlusions (a folded Duo that reports no fold division) the page draws no
   // rail Back or arrows, so it frees everything above the composer; the shell places the top itself.
   const band =
@@ -84,7 +99,8 @@ function useRailFrames(
             strip,
             occlusions,
             composerTop,
-            backShown
+            backShown,
+            visibleJumpButtons
           })
         : composerTop > spacing.sm
           ? { top: 0, bottom: composerTop - spacing.sm }
@@ -102,16 +118,7 @@ function useRailFrames(
       return () => blurDuoRailFreeBand(owner)
     }, [owner])
   )
-  return duoRailJumpPlacement({
-    chatVisible,
-    expanded,
-    strip,
-    keyboardInset,
-    composerTop,
-    windowWidth: width,
-    windowHeight: height,
-    occlusions
-  })
+  return frames
 }
 
 export function DuoRailJumpHost({
@@ -133,7 +140,7 @@ export function DuoRailJumpHost({
       return prev !== null && Math.abs(prev - top) < 0.5 ? prev : top
     })
   }, [])
-  const frames = useRailFrames(chatVisible, keyboardInset, composerTop)
+  const frames = useRailFrames(chatVisible, keyboardInset, composerTop, actions)
   const register = useCallback((next: JumpActions | null) => {
     setActions((prev) => (sameActions(prev, next) ? prev : next))
   }, [])
@@ -155,6 +162,7 @@ export function DuoRailComposerTop({
   children: ReactNode
 }) {
   const report = useContext(DuoRailJumpContext)?.reportComposerTop
+  const { width, height } = useWindowDimensions()
   const ref = useRef<HostInstance>(null)
   const measure = useCallback(() => {
     ref.current?.measureInWindow((_x, y, _width, height) => {
@@ -170,7 +178,7 @@ export function DuoRailComposerTop({
       return
     }
     measure()
-  }, [measure, report, keyboardInset, hidden])
+  }, [measure, report, keyboardInset, hidden, width, height])
   return (
     <View
       ref={ref}
