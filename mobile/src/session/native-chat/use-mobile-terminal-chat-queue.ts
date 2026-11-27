@@ -17,6 +17,7 @@ import type { MobileNativeChatSendOutcome } from './composer/delivery/mobile-nat
 import { isRpcDeliveryUnknown } from '../../transport/rpc/rpc-delivery-ambiguity'
 import { isLogicalClientCutoverError } from '../../transport/connection/logical-client-cutover-error'
 import { UNCONFIRMED_SEND_MESSAGE } from './composer/delivery/use-mobile-native-chat-unconfirmed-sends'
+import { useMobileTranslation } from '../../i18n/use-mobile-translation'
 
 const NO_AGENT_MAIL: readonly NativeChatMessage[] = []
 
@@ -28,6 +29,7 @@ export function useMobileTerminalChatQueue(args: {
   appendText: (text: string) => boolean
   onSendError?: (message: string) => void
 }) {
+  const t = useMobileTranslation()
   const { client, terminal, appendText } = args
   const enabled =
     args.enabled && args.hostCapabilities?.includes(NATIVE_CHAT_TERMINAL_QUEUE_CAPABILITY) === true
@@ -142,7 +144,7 @@ export function useMobileTerminalChatQueue(args: {
     [request, args.onSendError]
   )
   const controls = useMemo<MobileStructuredQueuedMessageControls>(() => {
-    const cards = mobileQueuedMessageCards(snapshot?.queuedMessages, [], {
+    const cards = mobileQueuedMessageCards(snapshot?.queuedMessages, [], t, {
       agentWorking: snapshot?.activity.state === 'working'
     }).map((card) => ({ ...card, waitsForAgent: true as const }))
     return {
