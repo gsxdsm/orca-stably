@@ -4,6 +4,7 @@ import { FolderOpen, FolderPlus, Globe, Plus } from 'lucide-react-native'
 import { ActionSheetContent } from '../components/sheets/ActionSheetModal'
 import { BottomDrawer } from '../components/bottom-drawer/BottomDrawer'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
+import { useThemedStyles } from '../theme/themed-styles'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import { AddProjectFolderBrowser } from './AddProjectFolderBrowser'
 import {
@@ -13,7 +14,7 @@ import {
   type BrowseTarget
 } from './AddProjectForms'
 import type { AddedProject } from './add-project-reply-schema'
-import { addProjectStyles as styles } from './add-project-styles'
+import { addProjectStylesSheet } from './add-project-styles'
 import { useAddProjectFlow } from './use-add-project-flow'
 
 type Props = {
@@ -32,6 +33,7 @@ export function AddProjectSheet({
   onNewWorkspace,
   onProjectAdded
 }: Props) {
+  const styles = useThemedStyles(addProjectStylesSheet)
   const t = useMobileTranslation()
   const flow = useAddProjectFlow({ client, visible, onProjectAdded })
   const [browsing, setBrowsing] = useState<BrowseTarget | null>(null)

@@ -37,6 +37,7 @@ export function useHostNewWorkspaceActions(args: {
     closeAddProject,
     closeNewWorktreeModal,
     openCreateMenu,
-    openNewWorktreeForRepo
+    openNewWorktreeForRepo,
+    openNewWorktreeModal: openNewWorktreeForRepo
   }
 }
