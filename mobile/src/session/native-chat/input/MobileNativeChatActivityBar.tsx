@@ -8,9 +8,9 @@ import {
 import type { NativeChatSubagentActivity } from '../../../../../src/shared/native-chat/input/native-chat-activity'
 import { BottomDrawer } from '../../../components/bottom-drawer/BottomDrawer'
 import { useMobileTranslation } from '../../../i18n/use-mobile-translation'
-import { colors, radii, spacing, typography } from '../../../theme/mobile-theme'
-import { themedStyleSheet } from '../../../theme/themed-styles'
-import { useMobileColorScheme } from '../../../theme/use-mobile-color-scheme'
+import { radii, spacing, typography } from '../../../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../../../theme/themed-styles'
+import { useMobileColors } from '../../../theme/use-mobile-color-scheme'
 import { MobileNativeChatTaskList } from './tasks/MobileNativeChatTaskList'
 
 export function MobileNativeChatActivityBar({
@@ -27,7 +27,8 @@ export function MobileNativeChatActivityBar({
   fontScale: number
   onFocusSubagent: (agentId: string | null) => void
 }): React.JSX.Element | null {
-  useMobileColorScheme()
+  const colors = useMobileColors()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const [tasksOpen, setTasksOpen] = useState(false)
   const showTasks = list != null && list.tasks.length > 0
@@ -104,7 +105,7 @@ export function MobileNativeChatActivityBar({
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   bar: {
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
