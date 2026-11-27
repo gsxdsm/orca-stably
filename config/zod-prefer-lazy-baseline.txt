@@ -115,6 +115,8 @@
 2 src/main/provider-process/provider-ownership-journal.ts
 3 src/main/rate-limits/providers/cursor/cursor-auth.ts
 1 src/main/rate-limits/providers/cursor/cursor-session-token.ts
+1 src/main/rate-limits/usage-history/usage-history-file.ts
+2 src/main/rate-limits/usage-last-good/usage-last-good-store.ts
 1 src/main/runtime/agent-senders/agent-sender-principals.ts
 1 src/main/runtime/agent-senders/runtime-agent-sender-history-triggers.ts
 2 src/main/runtime/agent-senders/runtime-agent-sender-worker-history.ts
@@ -160,13 +162,14 @@
 1 src/shared/agent-session/journal/agent-session-journal-approval-subject-schema.ts
 6 src/shared/agent-session/journal/agent-session-journal-bot-item-schemas.ts
 2 src/shared/agent-session/journal/agent-session-journal-bounded-payload-schema.ts
-30 src/shared/agent-session/journal/agent-session-journal-schemas.ts
+33 src/shared/agent-session/journal/agent-session-journal-schemas.ts
 1 src/shared/agent-session/journal/agent-session-journal-subagent-schema.ts
 2 src/shared/agent-session/journal/agent-session-journal-thread-goal-schema.ts
 7 src/shared/agent-session/journal/agent-session-message-source.ts
 2 src/shared/agent-session/lifecycle/rewind/agent-session-rewind.ts
 1 src/shared/agent-session/options/protocol/agent-session-execution-options.ts
 1 src/shared/agent-session/view/agent-session-answered-turn-schema.ts
+1 src/shared/agent-usage/rate-limits/usage-window-history.ts
 1 src/shared/ai-vault/contracts/ai-vault-session-account-home.ts
 1 src/shared/ai-vault/search/ai-vault-search-settings.ts
 1 src/shared/attachment-text/attachment-text-source.ts
@@ -234,10 +237,12 @@
 1 src/shared/google/google-client-config.ts
 1 src/shared/google/google-setup-card.ts
 3 src/shared/google/google-setup-run.ts
+6 src/shared/host-resources.ts
 2 src/shared/mcp-servers/mcp-servers.ts
 5 src/shared/mobile-web-bundle/bundle-rpc-contract.ts
 2 src/shared/mobile-web-bundle/locale-catalog-contract.ts
 8 src/shared/mobile-web-bundle/manifest-contract.ts
+2 src/shared/native-chat/native-chat-terminal-queue.ts
 2 src/shared/orcad-migration/orcad-migration-terminal-restore-hints.ts
 4 src/shared/orchestration/approvals/worker-approval-payload.ts
 15 src/shared/orchestration/dock/worker-dock.ts
@@ -302,6 +307,7 @@
 1 src/shared/remote-runtime/pairing/ticket-exchange-contract.ts
 1 src/shared/remote-runtime/relay/mobile-relay-hosts-contract.ts
 2 src/shared/rpc-contract/accounts/accounts-params.ts
+8 src/shared/rpc-contract/agent-prompt-params.ts
 2 src/shared/rpc-contract/artifacts/artifacts-params.ts
 7 src/shared/rpc-contract/automation-bot-params.ts
 23 src/shared/rpc-contract/automations/automation-params.ts
