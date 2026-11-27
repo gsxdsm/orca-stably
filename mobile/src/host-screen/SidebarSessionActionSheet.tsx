@@ -3,8 +3,8 @@ import { Pressable, Text, View } from 'react-native'
 import { ActionSheetContent } from '../components/sheets/ActionSheetModal'
 import { BottomDrawer } from '../components/bottom-drawer/BottomDrawer'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
-import { hostScreenStyles as styles } from './host-screen-styles'
+import { useThemedStyles } from '../theme/themed-styles'
+import { hostScreenStylesSheet } from './host-screen-styles'
 import type { SidebarSessionAction } from './sidebar-session-action'
 
 type Props = {
@@ -15,7 +15,6 @@ type Props = {
 }
 
 export function SidebarSessionActionSheet({ session, onDismiss, onOpen, onCloseSession }: Props) {
-  useMobileColorScheme()
   const sessionKey = session ? `${session.worktree.worktreeId}\0${session.paneKey}` : null
   const [phase, setPhase] = useState<{ key: string; closing: boolean } | null>(null)
   // The drawer stays mounted, so a leftover confirm step would reopen on the next long-press.
@@ -118,6 +117,7 @@ function SessionCloseConfirm({
   onCancel: () => void
   onConfirm: () => void
 }) {
+  const styles = useThemedStyles(hostScreenStylesSheet)
   const t = useMobileTranslation()
   return (
     <View>
