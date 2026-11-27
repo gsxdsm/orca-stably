@@ -90,14 +90,25 @@ export function computeUsageWindowStats(
 
 export type UsageChartPoint = { at: number; value: number }
 
+export type UsageChartSegment = {
+  from: UsageChartPoint
+  to: UsageChartPoint
+}
+
 export type UsageChartModel = {
   /** The x-axis: the whole window, last reset to next reset, however little history there is. */
   startsAt: number
   endsAt: number
-  /** Recorded runs inside the window, oldest first; a break between runs is time nothing was read. */
+  /** Observed runs inside the window, oldest first. */
   runs: UsageChartPoint[][]
-  /** The first stored reading: before it the chart shows no data, not zero. */
-  firstAt: number
+  /** Linearly extrapolated segments bridging missing data (reset→first, gaps, last→now, or reset→now with no samples). */
+  extrapolated: UsageChartSegment[]
+  /** Live point at `now`, clamped within the window. */
+  current: UsageChartPoint
+  /** The first stored reading in this window, or null when no readings are recorded yet. */
+  firstAt: number | null
+  /** The last stored reading in this window, or null when no readings are recorded yet. */
+  lastRecordedAt: number | null
   /** The even-burn line's values at `startsAt` and `endsAt`; null without a reset time. */
   pace: { from: number; to: number } | null
   now: number
@@ -116,7 +127,7 @@ export function usageChartGapMs(windowMs: number, points: readonly UsageChartPoi
   return Math.max(MIN_GAP_MS, (2.5 * windowMs) / STORED_POINTS_PER_WINDOW, 2.5 * typical)
 }
 
-/** The chart's domain and series, or null before the first reading in this window. */
+/** The chart's domain, observed runs, and extrapolated bridges across missing data; null only without a valid window. */
 export function buildUsageChartModel(
   window: UsagePaceWindow,
   samples: readonly UsageHistorySample[],
@@ -130,14 +141,31 @@ export function buildUsageChartModel(
   // Without a reset time the window is the span that ends now.
   const endsAt = window.resetsAt ?? now
   const startsAt = endsAt - windowMs
+  const clampedNow = Math.min(Math.max(now, startsAt), endsAt)
   const shown = (used: number): number =>
     display === 'remaining' ? 100 - clampPercent(used) : clampPercent(used)
+  const currentUsed = Number.isFinite(window.usedPercent) ? clampPercent(window.usedPercent) : 0
+  const startPoint: UsageChartPoint = { at: startsAt, value: shown(0) }
+  const current: UsageChartPoint = { at: clampedNow, value: shown(currentUsed) }
+  const pace = window.resetsAt != null ? { from: shown(0), to: shown(100) } : null
   const points = samples
-    .filter((sample) => sample.at >= startsAt && sample.at <= Math.min(now, endsAt))
+    .filter((sample) => sample.at >= startsAt && sample.at <= clampedNow)
     .map((sample) => ({ at: sample.at, value: shown(sample.usedPercent) }))
+    .sort((a, b) => a.at - b.at)
   const first = points[0]
-  if (!first) {
-    return null
+  const lastRecorded = points.at(-1)
+  if (!first || !lastRecorded) {
+    return {
+      startsAt,
+      endsAt,
+      runs: [],
+      extrapolated: clampedNow > startsAt ? [{ from: startPoint, to: current }] : [],
+      current,
+      firstAt: null,
+      lastRecordedAt: null,
+      pace,
+      now: clampedNow
+    }
   }
   const gapMs = usageChartGapMs(windowMs, points)
   const runs: UsageChartPoint[][] = []
@@ -151,12 +179,33 @@ export function buildUsageChartModel(
     run.push(point)
   }
   runs.push(run)
+  const extrapolated: UsageChartSegment[] = []
+  if (first.at > startsAt) {
+    extrapolated.push({ from: startPoint, to: first })
+  }
+  for (let index = 0; index < runs.length - 1; index += 1) {
+    const end = runs[index]?.at(-1)
+    const next = runs[index + 1]?.[0]
+    if (end && next) {
+      extrapolated.push({ from: end, to: next })
+    }
+  }
+  if (clampedNow > lastRecorded.at) {
+    if (clampedNow - lastRecorded.at > gapMs) {
+      extrapolated.push({ from: lastRecorded, to: current })
+    } else {
+      runs.at(-1)?.push(current)
+    }
+  }
   return {
     startsAt,
     endsAt,
     runs,
+    extrapolated,
+    current,
     firstAt: first.at,
-    pace: window.resetsAt != null ? { from: shown(0), to: shown(100) } : null,
-    now: Math.min(Math.max(now, startsAt), endsAt)
+    lastRecordedAt: lastRecorded.at,
+    pace,
+    now: clampedNow
   }
 }
