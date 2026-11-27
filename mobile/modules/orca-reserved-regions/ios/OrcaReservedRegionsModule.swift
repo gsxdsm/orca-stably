@@ -80,6 +80,21 @@ public class OrcaReservedRegionsModule: Module {
         name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
     }
 
+    // A hinge interaction in the window crashes UIKit's split keyboard on an unfolded Duo when a web
+    // view takes focus (iOS 27.2), so a fold that keeps the window size is caught by re-reading here.
+    private var regionsTimer: Timer?
+
+    override func willMove(toWindow newWindow: UIWindow?) {
+      super.willMove(toWindow: newWindow)
+      regionsTimer?.invalidate()
+      regionsTimer = nil
+      guard newWindow != nil else { return }
+      regionsTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+        guard let self, UIApplication.shared.applicationState == .active else { return }
+        self.setNeedsLayout()
+      }
+    }
+
     required init?(coder: NSCoder) {
       fatalError("init(coder:) is not supported")
     }

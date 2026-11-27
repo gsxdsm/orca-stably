@@ -18,10 +18,9 @@ import { MobileNativeChatComposerField } from './field/MobileNativeChatComposerF
 import { MobileNativeChatComposerAttachments } from './attachments/MobileNativeChatComposerAttachments'
 import type { PendingNativeChatFile } from './attachments/mobile-native-chat-file-attachment'
 import { MobileNativeChatComposerAttachButton } from './attachments/MobileNativeChatComposerAttachButton'
-import { MobileNativeChatSessionOptionPickers } from '../input/session-options/MobileNativeChatSessionOptionPickers'
-import { useMobileNativeChatPickerPresentation } from '../input/session-options/use-mobile-native-chat-picker-presentation'
 import type { PendingNativeChatImage } from './attachments/mobile-native-chat-image-attachment'
 import { mobileNativeChatComposerPasteHandler } from './attachments/mobile-native-chat-composer-paste'
+import { MobileNativeChatComposerSessionPickers } from './MobileNativeChatComposerSessionPickers'
 import { useMobileNativeChatComposerMenu } from './menus/use-mobile-native-chat-composer-menu'
 import { useMobileNativeChatMentionBots } from './menus/use-mobile-native-chat-mention-bots'
 import { shownDictationPreview } from './menus/mobile-native-chat-bot-mention-display'
@@ -39,6 +38,8 @@ import { MobileNativeChatComposerPlanChip } from './commands/MobileNativeChatCom
 import type { MobileNativeChatComposerProps } from './mobile-native-chat-composer-props'
 import { MobileNativeChatMcpTray } from '../mcp/MobileNativeChatMcpTray'
 import { MobileNativeChatQuoteTab } from './quotes/MobileNativeChatQuoteTab'
+import { MobileNativeChatActionGap } from './MobileNativeChatActionGap'
+import { ComposerUsageStrip } from '../../../composer-usage/ComposerUsageMeter'
 
 const NO_FILE_PATHS: string[] = []
 const NO_ATTACHMENTS: PendingNativeChatImage[] = []
@@ -90,6 +91,8 @@ export function MobileNativeChatComposer({
   onNeedSkills,
   stop = null,
   sendFollowUp = null,
+  fitScreenCorners = false,
+  widthToggle = null,
   steerHead
 }: Props): React.JSX.Element {
   useMobileColorScheme()
@@ -100,9 +103,6 @@ export function MobileNativeChatComposer({
   // This composer's ✕, which its own held mic may be released over.
   const cancelRef = useRef<HostInstance>(null)
   const [focused, setFocused] = useState(false)
-  const [picker, setPicker] = useMobileNativeChatPickerPresentation(
-    sessionOptions?.controller.optionPickerRequest
-  )
   const files = structured?.files ?? NO_FILES
   const onWebPaste = mobileNativeChatComposerPasteHandler({
     disabled: disabled || offline || editSession?.locked === true,
@@ -255,12 +255,20 @@ export function MobileNativeChatComposer({
         onOpenBotChats={menu.openBotChats}
         nestedScrollEnabled={editSession ? true : undefined}
       />
-      <View style={styles.composerInset} testID="native-chat-composer-inset">
+      <View
+        style={fitScreenCorners ? styles.composerInsetCornerFit : styles.composerInset}
+        testID="native-chat-composer-inset"
+      >
         {editSession ? null : <MobileNativeChatMcpTray panel={structured?.mcpPanel} />}
         {orca.usageSheet}
         {goal.strip}
         {editSession ? null : <MobileNativeChatQuoteTab {...{ value, onChangeText, fieldRef }} />}
-        <View {...contextRing.barProps} style={styles.bar} testID="native-chat-composer">
+        <View
+          {...contextRing.barProps}
+          style={fitScreenCorners ? styles.barCornerFit : styles.bar}
+          testID="native-chat-composer"
+        >
+          {editSession ? null : <ComposerUsageStrip agent={agent} spanSideStrip />}
           <MobileNativeChatComposerAttachments
             images={attachments}
             files={files}
@@ -334,23 +342,17 @@ export function MobileNativeChatComposer({
               />
               {roomReplies}
               {sessionOptions ? (
-                <MobileNativeChatSessionOptionPickers
-                  {...sessionOptions}
+                <MobileNativeChatComposerSessionPickers
+                  sessionOptions={sessionOptions}
                   sendInFlight={sending || isAttaching}
-                  presentation={picker}
-                  onNavigate={(page) => setPicker((current) => current && { ...current, page })}
-                  onDrawerOpen={(page) => setPicker({ page, refocus: focused })}
-                  onDrawerAfterClose={() => {
-                    if (picker?.refocus) {
-                      fieldRef.current?.focus()
-                    }
-                    setPicker(null)
-                  }}
+                  focused={focused}
+                  fieldRef={fieldRef}
                 />
               ) : null}
               <MobileNativeChatComposerPlanChip options={sessionOptions} inputRef={fieldRef} />
               {goal.chip}
             </MobileNativeChatDictationLeading>
+            <MobileNativeChatActionGap agent={editSession ? null : agent} toggle={widthToggle} />
             {onMicPress ? (
               <MobileNativeChatComposerMic
                 {...{ onMicPress, micActive, micStarting, micProcessing, dictationMode }}

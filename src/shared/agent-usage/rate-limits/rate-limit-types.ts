@@ -1,3 +1,4 @@
+import type { UsageHistoryByWindow } from './usage-window-history'
 export type RateLimitWindow = {
   /** Percentage of the window consumed (0–100). */
   usedPercent: number
@@ -204,6 +205,8 @@ export type RateLimitState = {
   inactiveCodexAccounts: InactiveAccountUsage[]
   /** Retired with Antigravity usage and always empty; older clients read it unguarded. */
   antigravityAccounts?: []
+  /** Used-percent samples of each active provider window since its last reset; absent on older hosts. */
+  usageHistory?: UsageHistoryByWindow
 }
 
 export type RuntimeTargetUsageProvider = 'claude' | 'codex'

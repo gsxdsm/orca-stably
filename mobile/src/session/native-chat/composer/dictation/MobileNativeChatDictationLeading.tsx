@@ -29,22 +29,23 @@ export function MobileNativeChatDictationLeading({
   const live = useContext(MobileDictationLiveContext)
   if (live?.failureReason != null) {
     return (
-      <View style={[styles.leadingControls, styles.dictationLeading]}>
+      <View style={styles.dictationLeading}>
         <MobileDictationCancelButton onCancel={live.cancel} discards />
         <MobileDictationFailureNote reason={live.failureReason} />
       </View>
     )
   }
   if (!live || (!micActive && !micProcessing)) {
+    // Straight on the action row, so its one line shares the row's gaps and the model pill gives way first.
     return (
       <>
-        <View style={styles.leadingControls}>{children}</View>
+        {children}
         {trailing}
       </>
     )
   }
   return (
-    <View style={[styles.leadingControls, styles.dictationLeading]}>
+    <View style={styles.dictationLeading}>
       <MobileDictationCancelButton onCancel={live.cancel} targetRef={cancelRef} />
       {micProcessing ? (
         <MobileDictationFinishingNote engine={live.engine} computerName={live.computerName} />

@@ -18,40 +18,27 @@ import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { styles } from './mobile-accounts-screen-styles'
 import { useNow } from '../hooks/use-now'
-import { ClaudeIcon, OpenAIIcon } from '../components/icons/AgentIcons'
-import './usage/UsageBar'
-import {
-  type ProviderKey,
-  getActiveProviderRateLimits,
-  getInactiveProviderUsage,
-  getSystemDefaultProviderUsage,
-  getOtherUsageProviders,
-  hasActiveProviderUsage
-} from './usage/usage-selectors'
-import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
-import { getProviderDisplayName } from '../../../src/shared/agent-usage/display/usage-provider-windows'
-import { ProviderUsageWindows } from './ProviderUsageWindows'
-import {
-  getActiveCodexAccountIdForRateLimitTarget,
-  getCodexResetCreditSummary
-} from './usage/codex-reset-credit'
-import { CodexResetCreditAction } from './usage/CodexResetCreditAction'
-import { UsageStatusNote } from './usage/UsageStatusNote'
+import type { AccountsSnapshot } from './accounts-snapshot'
+import type { ProviderKey } from './usage/usage-selectors'
 import { useCodexResetCreditAction } from './usage/use-codex-reset-credit-action'
 import { ConfirmModal } from '../components/sheets/ConfirmModal'
 import { NavBar } from '../components/nav-bar/NavBar'
 import { NavBarButton } from '../components/nav-bar/NavBarButton'
-import { ListGroup, SectionHeader, ListRow } from '../components/list/ListGroup'
 import { useRouteHandoff } from '../navigation/route-handoff'
+import { ClaudeCodexAccountSections } from './claude-codex-account-section'
+import { AntigravityAccountSection } from './antigravity-account-section'
+import {
+  ManagedDataAccountSection,
+  managedDataBusyId,
+  type ManagedDataProvider
+} from './managed-data-account-section'
+import { ProviderUsageSection } from './provider-usage-section'
+import { getOtherUsageProviders } from './usage/usage-selectors'
+import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
+import { getProviderDisplayName } from '../../../src/shared/agent-usage/display/usage-provider-windows'
+import { ProviderUsageWindows } from './ProviderUsageWindows'
+import { ListGroup, SectionHeader, ListRow } from '../components/list/ListGroup'
 import { useMobileAccountsSnapshot } from './use-mobile-accounts-snapshot'
-import {
-  getManagedAccountInlineLabel,
-  getManagedAccountPrimaryLabel
-} from '../../../src/shared/agent-accounts/managed-account-display-names'
-import {
-  getCodexAccountDisplayDetail,
-  getCodexAccountDisplayLabel
-} from '../../../src/shared/agent-accounts/codex-account-display-label'
 
 type AccountsNotice = { title: string; message: string }
 
@@ -66,8 +53,6 @@ export function MobileAccountsScreen() {
   // Why: shared client per host. See docs/mobile-shared-client-per-host.md.
   const { client, state: connState } = useHostClient(hostId)
   const forceReconnect = useForceReconnect()
-  const connectionInputs = useHostConnectionInputs(hostId)
-  // Seed from the last host read so the subtitle is there on the first frame.
   const [hostName, setHostName] = useState(
     () => peekHosts()?.find((host) => host.id === hostId)?.name ?? ''
   )
@@ -75,14 +60,26 @@ export function MobileAccountsScreen() {
   const [busyAccountId, setBusyAccountId] = useState<string | null>(null)
   const [clockEnabled, setClockEnabled] = useState(false)
   const [notice, setNotice] = useState<AccountsNotice | null>(null)
+  const [providerAccountReload, setProviderAccountReload] = useState(0)
 
+  useEffect(() => {
+    setHostError(null)
+    setBusyAccountId(null)
+    setNotice(null)
+  }, [hostId])
+
+  const connectionInputs = useHostConnectionInputs(hostId)
   const accounts = useMobileAccountsSnapshot({
     hostId,
     client,
     connState,
     lastConnectedAt: connectionInputs.lastConnectedAt
   })
-  const { snapshot, live, refresh, refreshing, acceptSnapshot } = accounts
+  const { snapshot, live, refreshing, acceptSnapshot } = accounts
+  const refresh = useCallback(async () => {
+    setProviderAccountReload((value) => value + 1)
+    await accounts.refresh()
+  }, [accounts.refresh])
   const error = accounts.error ?? hostError
   // Stored accounts stay up while connecting or offline; re-pair and a failed read on a live connection say so instead.
   const showsAccounts =
@@ -184,139 +181,28 @@ export function MobileAccountsScreen() {
     [client, refresh, snapshot, t]
   )
 
-  const renderProviderSection = (provider: ProviderKey) => {
-    if (!snapshot) {
-      return null
-    }
-    const state = provider === 'claude' ? snapshot.claude : snapshot.codex
-    const activeAccountId =
-      provider === 'codex' && snapshot.codex.activeAccountIdsByRuntime
-        ? getActiveCodexAccountIdForRateLimitTarget(snapshot)
-        : state.activeAccountId
-    const activeUsage = getActiveProviderRateLimits(snapshot, provider)
-    const systemDefaultUsage = getSystemDefaultProviderUsage(snapshot, provider, activeAccountId)
-    const resetCredit = provider === 'codex' ? getCodexResetCreditSummary(activeUsage, now) : null
-    const Icon = provider === 'claude' ? ClaudeIcon : OpenAIIcon
-    // Stored rows may name a selection or Codex target the desktop has since changed.
-    const switchBlocked = busyAccountId !== null || resettingCodex || !live
-    const spinner = <ActivityIndicator size="small" color={colors.textSecondary} />
-    return (
-      <View>
-        <SectionHeader
-          title={getProviderDisplayName(provider)}
-          icon={<Icon size={14} />}
-          first={provider === 'claude'}
-        />
-        <ListGroup style={styles.group}>
-          {/* A blocked row drops its press instead of dimming, so the picked one keeps full contrast. */}
-          <ListRow
-            key="default"
-            title={t('accounts.screen.default', 'System default')}
-            subtitle={t('accounts.screen.agentLogin', "Use the agent's own login")}
-            detail={
-              hasActiveProviderUsage(systemDefaultUsage.limits) ? (
-                <ProviderUsageWindows
-                  limits={systemDefaultUsage.limits}
-                  now={now}
-                  isFetching={systemDefaultUsage.isFetching}
-                  showEmptyWindows
-                />
-              ) : undefined
-            }
-            accessory={busyAccountId === `${provider}:default` ? spinner : undefined}
-            selected={activeAccountId === null}
-            onPress={switchBlocked ? undefined : () => void selectAccount(provider, null)}
-          />
-          {state.accounts.map((account) => {
-            const isActive = activeAccountId === account.id
-            const inactiveEntry = !isActive
-              ? getInactiveProviderUsage(snapshot, provider, account.id)
-              : null
-            const usage = isActive ? activeUsage : (inactiveEntry?.rateLimits ?? null)
-            const isFetching =
-              (isActive && usage?.status === 'fetching') ||
-              (!isActive && inactiveEntry?.isFetching === true)
-            const title = getManagedAccountPrimaryLabel(account)
-            // Codex logins can share an email across workspaces; desktop tells them apart the same way.
-            const detail =
-              provider === 'codex' ? getCodexAccountDisplayDetail(account, state.accounts) : null
-            return (
-              <ListRow
-                key={account.id}
-                title={title}
-                subtitle={
-                  [title === account.email ? null : account.email, detail]
-                    .filter(Boolean)
-                    .join(' · ') || undefined
-                }
-                accessibilityLabel={
-                  provider === 'codex'
-                    ? getCodexAccountDisplayLabel(account, state.accounts)
-                    : getManagedAccountInlineLabel(account)
-                }
-                detail={
-                  <>
-                    <ProviderUsageWindows
-                      limits={usage}
-                      now={now}
-                      isFetching={isFetching}
-                      showEmptyWindows
-                    />
-                    {usage ? <UsageStatusNote limits={usage} /> : null}
-                  </>
-                }
-                accessory={busyAccountId === account.id ? spinner : undefined}
-                selected={isActive}
-                onPress={
-                  switchBlocked || isActive
-                    ? undefined
-                    : () => void selectAccount(provider, account.id)
-                }
-              />
-            )
-          })}
-          {resetCredit && codexResetSupported && resetScope && connState === 'connected' ? (
-            <CodexResetCreditAction
-              key="codex-reset"
-              summary={resetCredit}
-              scopeLabel={resetScopeLabel}
-              busy={resettingCodex}
-              disabled={resettingCodex || busyAccountId !== null || connState !== 'connected'}
-              onPress={confirmCodexReset}
-            />
-          ) : null}
-        </ListGroup>
-      </View>
-    )
-  }
-
-  // Every other provider desktop shows usage for; usage only, since accounts are managed on desktop.
-  const renderOtherProviders = () => {
-    const providers = snapshot ? getOtherUsageProviders(snapshot) : []
-    if (providers.length === 0) {
-      return null
-    }
-    return (
-      <View>
-        <SectionHeader title={t('accounts.screen.otherAgents', 'Other agents')} />
-        <ListGroup style={styles.group}>
-          {providers.map((limits) => (
-            <ListRow
-              key={limits.provider}
-              title={getProviderDisplayName(limits.provider)}
-              leading={<MobileAgentIcon agentId={limits.provider} size={16} />}
-              detail={
-                <>
-                  <ProviderUsageWindows limits={limits} now={now} />
-                  <UsageStatusNote limits={limits} />
-                </>
-              }
-            />
-          ))}
-        </ListGroup>
-      </View>
-    )
-  }
+  const selectDataAccount = useCallback(
+    async (provider: ManagedDataProvider, accountId: string | null) => {
+      if (!client) {
+        return
+      }
+      setBusyAccountId(managedDataBusyId(provider, accountId))
+      const title = t('accounts.screen.switchFailed', 'Could not switch account')
+      try {
+        const res = await client.sendRequest('accounts.selectData', { provider, accountId })
+        if (!res.ok) {
+          setNotice({ title, message: res.error.message })
+        } else {
+          await refresh()
+        }
+      } catch (e) {
+        setNotice({ title, message: e instanceof Error ? e.message : String(e) })
+      } finally {
+        setBusyAccountId(null)
+      }
+    },
+    [client, refresh, t]
+  )
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -367,9 +253,56 @@ export function MobileAccountsScreen() {
                 onRetry={offlineBanner.retry}
               />
             ) : null}
-            {renderProviderSection('claude')}
-            {renderProviderSection('codex')}
-            {renderOtherProviders()}
+            <ClaudeCodexAccountSections
+              snapshot={snapshot}
+              now={now}
+              busyAccountId={busyAccountId}
+              resettingCodex={resettingCodex}
+              connected={live}
+              codexResetSupported={codexResetSupported}
+              resetScope={resetScope}
+              resetScopeLabel={resetScopeLabel}
+              onSelect={(provider, accountId) => {
+                void selectAccount(provider, accountId)
+              }}
+              onConfirmReset={confirmCodexReset}
+            />
+            <ManagedDataAccountSection
+              provider="opencode"
+              snapshot={snapshot}
+              busyAccountId={busyAccountId}
+              disabled={busyAccountId !== null || resettingCodex || connState !== 'connected'}
+              onSelect={(provider, accountId) => {
+                void selectDataAccount(provider, accountId)
+              }}
+            />
+            <ManagedDataAccountSection
+              provider="devin"
+              snapshot={snapshot}
+              busyAccountId={busyAccountId}
+              disabled={busyAccountId !== null || resettingCodex || connState !== 'connected'}
+              onSelect={(provider, accountId) => {
+                void selectDataAccount(provider, accountId)
+              }}
+            />
+            <ProviderUsageSection provider="gemini" snapshot={snapshot} now={now} />
+            <AntigravityAccountSection
+              snapshot={snapshot}
+              now={now}
+              client={client}
+              connected={live}
+              reloadKey={providerAccountReload}
+              busyAccountId={busyAccountId}
+              disabled={busyAccountId !== null || resettingCodex || connState !== 'connected'}
+              onNotice={setNotice}
+              onChanged={refresh}
+            />
+            <ProviderUsageSection provider="opencodeGo" snapshot={snapshot} now={now} />
+            <ProviderUsageSection provider="minimax" snapshot={snapshot} now={now} />
+            <ProviderUsageSection provider="grok" snapshot={snapshot} now={now} />
+            <ProviderUsageSection provider="cursor" snapshot={snapshot} now={now} />
+            <ProviderUsageSection provider="zcode" snapshot={snapshot} now={now} />
+            <OtherUsageProviders snapshot={snapshot} now={now} />
             <View style={styles.footerHint}>
               <User size={14} color={colors.textMuted} />
               <Text style={styles.footerHintText}>
@@ -399,6 +332,51 @@ export function MobileAccountsScreen() {
         onCancel={() => setNotice(null)}
       />
     </SafeAreaView>
+  )
+}
+
+const DEDICATED_USAGE_PROVIDERS = new Set([
+  'gemini',
+  'opencode-go',
+  'opencodeGo',
+  'antigravity',
+  'minimax',
+  'grok',
+  'cursor',
+  'zcode'
+])
+
+function OtherUsageProviders({ snapshot, now }: { snapshot: AccountsSnapshot; now: number }) {
+  const t = useMobileTranslation()
+  const providers = getOtherUsageProviders(snapshot).filter(
+    (limits) => !DEDICATED_USAGE_PROVIDERS.has(limits.provider)
+  )
+  if (providers.length === 0) {
+    return null
+  }
+  return (
+    <View>
+      <SectionHeader title={t('accounts.screen.otherAgents', 'Other agents')} />
+      <ListGroup style={styles.group}>
+        {providers.map((limits) => (
+          <ListRow
+            key={limits.provider}
+            title={getProviderDisplayName(limits.provider)}
+            leading={<MobileAgentIcon agentId={limits.provider} size={16} />}
+            detail={
+              <>
+                <ProviderUsageWindows limits={limits} now={now} />
+                {limits.error ? (
+                  <Text style={styles.errorText} numberOfLines={1}>
+                    {limits.error}
+                  </Text>
+                ) : null}
+              </>
+            }
+          />
+        ))}
+      </ListGroup>
+    </View>
   )
 }
 

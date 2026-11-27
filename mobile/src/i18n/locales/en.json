@@ -77,7 +77,9 @@
       "defaultViewDescription": "Choose how supported agent sessions (Claude, Codex, and other chat-capable agents) open on this device. Terminal shows the raw CLI; Chat UI shows a chat interface like the desktop app. You can still switch any individual session from its long-press menu.",
       "openInChatUi": "Open sessions in Chat UI",
       "on": "On",
-      "off": "Off"
+      "off": "Off",
+      "composerUsageHeading": "COMPOSER USAGE",
+      "composerUsageDescription": "Chat and agent terminal composers show your agent plan as used or left. Tap the meter for every window, reset times and pace."
     },
     "nativeChatText": {
       "heading": "TEXT",
@@ -418,6 +420,19 @@
       "loadingAccounts": "Loading accounts…",
       "manageAccountsHint": "Add or re-authenticate accounts from desktop Settings → Accounts.",
       "useReset": "Use reset",
+      "antigravity": "Antigravity",
+      "antigravityChanged": "The native account changed. Select a saved account again before launching.",
+      "signedIn": "Signed in on this host",
+      "antigravitySaved": "Saved Google account",
+      "antigravityNative": "Native account",
+      "grokUsage": "Usage",
+      "grokMonthlyUsage": "Monthly usage",
+      "grokWeeklyCredits": "Weekly credits",
+      "grokMonthlyHint": "Included monthly usage for this Grok account.",
+      "grokWeeklyHint": "Weekly credits from the Grok CLI sign-in on this host.",
+      "planTotal": "Plan",
+      "mcpMonthly": "MCP monthly",
+      "fable": "Fable",
       "pairingInvalidMessage": "Re-pair this phone with your desktop to see its accounts.",
       "otherAgents": "Other agents",
       "fableWindow": "Fable",
@@ -3352,6 +3367,8 @@
       "attachImage": "Attach image",
       "placeholder": "Ask anything, @ to mention files, / for commands",
       "cancelEditing": "Cancel editing",
+      "keepChatClear": "Keep chat clear of the side column",
+      "expandChat": "Expand chat into the side column",
       "saveEditedMessage": "Save edited message",
       "sendMessage": "Send message",
       "sendQueue": "Queue",
@@ -8485,6 +8502,79 @@
           }
         }
       }
+    }
+  },
+  "composerUsage": {
+    "meter": {
+      "label": "{{provider}} {{window}} usage: {{percent}}% used. Show details",
+      "labelRemaining": "{{provider}} {{window}} usage: {{percent}}% left. Show details",
+      "left": "{{percent}}% left"
+    },
+    "display": {
+      "label": "Meter shows",
+      "used": "Used",
+      "remaining": "Remaining",
+      "usedHint": "Show how much of the window is used",
+      "remainingHint": "Show how much of the window is left"
+    },
+    "sheet": {
+      "title": "{{provider}} usage",
+      "description": "Pace compares what you have used with an even burn across each window.",
+      "titleAll": "Usage"
+    },
+    "window": {
+      "sessionTitle": "{{length}} session",
+      "weeklyTitle": "Weekly",
+      "fableWeeklyTitle": "Weekly (Fable)",
+      "monthlyTitle": "Monthly",
+      "resets": "Resets {{when}} · in {{duration}}"
+    },
+    "pace": {
+      "onPace": "On pace",
+      "under": "{{percent}}% under pace",
+      "ahead": "{{percent}}% ahead of pace",
+      "aheadRunOut": "{{percent}}% ahead of pace — at this rate you'd run out ~{{duration}} before reset",
+      "exhausted": "Limit reached for this window"
+    },
+    "picker": {
+      "label": "Show in composer",
+      "session": "5-hour",
+      "weekly": "Weekly"
+    },
+    "position": {
+      "label": "Meter position",
+      "row": "Controls",
+      "rowHint": "Show the meter in the controls row",
+      "above": "Above text",
+      "aboveHint": "Show the meter on its own line above the text"
+    },
+    "status": {
+      "exhausted": "limit reached",
+      "onPace": "on pace",
+      "under": "under pace",
+      "ahead": "ahead of pace"
+    },
+    "stats": {
+      "points": "{{value}} pts",
+      "perDay": "{{value}}%/day",
+      "perHour": "{{value}}%/hour",
+      "left": "{{percent}}% left",
+      "last24h": "Used last 24h",
+      "lastHour": "Used last hour",
+      "vsPace": "vs. pace",
+      "budgetDaily": "Daily budget",
+      "budgetHourly": "Hourly budget",
+      "atReset": "At reset"
+    },
+    "headline": {
+      "left": "{{percent}}% left",
+      "used": "{{percent}}% used"
+    },
+    "chart": {
+      "label": "{{window}} usage over time, with a dashed line for an even pace",
+      "legend": "Dashed line: an even pace to reset",
+      "legendNoReset": "Usage since the first reading",
+      "collecting": "Collecting usage history. The graph fills in as the desktop checks usage."
     }
   },
   "hostMutation": {
