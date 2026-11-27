@@ -3,9 +3,9 @@ import { Check } from 'lucide-react-native'
 import type { AccountsSnapshot } from './accounts-snapshot'
 import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { colors } from '../theme/mobile-theme'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
-import { styles } from './mobile-accounts-screen-styles'
+import { useThemedStyles } from '../theme/themed-styles'
+import { useMobileColors } from '../theme/use-mobile-color-scheme'
+import { stylesSheet } from './mobile-accounts-screen-styles'
 
 export type ManagedDataProvider = 'opencode' | 'devin'
 
@@ -32,7 +32,8 @@ export function ManagedDataAccountSection({
   disabled: boolean
   onSelect: (provider: ManagedDataProvider, accountId: string | null) => void
 }) {
-  useMobileColorScheme()
+  const colors = useMobileColors()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const state = snapshot[provider]
   if (!state || state.accounts.length === 0) {

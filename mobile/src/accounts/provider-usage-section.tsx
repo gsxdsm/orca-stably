@@ -14,8 +14,8 @@ import { UsageBar } from './usage/UsageBar'
 import { MiniMaxIcon, OpenCodeGoIcon } from '../components/icons/AgentIcons'
 import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
-import { styles } from './mobile-accounts-screen-styles'
+import { useThemedStyles } from '../theme/themed-styles'
+import { stylesSheet } from './mobile-accounts-screen-styles'
 
 const PROVIDER_COPY = {
   gemini: { headingKey: 'accounts.screen.gemini', heading: 'Gemini' },
@@ -35,7 +35,7 @@ export function ProviderUsageSection({
   snapshot: AccountsSnapshot
   now: number
 }) {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   if (!hasRenderableProviderUsage(snapshot, provider)) {
     return null
@@ -91,7 +91,7 @@ export function ProviderUsageSection({
 }
 
 export function UsageMeterList({ meters, now }: { meters: UsageMeter[]; now: number }) {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   return (
     <View style={styles.usageStack}>
