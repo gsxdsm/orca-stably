@@ -1,5 +1,7 @@
 /** How a column of usage rings fits a band of the rail. */
 export type RailRingStackFit = {
+  /** Top padding above the leading control (or first ring); tightens with gaps when `tightenTop` is set. */
+  paddingTop: number
   /** Clear space from a ring's percent label (or leading control) to the next ring's arc. */
   clearGap: number
   /** Layout gap between ring boxes: the label's overhang plus the clear gap below it. */
@@ -37,6 +39,8 @@ export function railRingStackFit(args: {
   peek: number
   /** Height of a fixed control above the rings' scroller (0 overhang); 0 when absent. */
   leadingHeight?: number
+  /** Tighten top padding alongside inter-item gaps (used below a rail Back button, not under the status glyph). */
+  tightenTop?: boolean
 }): RailRingStackFit {
   const {
     count,
@@ -48,11 +52,18 @@ export function railRingStackFit(args: {
     paddingTop,
     paddingBottom,
     peek,
-    leadingHeight = 0
+    leadingHeight = 0,
+    tightenTop = false
   } = args
   const item = ring + overhang
   const hasLeading = leadingHeight > 0
-  const layout = (clear: number, endClear: number, height: number | null): RailRingStackFit => ({
+  const layout = (
+    top: number,
+    clear: number,
+    endClear: number,
+    height: number | null
+  ): RailRingStackFit => ({
+    paddingTop: top,
     clearGap: clear,
     gap: clear + overhang,
     paddingBottom: endClear + overhang,
@@ -61,21 +72,33 @@ export function railRingStackFit(args: {
   })
   const gapCount = hasLeading ? count : count - 1
   if (room === null || count <= 0 || gapCount <= 0) {
-    return layout(gap, paddingBottom, null)
+    return layout(paddingTop, gap, paddingBottom, null)
   }
   const items = leadingHeight + count * item
   if (paddingTop + items + gapCount * gap + paddingBottom <= room) {
-    return layout(gap, paddingBottom, null)
+    return layout(paddingTop, gap, paddingBottom, null)
   }
   const tightBottom = Math.min(paddingBottom, 2)
-  const tightGap = Math.floor((room - paddingTop - items - tightBottom) / gapCount)
+  const tightGap = tightenTop
+    ? Math.floor((room - items - tightBottom) / (gapCount + 1))
+    : Math.floor((room - paddingTop - items - tightBottom) / gapCount)
   if (tightGap >= minGap) {
-    return layout(Math.min(gap, tightGap), tightBottom, null)
+    const clear = Math.min(gap, tightGap)
+    return layout(tightenTop ? Math.min(paddingTop, clear) : paddingTop, clear, tightBottom, null)
   }
+  const effectiveTop = tightenTop ? Math.min(paddingTop, minGap) : paddingTop
   const pitch = item + minGap
   // With a fixed leading control above the scroller, the scroller starts below it with paddingTop 0.
-  const scrollPaddingTop = hasLeading ? 0 : paddingTop
-  const scrollRoom = hasLeading ? room - (paddingTop + leadingHeight + minGap) : room
-  const shown = Math.max(1, Math.floor((scrollRoom - peek - scrollPaddingTop - item) / pitch) + 1)
-  return layout(minGap, tightBottom, scrollPaddingTop + (shown - 1) * pitch + item + 1 + peek)
+  const scrollPaddingTop = hasLeading ? 0 : effectiveTop
+  const scrollRoom = hasLeading ? room - (effectiveTop + leadingHeight + minGap) : room
+  const shown = Math.max(
+    1,
+    Math.floor((scrollRoom - peek - scrollPaddingTop - item - 1) / pitch) + 1
+  )
+  return layout(
+    effectiveTop,
+    minGap,
+    tightBottom,
+    scrollPaddingTop + (shown - 1) * pitch + item + 1 + peek
+  )
 }

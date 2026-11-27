@@ -32,7 +32,7 @@ import { railRingStackFit } from './rail-ring-stack-fit'
 const RING_LABEL_OVERHANG = 5
 /** Extra gap below the solid circular Items button to match the blank descender under ring percent digits. */
 const LEADING_VISUAL_SLACK = 3
-const MIN_RING_GAP = spacing.sm
+const MIN_RING_GAP = 6
 const CUT_FADE = spacing.md
 /**
  * How far the reported status column runs below the Wi-Fi ring's page dots (iOS 27.1 simulator).
@@ -109,7 +109,8 @@ export function RailUsageStack({
   // The band the rail gives the stack; a chat's composer can leave less than the whole column.
   const [room, setRoom] = useState<number | null>(null)
   // A tablet's own rail has no status column to rise into.
-  const lift = useStatusColumnLift(useContext(RailBandAtStripTopContext) && !standalone)
+  const atStripTop = useContext(RailBandAtStripTopContext) && !standalone
+  const lift = useStatusColumnLift(atStripTop)
   const hasItems = bots !== null
   const fit = railRingStackFit({
     count: standalone ? 0 : usages.length,
@@ -121,7 +122,8 @@ export function RailUsageStack({
     paddingTop: COLUMN_PADDING_TOP,
     paddingBottom: COLUMN_PADDING_BOTTOM,
     peek: CUT_FADE,
-    leadingHeight: !standalone && hasItems ? DUO_STATUS_RING_DIAMETER + LEADING_VISUAL_SLACK : 0
+    leadingHeight: !standalone && hasItems ? DUO_STATUS_RING_DIAMETER + LEADING_VISUAL_SLACK : 0,
+    tightenTop: !standalone && !atStripTop
   })
   if (usages.length === 0 || (strip === null && !standalone)) {
     return null
@@ -145,7 +147,7 @@ export function RailUsageStack({
                 ? styles.leadingStandalone
                 : {
                     paddingLeft: center - DUO_STATUS_RING_DIAMETER / 2,
-                    paddingTop: COLUMN_PADDING_TOP,
+                    paddingTop: fit.paddingTop,
                     paddingBottom: fit.clearGap + LEADING_VISUAL_SLACK
                   }
             ]}
@@ -168,6 +170,7 @@ export function RailUsageStack({
                 ? styles.centered
                 : {
                     paddingLeft: center - DUO_STATUS_RING_DIAMETER / 2,
+                    paddingTop: hasItems ? 0 : fit.paddingTop,
                     gap: fit.gap,
                     paddingBottom: fit.paddingBottom
                   }
