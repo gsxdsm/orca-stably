@@ -21,6 +21,7 @@ import { WorktreeAgentRow } from './WorktreeAgentRow'
 import { WorktreeAgentSummary } from './WorktreeAgentSummary'
 import { useSharedNow } from '../../../hooks/use-now'
 import { worktreeAgentChildRows } from '../worktree-agent-child-rows'
+import { FORK_SIDEBAR_SESSIONS_ENABLED } from '../../../../../src/shared/fork-sidebar-sessions-flag'
 
 function parentSessionPress(
   selectable: boolean,
@@ -28,6 +29,10 @@ function parentSessionPress(
   onLongPress: ((paneKey: string) => void) | undefined,
   onWorkspacePress: (() => void) | undefined
 ): ((paneKey: string) => void) | undefined {
+  if (!FORK_SIDEBAR_SESSIONS_ENABLED) {
+    // #37458: a plain row opens its own pane, not the workspace's active tab.
+    return onAgentPress
+  }
   if (selectable && onAgentPress) {
     return onAgentPress
   }
@@ -84,7 +89,9 @@ export function WorktreeAgentList({
   onPressIn,
   onPressOut
 }: Props) {
-  const hold = onLongPress ?? (onAgentLongPress ? () => onAgentLongPress() : undefined)
+  const hold =
+    (FORK_SIDEBAR_SESSIONS_ENABLED ? onLongPress : undefined) ??
+    (onAgentLongPress ? () => onAgentLongPress() : undefined)
   // Only lists that draw agent times tick, so the rest of the host list skips the 30 s clock.
   const now = useSharedNow(30_000)
   const roots = useMemo(

@@ -7,6 +7,7 @@ import { radii, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { sidebarSessionJumps } from './sidebar-session-jumps'
+import { FORK_SIDEBAR_SESSIONS_ENABLED } from '../../../src/shared/fork-sidebar-sessions-flag'
 
 const INDENT_PER_DEPTH = 14
 const LIST_MAX_HEIGHT = 240
@@ -17,7 +18,14 @@ type Props = {
   onJump: (paneKey: string) => void
 }
 
-export function WorkspaceSessionJumpList({ agents, now, onJump }: Props) {
+export function WorkspaceSessionJumpList(props: Props) {
+  if (!FORK_SIDEBAR_SESSIONS_ENABLED) {
+    return null
+  }
+  return <WorkspaceSessionJumpListContent {...props} />
+}
+
+function WorkspaceSessionJumpListContent({ agents, now, onJump }: Props) {
   const t = useMobileTranslation()
   const styles = useThemedStyles(stylesSheet)
   const jumps = useMemo(() => sidebarSessionJumps(agents, now), [agents, now])

@@ -1,3 +1,4 @@
+import { FORK_SIDEBAR_SESSIONS_ENABLED } from '../../../../src/shared/fork-sidebar-sessions-flag'
 import { useMemo, type ReactNode } from 'react'
 import { ActivityIndicator, Text, View } from 'react-native'
 import { colors } from '../../theme/mobile-theme'
@@ -275,20 +276,24 @@ function WorkspaceOptionsContent({
           </View>
         )
       })}
-      <View testID="workspace-option-section-phone">
-        <SectionHeader title={t('hostScreen.workspaceOptionsSheet.onThisPhone', 'On this phone')} />
-        <ListGroup style={styles.optionGroup}>
-          <SwitchRow
-            label={t('hostScreen.workspaceOptionsSheet.selectSessions', 'Select sessions')}
-            subtitle={t(
-              'hostScreen.workspaceOptionsSheet.selectSessionsDetail',
-              'Taller rows you can tap to open that session.'
-            )}
-            value={selectableSessions}
-            onChange={setSelectableSidebarSessions}
+      {FORK_SIDEBAR_SESSIONS_ENABLED ? (
+        <View testID="workspace-option-section-phone">
+          <SectionHeader
+            title={t('hostScreen.workspaceOptionsSheet.onThisPhone', 'On this phone')}
           />
-        </ListGroup>
-      </View>
+          <ListGroup style={styles.optionGroup}>
+            <SwitchRow
+              label={t('hostScreen.workspaceOptionsSheet.selectSessions', 'Select sessions')}
+              subtitle={t(
+                'hostScreen.workspaceOptionsSheet.selectSessionsDetail',
+                'Taller rows you can tap to open that session.'
+              )}
+              value={selectableSessions}
+              onChange={setSelectableSidebarSessions}
+            />
+          </ListGroup>
+        </View>
+      ) : null}
     </>
   )
 

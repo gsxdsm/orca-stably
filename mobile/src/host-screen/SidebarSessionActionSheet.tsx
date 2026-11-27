@@ -6,6 +6,7 @@ import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { useThemedStyles } from '../theme/themed-styles'
 import { hostScreenStylesSheet } from './host-screen-styles'
 import type { SidebarSessionAction } from './sidebar-session-action'
+import { FORK_SIDEBAR_SESSIONS_ENABLED } from '../../../src/shared/fork-sidebar-sessions-flag'
 
 type Props = {
   session: SidebarSessionAction | null
@@ -14,7 +15,14 @@ type Props = {
   onCloseSession: (session: SidebarSessionAction) => void
 }
 
-export function SidebarSessionActionSheet({ session, onDismiss, onOpen, onCloseSession }: Props) {
+export function SidebarSessionActionSheet(props: Props) {
+  if (!FORK_SIDEBAR_SESSIONS_ENABLED) {
+    return null
+  }
+  return <SidebarSessionActionSheetContent {...props} />
+}
+
+function SidebarSessionActionSheetContent({ session, onDismiss, onOpen, onCloseSession }: Props) {
   const sessionKey = session ? `${session.worktree.worktreeId}\0${session.paneKey}` : null
   const [phase, setPhase] = useState<{ key: string; closing: boolean } | null>(null)
   // The drawer stays mounted, so a leftover confirm step would reopen on the next long-press.

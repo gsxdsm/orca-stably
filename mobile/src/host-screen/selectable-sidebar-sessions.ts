@@ -2,6 +2,7 @@
 import { useSyncExternalStore } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { persistMirrored } from '../storage/mirrored-storage-keys'
+import { FORK_SIDEBAR_SESSIONS_ENABLED } from '../../../src/shared/fork-sidebar-sessions-flag'
 
 export const SELECTABLE_SIDEBAR_SESSIONS_KEY = 'orca:selectableSidebarSessions'
 const LEGACY_SELECTABLE_SIDEBAR_SESSIONS_KEY = 'orca.selectableSidebarSessions'
@@ -101,10 +102,15 @@ export function subscribeSelectableSidebarSessions(listener: () => void): () => 
   }
 }
 
-export function useSelectableSidebarSessions(): boolean {
+export function useSelectableSidebarSessionsPreference(): boolean {
   return useSyncExternalStore(
     subscribeSelectableSidebarSessions,
     getSelectableSidebarSessions,
     getSelectableSidebarSessions
   )
+}
+
+export function useSelectableSidebarSessions(): boolean {
+  const enabled = useSelectableSidebarSessionsPreference()
+  return FORK_SIDEBAR_SESSIONS_ENABLED && enabled
 }
