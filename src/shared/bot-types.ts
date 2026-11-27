@@ -229,7 +229,10 @@ export const BotSchema = z.object({
   chatSessionId: z.string().min(1).nullable().default(null),
   /** Look around, once changed; absent is on with the defaults. Older hosts drop it. */
   // A malformed value reads as unset rather than losing the whole bot.
-  lookAround: BotLookAroundSchema.optional().catch(undefined),
+  lookAround: z
+    .lazy(() => BotLookAroundSchema)
+    .optional()
+    .catch(undefined),
   /** Nightly Tidy-up of its memory, once turned off (by its owner, or after it kept failing);
    *  absent is on. Older hosts drop it. */
   tidyUp: BotTidyUpSchema.optional().catch(undefined),

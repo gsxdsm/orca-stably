@@ -233,7 +233,7 @@ export const BOT_COMMAND_SPECS: CommandSpec[] = [
     hidden: true,
     summary: 'Change what a bot looks for, how often, or turn Look around on or off',
     usage:
-      'orca bot look-around set [--bot <name>] [--on|--off] [--every every-4h|every-2h|twice-daily|mornings] [--weekdays-only|--every-day] [--focus <text>] [--json]',
+      'orca bot look-around set [--bot <name>] [--on|--off] [--every every-4h|every-2h|twice-daily|mornings] [--weekdays-only|--every-day] [--focus <text>] [--agent claude|codex|bot [--model <id>] [--effort <level>]] [--json]',
     allowedFlags: [
       ...GLOBAL_FLAGS,
       'bot',
@@ -242,12 +242,16 @@ export const BOT_COMMAND_SPECS: CommandSpec[] = [
       'every',
       'weekdays-only',
       'every-day',
+      'agent',
+      'model',
+      'effort',
       'focus'
     ],
     // Global --focus is a boolean; here it takes text, so `--focus "a b"` and `--focus ""` work.
     valueFlags: ['focus'],
     notes: [
       'Run from a bot’s chat it changes that bot; the chat shows what changed.',
+      '--agent claude|codex sets only the Look around launch; --agent bot restores the bot’s setup. Model and effort require --agent. With --json the response includes all saved settings.',
       '--focus "" clears it, so the bot looks for anything waiting on its owner.'
     ]
   }

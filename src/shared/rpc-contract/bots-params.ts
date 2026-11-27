@@ -29,7 +29,7 @@ import { botMembersFullError, planBotMemberAdds } from '../bots/bot-member-capac
 import { HANDED_WORKSPACES_MAX, HandedWorkspaceSchema } from '../bots/bot-made-for-workspaces'
 import { BotProposalSchema, BotProposalSeedSchema } from '../bots/bot-proposal'
 import { BotTakeOverSchema } from '../bots/bot-take-over'
-import { BotLookAroundSchema, botLookAround, patchLookAround } from '../bots/bot-look-around'
+import { BotLookAroundPatchSchema, botLookAround, patchLookAround } from '../bots/bot-look-around'
 import { BotLaunchSchema } from '../bots/bot-launch'
 import {
   BOT_OFFER_ALREADY_ANSWERED,
@@ -161,7 +161,7 @@ export const BotUpdate = z.object({
       github: BotGitHubSchema.nullable().optional(),
       skillProjects: z.array(z.string().min(1)).max(BOT_MAX_SKILL_PROJECTS).optional(),
       // Only the changed fields; the host merges them into the saved setting.
-      lookAround: BotLookAroundSchema.omit({ since: true }).partial().optional(),
+      lookAround: BotLookAroundPatchSchema.optional(),
       // Only the changed fields, like Look around.
       tidyUp: z
         .object({ on: z.boolean().optional(), every: z.enum(TIDY_UP_EVERY_CHOICES).optional() })
