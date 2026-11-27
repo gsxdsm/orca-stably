@@ -77,9 +77,15 @@ export function serializeUsageHistoryFile(store: PersistedUsageHistory): string 
 /** Which login a reading belongs to, so one account's history never continues another's. */
 export function usageReadingAccountKey(limits: ProviderRateLimits): string {
   const metadata = limits.usageMetadata
-  const saved = metadata?.readingAccount?.accountId ?? metadata?.authFailureAccount?.accountId
+  const saved =
+    metadata?.readingAccount?.accountId ??
+    metadata?.account?.id ??
+    metadata?.authFailureAccount?.accountId
   if (saved) {
     return saved
+  }
+  if (metadata?.account?.email) {
+    return metadata.account.email
   }
   // Grok names its login as "email (tier)"; a plan change is the same account.
   const provenance = metadata?.authProvenance?.replace(/\s*\(.*\)$/, '')

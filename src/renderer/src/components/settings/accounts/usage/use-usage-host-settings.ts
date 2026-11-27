@@ -9,7 +9,11 @@ import type { RuntimeClientTarget } from '../../../../../../shared/remote-runtim
 export type UsageHostSettings = Partial<
   Pick<
     GlobalSettings,
-    'minimaxEndpoint' | 'minimaxGroupId' | 'minimaxUsageModels' | 'zcodePlanSite'
+    | 'minimaxEndpoint'
+    | 'minimaxGroupId'
+    | 'minimaxUsageModels'
+    | 'zcodePlanSite'
+    | 'antigravityUsageSource'
   >
 >
 
@@ -24,7 +28,8 @@ function pickUsageHostSettings(settings: Partial<GlobalSettings>): UsageHostSett
     minimaxEndpoint: settings.minimaxEndpoint,
     minimaxGroupId: settings.minimaxGroupId,
     minimaxUsageModels: settings.minimaxUsageModels,
-    zcodePlanSite: settings.zcodePlanSite
+    zcodePlanSite: settings.zcodePlanSite,
+    antigravityUsageSource: settings.antigravityUsageSource
   }
 }
 

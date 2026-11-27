@@ -195,7 +195,10 @@ export const getAccountsAntigravitySearchEntries = createLocalizedCatalog(() => 
         'usage'
       ),
       ...translateSearchKeyword('accounts.antigravity.chatTitle', 'Antigravity Chat'),
-      ...translateSearchKeyword('accounts.antigravity.terminalTitle', 'agy in the terminal')
+      ...translateSearchKeyword('accounts.antigravity.terminalTitle', 'agy in the terminal'),
+      ...translateSearchKeyword('accounts.antigravity.usageSource.title', 'Usage source'),
+      ...translateSearchKeyword('accounts.antigravity.keyword.statusline', 'statusline'),
+      ...translateSearchKeyword('accounts.antigravity.keyword.acp', 'acp')
     ]
   }
 ])

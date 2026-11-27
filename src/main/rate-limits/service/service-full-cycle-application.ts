@@ -6,6 +6,12 @@ import {
 } from './service-sibling-provider-result'
 import { disabledUsageSnapshot } from './disabled-usage-snapshot'
 import { prepareMuseUsageFetch } from './service-muse-usage-fetch'
+import {
+  antigravityUsageReadsAcp,
+  antigravityUsageReadsStatusLine,
+  pickFresherAntigravityReading
+} from '../../../shared/agent-usage/rate-limits/antigravity-usage-source'
+import { hasUsageWindows, withoutResetWindows } from './service-result-policy'
 import type { ProviderRateLimits } from '../../../shared/agent-usage/rate-limits/rate-limit-types'
 
 function hasKnownProvenanceChange(
@@ -235,6 +241,31 @@ export abstract class RateLimitServiceFullCycleApplication extends RateLimitServ
     if (shouldApplyAntigravity) {
       this.trackActiveFailureStreak('antigravity', antigravity)
     }
+    const antigravitySource = this.getAntigravityUsageSource()
+    const resolvedAntigravity = (() => {
+      if (!shouldApplyAntigravity) {
+        return this.state.antigravity
+      }
+      if (!antigravityUsageReadsAcp(antigravitySource)) {
+        return this.antigravityUsageWithoutAcp()
+      }
+      // Another runtime's last reading must not stand in for this runtime's failure.
+      const applied = hasKnownProvenanceChange(previousState.antigravity, antigravity)
+        ? antigravity
+        : this.applyStalePolicy(antigravity, previousState.antigravity)
+      if (!antigravityUsageReadsStatusLine(antigravitySource)) {
+        return applied
+      }
+      const now = Date.now()
+      const currentLive =
+        this.state.antigravity?.usageMetadata?.source === 'live-session'
+          ? withoutResetWindows(this.state.antigravity, now)
+          : null
+      if (!currentLive || !hasUsageWindows(currentLive)) {
+        return applied
+      }
+      return pickFresherAntigravityReading(currentLive, applied, now) ?? applied
+    })()
     this.updateState({
       ...this.state,
       grok: this.applyStalePolicy(grok, previousState.grok),
@@ -246,12 +277,7 @@ export abstract class RateLimitServiceFullCycleApplication extends RateLimitServ
           : zcode.status === 'error' && !sameZcodeAccount
             ? zcode
             : this.applyStalePolicy(zcode, previousState.zcode),
-      // Another runtime's last reading must not stand in for this runtime's failure.
-      antigravity: !shouldApplyAntigravity
-        ? this.state.antigravity
-        : hasKnownProvenanceChange(previousState.antigravity, antigravity)
-          ? antigravity
-          : this.applyStalePolicy(antigravity, previousState.antigravity)
+      antigravity: resolvedAntigravity
     })
 
     // Published separately so a slow Muse CLI never delays the sibling batch above.

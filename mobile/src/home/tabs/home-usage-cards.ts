@@ -24,14 +24,25 @@ export type HomeUsageCard = {
   metered: boolean
 }
 
+export type HomeUsageProviderKey = ProviderKey | 'antigravity'
+
 export type HomeUsageSection = {
-  provider: ProviderKey
+  provider: HomeUsageProviderKey
   /** When the active login's usage was last fetched; null before the first fetch. */
   updatedAt: number | null
   cards: HomeUsageCard[]
 }
 
 const PROVIDERS: readonly ProviderKey[] = ['claude', 'codex']
+
+function readAntigravityEmail(limits: ProviderRateLimits | null): string | null {
+  const metadata = limits?.usageMetadata
+  if (typeof metadata !== 'object' || metadata === null || !('account' in metadata)) {
+    return null
+  }
+  const account = (metadata as { account?: { email?: unknown } | null }).account
+  return typeof account?.email === 'string' && account.email.trim() ? account.email.trim() : null
+}
 
 // Codex picks its active account per runtime target, so read it the way the Accounts screen does.
 function activeAccountId(snapshot: AccountsSnapshot, provider: ProviderKey): string | null {
@@ -95,9 +106,11 @@ export function selectHomeUsageCards(
   return cards.sort((left, right) => Number(right.active) - Number(left.active))
 }
 
-/** The providers with usage to show on one desktop, Claude before Codex. */
+/** The providers with usage to show on one desktop, Claude before Codex, then Antigravity. */
 export function selectHomeUsageSections(snapshot: AccountsSnapshot): HomeUsageSection[] {
-  return PROVIDERS.filter((provider) => hasRenderableUsage(snapshot, provider)).map((provider) => {
+  const sections: HomeUsageSection[] = PROVIDERS.filter((provider) =>
+    hasRenderableUsage(snapshot, provider)
+  ).map((provider) => {
     const updatedAt = getActiveProviderRateLimits(snapshot, provider)?.updatedAt ?? 0
     return {
       provider,
@@ -105,4 +118,24 @@ export function selectHomeUsageSections(snapshot: AccountsSnapshot): HomeUsageSe
       cards: selectHomeUsageCards(snapshot, provider)
     }
   })
+  const antigravity = snapshot.rateLimits.antigravity ?? null
+  if (hasActiveProviderUsage(antigravity)) {
+    const updatedAt = antigravity?.updatedAt ?? 0
+    sections.push({
+      provider: 'antigravity',
+      updatedAt: updatedAt > 0 ? updatedAt : null,
+      cards: [
+        {
+          accountId: null,
+          email: readAntigravityEmail(antigravity),
+          subtitle: null,
+          active: true,
+          limits: antigravity,
+          fetching: antigravity?.status === 'fetching',
+          metered: true
+        }
+      ]
+    })
+  }
+  return sections
 }

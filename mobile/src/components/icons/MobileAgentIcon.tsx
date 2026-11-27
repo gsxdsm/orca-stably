@@ -7,7 +7,7 @@ import { colors, radii } from '../../theme/mobile-theme'
 import { useMobileColorScheme } from '../../theme/use-mobile-color-scheme'
 import { MOBILE_AGENT_CATALOG } from '../../agents/mobile-agent-catalog'
 import { MOBILE_AGENT_ICON_ASSETS } from './mobile-agent-icon-assets'
-import { ClaudeIcon, OpenAIIcon } from './AgentIcons'
+import { AntigravityIcon, ClaudeIcon, OpenAIIcon } from './AgentIcons'
 
 const iconAssets: Partial<Record<string, ImageSourcePropType>> = MOBILE_AGENT_ICON_ASSETS
 
@@ -96,7 +96,15 @@ function AgentLetterIcon({ letter, size = 16 }: { letter: string; size?: number 
   )
 }
 
-const DRAWN_AGENT_ICONS = new Set(['claude', 'claude-agent-teams', 'codex', 'pi', 'omp', 'aider'])
+const DRAWN_AGENT_ICONS = new Set([
+  'claude',
+  'claude-agent-teams',
+  'codex',
+  'antigravity',
+  'pi',
+  'omp',
+  'aider'
+])
 
 /** False where MobileAgentIcon would only draw the agent's initial. */
 export function hasMobileAgentIcon(agentId: string): boolean {
@@ -115,6 +123,9 @@ export function MobileAgentIcon({ agentId, size = 16 }: { agentId: string; size?
   }
   if (agentId === 'codex') {
     return <OpenAIIcon size={size} />
+  }
+  if (agentId === 'antigravity') {
+    return <AntigravityIcon size={size} />
   }
   if (agentId === 'pi') {
     return <PiIcon size={size} />

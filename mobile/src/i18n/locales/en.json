@@ -449,6 +449,19 @@
     },
     "usage": {
       "percentLeft": "{{value}}% left"
+    },
+    "antigravity": {
+      "usageSource": {
+        "title": "Antigravity usage source",
+        "hostTitle": "Antigravity usage source ({{host}})",
+        "mobileBoth": "Both",
+        "mobileAcp": "Live ACP",
+        "mobileStatusLine": "Status line",
+        "bothHelp": "Reads running Antigravity chats (agy acp) and interactive agy terminal status-line updates. Freshest reading wins.",
+        "acpHelp": "Reads running Antigravity chats only. Does not configure or ingest the agy CLI status line.",
+        "statuslineHelp": "Reads interactive agy terminal status-line updates only. Makes no local ACP RPC calls.",
+        "updateFailed": "Could not update Antigravity usage source"
+      }
     }
   },
   "agentHistory": {

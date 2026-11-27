@@ -32,6 +32,9 @@ import {
   AntigravityAgyAccountRows,
   type AntigravityAccountAction
 } from './AntigravityAgyAccountRows'
+import { AntigravityUsageSourceSetting } from './AntigravityUsageSourceSetting'
+import type { UsageHostSettingsModel } from '../usage/use-usage-host-settings'
+import type { FeatureInteractionId } from '../../../../../../shared/feature-education/interactions/feature-interaction-catalog'
 
 function usageMatchesTarget(provenance: string, target: AntigravityAccountTarget): boolean {
   if (target.runtime === 'host' || target.wslDistro) {
@@ -56,12 +59,16 @@ export function AntigravityAccountsSection({
   owner,
   target,
   label,
-  ownerPlatform
+  ownerPlatform,
+  usageSettings,
+  recordFeatureInteraction
 }: {
   owner: RuntimeClientTarget
   target: AntigravityAccountTarget
   label: string
   ownerPlatform?: string | null
+  usageSettings?: UsageHostSettingsModel
+  recordFeatureInteraction?: (feature: FeatureInteractionId) => void
 }): React.JSX.Element {
   const t = useTranslate()
   const [state, setState] = useState<AntigravityAccountState | null>(null)
@@ -279,6 +286,12 @@ export function AntigravityAccountsSection({
           run={(action, accountId) => void run(action, accountId)}
           {...(signInControls ? { signIn: signInControls } : {})}
         />
+        {usageSettings ? (
+          <AntigravityUsageSourceSetting
+            usageSettings={usageSettings}
+            recordFeatureInteraction={recordFeatureInteraction}
+          />
+        ) : null}
         {runtimeRow}
       </SettingsGroup>
       {chats &&

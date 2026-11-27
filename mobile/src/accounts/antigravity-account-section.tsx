@@ -20,6 +20,10 @@ import {
 } from './antigravity-account-state'
 import { styles } from './mobile-accounts-screen-styles'
 import { UsageMeterList } from './provider-usage-section'
+import {
+  AntigravityUsageSourcePicker,
+  useHostAntigravityUsageSource
+} from './AntigravityUsageSourcePicker'
 
 const HOST_TARGET = { runtime: 'host' as const }
 
@@ -89,12 +93,14 @@ export function AntigravityAccountSection({
     }
   }, [client, connected, reloadKey])
 
+  const usageSource = useHostAntigravityUsageSource({ client, connected, reloadKey })
   const limits = snapshot.rateLimits.antigravity ?? null
   const showUsage = hasRenderableProviderUsage(snapshot, 'antigravity')
   const saved = accounts?.accounts ?? []
   const currentEmail = accounts?.currentAccount?.email?.trim() || null
   const showCurrent = saved.length === 0 && currentEmail != null
-  if (!showUsage && saved.length === 0 && !showCurrent) {
+  const showSourcePicker = usageSource.source !== null
+  if (!showUsage && saved.length === 0 && !showCurrent && !showSourcePicker) {
     return null
   }
   const collected = showUsage ? collectProviderUsageMeters('antigravity', limits) : []
@@ -213,6 +219,33 @@ export function AntigravityAccountSection({
             </View>
           )
         })}
+        {showSourcePicker ? (
+          <>
+            {showUsage || changed || showCurrent || saved.length > 0 ? (
+              <View style={styles.separator} />
+            ) : null}
+            <AntigravityUsageSourcePicker
+              source={usageSource.source}
+              saving={usageSource.saving}
+              disabled={disabled}
+              onSelect={(next) => {
+                void usageSource.select(next).then((errorMessage) => {
+                  if (errorMessage) {
+                    onNotice({
+                      title: t(
+                        'accounts.antigravity.usageSource.updateFailed',
+                        'Could not update Antigravity usage source'
+                      ),
+                      message: errorMessage
+                    })
+                    return
+                  }
+                  void onChanged()
+                })
+              }}
+            />
+          </>
+        ) : null}
       </View>
     </View>
   )

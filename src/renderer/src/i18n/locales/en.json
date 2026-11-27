@@ -25607,7 +25607,9 @@
         "antigravity": "antigravity",
         "agy": "agy",
         "google": "google",
-        "accounts": "accounts"
+        "accounts": "accounts",
+        "statusline": "statusline",
+        "acp": "acp"
       },
       "windowsChanged": "The host default account changed. Select a saved account to apply it again.",
       "authMethod": "Sign in with",
@@ -25670,7 +25672,18 @@
       "chatOtherWindow": "Sign-in is in progress in another window.",
       "chatPageDidntOpen": "Page didn't open?",
       "chatPasteCode": "Paste the code",
-      "chatPasteCodeLabel": "The code Google shows after you sign in, or that page's address"
+      "chatPasteCodeLabel": "The code Google shows after you sign in, or that page's address",
+      "usageSource": {
+        "title": "Usage source",
+        "description": "Choose how Orca reads Antigravity 5-hour and weekly usage quotas.",
+        "both": "Both (ACP + status line)",
+        "acp": "Live ACP session only",
+        "statusline": "Passive status-line only",
+        "bothHelp": "Reads running Antigravity chats (agy acp) and interactive agy terminal status-line updates. Freshest reading wins.",
+        "acpHelp": "Reads running Antigravity chats only. Does not configure or ingest the agy CLI status line.",
+        "statuslineHelp": "Reads interactive agy terminal status-line updates only. Makes no local ACP RPC calls.",
+        "unavailable": "Host setting unavailable"
+      }
     },
     "claude": {
       "added": "Account added. Select it to use it for the next Claude you start.",

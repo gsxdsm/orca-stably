@@ -23,6 +23,13 @@ import {
   getAntigravityAccountService,
   setAntigravityNativeCredentialChangeListener
 } from '../../antigravity/native-account-host'
+import { setAntigravityStatusLineListener } from '../../antigravity/statusline/antigravity-statusline-feed'
+import { syncAntigravityStatusLine } from '../../antigravity/statusline/antigravity-statusline-install'
+import {
+  antigravityUsageReadsAcp,
+  antigravityUsageReadsStatusLine,
+  normalizeAntigravityUsageSource
+} from '../../../shared/agent-usage/rate-limits/antigravity-usage-source'
 import { createAccountRuntimeTargetSettingsSync } from '../../rate-limits/service/account-runtime-target-sync'
 import { resolveInactiveCodexAccounts } from '../../rate-limits/inactive-codex-accounts'
 import { normalizeClaudeRuntimeSelection } from '../../claude-accounts/selection/runtime-selection'
@@ -143,6 +150,33 @@ export function createProviderAccountServices(
         )
       })
     }
+    if ('antigravityUsageSource' in updates || 'agentStatusHooksEnabled' in updates) {
+      const nextSource = normalizeAntigravityUsageSource(settings.antigravityUsageSource)
+      if (hasAppEnvironment()) {
+        try {
+          syncAntigravityStatusLine(
+            settings.agentStatusHooksEnabled !== false &&
+              antigravityUsageReadsStatusLine(nextSource)
+          )
+        } catch (error) {
+          console.warn(
+            '[antigravity] Failed to sync status-line feed after settings change:',
+            error
+          )
+        }
+      }
+      if ('antigravityUsageSource' in updates) {
+        rateLimits.applyAntigravityUsageSourceChange(nextSource)
+        if (antigravityUsageReadsAcp(nextSource)) {
+          void rateLimits.refresh().catch((error: unknown) => {
+            console.warn(
+              '[rate-limits] Failed to refresh Antigravity usage after source change:',
+              error
+            )
+          })
+        }
+      }
+    }
   })
   rateLimits.setClaudeAuthPreparationResolver((target) =>
     claudeRuntimeAuth.prepareForRateLimitFetch(target)
@@ -174,10 +208,29 @@ export function createProviderAccountServices(
     apiKey: (await readZcodePlanApiKey()) ?? ''
   }))
   rateLimits.setClaudeOAuthUsageEnabledResolver(() => store.getSettings().claudeOAuthUsageEnabled)
-  // Reuse the meter switch so hidden Antigravity usage does not spawn agy.
+  // Reuse the meter switch so hidden Antigravity usage does not scan ports unless paired clients watch.
   rateLimits.setAntigravityUsageEnabledResolver(() =>
     store.getUI().statusBarItems.includes('antigravity')
   )
+  rateLimits.setAntigravityUsageSourceResolver(() =>
+    normalizeAntigravityUsageSource(store.getSettings().antigravityUsageSource)
+  )
+  setAntigravityStatusLineListener((reading) => {
+    rateLimits.ingestLiveAntigravityRateLimits(reading)
+  })
+  if (hasAppEnvironment()) {
+    try {
+      const initialSettings = store.getSettings()
+      syncAntigravityStatusLine(
+        initialSettings.agentStatusHooksEnabled !== false &&
+          antigravityUsageReadsStatusLine(
+            normalizeAntigravityUsageSource(initialSettings.antigravityUsageSource)
+          )
+      )
+    } catch (error) {
+      console.warn('[antigravity] Failed to sync status-line feed on startup:', error)
+    }
+  }
   // Hidden Muse meters must not spawn the Muse CLI.
   rateLimits.setMuseUsageEnabledResolver(() => store.getUI().statusBarItems.includes('muse'))
   setAntigravityNativeCredentialChangeListener(() =>

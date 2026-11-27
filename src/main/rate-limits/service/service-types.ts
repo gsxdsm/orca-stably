@@ -2,6 +2,7 @@ import type {
   ProviderRateLimits,
   UsageReadingAccount
 } from '../../../shared/agent-usage/rate-limits/rate-limit-types'
+import type { AntigravityUsageSource } from '../../../shared/agent-usage/rate-limits/antigravity-usage-source'
 import type { ZcodePlanSite } from '../../../shared/agent-accounts/usage-credentials/zcode-plan-sites'
 import type { ClaudeRuntimeAuthPreparation } from '../../claude-accounts/runtime-auth/runtime-auth-types'
 import type { ClaudeAccountSelectionTarget } from '../../claude-accounts/selection/runtime-selection'
@@ -67,6 +68,7 @@ export type ZcodePlanResolvedConfig = {
 }
 
 export type AntigravityUsageEnabledResolver = () => boolean
+export type AntigravityUsageSourceResolver = () => AntigravityUsageSource
 export type ClaudeOAuthUsageEnabledResolver = () => boolean
 export type MuseUsageEnabledResolver = () => boolean
 export type ActiveRateLimitProvider = ProviderRateLimits['provider']

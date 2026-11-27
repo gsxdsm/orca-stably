@@ -17,6 +17,7 @@ import {
   type OpenCodeGoRateLimitConfig,
   type MiniMaxRateLimitConfig,
   type AntigravityUsageEnabledResolver,
+  type AntigravityUsageSourceResolver,
   type ClaudeOAuthUsageEnabledResolver,
   type MuseUsageEnabledResolver,
   type ZcodePlanRateLimitConfig,
@@ -131,6 +132,8 @@ export abstract class RateLimitServiceState {
     | null = null
   protected claudeOAuthUsageEnabledResolver: ClaudeOAuthUsageEnabledResolver | null = null
   protected antigravityUsageEnabledResolver: AntigravityUsageEnabledResolver | null = null
+  protected antigravityUsageSourceResolver: AntigravityUsageSourceResolver | null = null
+  protected liveAntigravityUsage: ProviderRateLimits | null = null
   protected antigravityFetchTarget: LocalAccountRuntimeTarget = { runtime: 'host', wslDistro: null }
   protected antigravityAccountUsageRecorder: AntigravityAccountUsageRecorder | null = null
   protected antigravityAccounts: AntigravityAccountUsage[] = []

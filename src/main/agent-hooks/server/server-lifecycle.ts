@@ -11,6 +11,11 @@ import {
   readClaudeStatusLineForm,
   readClaudeStatusLineRateLimits
 } from '../../../shared/agent-usage/rate-limits/claude-statusline-rate-limits'
+import {
+  ANTIGRAVITY_STATUSLINE_PATHNAME,
+  readAntigravityStatusLineUsage
+} from '../../../shared/agent-usage/rate-limits/antigravity-statusline-usage'
+import { publishAntigravityStatusLineReading } from '../../antigravity/statusline/antigravity-statusline-feed'
 import { readClaudeStatusLineModel } from '../../../shared/agent-hook-listener/providers/claude/lifecycle/claude-statusline-model'
 import { mergeAgentHookRequestHeaders } from '../../../shared/agent-hook-listener/hook-envelope'
 import { readRequestBody } from '../../../shared/agent-hook-listener/request-body'
@@ -136,6 +141,17 @@ export abstract class AgentHookServerLifecycle extends AgentHookServerClaudeStat
             if (modelReport) {
               this.applyClaudeStatusLineModel(modelReport)
             }
+          }
+          res.writeHead(204)
+          res.end()
+          return
+        }
+        if (pathname === ANTIGRAVITY_STATUSLINE_PATHNAME) {
+          // The same form the Claude status line posts; only quota is read from it.
+          const form = readClaudeStatusLineForm(body)
+          const reading = form ? readAntigravityStatusLineUsage(form.payload, Date.now()) : null
+          if (reading) {
+            publishAntigravityStatusLineReading(reading)
           }
           res.writeHead(204)
           res.end()

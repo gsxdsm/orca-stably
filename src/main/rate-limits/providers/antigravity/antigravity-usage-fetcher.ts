@@ -7,13 +7,20 @@ import type {
   ProviderRateLimits,
   UsageRateLimitFailureKind
 } from '../../../../shared/agent-usage/rate-limits/rate-limit-types'
+import { antigravityNoUsageYetReading } from '../../../../shared/agent-usage/rate-limits/antigravity-statusline-usage'
 import { hasUsageWindows, withoutResetWindows } from '../../service/service-result-policy'
 import { scanPlatformListeningPorts } from '../../../ports/local-workspace-platform-port-scanner'
 import type { RawListeningPort } from '../../../ports/local-workspace-port-scan-state'
-import { parseAntigravityUserStatusQuota } from './antigravity-user-status-quota'
+import {
+  parseAntigravityQuotaSummary,
+  parseAntigravityUserStatusQuota,
+  type AntigravityQuotaReading
+} from './antigravity-user-status-quota'
 
 // Why not `agy -p /usage`: headless agy runs outside ACP have been reported to get Google accounts
-// flagged (upstream #50137). A running agy already serves its own status on loopback; read that.
+// flagged (upstream #50137). A running `agy acp` already serves its own quota summary (weekly + 5h)
+// and user status on loopback without needing a token; read that.
+const QUOTA_SUMMARY_PATH = '/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary'
 const USER_STATUS_PATH = '/exa.language_server_pb.LanguageServerService/GetUserStatus'
 const USER_STATUS_TIMEOUT_MS = 3000
 const USER_STATUS_MAX_BYTES = 4 * 1024 * 1024
@@ -22,8 +29,12 @@ const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]'])
 export type AntigravityUsageDependencies = {
   /** Injected so tests skip the platform port scan. */
   listListeners?: () => Promise<RawListeningPort[]>
-  /** Injected so tests answer GetUserStatus without a running agy. */
+  /** Injected so tests answer RetrieveUserQuotaSummary without a running agy. */
+  postQuotaSummary?: (port: number, signal?: AbortSignal) => Promise<unknown>
+  /** Injected so tests answer GetUserStatus (fallback) without a running agy. */
   postUserStatus?: (port: number, signal?: AbortSignal) => Promise<unknown>
+  /** Optional set of allowed agy PIDs (e.g. Orca-managed sessions). */
+  allowedPids?: ReadonlySet<number>
   now?: () => number
 }
 
@@ -54,10 +65,28 @@ function isAgyProcess(name: string | undefined): boolean {
   return name !== undefined && /^agy(\.exe)?$/i.test(name.trim())
 }
 
-/** Loopback ports held by running agy processes, e.g. the ACP sessions Orca starts for chats. */
-export function selectAgyStatusPorts(listeners: readonly RawListeningPort[]): number[] {
+function isAgyAcpListener(listener: RawListeningPort): boolean {
+  // When commandLine is available, skip interactive TUI `agy` listeners (they require a CSRF token)
+  // and only target `agy acp` processes.
+  if (listener.commandLine !== undefined && listener.commandLine.trim() !== '') {
+    return /\bacp\b/i.test(listener.commandLine)
+  }
+  return true
+}
+
+/** Loopback ports held by running `agy acp` processes. */
+export function selectAgyStatusPorts(
+  listeners: readonly RawListeningPort[],
+  allowedPids?: ReadonlySet<number>
+): number[] {
   const ports = listeners
-    .filter((listener) => isAgyProcess(listener.processName) && LOOPBACK_HOSTS.has(listener.host))
+    .filter(
+      (listener) =>
+        isAgyProcess(listener.processName) &&
+        LOOPBACK_HOSTS.has(listener.host) &&
+        isAgyAcpListener(listener) &&
+        (!allowedPids || (listener.pid !== undefined && allowedPids.has(listener.pid)))
+    )
     .map((listener) => listener.port)
   return [...new Set(ports)]
 }
@@ -66,13 +95,17 @@ async function listListeners(): Promise<RawListeningPort[]> {
   return (await scanPlatformListeningPorts({ requireMetadata: true })).ports
 }
 
-function postUserStatus(port: number, signal?: AbortSignal): Promise<unknown> {
+function postLocalLanguageServerRpc(
+  port: number,
+  path: string,
+  signal?: AbortSignal
+): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const req = request(
       {
         host: '127.0.0.1',
         port,
-        path: USER_STATUS_PATH,
+        path,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         timeout: USER_STATUS_TIMEOUT_MS,
@@ -109,6 +142,14 @@ function postUserStatus(port: number, signal?: AbortSignal): Promise<unknown> {
   })
 }
 
+function postQuotaSummary(port: number, signal?: AbortSignal): Promise<unknown> {
+  return postLocalLanguageServerRpc(port, QUOTA_SUMMARY_PATH, signal)
+}
+
+function postUserStatus(port: number, signal?: AbortSignal): Promise<unknown> {
+  return postLocalLanguageServerRpc(port, USER_STATUS_PATH, signal)
+}
+
 // Run on the execution owner's machine; a remote workspace's host reads its own agy.
 export async function fetchAntigravityRateLimits(
   options: FetchAntigravityRateLimitsOptions = {}
@@ -127,6 +168,29 @@ export async function fetchAntigravityRateLimits(
   }
 }
 
+function buildOkResult(reading: AntigravityQuotaReading, now: number): ProviderRateLimits {
+  if (reading.noUsageYet) {
+    return antigravityNoUsageYetReading(now, 'cli')
+  }
+  return {
+    provider: 'antigravity',
+    session: reading.session,
+    weekly: reading.weekly,
+    buckets: reading.buckets,
+    ...(reading.planType ? { planType: reading.planType } : {}),
+    updatedAt: now,
+    error: null,
+    status: 'ok',
+    usageMetadata: {
+      source: 'cli',
+      attemptedSources: ['cli'],
+      lastSuccessfulSource: 'cli',
+      credentialSource: 'antigravity-cli',
+      ...(reading.email ? { account: { id: null, email: reading.email } } : {})
+    }
+  }
+}
+
 async function readAntigravityUsage(
   options: FetchAntigravityRateLimitsOptions,
   target: LocalAccountRuntimeTarget
@@ -141,7 +205,10 @@ async function readAntigravityUsage(
   }
   let ports: number[]
   try {
-    ports = selectAgyStatusPorts(await (options.listListeners ?? listListeners)())
+    ports = selectAgyStatusPorts(
+      await (options.listListeners ?? listListeners)(),
+      options.allowedPids
+    )
   } catch {
     return unavailable(
       'Antigravity usage is not available. Orca could not list running agy processes.',
@@ -151,44 +218,49 @@ async function readAntigravityUsage(
   }
   if (ports.length === 0) {
     return unavailable(
-      'Antigravity usage updates while an Antigravity chat or agy session is running.',
+      'Antigravity usage updates while an Antigravity chat or interactive agy session is running.',
       'cli-unavailable',
       now()
     )
   }
-  const post = options.postUserStatus ?? postUserStatus
+  // When a test injects only postUserStatus, skip RetrieveUserQuotaSummary so legacy GetUserStatus tests work directly.
+  const quotaPost = options.postQuotaSummary ?? (options.postUserStatus ? null : postQuotaSummary)
+  const userStatusPost = options.postUserStatus ?? postUserStatus
   for (const port of ports) {
     if (options.signal?.aborted) {
       break
     }
     // agy also holds a TLS port and others that refuse this route; try each until one answers.
-    const payload = await post(port, options.signal).catch(() => null)
+    if (quotaPost) {
+      const summaryPayload = await quotaPost(port, options.signal).catch(() => null)
+      const summary = summaryPayload ? parseAntigravityQuotaSummary(summaryPayload) : null
+      if (summary) {
+        if (summary.noUsageYet || summary.buckets.length > 0) {
+          // Optionally grab account email/plan from GetUserStatus on the same local port if available.
+          const userStatusPayload = await userStatusPost(port, options.signal).catch(() => null)
+          const userStatus = userStatusPayload
+            ? parseAntigravityUserStatusQuota(userStatusPayload)
+            : null
+          return buildOkResult(
+            {
+              ...summary,
+              ...(userStatus?.email ? { email: userStatus.email } : {}),
+              ...(userStatus?.planType ? { planType: userStatus.planType } : {})
+            },
+            now()
+          )
+        }
+      }
+    }
+    const payload = await userStatusPost(port, options.signal).catch(() => null)
     const reading = payload ? parseAntigravityUserStatusQuota(payload) : null
     if (!reading) {
       continue
     }
     if (reading.buckets.length === 0) {
-      return unavailable(
-        'Antigravity usage is not available. agy reported no model quota for this account.',
-        'usage-unavailable',
-        now()
-      )
+      return antigravityNoUsageYetReading(now(), 'cli')
     }
-    return {
-      provider: 'antigravity',
-      session: reading.session,
-      weekly: null,
-      buckets: reading.buckets,
-      updatedAt: now(),
-      error: null,
-      status: 'ok',
-      usageMetadata: {
-        source: 'cli',
-        attemptedSources: ['cli'],
-        lastSuccessfulSource: 'cli',
-        credentialSource: 'antigravity-cli'
-      }
-    }
+    return buildOkResult(reading, now())
   }
   return unavailable(
     'Antigravity usage is not available. The running agy did not report its quota.',

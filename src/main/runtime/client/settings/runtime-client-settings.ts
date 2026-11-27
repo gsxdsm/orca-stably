@@ -47,6 +47,7 @@ import { getDefaultNotificationSettings } from '../../../../shared/notifications
 import type { NotificationSettings } from '../../../../shared/notifications/notification-settings-types'
 import { projectSourceControlLaunchRecipes } from './runtime-client-source-control-ai-projection'
 import { projectHostOwnedSettings } from '../../../../shared/settings/host-owned-settings'
+import { normalizeAntigravityUsageSource } from '../../../../shared/agent-usage/rate-limits/antigravity-usage-source'
 
 /** Which Orca cloud services this host registered; headless hosts register none. */
 export type RuntimeSharingServicePresence = {
@@ -108,6 +109,7 @@ export class RuntimeClientSettingsController {
       minimaxUsageModels: settings.minimaxUsageModels ?? 'general',
       minimaxEndpoint: settings.minimaxEndpoint ?? 'overseas',
       zcodePlanSite: settings.zcodePlanSite ?? 'zai',
+      antigravityUsageSource: normalizeAntigravityUsageSource(settings.antigravityUsageSource),
       prBotAuthorOverrides: settings.prBotAuthorOverrides ?? [],
       // Paired clients order their Source Control lists the way this desktop does.
       sourceControlGroupOrder: normalizeSourceControlGroupOrder(settings.sourceControlGroupOrder),

@@ -24,6 +24,7 @@ import {
   type OpenCodeGoRateLimitConfig,
   type MiniMaxRateLimitConfig,
   type AntigravityUsageEnabledResolver,
+  type AntigravityUsageSourceResolver,
   type ClaudeOAuthUsageEnabledResolver,
   type MuseUsageEnabledResolver,
   type ZcodePlanRateLimitConfig,
@@ -36,6 +37,11 @@ import {
 } from '../../claude-accounts/selection/runtime-selection'
 import type { InactiveClaudeAccount } from '../providers/claude/claude-managed-account-usage'
 import type { RateLimitState } from '../../../shared/agent-usage/rate-limits/rate-limit-types'
+import {
+  pickFresherAntigravityReading,
+  type AntigravityUsageSource
+} from '../../../shared/agent-usage/rate-limits/antigravity-usage-source'
+import { hasUsageWindows, withoutResetWindows } from './service-result-policy'
 import type { NetworkProxySettings } from '../../../shared/network/network-proxy'
 import type { UsageHistoryRecorder } from '../usage-history/usage-history-recorder'
 
@@ -135,6 +141,44 @@ export class RateLimitService extends RateLimitServiceTargetUsageRead {
 
   setAntigravityUsageEnabledResolver(resolver: AntigravityUsageEnabledResolver): void {
     this.antigravityUsageEnabledResolver = resolver
+  }
+
+  setAntigravityUsageSourceResolver(resolver: AntigravityUsageSourceResolver): void {
+    this.antigravityUsageSourceResolver = resolver
+  }
+
+  applyAntigravityUsageSourceChange(source: AntigravityUsageSource): void {
+    this.antigravityFetchGeneration += 1
+    this.activeFailureStreakByProvider.antigravity = 0
+    if (source === 'statusline') {
+      this.updateState({ ...this.state, antigravity: this.antigravityUsageWithoutAcp() })
+      return
+    }
+    if (source === 'acp') {
+      this.liveAntigravityUsage = null
+      if (this.state.antigravity?.usageMetadata?.source === 'live-session') {
+        this.updateState({ ...this.state, antigravity: null })
+      }
+      return
+    }
+    const now = Date.now()
+    const live = this.liveAntigravityUsage
+      ? withoutResetWindows(this.liveAntigravityUsage, now)
+      : null
+    if (live && hasUsageWindows(live)) {
+      const current = this.state.antigravity
+        ? withoutResetWindows(this.state.antigravity, now)
+        : null
+      this.updateState({
+        ...this.state,
+        antigravity:
+          pickFresherAntigravityReading(
+            current && hasUsageWindows(current) ? current : null,
+            live,
+            now
+          ) ?? live
+      })
+    }
   }
 
   setAntigravityFetchTarget(target: LocalAccountRuntimeTarget): void {

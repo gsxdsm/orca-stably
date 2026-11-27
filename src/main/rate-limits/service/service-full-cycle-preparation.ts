@@ -7,6 +7,7 @@ import { readCursorAuthSession } from '../providers/cursor/cursor-auth'
 import { fetchZcodeRateLimits } from '../providers/zcode/zcode-usage-fetcher'
 import { fetchAntigravityRateLimits } from '../providers/antigravity/antigravity-usage-fetcher'
 import { antigravityUsageDisabledSnapshot } from '../providers/antigravity/antigravity-usage-snapshot'
+import { antigravityUsageReadsAcp } from '../../../shared/agent-usage/rate-limits/antigravity-usage-source'
 import { ZCODE_PLAN_SITE_BASE_URLS } from '../../../shared/agent-accounts/usage-credentials/zcode-plan-sites'
 import { fetchMiniMaxRateLimits } from '../providers/minimax/minimax-fetcher'
 import { createHash } from 'node:crypto'
@@ -41,8 +42,11 @@ export abstract class RateLimitServiceFullCyclePreparation extends RateLimitServ
     const codexGeneration = this.codexFetchGeneration
     // Gate only Codex, never siblings, when its runtime is skipped (#STA-4422).
     const codexHome = await this.resolveCodexHome(codexTarget)
+    const antigravitySource = this.getAntigravityUsageSource()
+    const antigravityAcpEnabled = antigravityUsageReadsAcp(antigravitySource)
     const antigravityFetchAllowed =
-      (this.antigravityUsageEnabledResolver?.() ?? true) &&
+      antigravityAcpEnabled &&
+      (this.usageViewers > 0 || (this.antigravityUsageEnabledResolver?.() ?? true)) &&
       (options?.force || !this.shouldSkipAutomatedFetch('antigravity', this.state.antigravity))
     // A login change seen here invalidates before the baseline below, so this read still counts.
     const recorder = antigravityFetchAllowed ? this.antigravityAccountUsageRecorder : null
@@ -144,7 +148,9 @@ export abstract class RateLimitServiceFullCyclePreparation extends RateLimitServ
       kimi: this.withFetchingStatus(previousState.kimi, 'kimi'),
       antigravity: antigravityFetchAllowed
         ? this.withFetchingStatus(previousState.antigravity, 'antigravity')
-        : (previousState.antigravity ?? antigravityUsageDisabledSnapshot()),
+        : !antigravityAcpEnabled
+          ? this.antigravityUsageWithoutAcp()
+          : (previousState.antigravity ?? antigravityUsageDisabledSnapshot()),
       minimax: miniMaxConfigChanged
         ? this.withFetchingStatus(null, 'minimax')
         : this.withFetchingStatus(previousState.minimax, 'minimax'),
@@ -172,7 +178,7 @@ export abstract class RateLimitServiceFullCyclePreparation extends RateLimitServ
       (value) => ({ status: 'fulfilled', value }) as const,
       (reason) => ({ status: 'rejected', reason }) as const
     )
-    // Hidden meters skip the agy port scan; the separate promise keeps other providers responsive.
+    // Hidden meters and statusline-only mode skip the agy port scan; the separate promise keeps other providers responsive.
     const antigravityResultPromise = (
       antigravityFetchAllowed
         ? fetchAntigravityRateLimits({
@@ -185,7 +191,11 @@ export abstract class RateLimitServiceFullCyclePreparation extends RateLimitServ
               ? limits
               : this.attributeAntigravityReading(antigravityRead, antigravityGeneration, limits)
           )
-        : Promise.resolve(previousState.antigravity ?? antigravityUsageDisabledSnapshot())
+        : Promise.resolve(
+            !antigravityAcpEnabled
+              ? this.antigravityUsageWithoutAcp()
+              : (previousState.antigravity ?? antigravityUsageDisabledSnapshot())
+          )
     ).then(
       (value) => ({ status: 'fulfilled', value }) as const,
       (reason) => ({ status: 'rejected', reason }) as const

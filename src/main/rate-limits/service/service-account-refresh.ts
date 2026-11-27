@@ -108,6 +108,7 @@ export abstract class RateLimitServiceAccountRefresh extends RateLimitServiceIna
 
   invalidateAntigravityCredentialState(): void {
     this.antigravityFetchGeneration += 1
+    this.liveAntigravityUsage = null
     this.updateState({
       ...this.state,
       antigravity: null
