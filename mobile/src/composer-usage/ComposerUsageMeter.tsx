@@ -21,6 +21,7 @@ import {
 } from './agent-usage-provider'
 import {
   ComposerUsageClientContext,
+  ComposerUsagePaneWidthContext,
   ComposerUsageTabAgentContext
 } from './composer-usage-client-context'
 import { useComposerUsageDisplay } from './composer-usage-display-preference'
@@ -31,7 +32,10 @@ import {
 import { useComposerUsagePosition } from './composer-usage-position-preference'
 import { useComposerUsageWindow } from './composer-usage-window-preference'
 import { useComposerUsageSheetOpener } from './ComposerUsageSheetHost'
-import { composerUsageWideMeterLayout } from './composer-usage-wide-meter'
+import {
+  composerUsagePaneAllowsWideMeter,
+  composerUsageWideMeterLayout
+} from './composer-usage-wide-meter'
 import { ComposerUsageTrack, TRACK_MIN_WIDTH } from './ComposerUsageTrack'
 import {
   COMPOSER_USAGE_WIDE_GAP,
@@ -116,27 +120,32 @@ function useComposerUsageReading(agent: string | null | undefined): Reading | nu
   }
 }
 
-/** The composer action row's flexible gap, with the compact usage meter centered in it unless it sits above. */
-export function ComposerUsageSlot({ agent }: Props): React.JSX.Element {
+/** The composer action row's usage meter: hugs its compact width on narrow panes and centers wide bars on full-width panes. */
+export function ComposerUsageSlot({ agent }: Props): React.JSX.Element | null {
   const styles = useThemedStyles(stylesSheet)
   const composerInputStyles = useThemedStyles(composerInputStylesSheet)
   const position = useComposerUsagePosition()
+  const paneWidth = useContext(ComposerUsagePaneWidthContext)
+  const reading = useComposerUsageReading(agent)
   const [room, setRoom] = useState<number | null>(null)
-  // The full meter's width, whatever part of it shows, so the row never re-splits as parts drop.
-  const [basis, setBasis] = useState<number | null>(null)
-  if (position === 'above') {
-    return <View style={[composerInputStyles.actionSpacer, styles.emptySlot]} />
+  if (position === 'above' || !reading) {
+    return null
   }
+  const canUseWide = composerUsagePaneAllowsWideMeter(paneWidth)
   return (
     <View
-      style={[
-        composerInputStyles.actionSpacer,
-        styles.slot,
-        basis !== null && { flexBasis: basis }
-      ]}
-      onLayout={(event) => setRoom(event.nativeEvent.layout.width)}
+      style={canUseWide ? [composerInputStyles.actionSpacer, styles.wideSlot] : styles.compactSlot}
+      onLayout={(event) => {
+        const width = event.nativeEvent.layout.width
+        setRoom((current) => (current === width ? current : width))
+      }}
     >
-      <ComposerUsageMeter agent={agent} room={room} onFullWidth={setBasis} />
+      <ComposerUsageMeterBody
+        reading={reading}
+        room={canUseWide ? room : null}
+        paneWidth={paneWidth}
+        compactOnly={!canUseWide}
+      />
     </View>
   )
 }
@@ -145,18 +154,49 @@ export function ComposerUsageSlot({ agent }: Props): React.JSX.Element {
 export function ComposerUsageMeter({
   agent,
   room = null,
+  paneWidth,
   onFullWidth
 }: Props & {
   /** The slot's width: short of the full meter, the reset label shortens, then it and the meter drop. */
   room?: number | null
+  paneWidth?: number | null
   onFullWidth?: (width: number | null) => void
 }): React.JSX.Element | null {
+  const contextPaneWidth = useContext(ComposerUsagePaneWidthContext)
+  const reading = useComposerUsageReading(agent)
+  const resolvedPaneWidth = paneWidth === undefined ? contextPaneWidth : paneWidth
+  if (!reading) {
+    return null
+  }
+  return (
+    <ComposerUsageMeterBody
+      reading={reading}
+      room={room}
+      paneWidth={resolvedPaneWidth}
+      compactOnly={false}
+      onFullWidth={onFullWidth}
+    />
+  )
+}
+
+function ComposerUsageMeterBody({
+  reading,
+  room,
+  paneWidth,
+  compactOnly,
+  onFullWidth
+}: {
+  reading: Reading
+  room: number | null
+  paneWidth: number | null
+  compactOnly: boolean
+  onFullWidth?: (width: number | null) => void
+}): React.JSX.Element {
   const styles = useThemedStyles(stylesSheet)
   const composerInputStyles = useThemedStyles(composerInputStylesSheet)
   // Keep focus in the composer field so the idle-collapsible pill does not unmount the bar mid-tap.
   const keepsFocus = useKeyboardPersistingTaps('always')
-  const reading = useComposerUsageReading(agent)
-  const sheet = useComposerUsageSheetOpener(reading?.usage ?? null, reading?.snapshot ?? null)
+  const sheet = useComposerUsageSheetOpener(reading.usage, reading.snapshot)
   // The labels' own widths, measured off the row, so a dropped label still reports its need.
   const [resetWidth, setResetWidth] = useState<number | null>(null)
   const [compactWidth, setCompactWidth] = useState<number | null>(null)
@@ -165,20 +205,22 @@ export function ComposerUsageMeter({
   const [wideResetWidth, setWideResetWidth] = useState<number | null>(null)
   const [widePercentWidth, setWidePercentWidth] = useState<number | null>(null)
   const fullWidth =
-    reading && resetWidth !== null && percentWidth !== null
+    resetWidth !== null && percentWidth !== null
       ? composerUsageMeterWidth(resetWidth + LABEL_GAP + TRACK_MIN_WIDTH, percentWidth)
       : null
   useEffect(() => onFullWidth?.(fullWidth), [fullWidth, onFullWidth])
-  const wide = composerUsageWideMeterLayout({
-    room,
-    fullLabelWidth: wideResetWidth,
-    percentWidth: widePercentWidth,
-    gap: COMPOSER_USAGE_WIDE_GAP
-  })
-  if (!reading) {
-    return null
-  }
-  const fit = composerUsageMeterFit(room, resetWidth, compactWidth, percentWidth)
+  const wide = compactOnly
+    ? null
+    : composerUsageWideMeterLayout({
+        room,
+        paneWidth,
+        fullLabelWidth: wideResetWidth,
+        percentWidth: widePercentWidth,
+        gap: COMPOSER_USAGE_WIDE_GAP
+      })
+  const fit = compactOnly
+    ? ({ meter: true, label: 'compact' } as const)
+    : composerUsageMeterFit(room, resetWidth, compactWidth, percentWidth)
   return (
     <>
       {wide !== null ? (
@@ -206,7 +248,7 @@ export function ComposerUsageMeter({
           <Text style={[styles.text, styles.percent]} numberOfLines={1}>
             {reading.percentLabel}
           </Text>
-          <View style={styles.barLine}>
+          <View style={[styles.barLine, compactOnly && styles.compactBarLine]}>
             {fit.label ? (
               <Text style={[styles.text, styles.window]} numberOfLines={1}>
                 {fit.label === 'full' ? reading.resetsIn : reading.resetsInCompact}
@@ -216,38 +258,40 @@ export function ComposerUsageMeter({
           </View>
         </Pressable>
       ) : null}
-      <View
-        style={styles.measure}
-        pointerEvents="none"
-        aria-hidden
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-      >
-        <Text
-          style={styles.text}
-          onLayout={(event) => setResetWidth(event.nativeEvent.layout.width)}
+      {compactOnly ? null : (
+        <View
+          style={styles.measure}
+          pointerEvents="none"
+          aria-hidden
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
         >
-          {reading.resetsIn}
-        </Text>
-        <Text
-          style={styles.text}
-          onLayout={(event) => setCompactWidth(event.nativeEvent.layout.width)}
-        >
-          {reading.resetsInCompact}
-        </Text>
-        <Text
-          style={styles.text}
-          onLayout={(event) => setPercentWidth(event.nativeEvent.layout.width)}
-        >
-          {reading.percentLabel}
-        </Text>
-        <ComposerUsageWideMeasure
-          resetsIn={reading.resetsIn}
-          percentLabel={reading.percentLabel}
-          onResetWidth={setWideResetWidth}
-          onPercentWidth={setWidePercentWidth}
-        />
-      </View>
+          <Text
+            style={styles.text}
+            onLayout={(event) => setResetWidth(event.nativeEvent.layout.width)}
+          >
+            {reading.resetsIn}
+          </Text>
+          <Text
+            style={styles.text}
+            onLayout={(event) => setCompactWidth(event.nativeEvent.layout.width)}
+          >
+            {reading.resetsInCompact}
+          </Text>
+          <Text
+            style={styles.text}
+            onLayout={(event) => setPercentWidth(event.nativeEvent.layout.width)}
+          >
+            {reading.percentLabel}
+          </Text>
+          <ComposerUsageWideMeasure
+            resetsIn={reading.resetsIn}
+            percentLabel={reading.percentLabel}
+            onResetWidth={setWideResetWidth}
+            onPercentWidth={setWidePercentWidth}
+          />
+        </View>
+      )}
       {sheet.inlineSheet}
     </>
   )
@@ -289,6 +333,7 @@ export function ComposerUsageStrip({ agent }: Props): React.JSX.Element | null {
 }
 
 const LABEL_GAP = spacing.xs
+const COMPACT_LABEL_GAP = 3
 
 function composerUsageMeterWidth(barLineWidth: number, percentWidth: number): number {
   return Math.max(barLineWidth, percentWidth)
@@ -313,17 +358,20 @@ function composerUsageMeterFit(
 }
 
 const stylesSheet = themedStyleSheet((colors) => ({
-  // Basis is the meter's width, not 0, so the model pill gives way first and the meter keeps its labels.
-  slot: {
+  // Hugs the compact meter on narrow panes so the leading model pill keeps all leftover width.
+  compactSlot: {
+    flexGrow: 0,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  // Centers the wide meter in the generous middle gap on full-screen Duo and iPad panes.
+  wideSlot: {
     flexGrow: 1,
     flexShrink: 1,
-    flexBasis: 'auto',
+    flexBasis: 0,
     alignItems: 'center',
     minWidth: 0
-  },
-  // Cancels one row gap, so an empty spacer squeezed to nothing hands the model pill all its room.
-  emptySlot: {
-    marginLeft: -spacing.sm
   },
   meter: {
     justifyContent: 'center',
@@ -339,6 +387,9 @@ const stylesSheet = themedStyleSheet((colors) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: LABEL_GAP
+  },
+  compactBarLine: {
+    gap: COMPACT_LABEL_GAP
   },
   // Inset like the message text below it, so the two share a left edge.
   strip: {
