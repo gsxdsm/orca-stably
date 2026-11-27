@@ -8601,6 +8601,19 @@
       "legendPace": "Even pace to reset",
       "legendFirst": "First reading",
       "legendNoData": "No data (Orca not reading usage)"
+    },
+    "paceColors": {
+      "summary": "Green ≤ +{{green}}% · Yellow ≤ +{{yellow}}% · Red > +{{yellow}}% over pace",
+      "summaryNoYellow": "Green ≤ +{{green}}% · Red > +{{green}}% over pace",
+      "label": "Pace colors",
+      "resetHint": "Reset pace color thresholds to defaults",
+      "reset": "Reset",
+      "greenUpTo": "Green up to",
+      "greenDec": "Decrease green pace threshold",
+      "greenInc": "Increase green pace threshold",
+      "yellowUpTo": "Yellow up to",
+      "yellowDec": "Decrease yellow pace threshold",
+      "yellowInc": "Increase yellow pace threshold"
     }
   },
   "hostMutation": {

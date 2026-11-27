@@ -37,10 +37,11 @@ import {
   ComposerUsageWideMeasure,
   ComposerUsageWideMeter
 } from './ComposerUsageWideMeter'
-import { usagePaceColor } from './usage-pace-color'
+import { usageWindowPaceColor } from './usage-pace-color'
+import { useUsagePaceColorThresholds } from './usage-pace-color-preference'
 import { usageResetLabel } from './usage-reset-label'
 import { useResetCountdownNow } from './use-reset-countdown-now'
-import { computeUsagePace, usagePaceMarkerPercent } from './usage-window-pace'
+import { usagePaceMarkerPercent } from './usage-window-pace'
 
 type Props = {
   agent: string | null | undefined
@@ -73,6 +74,7 @@ function useComposerUsageReading(agent: string | null | undefined): Reading | nu
   const snapshot = useAccountsSnapshot(usageProviderForAgent(usageAgent) ? client : null)
   const choice = useComposerUsageWindow()
   const display = useComposerUsageDisplay()
+  const thresholds = useUsagePaceColorThresholds()
   const usage = selectAgentUsage(snapshot, usageAgent)
   const now = useResetCountdownNow(usage?.windows.flatMap((e) => e.window.resetsAt ?? []) ?? [])
   // A missing chosen window (no 5-hour limit on the plan) falls back to the one the provider reports.
@@ -89,7 +91,7 @@ function useComposerUsageReading(agent: string | null | undefined): Reading | nu
     usage,
     snapshot,
     readout,
-    color: usagePaceColor(computeUsagePace(entry.window, now), readout.used),
+    color: usageWindowPaceColor(entry.window, now, thresholds),
     paceMarkerPercent: usagePaceMarkerPercent(entry.window, now, display),
     length,
     resetsIn: usageResetLabel(entry.window, now),

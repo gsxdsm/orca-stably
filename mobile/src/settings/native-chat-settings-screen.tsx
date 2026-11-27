@@ -5,6 +5,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { ComposerUsageDisplayPicker } from '../composer-usage/ComposerUsageDisplayPicker'
 import { ComposerUsagePositionPicker } from '../composer-usage/ComposerUsagePositionPicker'
 import { ComposerUsageWindowPicker } from '../composer-usage/ComposerUsageWindowPicker'
+import { UsagePaceColorThresholdsPicker } from '../composer-usage/UsagePaceColorThresholdsPicker'
 import {
   AntigravityUsageSourcePicker,
   useHostAntigravityUsageSource
@@ -193,6 +194,7 @@ export default function NativeChatSettingsScreen({ onBack }: { onBack?: () => vo
           <ComposerUsageWindowPicker inSettings />
           <ComposerUsageDisplayPicker inSettings />
           <ComposerUsagePositionPicker inSettings />
+          <UsagePaceColorThresholdsPicker inSettings />
           {connectedHosts.map((entry) => (
             <ConnectedHostAntigravityUsageSourceRow
               key={`antigravity-source-${entry.hostId}`}

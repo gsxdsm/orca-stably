@@ -1,0 +1,38 @@
+import {
+  clampUsedPercent,
+  getDisplayedUsagePercentage,
+  type UsagePercentageDisplay
+} from '../../../../src/shared/agent-usage/display/usage-percentage-display'
+import { colors } from '../../theme/mobile-theme'
+
+/** A meter's fill: the shown percent (used or left) and its consumption colour, shared by every usage meter. */
+export function usageBarFill(
+  usedPercent: number | null,
+  unavailable: boolean,
+  display: UsagePercentageDisplay
+): { shown: number | null; color: string } {
+  // Why: round then clamp so bar width, color, and label share one value (desktop parity).
+  const used = usedPercent == null ? null : clampUsedPercent(usedPercent)
+  // Why: same consumption bands as desktop barColor (green <60, amber <80, red ≥80).
+  const color =
+    unavailable || used == null
+      ? colors.textMuted
+      : used >= 80
+        ? colors.statusRed
+        : used >= 60
+          ? colors.statusAmber
+          : colors.statusGreen
+  // Colour follows consumption either way, so a nearly empty remainder stays red (desktop parity).
+  return {
+    shown: usedPercent == null ? null : getDisplayedUsagePercentage(usedPercent, display),
+    color
+  }
+}
+
+// Fork meters (composer, server resources) color a percent without drawing a bar.
+export function usageBandColor(usedPercent: number | null): string {
+  if (usedPercent == null || !Number.isFinite(usedPercent)) {
+    return colors.textMuted
+  }
+  return usageBarFill(usedPercent, false, 'used').color
+}

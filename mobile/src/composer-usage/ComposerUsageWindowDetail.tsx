@@ -10,7 +10,8 @@ import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { formatUsageWindowLength, type UsageWindowEntry } from './agent-usage-provider'
 import { useComposerUsageDisplay } from './composer-usage-display-preference'
-import { usagePaceColor } from './usage-pace-color'
+import { usageWindowPaceColor } from './usage-pace-color'
+import { useUsagePaceColorThresholds } from './usage-pace-color-preference'
 import { computeUsagePace, usagePaceMarkerPercent, type UsagePace } from './usage-window-pace'
 import { buildUsageChartModel, computeUsageWindowStats } from './usage-window-stats'
 import { UsageHistoryChart } from './UsageHistoryChart'
@@ -31,23 +32,27 @@ export function windowTitle(entry: UsageWindowEntry, t: Translate): string {
   }
 }
 
-function paceCopy(pace: UsagePace, t: Translate): { text: string; color: string } | null {
+function paceCopy(
+  pace: UsagePace,
+  color: string,
+  t: Translate
+): { text: string; color: string } | null {
   switch (pace.kind) {
     case 'unknown':
       return null
     case 'exhausted':
       return {
         text: t('composerUsage.pace.exhausted', 'Limit reached for this window'),
-        color: usagePaceColor(pace, null)
+        color
       }
     case 'on-pace':
-      return { text: t('composerUsage.pace.onPace', 'On pace'), color: usagePaceColor(pace, null) }
+      return { text: t('composerUsage.pace.onPace', 'On pace'), color }
     case 'under':
       return {
         text: t('composerUsage.pace.under', '{{percent}}% under pace', {
           percent: pace.deltaPercent
         }),
-        color: usagePaceColor(pace, null)
+        color
       }
     case 'ahead':
       return {
@@ -64,7 +69,7 @@ function paceCopy(pace: UsagePace, t: Translate): { text: string; color: string 
                   duration: formatResetDuration(pace.runOutBeforeResetMs)
                 }
               ),
-        color: usagePaceColor(pace, null)
+        color
       }
   }
 }
@@ -85,29 +90,33 @@ function resetCopy(entry: UsageWindowEntry, now: number, t: Translate): string |
   })
 }
 
-function paceStatus(pace: UsagePace, t: Translate): { text: string; color: string } | null {
+function paceStatus(
+  pace: UsagePace,
+  color: string,
+  t: Translate
+): { text: string; color: string } | null {
   switch (pace.kind) {
     case 'unknown':
       return null
     case 'exhausted':
       return {
         text: t('composerUsage.status.exhausted', 'limit reached'),
-        color: usagePaceColor(pace, null)
+        color
       }
     case 'on-pace':
       return {
         text: t('composerUsage.status.onPace', 'on pace'),
-        color: usagePaceColor(pace, null)
+        color
       }
     case 'under':
       return {
         text: t('composerUsage.status.under', 'under pace'),
-        color: usagePaceColor(pace, null)
+        color
       }
     case 'ahead':
       return {
         text: t('composerUsage.status.ahead', 'ahead of pace'),
-        color: usagePaceColor(pace, null)
+        color
       }
   }
 }
@@ -166,17 +175,18 @@ export function ComposerUsageWindowDetail({
   useMobileColorScheme()
   const t = useMobileTranslation()
   const display = useComposerUsageDisplay()
+  const thresholds = useUsagePaceColorThresholds()
   const remaining = display === 'remaining'
   const used = Math.round(Math.max(0, Math.min(100, entry.window.usedPercent)))
   const pace = computeUsagePace(entry.window, now)
-  const status = paceStatus(pace, t)
+  const fill = usageWindowPaceColor(entry.window, now, thresholds)
+  const status = paceStatus(pace, fill, t)
   const runOut =
-    pace.kind === 'ahead' && pace.runOutBeforeResetMs !== null ? paceCopy(pace, t) : null
+    pace.kind === 'ahead' && pace.runOutBeforeResetMs !== null ? paceCopy(pace, fill, t) : null
   const reset = resetCopy(entry, now, t)
   const stats = computeUsageWindowStats(entry.window, samples, now)
   const chart = buildUsageChartModel(entry.window, samples, now, display)
   const paceColor = status?.color ?? colors.textPrimary
-  const fill = usagePaceColor(pace, used)
   // Remaining counts the other way: under pace leaves more than an even burn would.
   const paceDelta =
     stats.paceDeltaPoints === null

@@ -30,7 +30,9 @@ export const TERMINAL_SETTINGS_STORAGE_KEYS = [
   /** Chat text size, font and spacing, so an open chat follows Settings too. */
   'orca:nativeChatText',
   /** Used or remaining on usage bars, so an open Accounts page follows Settings. */
-  'orca:usagePercentageDisplay'
+  'orca:usagePercentageDisplay',
+  /** Pace-based color thresholds for composer meters and the usage sheet. */
+  'orca:usagePaceColorThresholds'
 ] as const
 
 // Terminal settings, Chat UI, the device-wide Duo chat width, and the pinched chat text size.
@@ -69,7 +71,9 @@ export const PAGE_STORAGE_EXACT_KEYS = [
   /** The New Tab sheet's Chat or CLI pick. */
   'orca:newAgentSurface',
   /** Whether usage bars show the percentage used or remaining. */
-  'orca:usagePercentageDisplay'
+  'orca:usagePercentageDisplay',
+  /** Green and yellow over-pace color thresholds for usage meters and rings. */
+  'orca:usagePaceColorThresholds'
 ] as const
 
 /**
@@ -86,7 +90,8 @@ export const NEGOTIATED_PAGE_STORAGE_KEYS = [
   'orca:terminalFontStyle',
   'orca:nativeChatText',
   'orca:newAgentSurface',
-  'orca:usagePercentageDisplay'
+  'orca:usagePercentageDisplay',
+  'orca:usagePaceColorThresholds'
 ] as const
 
 /** Whether a page that declared `storageKeys` (null: declared nothing) reads this key in `init`. */

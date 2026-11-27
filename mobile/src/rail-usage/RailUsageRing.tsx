@@ -9,8 +9,9 @@ import {
 } from '../composer-usage/agent-usage-provider'
 import { composerUsageMeterReadout } from '../composer-usage/composer-usage-meter-readout'
 import { useComposerUsageDisplay } from '../composer-usage/composer-usage-display-preference'
-import { computeUsagePace, usagePaceMarkerPercent } from '../composer-usage/usage-window-pace'
-import { usagePaceColor } from '../composer-usage/usage-pace-color'
+import { usagePaceMarkerPercent } from '../composer-usage/usage-window-pace'
+import { usageWindowPaceColor } from '../composer-usage/usage-pace-color'
+import { useUsagePaceColorThresholds } from '../composer-usage/usage-pace-color-preference'
 import { usageResetLabel } from '../composer-usage/usage-reset-label'
 import { MiniMaxIcon, OpenCodeGoIcon } from '../components/icons/AgentIcons'
 import { hasMobileAgentIcon, MobileAgentIcon } from '../components/icons/MobileAgentIcon'
@@ -112,6 +113,7 @@ export function RailUsageRing({
   useMobileColorScheme()
   const t = useMobileTranslation()
   const display = useComposerUsageDisplay()
+  const thresholds = useUsagePaceColorThresholds()
   // "3d 2h" when it fits inside the ring, else its largest unit ("3d", "5h", "40m").
   const [fullLabelWidth, setFullLabelWidth] = useState<number | null>(null)
   const entry = pickRailUsageWindow(usage.windows)
@@ -119,7 +121,7 @@ export function RailUsageRing({
     return null
   }
   const readout = composerUsageMeterReadout(entry.window.usedPercent, display)
-  const fill = usagePaceColor(computeUsagePace(entry.window, now), readout.used)
+  const fill = usageWindowPaceColor(entry.window, now, thresholds)
   const marker = usagePaceMarkerPercent(entry.window, now, display)
   const provider = USAGE_PROVIDER_NAMES[usage.provider]
   const vars = {
