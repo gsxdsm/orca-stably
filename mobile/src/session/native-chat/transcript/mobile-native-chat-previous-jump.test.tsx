@@ -201,7 +201,6 @@ function tailOf(
     pinToTailAfterContentResize: () => {},
     jumpToTail: () => {},
     releaseFollow: () => {},
-    scrollRowToTop: () => {},
     beginUserScroll,
     endUserDrag: () => {},
     beginMomentum: () => {},
