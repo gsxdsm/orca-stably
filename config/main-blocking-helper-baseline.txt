@@ -64,6 +64,7 @@
 1 src/main/antigravity/native-file-credentials.ts
 12 src/main/antigravity/native-windows-credentials.ts
 1 src/main/antigravity/native-wsl-credentials.ts
+7 src/main/antigravity/statusline/antigravity-statusline-install.ts # fork-only (gsxdsm/orca), not for upstream
 6 src/main/artifacts/artifact-cloud-auth-context.ts
 7 src/main/artifacts/artifact-cloud-service.ts
 2 src/main/artifacts/artifact-create-intent-store.ts # sign-out clear (bestEffortFsyncDirectorySync) plus writeArtifactFileWhileCurrent, whose only sync step is the fenced renameSync; was 8
@@ -867,7 +868,7 @@
 13 src/main/orca-profiles/project-transfer/profile-project-transfer.ts
 2 src/main/orca-profiles/storage/new-profile-state.ts
 3 src/main/orca-profiles/storage/profile-legacy-state-import.ts
-4 src/main/orcad/account-launch/orcad-account-services.ts
+5 src/main/orcad/account-launch/orcad-account-services.ts # fork-only (gsxdsm/orca), not for upstream
 4 src/main/orcad/account-launch/orcad-codex-account-homes.ts
 4 src/main/orcad/account-launch/orcad-host-account-launch-env-store.ts
 2 src/main/orcad/account-launch/orcad-wsl-host-claude-profile-refresh.ts
@@ -1050,6 +1051,7 @@
 1 src/main/provider-process/provider-ownership-journal.ts
 1 src/main/provider-process/provider-process-spawn.ts
 1 src/main/provider-process/supervised-provider-child-location.ts
+2 src/main/providers/accounts/provider-account-services.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/providers/execution-host-provider-dispatch.ts
 2 src/main/providers/foreground/agent-process.ts
 1 src/main/providers/foreground/windows/process-rows.ts
@@ -1353,6 +1355,7 @@
 5 src/main/ssh/targets/ssh-target-route-resolution.ts
 1 src/main/startup/agent-accounts/codex-launch-preparation.ts
 1 src/main/startup/agent-accounts/codex-session-resume-launch.ts
+1 src/main/startup/agent-accounts/main-process-account-services.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/startup/cloud-startup/main-process-connector-startup.ts
 7 src/main/startup/configure-process.ts
 1 src/main/startup/diagnostics/event-loop-stall-probe.ts
