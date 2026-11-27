@@ -1,5 +1,6 @@
 import { Pressable, Text } from 'react-native'
 import { composerInputStylesSheet } from '../components/composer-input/composer-input-styles'
+import { useKeyboardPersistingTaps } from '../platform/keyboard/keyboard-persisting-taps'
 import { radii, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
 import type { ComposerUsageMeterReadout } from './composer-usage-meter-readout'
@@ -32,8 +33,11 @@ export function ComposerUsageWideMeter({
 }): React.JSX.Element {
   const styles = useThemedStyles(stylesSheet)
   const composerInputStyles = useThemedStyles(composerInputStylesSheet)
+  // Keep focus in the composer field so the idle-collapsible pill does not unmount the bar mid-tap.
+  const keepsFocus = useKeyboardPersistingTaps('always')
   return (
     <Pressable
+      ref={keepsFocus}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
