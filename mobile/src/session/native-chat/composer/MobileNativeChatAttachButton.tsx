@@ -1,7 +1,8 @@
 import { ActivityIndicator, Pressable } from 'react-native'
 import { Plus } from 'lucide-react-native'
-import { colors } from '../../../theme/mobile-theme'
-import { composerInputStyles as inputStyles } from '../../../components/composer-input/composer-input-styles'
+import { useMobileColors } from '../../../theme/use-mobile-color-scheme'
+import { useThemedStyles } from '../../../theme/themed-styles'
+import { composerInputStylesSheet as inputStylesSheet } from '../../../components/composer-input/composer-input-styles'
 
 export function MobileNativeChatAttachButton({
   label,
@@ -14,6 +15,8 @@ export function MobileNativeChatAttachButton({
   isAttaching?: boolean
   disabled?: boolean
 }): React.JSX.Element {
+  const colors = useMobileColors()
+  const inputStyles = useThemedStyles(inputStylesSheet)
   return (
     <Pressable
       accessibilityLabel={label}
