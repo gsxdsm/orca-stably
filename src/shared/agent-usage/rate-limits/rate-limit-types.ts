@@ -138,6 +138,8 @@ export type ProviderRateLimits = {
   updatedAt: number
   /** Human-readable error message, null when status is 'ok'. */
   error: string | null
+  /** Shown beside an 'ok' reading that needs explaining, e.g. Muse before its first turn in a window. */
+  notice?: string | null
   status: ProviderRateLimitStatus
   usageMetadata?: UsageRateLimitMetadata
 }

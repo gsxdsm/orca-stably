@@ -61,7 +61,10 @@ import {
 import { usePageFoldDivision, usePublishedFoldDivision } from './page-geometry/page-fold-division'
 import { usePublishedShellKeyRail, useShellKeyRail } from './terminal-controls/use-shell-key-rail'
 import { useShellUsageRail } from '../rail-usage/use-shell-usage-rail'
-import { pageHoldsSideStrip } from '../rail-usage/side-strip-holder'
+import { TabletUsageRail, useTabletUsageRail } from '../rail-usage/TabletUsageRail'
+import { pageSideStripRoom } from '../rail-usage/side-strip-holder'
+import { useRailRingsDuringChats } from '../rail-usage/rail-rings-during-chats-preference'
+import type { BridgeSideStripFree } from './bridge/page-geometry/bridge-side-strip-cover'
 import { hostProfileUnreadableLine, pageFaultLine } from './diagnostics/shell-lifecycle-log'
 import { recordShellLifecycleLine } from './diagnostics/shell-lifecycle-line-recorder'
 
@@ -168,6 +171,7 @@ export function MobileWebShellScreen({
     }, [])
   )
   const strip = useSideRailStrip()
+  const tabletRail = useTabletUsageRail(hostId, pageFold.onShellLayout, !overlay)
   useClaimSideRelease(
     shellFocused &&
       strip !== null &&
@@ -176,14 +180,32 @@ export function MobileWebShellScreen({
   )
   // What this document last reported about itself; a new document starts unknown.
   const [pageLocation, setPageLocation] = useState<{ sessionId: string; href: string } | null>(null)
-  const [pageCover, setPageCover] = useState<{ sessionId: string; covered: boolean } | null>(null)
-  const pageHoldsStrip = pageHoldsSideStrip({
+  const [pageCover, setPageCover] = useState<{
+    sessionId: string
+    covered: boolean
+    free: BridgeSideStripFree | null
+  } | null>(null)
+  const currentCover = pageCover?.sessionId === readySessionId ? pageCover : null
+  const stripRoom = pageSideStripRoom({
     ownsHostArea,
     routeGrants,
-    covered: pageCover?.sessionId === readySessionId ? pageCover.covered : null,
-    location: pageLocation?.sessionId === readySessionId ? pageLocation.href : null
+    covered: currentCover?.covered ?? null,
+    free: currentCover?.free ?? null,
+    location: pageLocation?.sessionId === readySessionId ? pageLocation.href : null,
+    keyRailClaimed: keyRail.keys.length > 0
   })
-  useShellUsageRail(hostId, shellFocused && !overlay && state.kind === 'ready' && !pageHoldsStrip)
+  // A chat that leaves part of the column empty shares it with the rings only when the user wants them there.
+  const ringsDuringChats = useRailRingsDuringChats()
+  useShellUsageRail(
+    hostId,
+    shellFocused && !overlay && state.kind === 'ready'
+      ? stripRoom.kind === 'whole'
+        ? 'whole'
+        : stripRoom.kind === 'span' && ringsDuringChats
+          ? { top: stripRoom.top, bottom: stripRoom.bottom }
+          : null
+      : null
+  )
   const {
     snapshot,
     unreadable,
@@ -322,9 +344,9 @@ export function MobileWebShellScreen({
     },
     // A newer build swaps in only on a resume where the page has nothing to lose (no draft, upload or open sheet).
     onPageSwapSafe: reportSwapSafe,
-    onSideStripCover: (covered) => {
+    onSideStripCover: (covered, free) => {
       if (readySessionId !== null) {
-        setPageCover({ sessionId: readySessionId, covered })
+        setPageCover({ sessionId: readySessionId, covered, free })
       }
     },
     onTerminalKeyRailClaim: keyRail.reportClaim,
@@ -434,8 +456,12 @@ export function MobileWebShellScreen({
         key={state.sessionId}
         ref={bridge.viewRef}
         // Overlays cannot cover the screen beneath; hide their opaque WebView until first paint.
-        style={[styles.shellView, overlay && pageFrame !== 'painted' && styles.unpaintedOverlay]}
-        onLayout={pageFold.onShellLayout}
+        style={[
+          styles.shellView,
+          overlay && pageFrame !== 'painted' && styles.unpaintedOverlay,
+          tabletRail.pageStyle
+        ]}
+        onLayout={tabletRail.onPageLayout}
         generationDirectory={state.generationDirectory}
         sessionId={state.sessionId}
         bridgeEnabled={bridge.bridgeEnabled}
@@ -467,6 +493,7 @@ export function MobileWebShellScreen({
           }
         }}
       />
+      <TabletUsageRail rail={tabletRail} />
       {overlay ? null : <ShellPageCover visible={pageFrame === 'unpainted'} />}
       <ShellDevFacts state={state} droppedBinaryFrames={droppedBinaryFrames} />
     </View>

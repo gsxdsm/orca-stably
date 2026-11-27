@@ -6,7 +6,6 @@ import {
   type UsageProviderKey,
   type UsageWindowEntry
 } from '../composer-usage/agent-usage-provider'
-import type { UsagePace } from '../composer-usage/usage-window-pace'
 
 const RAIL_USAGE_PROVIDERS = Object.keys(USAGE_PROVIDER_NAMES).filter(
   (key): key is UsageProviderKey => key in USAGE_PROVIDER_NAMES
@@ -35,24 +34,6 @@ export function pickRailUsageWindow(windows: readonly UsageWindowEntry[]): Usage
   return tightest
 }
 
-export type RailUsageTone = 'under' | 'on-pace' | 'ahead' | 'over' | 'unpaced'
-
-/** Same reading as the sheet's pace line: ahead turns red once the burn would run out before reset. */
-export function railUsageTone(pace: UsagePace): RailUsageTone {
-  switch (pace.kind) {
-    case 'unknown':
-      return 'unpaced'
-    case 'exhausted':
-      return 'over'
-    case 'on-pace':
-      return 'on-pace'
-    case 'under':
-      return 'under'
-    case 'ahead':
-      return pace.runOutBeforeResetMs === null ? 'ahead' : 'over'
-  }
-}
-
 /** Glyph for a provider: the agent icon of the CLI that spends its quota. */
 export const RAIL_USAGE_PROVIDER_AGENT: Record<UsageProviderKey, string> = {
   claude: 'claude',
@@ -68,12 +49,10 @@ export const RAIL_USAGE_PROVIDER_AGENT: Record<UsageProviderKey, string> = {
   muse: 'muse'
 }
 
-/** The ring opens at the bottom, like the status glyph's ring above it. */
-const RING_GAP_DEGREES = 60
-const RING_SWEEP_DEGREES = 360 - RING_GAP_DEGREES
-const RING_START_DEGREES = 180 + RING_GAP_DEGREES / 2
-/** Clear of the screen's rounded edge and of the strip's inner edge. */
-const RING_COLUMN_MARGIN = 2
+/** The ring opens at the bottom, wide enough on the status glyph's 37pt ring for a three-digit percent. */
+const RAIL_RING_GAP_DEGREES = 90
+const RING_SWEEP_DEGREES = 360 - RAIL_RING_GAP_DEGREES
+const RING_START_DEGREES = 180 + RAIL_RING_GAP_DEGREES / 2
 
 /** A point `fraction` of the way clockwise along the ring's sweep, which starts at 7 o'clock. */
 export function railRingPoint(
@@ -97,19 +76,12 @@ export function railRingArc(center: number, radius: number, from: number, to: nu
   return `M ${a.x} ${a.y} A ${radius} ${radius} 0 ${largeArc} 1 ${b.x} ${b.y}`
 }
 
-/**
- * Where the rings sit in the strip: on the status glyph's vertical axis, as wide as the room on
- * that axis's narrower side allows, and never narrower than the glyph.
- */
-export function railRingColumn(args: {
+/** Where the rings' axis sits in the strip: on the status glyph's own, in strip points. */
+export function railRingCenter(args: {
   strip: { side: 'left' | 'right'; width: number }
   windowWidth: number
   glyphMidX: number
-  minDiameter: number
-}): { center: number; diameter: number } {
-  const { strip } = args
-  const stripStart = strip.side === 'right' ? args.windowWidth - strip.width : 0
-  const center = Math.max(0, Math.min(strip.width, args.glyphMidX - stripStart))
-  const room = 2 * (Math.min(center, strip.width - center) - RING_COLUMN_MARGIN)
-  return { center, diameter: Math.max(args.minDiameter, Math.floor(room)) }
+}): number {
+  const stripStart = args.strip.side === 'right' ? args.windowWidth - args.strip.width : 0
+  return Math.max(0, Math.min(args.strip.width, args.glyphMidX - stripStart))
 }

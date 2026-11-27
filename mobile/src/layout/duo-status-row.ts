@@ -11,6 +11,8 @@ export const DUO_RAIL_CONTROL_SIZE = 44
  */
 export const DUO_STATUS_GLYPH_FROM_EDGE = 29.33
 export const DUO_STATUS_GLYPH_SIZE = 37
+/** The Wi-Fi/battery ring that glyph draws: 41pt across, 3.5pt stroke, measured on the iOS 27.1 simulator. */
+export const DUO_STATUS_RING_DIAMETER = 41
 
 const STATUS_ROW_CENTER_FROM_EDGE = DUO_STATUS_GLYPH_FROM_EDGE + DUO_STATUS_GLYPH_SIZE / 2
 
@@ -136,6 +138,19 @@ export function duoRailJumpFrames(
     previous: { top: previousTop, left: back.left, size },
     latest: { top: latestTop, left: back.left, size }
   }
+}
+
+/** The span of the column a collapsed chat leaves empty: below Back, above the jump arrows' slot. */
+export function duoRailFreeBand(
+  args: DuoStatusRowArgs & { composerTop: number; backShown: boolean }
+): { top: number; bottom: number } | null {
+  const back = duoRailBackFrame(args)
+  const gap = spacing.sm
+  // With no rail Back the band starts at the window top, and the shell places it under the status glyph.
+  const top = args.backShown ? back.top + back.size + gap : 0
+  // Reserved even while the arrows are hidden, so the band doesn't jump as they come and go.
+  const bottom = args.composerTop - 3 * gap - 2 * back.size
+  return bottom > top ? { top, bottom } : null
 }
 
 function clusterMidX(args: DuoStatusRowArgs, column: ReservedRect | null): number {
