@@ -2,14 +2,15 @@ import { Text, View } from 'react-native'
 import Svg, { Circle } from 'react-native-svg'
 import { usageBandColor } from '../accounts/usage/UsageBar'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { colors } from '../theme/mobile-theme'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
-import { RING_SIZE, styles } from './mobile-resources-screen-styles'
+import { useThemedStyles } from '../theme/themed-styles'
+import { useMobileColors } from '../theme/use-mobile-color-scheme'
+import { RING_SIZE, stylesSheet } from './mobile-resources-screen-styles'
 
 const RING_STROKE = 7
 
 export function CpuRing({ percent }: { percent: number | null }) {
-  useMobileColorScheme()
+  const colors = useMobileColors()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const radius = (RING_SIZE - RING_STROKE) / 2
   const circumference = 2 * Math.PI * radius
@@ -57,7 +58,7 @@ export function CpuRing({ percent }: { percent: number | null }) {
 }
 
 export function CpuSparkline({ samples }: { samples: readonly number[] }) {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   if (samples.length === 0) {
     return null
@@ -91,7 +92,7 @@ export function CpuSparkline({ samples }: { samples: readonly number[] }) {
 }
 
 export function CoreBars({ cores }: { cores: readonly { percent: number | null }[] }) {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   if (cores.length === 0) {
     return null
@@ -128,6 +129,7 @@ export function CoreBars({ cores }: { cores: readonly { percent: number | null }
 }
 
 function BandLegend({ percent, label }: { percent: number; label: string }) {
+  const styles = useThemedStyles(stylesSheet)
   return (
     <View style={styles.legendItem}>
       <View style={[styles.legendSwatch, { backgroundColor: usageBandColor(percent) }]} />
@@ -149,7 +151,7 @@ export function ResourceMeter({
   accessibilityLabel: string
   quiet?: boolean
 }) {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
   const rounded = Math.round(clampPercent(usedPercent))
   return (
     <View

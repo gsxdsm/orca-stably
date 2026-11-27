@@ -22,9 +22,7 @@ export const HOST_STACK_SCREENS = [
   },
   {
     name: '[hostId]/resources',
-    get title() {
-      return translate('navigation.hostStackScreens.resources', 'Resources')
-    }
+    title: (t: Translate) => t('navigation.hostStackScreens.resources', 'Resources')
   },
   {
     name: '[hostId]/mcp',
