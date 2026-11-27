@@ -10,7 +10,11 @@ import {
 
 type AccountRuntimeRateLimitService = Pick<
   RateLimitService,
-  'getState' | 'refreshClaudeForTarget' | 'refreshCodexForTarget' | 'refresh'
+  | 'getState'
+  | 'refreshClaudeForTarget'
+  | 'refreshCodexForTarget'
+  | 'setAntigravityFetchTarget'
+  | 'refresh'
 >
 
 type RuntimeTarget = {
@@ -41,6 +45,9 @@ export function createAccountRuntimeTargetSettingsSync(
       return
     }
 
+    if (usageTargetChanged) {
+      rateLimits.setAntigravityFetchTarget(nextSettingsTargets.usage)
+    }
     const current = await rateLimits.getState()
     const refreshes: Promise<RateLimitState>[] = []
     if (claudePolicyChanged && !isSameTarget(current.claudeTarget, nextSettingsTargets.claude)) {
@@ -51,7 +58,7 @@ export function createAccountRuntimeTargetSettingsSync(
     }
 
     await Promise.all(refreshes)
-    // Kimi reads the usage target at fetch time and has no targeted refresh.
+    // Antigravity has no targeted refresh, so a usage target change needs a full one.
     if (usageTargetChanged) {
       await rateLimits.refresh()
     }

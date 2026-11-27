@@ -66,6 +66,7 @@ export type ZcodePlanResolvedConfig = {
   error: string | null
 }
 
+export type AntigravityUsageEnabledResolver = () => boolean
 export type ClaudeOAuthUsageEnabledResolver = () => boolean
 export type MuseUsageEnabledResolver = () => boolean
 export type ActiveRateLimitProvider = ProviderRateLimits['provider']
@@ -109,6 +110,7 @@ export type InternalRateLimitState = {
   codex: ProviderRateLimits | null
   opencodeGo: ProviderRateLimits | null
   kimi: ProviderRateLimits | null
+  antigravity: ProviderRateLimits | null
   minimax: ProviderRateLimits | null
   grok: ProviderRateLimits | null
   cursor: ProviderRateLimits | null

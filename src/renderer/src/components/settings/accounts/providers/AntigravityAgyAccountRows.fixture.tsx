@@ -8,7 +8,8 @@ const saved = {
   subject: 'work',
   authMethod: 'consumer',
   createdAt: 0,
-  updatedAt: 0
+  updatedAt: 0,
+  usage: null
 }
 
 function rows(state: AntigravityAccountState): React.JSX.Element {
@@ -16,6 +17,7 @@ function rows(state: AntigravityAccountState): React.JSX.Element {
     <div className="bg-background px-5">
       <AntigravityAgyAccountRows
         state={state}
+        usage={null}
         error={null}
         busy={false}
         windowsHost={false}

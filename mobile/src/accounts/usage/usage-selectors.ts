@@ -100,7 +100,7 @@ export function getWindowResetLabel(
 
 /** Every other provider the host reports usage for, in the host's order; Claude and Codex have their own sections. */
 export function getOtherUsageProviders(snapshot: AccountsSnapshot): ProviderRateLimits[] {
-  // Older hosts still publish Antigravity usage, which the generic list no longer shows.
+  // The Accounts screen shows Antigravity in its own section.
   return getHostOtherUsageProviders(snapshot).filter((limits) => limits.provider !== 'antigravity')
 }
 

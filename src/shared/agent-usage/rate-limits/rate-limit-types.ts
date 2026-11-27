@@ -87,6 +87,8 @@ export type UsageRateLimitMetadata = {
   unverifiableOwner?: boolean
   /** Renderer-only: set up on this device but not on the remote host that owns usage. Hosts never set it. */
   ownerNotSetUp?: OwnerNotSetUpPlaceholder
+  /** Antigravity: the native login verified before and after the read; id is null for an unsaved login. */
+  account?: { id: string | null; email: string | null }
   /** Claude/Codex: set only on a successful reading of one saved account; older hosts omit it. */
   readingAccount?: UsageReadingAccount
   /** Codex: the managed login this auth rejection actually came from. */
@@ -101,6 +103,7 @@ export type ProviderRateLimits = {
     | 'kimi'
     | 'minimax'
     | 'grok'
+    | 'antigravity'
     | 'cursor'
     | 'zcode'
     | 'muse'
@@ -114,7 +117,7 @@ export type ProviderRateLimits = {
   monthly?: RateLimitWindow | null
   /** Overage / pay-as-you-go balance the plan spends into once its windows cap. */
   extraUsage?: ExtraUsageBalance | null
-  /** Named per-model buckets (Cursor plan pools). */
+  /** Named per-model buckets (Antigravity models, Cursor plan pools). */
   buckets?: RateLimitBucket[]
   /** Available earned Codex rate-limit reset credits, if reported. */
   rateLimitResetCredits?: {
@@ -158,6 +161,16 @@ export type InactiveAccountUsage = {
   isFetching: boolean
 }
 
+/** One saved Antigravity account's last verified reading on the runtime the meter reads. */
+export type AntigravityAccountUsage = {
+  accountId: string
+  email: string | null
+  /** True when this account is the native agy login right now. */
+  active: boolean
+  /** Null until a reading verified as this account succeeded; `updatedAt` is when it was read. */
+  rateLimits: ProviderRateLimits | null
+}
+
 export type GrokAccountStatus = {
   signedIn: boolean
   email: string | null
@@ -182,6 +195,7 @@ export type RateLimitState = {
   codex: ProviderRateLimits | null
   opencodeGo: ProviderRateLimits | null
   kimi: ProviderRateLimits | null
+  antigravity: ProviderRateLimits | null
   minimax: ProviderRateLimits | null
   grok: ProviderRateLimits | null
   cursor: ProviderRateLimits | null
@@ -203,8 +217,8 @@ export type RateLimitState = {
   codexTarget: RateLimitRuntimeTarget
   inactiveClaudeAccounts: InactiveAccountUsage[]
   inactiveCodexAccounts: InactiveAccountUsage[]
-  /** Retired with Antigravity usage and always empty; older clients read it unguarded. */
-  antigravityAccounts?: []
+  /** Saved Antigravity accounts; agy has one shared login, so only the active one is ever read. */
+  antigravityAccounts: AntigravityAccountUsage[]
   /** Used-percent samples of each active provider window since its last reset; absent on older hosts. */
   usageHistory?: UsageHistoryByWindow
 }
