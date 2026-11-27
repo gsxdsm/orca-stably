@@ -10,9 +10,8 @@ import {
 } from '../components/controls/MobileSegmentedControl'
 import type { Translate } from '../i18n/mobile-i18n'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { colors, spacing, typography } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { spacing, typography } from '../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import {
   antigravityUsageSourceRead,
@@ -135,7 +134,7 @@ export function AntigravityUsageSourcePicker({
   hostName?: string | null
   onSelect: (next: AntigravityUsageSource) => void
 }): React.JSX.Element | null {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   if (source === null) {
     return null
@@ -167,7 +166,7 @@ export function AntigravityUsageSourcePicker({
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   container: {
     gap: spacing.sm,
     paddingHorizontal: spacing.md,

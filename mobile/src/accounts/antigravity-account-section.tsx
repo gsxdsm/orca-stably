@@ -10,15 +10,15 @@ import {
 } from './usage/usage-selectors'
 import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { colors } from '../theme/mobile-theme'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { useThemedStyles } from '../theme/themed-styles'
+import { useMobileColors } from '../theme/use-mobile-color-scheme'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import { startRuntimeCapabilityProbe } from '../transport/connection/runtime-capability-probe'
 import {
   decodeAntigravityAccountState,
   type AntigravityAccountState
 } from './antigravity-account-state'
-import { styles } from './mobile-accounts-screen-styles'
+import { stylesSheet } from './mobile-accounts-screen-styles'
 import { UsageMeterList } from './provider-usage-section'
 import {
   AntigravityUsageSourcePicker,
@@ -49,7 +49,8 @@ export function AntigravityAccountSection({
   onNotice: (notice: { title: string; message: string }) => void
   onChanged: () => Promise<void>
 }) {
-  useMobileColorScheme()
+  const colors = useMobileColors()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const [supported, setSupported] = useState(false)
   const [accounts, setAccounts] = useState<AntigravityAccountState | null>(null)
