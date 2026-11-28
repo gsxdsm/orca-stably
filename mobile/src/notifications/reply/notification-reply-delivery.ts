@@ -17,6 +17,7 @@ import {
 import { groupRead, groupSend } from '../../bots/bot-group-operations'
 import type { AgentSessionHistoryResult } from '../../../../src/shared/agent-session/agent-session-wire'
 import { callAgentSession } from '../../session/native-chat/agent-session/mobile-structured-agent-session-rpc'
+import { structuredSessionOperationId } from '../../session/native-chat/agent-session/structured-session-operation-id'
 import { randomV4Uuid } from '../../platform/random-v4-uuid'
 
 export async function sendNotificationReply(
@@ -111,7 +112,7 @@ export async function sendNotificationReply(
             expectedRuntimeFence: fence,
             text,
             attachments: [],
-            clientMessageId: operationId,
+            clientMessageId: structuredSessionOperationId(),
             deadline,
             onError: (message) => {
               console.warn('[notification-reply] host refused the reply', message)
