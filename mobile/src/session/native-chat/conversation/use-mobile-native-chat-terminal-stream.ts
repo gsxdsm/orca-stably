@@ -1,3 +1,4 @@
+import { useFocusEffect } from 'expo-router'
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import { recomputeOn } from '../../../hooks/recompute-on'
 import { resolveMobileNativeChatTerminalStreamAction } from './mobile-native-chat-terminal-stream'
@@ -18,6 +19,8 @@ export function useMobileNativeChatTerminalStream(args: {
   subscriptionsRef: MutableRefObject<Map<string, () => void>>
   subscribingRef: MutableRefObject<Set<string>>
   leaseOnlyRef: MutableRefObject<Set<string>>
+  // Streams another surface of this phone took over; a tab switch lets this one subscribe again.
+  replacedRef: MutableRefObject<Set<string>>
   webReadyRef: MutableRefObject<Set<string>>
   // False when a local gate skipped the subscribe.
   subscribe: (handle: string) => boolean
@@ -43,6 +46,20 @@ export function useMobileNativeChatTerminalStream(args: {
     rearmAttemptsRef.current.delete(handle)
     absentSinceExhaustionRef.current.delete(handle)
   }, [])
+  // Reclaiming a replaced stream also restores its rearm budget, or an exhausted one still refuses.
+  const clearReplacedMarkers = useCallback(() => {
+    args.replacedRef.current.forEach(forgetRearmState)
+    args.replacedRef.current.clear()
+  }, [args.replacedRef, forgetRearmState])
+  // Only the page in front reclaims a replaced stream; background pages keep their markers.
+  useFocusEffect(
+    useCallback(() => {
+      if (args.replacedRef.current.size > 0) {
+        clearReplacedMarkers()
+        setRearmBudgetRevision((revision) => revision + 1)
+      }
+    }, [args.replacedRef, clearReplacedMarkers])
+  )
   const cancelHealthyStreamProof = useCallback(() => {
     if (healthyStreamProofRef.current) {
       clearTimeout(healthyStreamProofRef.current.timer)
@@ -100,6 +117,11 @@ export function useMobileNativeChatTerminalStream(args: {
         [args.leaseReady, args.streamRevision, rearmBudgetRevision, webReadyRevision],
         () => () => {
           const handle = args.activeHandle
+          const previousHandle = reconciledHandleRef.current
+          if (previousHandle != null && previousHandle !== handle) {
+            // Leaving a tab is the user's cue; coming back may take the stream again, split companions included.
+            clearReplacedMarkers()
+          }
           reconciledHandleRef.current = handle
           if (coveredHandleRef.current && coveredHandleRef.current !== handle) {
             forgetRearmState(coveredHandleRef.current)
@@ -184,6 +206,7 @@ export function useMobileNativeChatTerminalStream(args: {
       args.unsubscribe,
       args.webReadyRef,
       cancelHealthyStreamProof,
+      clearReplacedMarkers,
       forgetRearmState,
       rearmBudgetRevision,
       webReadyRevision

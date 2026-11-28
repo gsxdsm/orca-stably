@@ -1,8 +1,10 @@
+/* eslint-disable max-lines -- Why: the fork's stream-takeover guard and upstream resume wiring stay in one subscribe flow. */
 import { useCallback } from 'react'
 import { isTerminalOscLinkRanges } from '../../../../../src/shared/terminal/links/terminal-osc-link-ranges'
 import * as nativeChatTerminalStream from '../../../session/native-chat/conversation/mobile-native-chat-terminal-stream'
 import {
   createMobileTerminalStreamLifetime,
+  noteTerminalStreamTakeover,
   subscribeMobileTerminalSafely
 } from './mobile-terminal-stream-subscribe'
 import { mobileTerminalSnapshotByteBudget } from './terminal-snapshot-byte-budget'
@@ -30,6 +32,7 @@ export function useMobileSessionTerminalSubscription(
     terminalUnsubsRef,
     subscribingHandlesRef,
     leaseOnlyHandlesRef,
+    replacedHandlesRef,
     initializedHandlesRef,
     terminalResume,
     terminalDiagnosticsRef,
@@ -54,25 +57,27 @@ export function useMobileSessionTerminalSubscription(
       const diagnostics = terminalDiagnosticsRef.current
       const logSkippedGate = (reason: string) =>
         diagnostics.streamSkipped(handle, reason, handle === activeHandleRef.current)
-      if (!client) {
-        logSkippedGate('no-client')
+      const refusal = !client
+        ? 'no-client'
+        : clientId === null
+          ? 'no-client-identity'
+          : terminalUnsubsRef.current.has(handle)
+            ? 'already-subscribed'
+            : subscribingHandlesRef.current.has(handle)
+              ? 'subscribe-in-flight'
+              : null
+      if (refusal !== null || !client || clientId === null) {
+        logSkippedGate(refusal ?? 'no-client')
         return false
       }
-      if (clientId === null) {
-        logSkippedGate('no-client-identity')
+      // Another surface of this phone holds the stream; taking it back would start an eviction loop.
+      if (replacedHandlesRef.current.has(handle)) {
         return false
       }
-      if (terminalUnsubsRef.current.has(handle)) {
-        logSkippedGate('already-subscribed')
-        return false
-      }
-      if (subscribingHandlesRef.current.has(handle)) {
-        logSkippedGate('subscribe-in-flight')
-        return false
-      }
+      const wasActive = activeHandleRef.current
       const covered = nativeChatTerminalStream.isTerminalCoveredByNativeChat(
         showNativeChatRef.current,
-        activeHandleRef.current,
+        wasActive,
         handle
       )
       // Covered chat can hold a lease without a mounted WebView; gate readiness only for rendered terminals.
@@ -161,6 +166,7 @@ export function useMobileSessionTerminalSubscription(
           const data = result as Record<string, unknown>
           diagnostics.firstStreamEvent(handle, seq, data.type)
           if (data.type === 'end' || data.type === 'error') {
+            noteTerminalStreamTakeover(data, handle, replacedHandlesRef, activeHandleRef, wasActive)
             resume.ended(data.type)
             lifetime.end()
             return
