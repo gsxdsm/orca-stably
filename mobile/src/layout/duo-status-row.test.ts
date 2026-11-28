@@ -5,6 +5,8 @@ import {
   DUO_STATUS_GLYPH_FROM_EDGE,
   DUO_STATUS_GLYPH_SIZE,
   duoRailBackFrame,
+  duoRailFreeBand,
+  duoRailJumpFrames,
   duoStatusRowCenter
 } from './duo-status-row'
 import { getSideRailStrip } from './side-rail-strip'
@@ -138,5 +140,66 @@ describe('the Duo status row', () => {
     expect(frame.left).toBe(column.x + column.width - DUO_RAIL_CONTROL_SIZE)
     expect(frame.left).toBeGreaterThanOrEqual(column.x)
     expect(frame.left + frame.size).toBeLessThanOrEqual(column.x + column.width)
+  })
+
+  it('frees the column down to the composer when no jump buttons are visible, and reserves only visible ones', () => {
+    const coverStrip = getSideRailStrip(COVER)!
+    const back = duoRailBackFrame({ ...COVER, strip: coverStrip })
+    const composerTop = 600
+    const jumpFrames = duoRailJumpFrames({
+      ...COVER,
+      strip: coverStrip,
+      composerTop,
+      keyboardUp: false
+    })!
+
+    const noJumps = duoRailFreeBand({
+      ...COVER,
+      strip: coverStrip,
+      composerTop,
+      backShown: true,
+      visibleJumpButtons: 0
+    })
+    expect(noJumps).toEqual({
+      top: back.top + back.size,
+      bottom: composerTop - spacing.sm
+    })
+
+    const oneJump = duoRailFreeBand({
+      ...COVER,
+      strip: coverStrip,
+      composerTop,
+      backShown: true,
+      visibleJumpButtons: 1
+    })
+    expect(oneJump).toEqual({
+      top: back.top + back.size,
+      bottom: jumpFrames.latest.top - spacing.sm
+    })
+
+    const twoJumps = duoRailFreeBand({
+      ...COVER,
+      strip: coverStrip,
+      composerTop,
+      backShown: true,
+      visibleJumpButtons: 2
+    })
+    expect(twoJumps).toEqual({
+      top: back.top + back.size,
+      bottom: jumpFrames.previous.top - spacing.sm
+    })
+
+    const innerStrip = getSideRailStrip(INNER)!
+    const unfolded = duoRailFreeBand({
+      ...INNER,
+      strip: innerStrip,
+      composerTop: 585,
+      backShown: false,
+      visibleJumpButtons: 0
+    })
+    expect(unfolded).toEqual({
+      top: 0,
+      bottom: 585 - spacing.sm
+    })
   })
 })

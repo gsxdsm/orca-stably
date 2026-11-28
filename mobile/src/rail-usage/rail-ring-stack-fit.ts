@@ -1,5 +1,9 @@
 /** How a column of usage rings fits a band of the rail. */
 export type RailRingStackFit = {
+  /** Smaller rings when tightening gaps alone cannot fit the complete stack. */
+  diameter?: number
+  /** Top padding above the leading control (or first ring); tightens with gaps when `tightenTop` is set. */
+  paddingTop: number
   /** Clear space from a ring's percent label (or leading control) to the next ring's arc. */
   clearGap: number
   /** Layout gap between ring boxes: the label's overhang plus the clear gap below it. */
@@ -15,8 +19,8 @@ export type RailRingStackFit = {
 /**
  * A ring's full height runs to the bottom of the percent label under it, and every gap is measured
  * from there to the next ring's arc, so no label ever touches the next ring. Keeps the natural
- * spacing when every ring fits. Otherwise it tightens the gaps, then shows as many whole rings as
- * fit and cuts in the gap below the last one's label: only the next ring's top edge shows, under a fade.
+ * spacing when every ring fits. Otherwise it tightens the gaps, then scales rings down to `minRing`.
+ * If they still do not fit, it cuts below a whole ring's label with the next ring's edge under a fade.
  * When `leadingHeight` is set (a fixed control above the rings' scroller), its height and its clear gap
  * above the first ring share the same budget and spacing as the gaps between rings.
  */
@@ -37,6 +41,10 @@ export function railRingStackFit(args: {
   peek: number
   /** Height of a fixed control above the rings' scroller (0 overhang); 0 when absent. */
   leadingHeight?: number
+  /** Tighten top padding alongside inter-item gaps (used below a rail Back button, not under the status glyph). */
+  tightenTop?: boolean
+  /** Smallest readable ring; omit to keep the ring's size when the stack must scroll. */
+  minRing?: number
 }): RailRingStackFit {
   const {
     count,
@@ -48,11 +56,19 @@ export function railRingStackFit(args: {
     paddingTop,
     paddingBottom,
     peek,
-    leadingHeight = 0
+    leadingHeight = 0,
+    tightenTop = false,
+    minRing = ring
   } = args
   const item = ring + overhang
   const hasLeading = leadingHeight > 0
-  const layout = (clear: number, endClear: number, height: number | null): RailRingStackFit => ({
+  const layout = (
+    top: number,
+    clear: number,
+    endClear: number,
+    height: number | null
+  ): RailRingStackFit => ({
+    paddingTop: top,
     clearGap: clear,
     gap: clear + overhang,
     paddingBottom: endClear + overhang,
@@ -61,21 +77,48 @@ export function railRingStackFit(args: {
   })
   const gapCount = hasLeading ? count : count - 1
   if (room === null || count <= 0 || gapCount <= 0) {
-    return layout(gap, paddingBottom, null)
+    return layout(paddingTop, gap, paddingBottom, null)
   }
   const items = leadingHeight + count * item
   if (paddingTop + items + gapCount * gap + paddingBottom <= room) {
-    return layout(gap, paddingBottom, null)
+    return layout(paddingTop, gap, paddingBottom, null)
   }
   const tightBottom = Math.min(paddingBottom, 2)
-  const tightGap = Math.floor((room - paddingTop - items - tightBottom) / gapCount)
+  const tightGap = tightenTop
+    ? Math.floor((room - items - tightBottom) / (gapCount + 1))
+    : Math.floor((room - paddingTop - items - tightBottom) / gapCount)
   if (tightGap >= minGap) {
-    return layout(Math.min(gap, tightGap), tightBottom, null)
+    const clear = Math.min(gap, tightGap)
+    return layout(tightenTop ? Math.min(paddingTop, clear) : paddingTop, clear, tightBottom, null)
+  }
+  const effectiveTop = tightenTop ? Math.min(paddingTop, minGap) : paddingTop
+  const diameter = Math.floor(
+    (room - effectiveTop - leadingHeight - gapCount * minGap - tightBottom) /
+      (count * (1 + overhang / ring))
+  )
+  if (diameter >= minRing && diameter < ring) {
+    return {
+      ...railRingStackFit({
+        ...args,
+        ring: diameter,
+        overhang: overhang * (diameter / ring),
+        minRing: diameter
+      }),
+      diameter
+    }
   }
   const pitch = item + minGap
   // With a fixed leading control above the scroller, the scroller starts below it with paddingTop 0.
-  const scrollPaddingTop = hasLeading ? 0 : paddingTop
-  const scrollRoom = hasLeading ? room - (paddingTop + leadingHeight + minGap) : room
-  const shown = Math.max(1, Math.floor((scrollRoom - peek - scrollPaddingTop - item) / pitch) + 1)
-  return layout(minGap, tightBottom, scrollPaddingTop + (shown - 1) * pitch + item + 1 + peek)
+  const scrollPaddingTop = hasLeading ? 0 : effectiveTop
+  const scrollRoom = hasLeading ? room - (effectiveTop + leadingHeight + minGap) : room
+  const shown = Math.max(
+    1,
+    Math.floor((scrollRoom - peek - scrollPaddingTop - item - 1) / pitch) + 1
+  )
+  return layout(
+    effectiveTop,
+    minGap,
+    tightBottom,
+    scrollPaddingTop + (shown - 1) * pitch + item + 1 + peek
+  )
 }
