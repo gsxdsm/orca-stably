@@ -32,6 +32,7 @@ type MobileNativeChatSendArgs = {
   requireEmptyDraft?: true
   text: string
   enter?: boolean
+  agentPrompt?: true
   resolvedLaunchDraft?: { text: string; createdAt: number }
   mobileClient?: MobileTerminalClient
   inputClient?: { id: string; type: 'mobile' | 'desktop' }
@@ -141,6 +142,7 @@ export async function sendMobileNativeChatMessageWithOutcome(
         ...(args.requireAgentStatus ? { requireAgentStatus: args.requireAgentStatus } : {}),
         text: args.text,
         enter: args.enter ?? true,
+        ...(args.agentPrompt ? { agentPrompt: true as const } : {}),
         ...(args.requireWriteSettlement ? { requireWriteSettlement: true as const } : {}),
         ...(args.requireStartupDialog !== undefined
           ? { requireStartupDialog: args.requireStartupDialog }

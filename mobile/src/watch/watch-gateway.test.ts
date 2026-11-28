@@ -52,7 +52,7 @@ function harness(initialConnection: WatchHost['connection'] = 'connected') {
     return respondResult
   }
   let chatOutcome: WatchSendOutcome = 'accepted'
-  let terminalAccepted = true
+  let terminalOutcome: WatchSendOutcome = 'accepted'
   let scheduled: (() => void) | null = null
   const controller = createWatchGatewayController({
     now: () => now,
@@ -77,7 +77,7 @@ function harness(initialConnection: WatchHost['connection'] = 'connected') {
     async sendTerminal(_hostId, target) {
       terminalSends.push(target.paneKey)
       terminalDetail = target.workspaceId ?? ''
-      return terminalAccepted
+      return { outcome: terminalOutcome }
     },
     openSession(target) {
       opened.push(`${target.kind}:${target.id}:${target.workspaceId ?? ''}`)
@@ -108,8 +108,8 @@ function harness(initialConnection: WatchHost['connection'] = 'connected') {
     setChatOutcome(outcome: WatchSendOutcome) {
       chatOutcome = outcome
     },
-    setTerminalAccepted(accepted: boolean) {
-      terminalAccepted = accepted
+    setTerminalOutcome(outcome: WatchSendOutcome) {
+      terminalOutcome = outcome
     },
     runScheduled() {
       const run = scheduled
@@ -341,7 +341,7 @@ describe('watch command routing', () => {
       })
     ).toMatchObject({ ok: true })
     expect(gate.terminalSends).toEqual(['pane-1'])
-    gate.setTerminalAccepted(false)
+    gate.setTerminalOutcome('unavailable')
     expect(
       await gate.controller.handleCommand({
         v: 1,
@@ -390,9 +390,25 @@ describe('watch command routing', () => {
         })
       ).ok
     ).toBe(true)
-    expect(watchSendOutcomeFromHost('unknown')).toBe('unavailable')
     expect(watchSendOutcomeFromHost('accepted')).toBe('accepted')
     expect(watchSendOutcomeFromHost('queued')).toBe('queued')
+  })
+
+  it('returns an unconfirmed write for a repeated terminal command without sending again', async () => {
+    const gate = harness()
+    gate.setTerminalOutcome('unknown')
+    const command = {
+      v: 1,
+      id: 'ambiguous',
+      type: 'send',
+      sessionKey: 'host-1|term|pane-1',
+      text: 'Continue'
+    }
+    const reply = { v: 1, id: 'ambiguous', ok: false, reason: 'unknown' }
+    expect(await gate.controller.handleCommand(command)).toEqual(reply)
+    gate.setTerminalOutcome('accepted')
+    expect(await gate.controller.handleCommand(command)).toEqual(reply)
+    expect(gate.terminalSends).toEqual(['pane-1'])
   })
 
   it('pushes immediately when needs-input changes and otherwise waits two seconds', () => {

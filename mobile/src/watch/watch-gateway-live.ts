@@ -1,4 +1,6 @@
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
+import { isRpcDeliveryUnknown } from '../transport/rpc/rpc-delivery-ambiguity'
+import { isLogicalClientCutoverError } from '../transport/connection/logical-client-cutover-error'
 import { mobileStructuredSessionStatusFeed } from '../session/native-chat/agent-session/mobile-structured-session-status-feed'
 import type {
   WatchFeedItem,
@@ -20,7 +22,6 @@ import {
 } from './watch-host-snapshot-read'
 import { sendWatchStructuredChat } from './watch-structured-chat-send'
 import { sendWatchTerminalText } from './watch-terminal-send'
-import { readWatchPromptAction, type WatchPromptResponseInput } from './watch-prompt-actions'
 
 export type WatchLiveHost = WatchHost & { client: RpcClient }
 
@@ -42,7 +43,6 @@ export function startWatchGateway(options: {
   }) => void
 }): {
   setHosts: (hosts: readonly WatchLiveHost[]) => void
-  handleNotification: (response: WatchPromptResponseInput) => void
   stop: () => void
 } {
   const now = options.now ?? Date.now
@@ -82,10 +82,27 @@ export function startWatchGateway(options: {
         return { ok: false, reason: 'unavailable' }
       }
       try {
-        const response = await agentPromptRespond.request(client, input)
-        return agentPromptRespond.interpret(response) ?? { ok: false, reason: 'unavailable' }
-      } catch {
-        return { ok: false, reason: 'unavailable' }
+        const response = await agentPromptRespond.request(client, input, {
+          timeoutMs: 17_000,
+          budgetSpansConnect: true
+        })
+        const result = agentPromptRespond.interpret(response)
+        const cached = prompts.get(hostId)
+        if (result?.ok && cached && hosts.get(hostId)?.client === client) {
+          prompts.set(
+            hostId,
+            cached.filter((prompt) => prompt.promptId !== input.promptId)
+          )
+        }
+        return result ?? { ok: false, reason: 'unavailable' }
+      } catch (error) {
+        return {
+          ok: false,
+          reason:
+            isRpcDeliveryUnknown(error) || isLogicalClientCutoverError(error)
+              ? 'unknown'
+              : 'unavailable'
+        }
       }
     },
     async sendChat(hostId, sessionId, text) {
@@ -98,7 +115,7 @@ export function startWatchGateway(options: {
     async sendTerminal(hostId, target, text) {
       const client = hosts.get(hostId)?.client
       if (!client || !target.workspaceId) {
-        return false
+        return { outcome: 'unavailable' }
       }
       return sendWatchTerminalText({
         client,
@@ -232,31 +249,6 @@ export function startWatchGateway(options: {
         }
       }
       controller.publish()
-    },
-    handleNotification(response) {
-      const action = readWatchPromptAction(response)
-      if (!action) {
-        return
-      }
-      const id = `notification:${response.notification.request.identifier}:${response.actionIdentifier}`
-      if (action.type === 'respond') {
-        void controller.handleCommand({
-          v: 1,
-          id,
-          type: 'respond',
-          hostId: action.hostId,
-          promptId: action.promptId,
-          optionId: action.optionId
-        })
-        return
-      }
-      void controller.handleCommand({
-        v: 1,
-        id,
-        type: 'send',
-        sessionKey: action.sessionKey,
-        text: action.text
-      })
     },
     stop() {
       stopCommands()

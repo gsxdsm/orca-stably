@@ -17,7 +17,13 @@ export type WatchGatewaySources = Pick<
   'chats' | 'terminals' | 'prompts' | 'feed' | 'bots' | 'needsYou' | 'usage'
 >
 
-export type WatchSendOutcome = 'accepted' | 'queued' | 'rejected' | 'unavailable' | 'no-fence'
+export type WatchSendOutcome =
+  | 'accepted'
+  | 'queued'
+  | 'rejected'
+  | 'unknown'
+  | 'unavailable'
+  | 'no-fence'
 
 export type WatchSendResult = {
   outcome: WatchSendOutcome
@@ -32,7 +38,8 @@ export type WatchGatewayHandlers = {
     hostId: string,
     input: { promptId: string; optionId: string; clientOperationId: string }
   ) => Promise<
-    { ok: true } | { ok: false; reason: 'stale' | 'not_found' | 'rejected' | 'unavailable' }
+    | { ok: true }
+    | { ok: false; reason: 'stale' | 'not_found' | 'rejected' | 'unavailable' | 'unknown' }
   >
   sendChat: (
     hostId: string,
@@ -44,7 +51,7 @@ export type WatchGatewayHandlers = {
     hostId: string,
     target: { workspaceId?: string; paneKey: string },
     text: string
-  ) => Promise<boolean>
+  ) => Promise<WatchSendResult>
   openSession: (target: {
     hostId: string
     kind: 'chat' | 'term'
@@ -61,6 +68,7 @@ export function watchSendOutcomeFromHost(outcome: string): WatchSendOutcome {
     outcome === 'accepted' ||
     outcome === 'queued' ||
     outcome === 'rejected' ||
+    outcome === 'unknown' ||
     outcome === 'unavailable' ||
     outcome === 'no-fence'
   ) {
@@ -235,24 +243,24 @@ export function createWatchGatewayController(handlers: WatchGatewayHandlers) {
     if (blocked) {
       return blocked
     }
-    if (live.kind === 'chat') {
-      const result = await handlers.sendChat(live.hostId, live.id, command.text, command.id)
-      if (result.outcome === 'accepted' || result.outcome === 'queued') {
-        return success(command.id, current())
-      }
-      return failure(
-        command.id,
-        result.outcome === 'rejected' ? 'rejected' : 'unavailable',
-        result.detail
-      )
+    const result =
+      live.kind === 'chat'
+        ? await handlers.sendChat(live.hostId, live.id, command.text, command.id)
+        : await handlers.sendTerminal(
+            live.hostId,
+            { workspaceId: live.workspaceId, paneKey: live.id },
+            command.text
+          )
+    if (result.outcome === 'accepted' || result.outcome === 'queued') {
+      return success(command.id, current())
     }
-    // session.tabs.list resolves the handle. worktree.ps does not carry one.
-    const accepted = await handlers.sendTerminal(
-      live.hostId,
-      { workspaceId: live.workspaceId, paneKey: live.id },
-      command.text
+    return failure(
+      command.id,
+      result.outcome === 'rejected' || result.outcome === 'unknown'
+        ? result.outcome
+        : 'unavailable',
+      result.detail
     )
-    return accepted ? success(command.id, current()) : failure(command.id, 'unavailable')
   }
 
   return {
@@ -263,6 +271,9 @@ export function createWatchGatewayController(handlers: WatchGatewayHandlers) {
       const parsed = watchCommandSchema.safeParse(raw)
       if (!parsed.success) {
         return Promise.resolve(failure(commandId(raw), 'invalid'))
+      }
+      if (parsed.data.type === 'send' && !parsed.data.text.trim()) {
+        return Promise.resolve(failure(parsed.data.id, 'invalid'))
       }
       return dedupe.run(parsed.data.id, () => execute(parsed.data))
     },

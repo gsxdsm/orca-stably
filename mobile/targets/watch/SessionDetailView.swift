@@ -89,7 +89,9 @@ struct SessionDetailView: View {
         .font(.caption.weight(.semibold))
         .lineLimit(1)
       if let approve = prompt.options.first(where: { $0.role == .approve }) {
-        Button(approve.label) { model.choose(prompt: prompt, option: approve) }
+        Button(prompt.kind == "permission" ? "Allow once" : approve.label) {
+          model.choose(prompt: prompt, option: approve)
+        }
           .buttonStyle(OrcaWideButtonStyle(fill: palette.primary, ink: palette.primaryForeground, minHeight: 32))
           .disabled(model.busy)
       }

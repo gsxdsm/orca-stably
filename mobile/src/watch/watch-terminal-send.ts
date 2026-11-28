@@ -1,7 +1,11 @@
 import { sidebarSessionTabForPane, sidebarSessionTabs } from '../host-screen/sidebar-session-tab'
 import { sessionTabsListRead } from '../session/tabs/mobile-session-tab-read-operations'
-import { nativeChatTerminalWrite } from '../terminal/session/mobile-session-terminal-operations'
+import {
+  openMobileNativeChatSendBudget,
+  sendMobileNativeChatMessageWithOutcome
+} from '../session/native-chat/composer/delivery/mobile-native-chat-send'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
+import type { WatchSendResult } from './watch-gateway'
 
 /** The phone session screen's handle: the ready terminal tab for this pane, never the pane key. */
 export function watchTerminalHandleFromSessionTabs(
@@ -24,28 +28,32 @@ export async function sendWatchTerminalText(input: {
   worktreeId: string
   paneKey: string
   text: string
-}): Promise<boolean> {
+}): Promise<WatchSendResult> {
+  const deadline = openMobileNativeChatSendBudget()
   let snapshot: unknown
   try {
     snapshot = sessionTabsListRead.interpret(
-      await sessionTabsListRead.request(input.client, { worktree: `id:${input.worktreeId}` })
+      await sessionTabsListRead.request(
+        input.client,
+        { worktree: `id:${input.worktreeId}` },
+        { timeoutMs: 3_000, budgetSpansConnect: true }
+      )
     )
   } catch {
-    return false
+    return { outcome: 'unavailable' }
   }
   const terminal = watchTerminalHandleFromSessionTabs(snapshot, input.paneKey)
   if (!terminal) {
-    return false
+    return { outcome: 'unavailable' }
   }
-  try {
-    const response = await nativeChatTerminalWrite.request(input.client, {
+  return {
+    outcome: await sendMobileNativeChatMessageWithOutcome({
+      client: input.client,
       terminal,
       text: input.text,
-      enter: true,
-      agentPrompt: true
+      agentPrompt: true,
+      requireWriteSettlement: true,
+      deadline
     })
-    return nativeChatTerminalWrite.interpret(response) === true
-  } catch {
-    return false
   }
 }

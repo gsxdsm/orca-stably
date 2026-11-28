@@ -2728,11 +2728,8 @@
       "silentName": "Беззвучные уведомления Orca"
     },
     "watchPrompt": {
-      "approve": "Разрешить",
-      "deny": "Отклонить",
-      "placeholder": "Сообщение",
-      "reply": "Ответить",
-      "send": "Отправить"
+      "approve": "Разрешить один раз",
+      "deny": "Отклонить"
     },
     "notificationDeliverySection": {
       "sound": "Звук уведомлений",

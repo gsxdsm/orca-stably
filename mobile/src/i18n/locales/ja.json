@@ -2508,11 +2508,8 @@
       "silentName": "Orca のサイレント通知"
     },
     "watchPrompt": {
-      "approve": "承認",
-      "deny": "拒否",
-      "placeholder": "メッセージ",
-      "reply": "返信",
-      "send": "送信"
+      "approve": "一度だけ許可",
+      "deny": "拒否"
     },
     "notificationDeliverySection": {
       "onlyWhenAgentNeedsInput": "Agent が対応を求めているときのみ",

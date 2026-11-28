@@ -2714,10 +2714,7 @@
     },
     "watchPrompt": {
       "approve": "Onayla",
-      "deny": "Reddet",
-      "placeholder": "Mesaj",
-      "reply": "Yanıtla",
-      "send": "Gönder"
+      "deny": "Reddet"
     },
     "notificationDeliverySection": {
       "sound": "Bildirim sesi",

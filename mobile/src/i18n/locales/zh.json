@@ -2809,11 +2809,8 @@
       "silentName": "Orca 静默通知"
     },
     "watchPrompt": {
-      "approve": "批准",
-      "deny": "拒绝",
-      "placeholder": "消息",
-      "reply": "回复",
-      "send": "发送"
+      "approve": "仅允许一次",
+      "deny": "拒绝"
     },
     "notificationDeliverySection": {
       "onlyWhenAgentNeedsInput": "仅在智能体需要我时",

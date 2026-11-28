@@ -2516,11 +2516,8 @@
       "silentName": "Lautlose Orca-Benachrichtigungen"
     },
     "watchPrompt": {
-      "approve": "Genehmigen",
-      "deny": "Ablehnen",
-      "placeholder": "Nachricht",
-      "reply": "Antworten",
-      "send": "Senden"
+      "approve": "Einmal erlauben",
+      "deny": "Ablehnen"
     },
     "notificationDeliverySection": {
       "onlyWhenAgentNeedsInput": "Nur wenn ein Agent mich braucht",
