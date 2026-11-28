@@ -25,6 +25,10 @@ import {
   useRailRingsDuringChats
 } from '../rail-usage/rail-rings-during-chats-preference'
 import {
+  setChatHardwareEnterToSend,
+  useChatHardwareEnterToSend
+} from '../session/native-chat/preferences/mobile-chat-keyboard-settings'
+import {
   nativeChatLineSpacingSegments,
   NativeChatTextSizeSlider,
   nativeChatTextSizeLabel,
@@ -76,6 +80,11 @@ export default function NativeChatSettingsScreen({ onBack }: { onBack?: () => vo
   const ringsLabel = t(
     'settings.nativeChatSettingsScreen.railRingsDuringChats',
     'Show usage rings in the side rail during chats'
+  )
+  const enterToSend = useChatHardwareEnterToSend()
+  const enterLabel = t(
+    'settings.nativeChatSettingsScreen.hardwareEnterToSend',
+    'Enter to send (hardware keyboard)'
   )
 
   // The slider's gesture needs a root here, as Terminal settings has.
@@ -189,6 +198,26 @@ export default function NativeChatSettingsScreen({ onBack }: { onBack?: () => vo
               }
             />
           ) : null}
+        </SettingsSection>
+
+        <SettingsSection
+          title={t('settings.nativeChatSettingsScreen.composerHeading', 'COMPOSER')}
+          footer={t(
+            'settings.nativeChatSettingsScreen.hardwareEnterDescription',
+            'Return sends a chat message; Shift+Return adds a new line. The on-screen keyboard always adds a new line. Terminal keys are unchanged.'
+          )}
+        >
+          <ListRow
+            key="hardwareEnter"
+            title={enterLabel}
+            accessory={
+              <MobileSwitch
+                accessibilityLabel={enterLabel}
+                value={enterToSend}
+                onValueChange={(next) => void setChatHardwareEnterToSend(next)}
+              />
+            }
+          />
         </SettingsSection>
 
         {stored ? (

@@ -17,6 +17,7 @@ export function MobileNativeChatComposerField({
   onPasteImages: _onPasteImages,
   readClipboardImage: _readClipboardImage,
   onKeyboardSubmit: _onKeyboardSubmit,
+  dictating: _dictating,
   onWebPaste: _onWebPaste,
   ...props
 }: MobileNativeChatComposerFieldProps) {
