@@ -72,6 +72,7 @@ import { ORCAD_TERMINAL_CENSUS_METHODS } from './orcad/orcad-terminal-census'
 import { SESSION_TERMINAL_SCROLLBACK_METHODS } from './terminal/session-terminal-scrollback'
 import { WORKTREE_AUTO_NAME_METHODS } from './workspaces/worktree-auto-name-methods'
 import { TERMINAL_ORPHAN_METHODS } from './terminal/terminal-orphan'
+import { AGENT_PROMPT_METHODS } from './structured-sessions/agent-prompt-methods'
 import { AGENT_SESSION_METHODS } from './terminal/agent-session'
 import { STRUCTURED_AGENT_SESSION_ATTACHMENT_METHODS } from './structured-sessions/attachments/structured-agent-session-attachments'
 import { STRUCTURED_AGENT_SESSION_VISUAL_METHODS } from './structured-sessions/attachments/structured-agent-session-visual'
@@ -102,6 +103,7 @@ const CORE_RPC_METHODS = [
   ...SESSION_TERMINAL_SCROLLBACK_METHODS,
   ...WORKTREE_AUTO_NAME_METHODS,
   ...AGENT_SESSION_METHODS,
+  ...AGENT_PROMPT_METHODS,
   ...STRUCTURED_AGENT_SESSION_ATTACHMENT_METHODS,
   ...STRUCTURED_AGENT_SESSION_VISUAL_METHODS,
   ...STRUCTURED_AGENT_SESSION_AGENTS_METHODS,
