@@ -12,10 +12,17 @@ struct SessionsView: View {
           Text("Open Orca on iPhone")
             .font(.headline)
             .multilineTextAlignment(.center)
-          Button("Refresh") { model.refresh() }
-            .disabled(model.busy)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+      } else if model.snapshot?.hosts.isEmpty == true {
+        Text("Connect a computer in Orca on iPhone")
+          .font(.headline)
+          .multilineTextAlignment(.center)
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+      } else if model.groups.isEmpty {
+        Text("No sessions")
+          .foregroundStyle(palette.mutedForeground)
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
       } else {
         ScrollView {
           VStack(alignment: .leading, spacing: 6) {
@@ -46,7 +53,7 @@ struct SessionsView: View {
 
   private var footer: some View {
     VStack(spacing: 2) {
-      StatusLine(updated: model.updatedLabel, reachability: model.reachabilityLabel, phase: model.phase)
+      StatusLine(updated: model.snapshot == nil ? "Waiting for iPhone" : model.updatedLabel, reachability: model.reachabilityLabel, phase: model.phase)
       if !model.screenshot {
         Button("Refresh") { model.refresh() }
           .disabled(model.busy)

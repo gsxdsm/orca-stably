@@ -2,6 +2,27 @@ const { withDangerousMod } = require('expo/config-plugins')
 const fs = require('node:fs')
 const path = require('node:path')
 
+function writeValue(lines, value, indent) {
+  if (typeof value === 'boolean') {
+    lines.push(`${indent}<${value ? 'true' : 'false'}/>`)
+  } else if (Array.isArray(value)) {
+    lines.push(`${indent}<array>`)
+    for (const item of value) {
+      writeValue(lines, item, `${indent}  `)
+    }
+    lines.push(`${indent}</array>`)
+  } else if (value && typeof value === 'object') {
+    lines.push(`${indent}<dict>`)
+    for (const [key, item] of Object.entries(value)) {
+      lines.push(`${indent}  <key>${key}</key>`)
+      writeValue(lines, item, `${indent}  `)
+    }
+    lines.push(`${indent}</dict>`)
+  } else {
+    lines.push(`${indent}<string>${value}</string>`)
+  }
+}
+
 // Writes the target Info.plist on each prebuild so the app group follows the phone bundle id.
 function writeInfoPlist(directory, entries) {
   const lines = [
@@ -12,18 +33,7 @@ function writeInfoPlist(directory, entries) {
   ]
   for (const [key, value] of entries) {
     lines.push(`  <key>${key}</key>`)
-    if (typeof value === 'boolean') {
-      lines.push(value ? '  <true/>' : '  <false/>')
-    } else if (value && typeof value === 'object') {
-      lines.push('  <dict>')
-      for (const [childKey, childValue] of Object.entries(value)) {
-        lines.push(`    <key>${childKey}</key>`)
-        lines.push(`    <string>${childValue}</string>`)
-      }
-      lines.push('  </dict>')
-    } else {
-      lines.push(`  <string>${value}</string>`)
-    }
+    writeValue(lines, value, '  ')
   }
   lines.push('</dict>', '</plist>', '')
   fs.mkdirSync(directory, { recursive: true })
