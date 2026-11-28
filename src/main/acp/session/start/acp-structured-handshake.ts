@@ -28,6 +28,7 @@ import type { AcpStructuredConnection } from '../../process/acp-structured-conne
 import type { AcpStructuredLane } from '../../journal/acp-structured-lane'
 import type { AcpStructuredLaunch } from '../../launch/acp-structured-launch-resolution'
 import type { AcpStructuredOptions } from '../../options/acp-structured-options'
+import { acpStartListing } from '../../options/acp-catalog-models'
 import type { AcpStructuredPrompts } from '../../requests/acp-structured-prompts'
 import { acpSessionStartMeta } from '../../launch/acp-session-meta'
 import { withAcpSessionOpen } from '../../launch/acp-instructions'
@@ -311,6 +312,6 @@ export async function initializeAcpStructuredSession(
   return {
     link,
     reportedOptions: options.observedCurrent(child.permissionModes),
-    catalogListing: options.startListing()
+    catalogListing: acpStartListing(spec.dialect, options)
   }
 }

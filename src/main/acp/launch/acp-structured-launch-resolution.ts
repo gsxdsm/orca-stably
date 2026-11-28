@@ -34,6 +34,7 @@ import {
   withNativeChatVisualsEnv
 } from '../../native-chat/conversation-files/native-chat-visuals-delivery'
 import type { AcpLaunchSpec, AcpPreparedAccount } from './acp-launch-contract'
+import { acpLaunchLineModel } from './acp-launch-line-model'
 import { acpLaunchSpecForAccount, resolveAcpLaunchCommand } from './acp-launch-command'
 import { homeBeforeFirstTurn } from './acp-launch-home-before-first-turn'
 import {
@@ -283,7 +284,7 @@ export function acpStructuredLaunchPart(
     const head = agentSessionProviderHandleChainHead(record.providerHandleChain)
     // A load restores the conversation's own model, and a stale role there would stop the agent
     // before it opens; resumed chats apply their model through the session instead.
-    const model = spec.launchesWithModel && !head ? record.options?.model : undefined
+    const model = acpLaunchLineModel(spec, head ? undefined : record.options?.model)
     const args = [
       ...spec.args({ fullAccess, pluginDirs: skill?.pluginDirs ?? [], model }),
       ...(skill?.args ?? []),

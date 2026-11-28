@@ -56,8 +56,9 @@ export type AcpLaunchSpec = {
   ignoreAgentCommandSetting?: true
   /** `model` is the chat's saved model, passed only to specs that launch with it. */
   args(input: { fullAccess: boolean; pluginDirs: readonly string[]; model?: string }): string[]
-  /** The ACP model option cannot name every selection the CLI resolves, so the launch line carries it. */
-  launchesWithModel?: true
+  /** The ACP model option cannot name every selection the CLI resolves, so the launch line carries it;
+   *  a predicate carries only the models it names and leaves the rest to the session's option. */
+  launchesWithModel?: true | ((model: string) => boolean)
   /** Applied after the account and user environment. */
   env: Readonly<Record<string, string>>
   /** Scrubs inherited Orca plumbing and returns keys to omit entirely; the chat's saved

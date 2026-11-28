@@ -1,5 +1,6 @@
 // Publish and track the child before handshaking so startup cancellation can reach it.
 
+import { acpCatalogModels } from '../options/acp-catalog-models'
 import { initializeAcpStructuredSession } from './start/acp-structured-handshake'
 import '../../native-chat/agent-session-wire/providers/structured-agent-session-adapter'
 import { AgentSessionPreSpawnError } from '../../native-chat/agent-session-wire/providers/structured-agent-session-adapter-errors'
@@ -183,7 +184,7 @@ export async function acquireAcpStructuredSession(input: {
           fence: acquire.fence,
           acquisitionGeneration: generation,
           reportedOptions: options.observedCurrent(launchPermission.permissionModes),
-          catalogListing: { models: options.read().models }
+          catalogListing: { models: acpCatalogModels(spec.dialect, options) }
         })
       }
     })
