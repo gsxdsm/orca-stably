@@ -1,71 +1,180 @@
 import SwiftUI
 import WidgetKit
 
-struct NeedsInputEntry: TimelineEntry {
-  let date: Date
-  let count: Int
+private let staleInterval: TimeInterval = 15 * 60
+
+private struct GlanceUsage: Decodable {
+  let hostId: String
+  let provider: String
+  let window: String
+  let usedPercent: Double
+  let updatedAt: Int64
+  let resetsAt: Int64?
 }
 
-struct NeedsInputProvider: TimelineProvider {
-  func placeholder(in context: Context) -> NeedsInputEntry {
-    NeedsInputEntry(date: Date(), count: 0)
+private struct GlanceSummary: Decodable {
+  let v: Int
+  let generatedAt: Int64
+  let needsYouCount: Int
+  let usage: [GlanceUsage]?
+}
+
+struct GlanceEntry: TimelineEntry {
+  let date: Date
+  fileprivate let count: Int?
+  fileprivate let generatedAt: Date?
+  fileprivate let usage: GlanceUsage?
+
+  fileprivate var stale: Bool {
+    guard let generatedAt else { return true }
+    return date.timeIntervalSince(generatedAt) >= staleInterval
   }
 
-  func getSnapshot(in context: Context, completion: @escaping (NeedsInputEntry) -> Void) {
-    completion(NeedsInputEntry(date: Date(), count: currentCount()))
+  fileprivate var usageStale: Bool {
+    guard let usage else { return true }
+    return stale || date.timeIntervalSince1970 - Double(usage.updatedAt) / 1000 >= staleInterval
+  }
+}
+
+struct GlanceProvider: TimelineProvider {
+  func placeholder(in context: Context) -> GlanceEntry {
+    GlanceEntry(date: Date(), count: nil, generatedAt: nil, usage: nil)
   }
 
-  func getTimeline(in context: Context, completion: @escaping (Timeline<NeedsInputEntry>) -> Void) {
-    let entry = NeedsInputEntry(date: Date(), count: currentCount())
-    completion(Timeline(entries: [entry], policy: .never))
+  func getSnapshot(in context: Context, completion: @escaping (GlanceEntry) -> Void) {
+    completion(read(at: Date()))
   }
 
-  private func currentCount() -> Int {
+  func getTimeline(in context: Context, completion: @escaping (Timeline<GlanceEntry>) -> Void) {
+    let now = Date()
+    let entry = read(at: now)
+    let transitions = [entry.generatedAt, entry.usage.map { Date(timeIntervalSince1970: Double($0.updatedAt) / 1000) }]
+      .compactMap { $0?.addingTimeInterval(staleInterval) }
+      .filter { $0 > now }
+      .sorted()
+    let entries = [entry] + transitions.map {
+      GlanceEntry(date: $0, count: entry.count, generatedAt: entry.generatedAt, usage: entry.usage)
+    }
+    completion(Timeline(entries: entries, policy: .after(transitions.first ?? now.addingTimeInterval(staleInterval))))
+  }
+
+  private func read(at date: Date) -> GlanceEntry {
     let name = Bundle.main.object(forInfoDictionaryKey: "OrcaAppGroup") as? String
     let defaults = name.flatMap { UserDefaults(suiteName: $0) }
-    return defaults?.integer(forKey: "needsInputCount") ?? 0
+    if let data = defaults?.data(forKey: "orcaWatchGlanceV1"),
+       let summary = try? JSONDecoder().decode(GlanceSummary.self, from: data), summary.v == 1,
+       summary.generatedAt > 0, summary.needsYouCount >= 0 {
+      let usage = (summary.usage ?? []).filter {
+        $0.usedPercent.isFinite && (0...100).contains($0.usedPercent) && $0.updatedAt > 0
+      }.sorted {
+        if $0.hostId != $1.hostId { return $0.hostId < $1.hostId }
+        if $0.provider != $1.provider { return $0.provider < $1.provider }
+        if $0.window != $1.window { return $0.window < $1.window }
+        return $0.updatedAt > $1.updatedAt
+      }.first
+      return GlanceEntry(date: date, count: summary.needsYouCount,
+                         generatedAt: Date(timeIntervalSince1970: Double(summary.generatedAt) / 1000), usage: usage)
+    }
+    let count = defaults?.object(forKey: "needsInputCount") as? Int
+    return GlanceEntry(date: date, count: count, generatedAt: nil, usage: nil)
   }
 }
 
 struct NeedsInputWidgetView: View {
-  var count: Int
+  let entry: GlanceEntry
   @Environment(\.widgetFamily) private var family
 
   var body: some View {
-    switch family {
-    case .accessoryInline:
-      Text("Needs input \(count)")
-    case .accessoryCircular, .accessoryCorner:
-      Text("\(count)")
-        .font(.title2.weight(.semibold))
-    default:
-      VStack(alignment: .leading, spacing: 2) {
-        Text("Needs input")
-          .font(.caption2)
-        Text("\(count)")
-          .font(.title2.weight(.semibold))
+    Group {
+      switch family {
+      case .accessoryInline:
+        Text(entry.count.map { "Needs you \($0)\(entry.stale ? " · Old" : "")" } ?? "Needs you unavailable")
+      case .accessoryCircular, .accessoryCorner:
+        VStack(spacing: 0) {
+          Text(entry.count.map(String.init) ?? "—").font(.title2.weight(.semibold))
+          if entry.count != nil && entry.stale { Text("OLD").font(.system(size: 8)) }
+        }
+      default:
+        VStack(alignment: .leading, spacing: 2) {
+          Text("Needs you").font(.caption2)
+          Text(entry.count.map(String.init) ?? "Unavailable").font(.headline)
+          if let time = entry.generatedAt {
+            Text(time, style: .relative).font(.caption2) + Text(entry.stale ? " old" : " ago").font(.caption2)
+          } else {
+            Text(entry.count == nil ? "Open Orca" : "Last known · age unknown").font(.caption2)
+          }
+        }.frame(maxWidth: .infinity, alignment: .leading)
       }
-      .frame(maxWidth: .infinity, alignment: .leading)
-    }
+    }.privacySensitive()
+  }
+}
+
+struct UsageWidgetView: View {
+  let entry: GlanceEntry
+  @Environment(\.widgetFamily) private var family
+
+  var body: some View {
+    Group {
+      if let usage = entry.usage {
+        switch family {
+        case .accessoryInline:
+          Text("\(usage.provider) \(usage.window): \(Int(usage.usedPercent.rounded()))% used\(entry.usageStale ? " · Old" : "")")
+        case .accessoryCircular, .accessoryCorner:
+          Gauge(value: usage.usedPercent, in: 0...100) {
+            Text("\(usage.hostId) · \(usage.provider) · \(usage.window)")
+              .font(.system(size: 7)).lineLimit(1).minimumScaleFactor(0.4)
+          } currentValueLabel: {
+            VStack(spacing: 0) {
+              Text("\(Int(usage.usedPercent.rounded()))%")
+              if entry.usageStale { Text("OLD").font(.system(size: 7)) }
+            }
+          }.gaugeStyle(.accessoryCircular)
+            .accessibilityLabel("\(usage.hostId), \(usage.provider), \(usage.window), \(Int(usage.usedPercent.rounded())) percent used\(entry.usageStale ? ", stale" : "")")
+        default:
+          HStack {
+            Gauge(value: usage.usedPercent, in: 0...100) { Text("Used") } currentValueLabel: {
+              Text("\(Int(usage.usedPercent.rounded()))%")
+            }.gaugeStyle(.accessoryCircular)
+            VStack(alignment: .leading) {
+              Text("\(usage.provider) · \(usage.window)").font(.caption.weight(.semibold)).lineLimit(1)
+              Text(usage.hostId).font(.caption2).lineLimit(1)
+              Text(entry.usageStale ? "Stale" : "\(Date(timeIntervalSince1970: Double(usage.updatedAt) / 1000), style: .relative) ago").font(.caption2)
+            }.accessibilityElement(children: .combine)
+          }.frame(maxWidth: .infinity, alignment: .leading)
+        }
+      } else {
+        Text(family == .accessoryRectangular ? "Usage unavailable\nOpen Orca to update" : "Usage —")
+          .font(.caption2)
+      }
+    }.privacySensitive()
   }
 }
 
 struct OrcaNeedsInputWidget: Widget {
   let kind = "OrcaNeedsInput"
-
   var body: some WidgetConfiguration {
-    StaticConfiguration(kind: kind, provider: NeedsInputProvider()) { entry in
-      NeedsInputWidgetView(count: entry.count)
+    StaticConfiguration(kind: kind, provider: GlanceProvider()) { entry in
+      NeedsInputWidgetView(entry: entry)
+        .widgetURL(URL(string: "orca-watch://needs-you"))
         .containerBackground(.clear, for: .widget)
     }
-    .configurationDisplayName("Needs input")
+    .configurationDisplayName("Needs you")
     .description("Sessions waiting on you")
-    .supportedFamilies([
-      .accessoryCircular,
-      .accessoryRectangular,
-      .accessoryInline,
-      .accessoryCorner
-    ])
+    .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline, .accessoryCorner])
+  }
+}
+
+struct OrcaUsageWidget: Widget {
+  let kind = "OrcaUsage"
+  var body: some WidgetConfiguration {
+    StaticConfiguration(kind: kind, provider: GlanceProvider()) { entry in
+      UsageWidgetView(entry: entry)
+        .widgetURL(URL(string: "orca-watch://usage"))
+        .containerBackground(.clear, for: .widget)
+    }
+    .configurationDisplayName("Usage")
+    .description("Account usage for one host, provider and window")
+    .supportedFamilies([.accessoryCircular, .accessoryRectangular, .accessoryInline, .accessoryCorner])
   }
 }
 
@@ -73,5 +182,6 @@ struct OrcaNeedsInputWidget: Widget {
 struct OrcaNeedsInputBundle: WidgetBundle {
   var body: some Widget {
     OrcaNeedsInputWidget()
+    OrcaUsageWidget()
   }
 }
