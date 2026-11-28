@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the fork's additions sit beside upstream's in this owner after the upstream merge. */
 import { defineOrchestrationMethod } from '../access/orchestration-method-access'
 import { OrchestrationError } from '../../../../orchestration/orchestration-error'
 import { isGroupAddress } from '../../../../orchestration/addressing/groups/group-addressing'
@@ -9,6 +10,8 @@ import { orchestrationSkillRecoveryData } from '../../../../../../shared/orchest
 import { SendParams } from './send-params'
 import { isDispatchMutationMessageType } from '../../../../../../shared/rpc-contract/orchestration/orchestration-params'
 import { assertSendParamsDeliverable } from './send-params-checks'
+import { assertSendLifecycleAdmission } from './send-lifecycle-admission'
+import { scheduledWaitFromMessage } from '../../../../orchestration/scheduled-wait-message'
 import { resolveMessageRun } from '../routing'
 import {
   assertDispatchMailboxDeliverable,
@@ -70,7 +73,12 @@ export const ORCHESTRATION_SEND_METHODS = [
         signal
       } = context
       const db = runtime.getOrchestrationDb()
+      const scheduledWait = scheduledWaitFromMessage(params)
       const from = params.from ?? 'unknown'
+      const progressCaller = {
+        evidence: orchestrationCompatibilityEvidence,
+        authenticatedSession: !!orchestrationCaller
+      }
       const reporter = resolveWorkerReporterIdentity(runtime, db, {
         from,
         authority: orchestrationCompatibilityCallerAuthority,
@@ -84,7 +92,7 @@ export const ORCHESTRATION_SEND_METHODS = [
       })
       const senderPaneKey = sender.paneKey ?? undefined
       // Why: a session caller was already bound to its own identity at the dispatch entry.
-      if (isDispatchMutationMessageType(params.type) && !orchestrationCaller) {
+      if ((isDispatchMutationMessageType(params.type) || scheduledWait) && !orchestrationCaller) {
         assertLifecycleCallerIsNotAnotherParty(runtime, {
           from,
           fromPaneKey: senderPaneKey,
@@ -103,6 +111,7 @@ export const ORCHESTRATION_SEND_METHODS = [
           from,
           senderPaneKey,
           remoteAttachment,
+          progressCaller,
           processIncarnation: processIncarnation(),
           signal
         })
@@ -124,6 +133,15 @@ export const ORCHESTRATION_SEND_METHODS = [
         : finishedWorkerSend(db, { ...sender, processIncarnation }, routing, params)
       ;({ params, routing } = finished ?? { params, routing })
       assertSendParamsDeliverable(params)
+      assertSendLifecycleAdmission({
+        db,
+        params,
+        dispatchId: routing.dispatchId,
+        from,
+        senderPaneKey,
+        scheduledWait,
+        resolveProcessIncarnation: processIncarnation
+      })
 
       let to = params.to
       if (
@@ -278,6 +296,7 @@ export const ORCHESTRATION_SEND_METHODS = [
           messageRunId,
           senderPaneKey,
           legacyCoordinatorRunId,
+          progressCaller,
           resolveProcessIncarnation: processIncarnation,
           revalidateLegacyCoordinator,
           recordMutationReceipt,

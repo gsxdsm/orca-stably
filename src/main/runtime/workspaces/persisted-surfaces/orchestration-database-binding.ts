@@ -4,6 +4,7 @@ import { OrcaRuntimeWithPtyForegroundProcessReads } from '../../client/runtime-c
 import { getWorkerTerminalAutoReleaseScheduler } from '../../orchestration/terminal-authority/release/worker-terminal-auto-release-scheduler'
 import type { OrchestrationDb } from '../../orchestration/db/orchestration-db'
 import type { AgentActivityOrchestrationResult } from '../../../../shared/rpc-contract/agent-activity/agent-activity-params'
+import { getWorkerScheduledWaitScheduler } from '../../orchestration/worker-scheduled-wait-scheduler'
 import { createAgentOrchestrationChangeNotice } from './agent-orchestration-change-notice'
 import { AgentOrchestrationSnapshotRevision } from './agent-orchestration-snapshot-revision'
 
@@ -35,6 +36,31 @@ export abstract class OrcaRuntimeWithOrchestrationDatabaseBinding extends OrcaRu
   }
 
   protected bindWorkerTerminalAutoRelease(db: OrchestrationDb): void {
+    let waitRearmQueued = false
+    const onScheduledWaitChanged = (event?: 'closed'): void => {
+      if (event === 'closed') {
+        if (this._orchestrationDb === db) {
+          getWorkerScheduledWaitScheduler(this).clear()
+        }
+        return
+      }
+      if (waitRearmQueued) {
+        return
+      }
+      waitRearmQueued = true
+      // Read committed rows after synchronous transactions commit or roll back.
+      queueMicrotask(() => {
+        waitRearmQueued = false
+        if (
+          this._orchestrationDb === db &&
+          db.workerScheduledWaitListener === onScheduledWaitChanged
+        ) {
+          getWorkerScheduledWaitScheduler(this).rearm()
+        }
+      })
+    }
+    db.workerScheduledWaitListener = onScheduledWaitChanged
+    getWorkerScheduledWaitScheduler(this).rearm()
     // A worker can settle with no agent phase change (a failed start, a release); bots re-read.
     db.workerStatusListener = (dispatchId, change) => {
       this.botDispatchChanged(dispatchId, change)

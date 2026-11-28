@@ -1,5 +1,6 @@
 import { undeliveredInboxQuery, type UndeliveredInboxOptions } from './undelivered-inbox-query'
 import { noteQuestionEdge } from './question-edges'
+import { runBatchedMessageMutation as runMessageIdMutation } from './message-id-mutation'
 import type { MessageType, MessageRow } from '../orchestration-records'
 import { exposeMessageTimestamps, exposeMessageListTimestamps } from '../utc-timestamp'
 import { addLifecycleRejectionMarker } from '../lifecycle-rejection-marker'
@@ -8,8 +9,6 @@ import { MESSAGE_COLUMN_LIST } from '../row-column-lists'
 import { runOwnsDirectMessageSql } from '../runs/run-coordinator-mail-routing'
 import { stampQuestionTakes, type MailTaker } from './mail-taker'
 import { MESSAGE_ID_UPDATE_BATCH_SIZE, unreadMailboxesOf } from './message-read-mailboxes'
-
-const MESSAGE_MUTATION_SAVEPOINT = 'message_id_mutation'
 
 function runBatchedMessageMutation(
   db: OrchestrationDb,
@@ -24,20 +23,7 @@ function runBatchedMessageMutation(
   }
   const readMailboxes =
     consuming && db.mailReadListener && db.mailReadWanted() ? unreadMailboxesOf(db, ids) : []
-  db.db.exec(`SAVEPOINT ${MESSAGE_MUTATION_SAVEPOINT}`)
-  try {
-    for (let offset = 0; offset < ids.length; offset += MESSAGE_ID_UPDATE_BATCH_SIZE) {
-      const batch = ids.slice(offset, offset + MESSAGE_ID_UPDATE_BATCH_SIZE)
-      const placeholders = batch.map(() => '?').join(',')
-      beforeBatch(batch)
-      db.db.prepare(sqlForPlaceholders(placeholders)).run(...leadingBindings, ...batch)
-    }
-    db.db.exec(`RELEASE ${MESSAGE_MUTATION_SAVEPOINT}`)
-  } catch (error) {
-    db.db.exec(`ROLLBACK TO ${MESSAGE_MUTATION_SAVEPOINT}`)
-    db.db.exec(`RELEASE ${MESSAGE_MUTATION_SAVEPOINT}`)
-    throw error
-  }
+  runMessageIdMutation(db, ids, sqlForPlaceholders, leadingBindings, beforeBatch, consuming)
   if (readMailboxes.length > 0) {
     try {
       db.mailReadListener?.(readMailboxes)
@@ -170,7 +156,9 @@ export function markAsDelivered(this: OrchestrationDb, ids: string[], mailboxHan
        SET delivered_at = datetime('now'), pointer_enter_pending = 0,
            pointer_pty_id = NULL, pointer_process_incarnation = NULL
        WHERE to_handle = ? AND id IN (${placeholders})`,
-    [mailboxHandle]
+    [mailboxHandle],
+    undefined,
+    true
   )
 }
 

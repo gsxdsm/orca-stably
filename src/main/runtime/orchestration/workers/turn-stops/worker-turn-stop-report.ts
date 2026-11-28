@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { clearWorkerScheduledWait, deferScheduledWorkerStop } from '../../db/worker-scheduled-waits'
 import type { OrchestrationDb } from '../../db/orchestration-db'
 import { dispatchReportMailbox } from '../reports/dispatch-report-mailbox'
 import { hasOutboundCoordinatorReport } from '../../db/messages/dispatch-outbound-coordinator-report'
@@ -28,6 +29,8 @@ export type WorkerTurnStopReason =
   | 'start-failed'
   /** The turn ended while background tasks the worker started still run: passive presence, not a stop alert. */
   | 'background-wait'
+  /** The worker's declared scheduled wait passed its deadline without progress. */
+  | 'wait-expired'
 
 export type WorkerTurnStop = {
   /** The worker's own mailbox identity: terminal handle, chat address or structured worker handle. */
@@ -140,6 +143,14 @@ export function isDeliberateRest(
   deps: Pick<WorkerTurnStopReportDeps, 'isWaitingForMail'>
 ): boolean {
   const dispatchId = workerTurnStopDispatchId(target)
+  // A declared scheduled wait holds a clean idle stop until its deadline; any other rest ends the wait.
+  const scheduledWait = deferScheduledWorkerStop(db, dispatchId)
+  if (stop.reason === 'finished' && scheduledWait) {
+    return true
+  }
+  if (stop.reason !== 'finished' && stop.reason !== 'wait-expired') {
+    clearWorkerScheduledWait(db, dispatchId)
+  }
   if (stop.requestError && !stop.requestError.heldByWaits) {
     return false
   }
@@ -147,7 +158,7 @@ export function isDeliberateRest(
     return true
   }
   return (
-    deps.isWaitingForMail(`dispatch:${dispatchId}`) ||
+    (!scheduledWait && deps.isWaitingForMail(`dispatch:${dispatchId}`)) ||
     (stop.reason === 'finished' &&
       (db.awaitsAnswerToLatestQuestion(dispatchId) ||
         rejectedReportInTurn(db, dispatchId, stop.turnStartedAt) ||
