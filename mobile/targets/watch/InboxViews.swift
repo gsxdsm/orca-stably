@@ -18,15 +18,22 @@ private struct InboxStatus: View {
   @ObservedObject var model: WatchSessionModel
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 2) {
-      StatusLine(updated: model.snapshot == nil ? "Waiting for iPhone" : model.updatedLabel,
-                 reachability: model.reachabilityLabel, phase: model.phase)
-      if model.snapshot != nil && !model.reachable {
-        Text("Last known data").font(.caption2)
+    HStack(alignment: .top, spacing: 4) {
+      VStack(alignment: .leading, spacing: 2) {
+        StatusLine(updated: model.snapshot == nil ? "Waiting for iPhone" : model.updatedLabel,
+                   reachability: model.reachabilityLabel, phase: model.phase)
+        if model.snapshot != nil && !model.reachable {
+          Text("Last known data").font(.caption2)
+        }
       }
-      Button("Refresh") { model.refresh() }
-        .disabled(model.busy)
-        .font(.caption)
+      Button { model.refresh() } label: {
+        Image(systemName: "arrow.clockwise")
+          .frame(width: 44, height: 44)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("Refresh")
+      .disabled(model.busy)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(.horizontal, 8)
@@ -98,6 +105,7 @@ struct NeedsYouView: View {
                 NavigationLink {
                   SessionDetailView(model: model, sessionKey: session.key)
                 } label: { rowView(row) }
+                .buttonStyle(.plain)
               } else {
                 rowView(row)
               }
