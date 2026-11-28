@@ -57,7 +57,8 @@ export function SmartWorkspaceSourceTabs({
                   <Icon className="size-3.5" />
                 </TooltipTrigger>
               </TabsTrigger>
-              <TooltipContent side="bottom" sideOffset={6}>
+              {/* Why: the pointer hangs below its hotspot, so a bottom label sits under the cursor. */}
+              <TooltipContent side="top" sideOffset={4}>
                 {label}
               </TooltipContent>
             </Tooltip>
