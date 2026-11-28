@@ -3452,6 +3452,8 @@
       "attachImage": "Attach image",
       "askAnything": "Ask anything",
       "cancelEditing": "Cancel editing",
+      "keepChatClear": "Keep chat clear of the side column",
+      "expandChat": "Expand chat into the side column",
       "saveEditedMessage": "Save edited message",
       "sendMessage": "Send message",
       "sendQueue": "Queue",

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+/* eslint-disable max-lines -- Why: the fork's additions sit beside upstream's in this owner after the upstream merge. */
+import { useEffect, useState, useCallback } from 'react'
 import { Alert, Linking, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useNavigation, useNavigationContainerRef, useRouter } from 'expo-router'
+import { useFocusEffect, useNavigation, useNavigationContainerRef, useRouter } from 'expo-router'
 import { OrcaMobileWebShellView } from '../../modules/orca-mobile-web-shell/src/index'
 import { parseMobileWebShellLoadState } from '../../modules/orca-mobile-web-shell/src/load-state'
 import { HostRouteNoticeBanner } from '../components/host-connection/HostRouteNoticeBanner'
@@ -21,6 +22,9 @@ import { playPageHaptic } from './native-capabilities/page-haptics'
 import { useMobileWebShellBridge } from './page-document/use-mobile-web-shell-bridge'
 import type { MobileWebShellRuntime } from './session/mobile-web-shell-runtime'
 import { useKeyboardOcclusion } from '../platform/keyboard/keyboard-occlusion'
+import { useSideRailStrip } from '../layout/side-rail'
+import { useClaimSideRelease } from '../layout/released-side-inset'
+import { BRIDGE_TERMINAL_KEY_RAIL_GRANT } from './bridge/native-capabilities/bridge-terminal-key'
 import { useNativeDeviceVerbs } from '../platform/use-native-device-verbs'
 import { useNativeHostFileVerbs } from '../platform/host-file-handoff/use-native-host-file-verbs'
 import { useNativeImageActions } from '../platform/image-actions/native-image-actions'
@@ -34,6 +38,7 @@ import { usePageLocationOnFold } from './page-geometry/page-location-on-fold'
 import { usePageOpenTarget } from './routing/page-open-target'
 import { useMobileWebShellSession } from './session/use-mobile-web-shell-session'
 import { useShellPageStorageRefresh } from './page-storage/use-shell-page-storage-refresh'
+import { useDuoChatWidthPublish } from './use-duo-chat-width-publish'
 import { usePageHostSnapshot } from './host-gates/use-page-host-snapshot'
 import { useReportedHostAreaServing } from './host-gates/host-area-serving'
 import { isHostRouteOf } from './routing/page-route-policy'
@@ -154,6 +159,21 @@ export function MobileWebShellScreen({
   })
   const readySessionId = state.kind === 'ready' ? state.sessionId : null
   const keyRail = useShellKeyRail({ sessionId: readySessionId, overlay, routeGrants })
+  // The session page lays its chat across the status column, so this screen gives up its padding while focused.
+  const [shellFocused, setShellFocused] = useState(false)
+  useFocusEffect(
+    useCallback(() => {
+      setShellFocused(true)
+      return () => setShellFocused(false)
+    }, [])
+  )
+  const strip = useSideRailStrip()
+  useClaimSideRelease(
+    shellFocused &&
+      strip !== null &&
+      !overlay &&
+      routeGrants.includes(BRIDGE_TERMINAL_KEY_RAIL_GRANT)
+  )
   const {
     snapshot,
     unreadable,
@@ -321,6 +341,7 @@ export function MobileWebShellScreen({
 
   // paneKey changes keep the session mounted; the host deduplicates routes and preserves in-flight frames.
   useShellPageStorageRefresh(refreshStorage, bridge.publishStorage)
+  useDuoChatWidthPublish(bridge.publishStorage)
   useEffect(() => bridge.publishRoute(pageRoute), [bridge.publishRoute, pageRoute])
 
   usePublishedSafeAreaInsets(bridge.publishSafeAreaInsets, pageInsets)

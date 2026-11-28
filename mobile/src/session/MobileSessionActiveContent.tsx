@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the active-content switch keeps every surface's props wiring in one place. */
 import { MobileSessionBotIdentity } from './native-chat/MobileSessionBotIdentity'
 import { MobileBotCardHostProvider } from './native-chat/transcript/bot-cards/MobileBotCardHostProvider'
 import { nativeChatTerminalRunner } from './native-chat/native-chat-terminal-runner'
@@ -7,8 +8,13 @@ import {
   terminalPaneDirection,
   terminalPaneKeyboardLayout
 } from '../terminal/session/pane-layout/mobile-terminal-pane-layout'
-import { useWindowDimensions, View } from 'react-native'
+import { useWindowDimensions, View, StyleSheet } from 'react-native'
 import { CircleAlert } from 'lucide-react-native'
+import {
+  sideStripMargin,
+  sideStripOffset,
+  useSessionSideStripInset
+} from './session-side-strip-inset'
 import { MobileBrowserTabBody } from '../browser/MobileBrowserTabBody'
 import { TerminalPaneView } from '../terminal/session/pane-layout/TerminalPaneView'
 import { MountedTerminalPanes } from '../terminal/session/pane-layout/mounted-terminal-lru'
@@ -50,6 +56,9 @@ export function MobileSessionActiveContent({
   const executionHost = useWorkspaceExecutionHost()
   const [paneFrame, setPaneFrame] = useState({ width: 0, height: 0 })
   const windowWidth = useWindowDimensions().width
+  const { main: stripInset } = useSessionSideStripInset(
+    controller.canDockPanel && controller.activePanel !== null
+  )
   const paneDirection = terminalPaneDirection(
     paneFrame,
     controller.terminalSplitLayout,
@@ -159,6 +168,15 @@ export function MobileSessionActiveContent({
     controller
   )
   const { presentedConnState, showOfflineState, forceReconnectHost } = controller
+  const terminalBranch = !(
+    showLoadingState ||
+    showEmptyState ||
+    showOfflineState ||
+    activeMarkdownTab ||
+    activeFileTab ||
+    activeBrowserTab ||
+    activePendingTerminalTab
+  )
   // Review notes are for working-tree diffs only.
   const fileTabTakesNotes =
     activeFileTab?.diffSource === 'staged' || activeFileTab?.diffSource === 'unstaged'
@@ -271,67 +289,70 @@ export function MobileSessionActiveContent({
       )
     ) : (
       <View style={styles.terminalFrame}>
-        <MountedTerminalPanes terminals={terminals} visibleHandles={visibleTerminalHandles}>
-          {(terminal) => (
-            <TerminalPaneView
-              key={terminal.handle}
-              handle={terminal.handle}
-              active={terminal.handle === activeHandle}
-              visible={visibleTerminalHandles.includes(terminal.handle)}
-              splitIndex={
-                terminalSplitActive && visibleTerminalHandles.includes(terminal.handle)
-                  ? visibleTerminalHandles.indexOf(terminal.handle)
-                  : undefined
-              }
-              splitDirection={paneDirection}
-              splitFrame={paneFrame}
-              keyboardInset={keyboardLift}
-              title={terminal.title}
-              onFrame={notifyTerminalPaneFrame}
-              keyboardLift={
-                terminal.handle !== activeHandle &&
-                !(terminalSplitActive && visibleTerminalHandles.includes(terminal.handle))
-                  ? 0
-                  : terminalSplitActive
-                    ? computeActiveTerminalKeyboardLift({
-                        keyboardLift: terminalPaneKeyboardLayout(
-                          paneFrame,
-                          paneDirection,
-                          visibleTerminalHandles.indexOf(terminal.handle),
-                          keyboardLift
-                        ).occlusion,
-                        metrics: controller.terminalKeyboardMetrics.get(terminal.handle),
-                        terminalFrameHeight:
-                          controller.getTerminalPaneViewport(terminal.handle).terminalFrameRef
-                            .current?.height ?? 0
-                      })
-                    : activeTerminalKeyboardLift
-              }
-              terminalTheme={terminal.terminalTheme}
-              hostSettings={controller.terminalHostSettings}
-              textScale={terminalTextScale}
-              fontStyle={terminalFontStyle}
-              onTextScaleChange={commitPinchedTextScale}
-              onRef={setTerminalWebViewRef}
-              onDocumentReleased={releaseTerminalDocument}
-              onWebReady={handleTerminalWebReady}
-              onCellBoxChange={notifyTerminalCellBoxChange}
-              onSelectionMode={handleSelectionMode}
-              onSelectionCopy={handleSelectionCopy}
-              onSelectionEvicted={handleSelectionEvicted}
-              onClipboardWrite={handleClipboardWrite}
-              onModesChanged={handleModesChanged}
-              onKeyboardAvoidanceMetrics={handleKeyboardAvoidanceMetrics}
-              onHaptic={handleHaptic}
-              onTerminalInput={handleTerminalInput}
-              onTerminalQueryReply={handleTerminalQueryReply}
-              onTerminalInteraction={handleTerminalInteraction}
-              onTerminalTap={handleTerminalTap}
-              onFileTap={handleFileTap}
-              onOpenUrl={terminalLinks.handleTerminalOpenUrl}
-            />
-          )}
-        </MountedTerminalPanes>
+        {/* Terminals keep clear of a released strip; the chat overlay below fills it. */}
+        <View style={[StyleSheet.absoluteFill, sideStripOffset(stripInset)]}>
+          <MountedTerminalPanes terminals={terminals} visibleHandles={visibleTerminalHandles}>
+            {(terminal) => (
+              <TerminalPaneView
+                key={terminal.handle}
+                handle={terminal.handle}
+                active={terminal.handle === activeHandle}
+                visible={visibleTerminalHandles.includes(terminal.handle)}
+                splitIndex={
+                  terminalSplitActive && visibleTerminalHandles.includes(terminal.handle)
+                    ? visibleTerminalHandles.indexOf(terminal.handle)
+                    : undefined
+                }
+                splitDirection={paneDirection}
+                splitFrame={paneFrame}
+                keyboardInset={keyboardLift}
+                title={terminal.title}
+                onFrame={notifyTerminalPaneFrame}
+                keyboardLift={
+                  terminal.handle !== activeHandle &&
+                  !(terminalSplitActive && visibleTerminalHandles.includes(terminal.handle))
+                    ? 0
+                    : terminalSplitActive
+                      ? computeActiveTerminalKeyboardLift({
+                          keyboardLift: terminalPaneKeyboardLayout(
+                            paneFrame,
+                            paneDirection,
+                            visibleTerminalHandles.indexOf(terminal.handle),
+                            keyboardLift
+                          ).occlusion,
+                          metrics: controller.terminalKeyboardMetrics.get(terminal.handle),
+                          terminalFrameHeight:
+                            controller.getTerminalPaneViewport(terminal.handle).terminalFrameRef
+                              .current?.height ?? 0
+                        })
+                      : activeTerminalKeyboardLift
+                }
+                terminalTheme={terminal.terminalTheme}
+                hostSettings={controller.terminalHostSettings}
+                textScale={terminalTextScale}
+                fontStyle={terminalFontStyle}
+                onTextScaleChange={commitPinchedTextScale}
+                onRef={setTerminalWebViewRef}
+                onDocumentReleased={releaseTerminalDocument}
+                onWebReady={handleTerminalWebReady}
+                onCellBoxChange={notifyTerminalCellBoxChange}
+                onSelectionMode={handleSelectionMode}
+                onSelectionCopy={handleSelectionCopy}
+                onSelectionEvicted={handleSelectionEvicted}
+                onClipboardWrite={handleClipboardWrite}
+                onModesChanged={handleModesChanged}
+                onKeyboardAvoidanceMetrics={handleKeyboardAvoidanceMetrics}
+                onHaptic={handleHaptic}
+                onTerminalInput={handleTerminalInput}
+                onTerminalQueryReply={handleTerminalQueryReply}
+                onTerminalInteraction={handleTerminalInteraction}
+                onTerminalTap={handleTerminalTap}
+                onFileTap={handleFileTap}
+                onOpenUrl={terminalLinks.handleTerminalOpenUrl}
+              />
+            )}
+          </MountedTerminalPanes>
+        </View>
         <MobileNativeChatDictationPreviewContext.Provider value={chatDictationPreview}>
           <MobileAgentMessageProvider
             key={JSON.stringify([hostId, executionHost, worktreeId])}
@@ -391,14 +412,19 @@ export function MobileSessionActiveContent({
       // Why: one frame under every branch; react-native-web observes onLayout only on a View that mounts with it.
       style={styles.contentFrame}
       onLayout={(e) => {
-        const { width, height } = e.nativeEvent.layout
+        const { height } = e.nativeEvent.layout
+        const width = e.nativeEvent.layout.width - (stripInset?.width ?? 0)
         notifyTerminalFrame({ width, height })
         setPaneFrame((previous) =>
           previous.width === width && previous.height === height ? previous : { width, height }
         )
       }}
     >
-      {content}
+      {terminalBranch ? (
+        content
+      ) : (
+        <View style={[styles.contentFrame, sideStripMargin(stripInset)]}>{content}</View>
+      )}
     </View>
   )
 }

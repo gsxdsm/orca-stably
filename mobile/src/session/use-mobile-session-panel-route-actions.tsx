@@ -15,6 +15,7 @@ import {
   workspaceRouteHref,
   workspaceRouteParams
 } from '../navigation/workspace-execution-host'
+import { useReleasedSideInset } from '../layout/released-side-inset'
 import type { MobileSessionPresentationModel } from './use-mobile-session-presentation'
 import { useHostUpdateToast } from '../host-update-notice/HostUpdateNotice'
 
@@ -22,6 +23,7 @@ export function useMobileSessionPanelRouteActions(scope: MobileSessionPresentati
   const t = useMobileTranslation()
   const hostUpdate = useHostUpdateToast()
   const executionHost = useWorkspaceExecutionHost()
+  const releasedWidth = useReleasedSideInset()?.width ?? 0
   const {
     hostId,
     worktreeId,
@@ -90,10 +92,14 @@ export function useMobileSessionPanelRouteActions(scope: MobileSessionPresentati
             }
           }))
 
-  const handleSessionContentRowLayout = useCallback((event: LayoutChangeEvent) => {
-    const width = Math.round(event.nativeEvent.layout.width)
-    setSessionContentRowWidth((prev) => (prev === width ? prev : width))
-  }, [])
+  // Why: the released strip is never dock space, whether the row or the chat pads for it.
+  const handleSessionContentRowLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const width = Math.max(0, Math.round(event.nativeEvent.layout.width) - releasedWidth)
+      setSessionContentRowWidth((prev) => (prev === width ? prev : width))
+    },
+    [releasedWidth, setSessionContentRowWidth]
+  )
 
   const handlePanelTap = (tapped: Exclude<ActivePanel, null>) => {
     const action = resolvePanelAction({ canDock: canDockPanel, tapped, current: activePanel })

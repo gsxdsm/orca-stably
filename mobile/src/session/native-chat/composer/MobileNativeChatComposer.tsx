@@ -48,6 +48,7 @@ import { MobileNativeChatMcpTray } from '../mcp/MobileNativeChatMcpTray'
 import { MobileNativeChatQuoteTab } from './quotes/MobileNativeChatQuoteTab'
 import { tuiAgentDisplayName } from '../../../../../src/shared/agent-launch/catalog/tui-agent-display-names'
 import { useThemedStyles } from '../../../theme/themed-styles'
+import { MobileNativeChatWidthToggle } from './MobileNativeChatWidthToggle'
 
 const NO_FILE_PATHS: string[] = []
 const NO_ATTACHMENTS: PendingNativeChatImage[] = []
@@ -99,6 +100,8 @@ export function MobileNativeChatComposer({
   onNeedSkills,
   stop = null,
   sendFollowUp = null,
+  fitScreenCorners = false,
+  widthToggle = null,
   steerHead
 }: Props): React.JSX.Element {
   const inputStyles = useThemedStyles(inputStylesSheet)
@@ -273,14 +276,24 @@ export function MobileNativeChatComposer({
         onOpenBotChats={menu.openBotChats}
         nestedScrollEnabled={editSession ? true : undefined}
       />
-      <View style={styles.composerInset} testID="native-chat-composer-inset">
+      <View
+        style={fitScreenCorners ? styles.composerInsetCornerFit : styles.composerInset}
+        testID="native-chat-composer-inset"
+      >
         {editSession ? null : <MobileNativeChatMcpTray panel={structured?.mcpPanel} />}
         {orca.usageSheet}
         {goal.strip}
         {editSession ? null : <MobileNativeChatQuoteTab {...{ value, onChangeText, fieldRef }} />}
-        <Animated.View style={[styles.bar, collapse.frame]} testID="native-chat-composer">
+        <Animated.View
+          style={[fitScreenCorners ? styles.barCornerFit : styles.bar, collapse.frame]}
+          testID="native-chat-composer"
+        >
           <View
-            style={[styles.barContent, collapsed && styles.barContentPill]}
+            style={[
+              styles.barContent,
+              fitScreenCorners && styles.barContentCornerFit,
+              collapsed && styles.barContentPill
+            ]}
             onLayout={collapse.onContentLayout}
           >
             {collapsed ? null : <MobileNativeChatContextLimitLine {...modes.context} />}
@@ -367,6 +380,8 @@ export function MobileNativeChatComposer({
                   />
                 )}
               </MobileNativeChatDictationLeading>
+              {/* The pill's field lies over the row's middle, so the toggle waits for the full form. */}
+              {widthToggle && !collapsed ? <MobileNativeChatWidthToggle {...widthToggle} /> : null}
               {editSession ? mic : null}
               {editSession ? (
                 <MobileNativeChatEditActions

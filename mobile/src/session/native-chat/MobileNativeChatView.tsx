@@ -16,7 +16,6 @@ import {
 } from './transcript/viewport/mobile-native-chat-disclosure-store'
 import { type NativeScrollEvent, type NativeSyntheticEvent, View } from 'react-native'
 import { MobileNativeChatSendErrorBanner } from './status/MobileNativeChatSendErrorBanner'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
 import { MobileNativeChatInputLockStatus } from './composer/field/MobileNativeChatInputLockStatus'
@@ -50,6 +49,7 @@ import {
   type ComposerTrayProps
 } from './composer/menus/use-mobile-native-chat-composer-tray'
 import { MobileNativeChatScrollRootsBoundary } from './transcript/viewport/MobileNativeChatScrollRootsBoundary'
+import { useChatBottomFit } from './composer/use-chat-bottom-fit'
 import { MobileNativeChatRowList } from './transcript/MobileNativeChatRowList'
 import { useMobileNativeChatRowRenderer } from './transcript/projection/use-mobile-native-chat-row-renderer'
 import { MobileNativeChatOpenFileContext } from './links/mobile-native-chat-open-file-context'
@@ -151,8 +151,7 @@ export function MobileNativeChatView({
 }: Props): React.JSX.Element {
   const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
-  const insets = useSafeAreaInsets()
-  const bottomPad = keyboardInset > 0 ? keyboardInset + insets.bottom : insets.bottom
+  const { bottomPad, composerFit, transcriptInset } = useChatBottomFit(keyboardInset)
   const rootStyle = [styles.root, { paddingBottom: bottomPad }]
   const { fontScale, pinchGesture } = useMobileNativeChatPinchGesture()
   const { font, lineSpacing } = useNativeChatTextSettings()
@@ -315,17 +314,19 @@ export function MobileNativeChatView({
   // The queue sits above a shown prompt card in a closed box, rather than tucking into the composer.
   const lowerContent = (
     <>
-      <MobileNativeChatPromptStrip prompt={collapsedPrompt ?? workerApproval.strip} />
-      <MobileNativeChatInputLockStatus
-        lockReason={offlineQueue.lockReason}
-        waitingText={composerPlaceholder}
-        hostOutage={hostOutage}
-      />
-      <MobileNativeChatSendErrorBanner message={banner} onDismiss={onDismissSendError} />
-      <MobileNativeChatQueueAbovePromptContext value={promptShown}>
-        {trayContent}
-        <MobileNativeChatOfflineQueue queue={offlineQueue} />
-      </MobileNativeChatQueueAbovePromptContext>
+      <View style={transcriptInset}>
+        <MobileNativeChatPromptStrip prompt={collapsedPrompt ?? workerApproval.strip} />
+        <MobileNativeChatInputLockStatus
+          lockReason={offlineQueue.lockReason}
+          waitingText={composerPlaceholder}
+          hostOutage={hostOutage}
+        />
+        <MobileNativeChatSendErrorBanner message={banner} onDismiss={onDismissSendError} />
+        <MobileNativeChatQueueAbovePromptContext value={promptShown}>
+          {trayContent}
+          <MobileNativeChatOfflineQueue queue={offlineQueue} />
+        </MobileNativeChatQueueAbovePromptContext>
+      </View>
       {workerApproval.card}
       <MobileNativeChatPromptCard
         key={promptKey ?? undefined}
@@ -338,6 +339,7 @@ export function MobileNativeChatView({
       />
       <View style={promptOwnsInput ? styles.hidden : undefined}>
         <MobileNativeChatDraftComposer
+          {...composerFit}
           draftScopeKey={composerScopeKey}
           structured={structuredActivityUi ? structured : null}
           draftKey={draftKey}
@@ -375,7 +377,7 @@ export function MobileNativeChatView({
         ) : firstScreen ? (
           <MobileBotFirstScreen firstScreen={firstScreen} after={mailRows} />
         ) : (
-          <GestureHandlerRootView style={styles.listWrap}>
+          <GestureHandlerRootView style={[styles.listWrap, transcriptInset]}>
             <MobileNativeChatDisclosureContext.Provider value={disclosures}>
               <MobileBotCardSendContext.Provider value={sendFromCard}>
                 <MobileMarkdownBotCardContext.Provider value={drawReplyCard}>

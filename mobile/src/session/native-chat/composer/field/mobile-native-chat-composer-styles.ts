@@ -18,15 +18,28 @@ export const COMPOSER_PILL_GAP = spacing.sm
 // The field's 2 pt text inset sits inside this, so its line centres on the 38 pt row.
 const PILL_FIELD_TOP = COMPOSER_PILL_GAP + (COMPOSER_CONTROL_SIZE - COMPOSER_LINE_HEIGHT) / 2 - 2
 
+const composerInset = {
+  paddingHorizontal: spacing.md,
+  paddingTop: COMPOSER_INSET_TOP,
+  paddingBottom: spacing.sm
+}
+
 export const mobileNativeChatComposerStylesSheet = themedStyleSheet((_colors, scheme) => ({
-  composerInset: {
-    paddingHorizontal: spacing.md,
-    paddingTop: COMPOSER_INSET_TOP,
-    paddingBottom: spacing.sm
-  },
+  composerInset,
+  // Bottom margin matches the sides, so the box sits evenly in the screen's corners.
+  composerInsetCornerFit: { ...composerInset, paddingBottom: 10 },
   // The box draws its look and holds its height; the content inside sets the padding.
   bar: { ...composerInputStylesSheet.resolve(scheme).box, padding: 0, justifyContent: 'flex-end' },
+  // Wider bottom corners stay concentric with the rounded screen instead of poking into it.
+  barCornerFit: {
+    ...composerInputStylesSheet.resolve(scheme).box,
+    padding: 0,
+    justifyContent: 'flex-end',
+    borderBottomLeftRadius: 34,
+    borderBottomRightRadius: 34
+  },
   barContent: { flexShrink: 0, padding: spacing.md },
+  barContentCornerFit: { paddingBottom: 14 },
   // Idle and empty: one row of +, the field and the send slot.
   barContentPill: { padding: COMPOSER_PILL_GAP },
   pillField: {
