@@ -37,14 +37,23 @@ import { intlLocaleFor } from '../../i18n/ui-intl-locale'
 import { fileExplorerStylesSheet } from './mobile-file-explorer-styles'
 import { canPreviewMobileFileRow } from '../preview/mobile-file-preview-navigation'
 import { TailClippedText } from '../../components/list/TailClippedText'
+import { MobileFileExplorerUploadRow } from './mobile-file-explorer-upload-row'
 import { useThemedStyles } from '../../theme/themed-styles'
+import {
+  MobileFileExplorerContentHitRow,
+  MobileFileExplorerContentSection
+} from './mobile-file-explorer-content-hit-row'
 
 type Props = {
   item: FileExplorerRow
   maximumIndentation: number
   expanded: ReadonlySet<string>
   decorate: DecorateFileRow
-  onPreviewFile: (relativePath: string, displayName: string) => void
+  onPreviewFile: (
+    relativePath: string,
+    displayName: string,
+    at?: { line: number; column: number }
+  ) => void
   onRetryDirectory: (relativePath: string) => void
   onToggleDirectory: (relativePath: string) => void
   onOpenActions: (node: TreeNode) => void
@@ -106,6 +115,10 @@ export function MobileFileExplorerRow(props: Props) {
     )
   }
 
+  if (item.kind === 'upload') {
+    return <MobileFileExplorerUploadRow item={item} paddingLeft={paddingLeft} />
+  }
+
   if (item.kind === 'more') {
     return (
       <FolderPagingRow
@@ -115,6 +128,14 @@ export function MobileFileExplorerRow(props: Props) {
         onShowMore={onShowMore}
       />
     )
+  }
+
+  if (item.kind === 'section') {
+    return <MobileFileExplorerContentSection />
+  }
+
+  if (item.kind === 'contentHit') {
+    return <MobileFileExplorerContentHitRow item={item} onOpen={onPreviewFile} />
   }
 
   if (isTreeNode(item)) {
