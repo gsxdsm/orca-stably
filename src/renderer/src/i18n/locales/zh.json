@@ -1809,7 +1809,7 @@
           "localBaseRefShallowHistory": "你的工作区由 {{value0}} 创建，不受影响。Orca 无法同时更新你的本地 {{value1}} 分支：此克隆只包含较近的历史，Git 无法确认本地 {{value1}} 只是落后。要为之后每个新工作区解决此问题，请运行一次：",
           "localBaseRefRefreshTurnOff": "禁用检查",
           "localBaseRefRefreshTurnOffHelp": "了解“禁用检查”的作用",
-          "localBaseRefRefreshDisable": "禁用",
+          "localBaseRefRefreshDisable": "停止",
           "localBaseRefRefreshDisableTooltip": "停止检查 {{value0}}",
           "localBaseRefClose": "关闭",
           "localBaseRefRefreshTurnOffTooltip": "关闭 Orca 设置 {{value0}}。创建工作区时 Orca 将不再更新本地 {{value1}}，此警告也不会再出现。新工作区不受影响。可随时在设置 › Git 中重新开启",
