@@ -9,7 +9,7 @@ export type PluginServiceRpcWrites = {
   applyEnablement: (pluginKey: string, enabled: boolean) => Promise<void>
   setDevPluginPaths?: (paths: string[]) => void
   setPluginSystemEnabled?: (enabled: boolean) => void
-  openFrameDevTools?: (pluginKey: string) => number
+  openFrameDevTools?: (pluginKey: string) => number | Promise<number>
 }
 
 /** What install, update, uninstall and catalog RPCs need beyond the plugin service. */

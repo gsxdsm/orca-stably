@@ -220,7 +220,7 @@ export const PLUGIN_METHODS = [
       if (!openFrameDevTools) {
         throw new Error('Plugin frame DevTools are only available in the Orca desktop app')
       }
-      return { pluginKey: params.pluginKey, opened: openFrameDevTools(params.pluginKey) }
+      return { pluginKey: params.pluginKey, opened: await openFrameDevTools(params.pluginKey) }
     }
   }),
   defineMethod({

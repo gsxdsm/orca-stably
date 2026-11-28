@@ -5,8 +5,6 @@ import {
 } from '../../plugins/activation/plugin-enablement'
 import type { PluginService } from '../../plugins/plugin-service'
 import type { PluginCliCatalogs } from '../../plugins/cli/plugin-cli-catalog-candidates'
-import { clearPluginFrameStorage } from '../../plugins/panels/guest-isolation/plugin-frame-guest-sessions'
-import { openPluginFrameGuestDevTools } from '../../plugins/panels/guest-isolation/plugin-frame-guest-diagnostics'
 import {
   setPluginInstallServicesForRpc,
   setPluginServiceForRpc
@@ -26,13 +24,21 @@ export function bindPluginRpcServices(
       store.updateSettings({ pluginSystemEnabled }, { notifyListeners: true }),
     setDevPluginPaths: (devPluginPaths) =>
       store.updateSettings({ devPluginPaths }, { notifyListeners: true }),
-    openFrameDevTools: openPluginFrameGuestDevTools
+    openFrameDevTools: async (pluginKey) => {
+      const { openPluginFrameGuestDevTools } =
+        await import('../../plugins/panels/guest-isolation/plugin-frame-guest-diagnostics')
+      return openPluginFrameGuestDevTools(pluginKey)
+    }
   })
   setPluginInstallServicesForRpc({
     pluginService,
     catalogs,
     applyConsent: (request) => applyPluginConsent({ store, pluginService, ...request }),
     store,
-    afterUninstall: clearPluginFrameStorage
+    afterUninstall: async (pluginKey) => {
+      const { clearPluginFrameStorage } =
+        await import('../../plugins/panels/guest-isolation/plugin-frame-guest-sessions')
+      return clearPluginFrameStorage(pluginKey)
+    }
   })
 }
