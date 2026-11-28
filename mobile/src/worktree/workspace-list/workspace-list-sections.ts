@@ -166,7 +166,13 @@ export function buildMobileWorkspacePlan(
       if (groupMode === 'none') {
         if (canonicalGroupWorktrees.length > 0) {
           sections.push(
-            makeSection('all', groupLabels.all, withFolderWorkspacesLast(canonicalGroupWorktrees))
+            makeSection(
+              'all',
+              groupLabels.all,
+              sortMode === 'recent'
+                ? canonicalGroupWorktrees
+                : withFolderWorkspacesLast(canonicalGroupWorktrees)
+            )
           )
         }
       } else if (groupMode === 'repo') {
@@ -239,7 +245,7 @@ export function buildMobileWorkspacePlan(
                 getWorkspaceStatusGroupKey(status.id),
                 // Status names are the host's (user-editable) labels, as on desktop.
                 status.label,
-                withFolderWorkspacesLast(items)
+                sortMode === 'recent' ? items : withFolderWorkspacesLast(items)
               )
             )
           }
@@ -262,7 +268,7 @@ export function buildMobileWorkspacePlan(
               makeSection(
                 getPRLaneKey(groupKey),
                 groupLabels[groupKey],
-                withFolderWorkspacesLast(items)
+                sortMode === 'recent' ? items : withFolderWorkspacesLast(items)
               )
             )
           }

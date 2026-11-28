@@ -71,6 +71,7 @@ import type { MobileSessionTabSubscription } from './mobile-session-tab-subscrip
 export type { MobileSessionTabSubscription } from './mobile-session-tab-subscription'
 import { RuntimeBotConstructionHooks } from './runtime-bot-construction-hooks'
 
+type PtyLivenessObservation = { verdict: PtyLivenessVerdict; observedAt: number }
 export type ClientHostedPageObservation = MobileSessionTabSubscription | symbol
 
 export abstract class OrcaRuntimeWithRuntimeId extends RuntimeBotConstructionHooks {
@@ -383,10 +384,7 @@ export abstract class OrcaRuntimeWithRuntimeId extends RuntimeBotConstructionHoo
   protected ptyControllerGeneration = 0
   protected ptyController: RuntimePtyController | null = null
 
-  protected readonly ptyLivenessVerdictByPtyId = new Map<
-    string,
-    { verdict: PtyLivenessVerdict; observedAt: number }
-  >()
+  protected readonly ptyLivenessVerdictByPtyId = new Map<string, PtyLivenessObservation>()
 
   protected ptyLivenessObservationSequence = 0
 }
