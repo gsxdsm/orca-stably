@@ -2,6 +2,9 @@ import Foundation
 
 enum WatchScreen: String {
   case sessions
+  case needsYou = "needs-you"
+  case bots
+  case usage
   case detail
   case prompt
   case confirm
