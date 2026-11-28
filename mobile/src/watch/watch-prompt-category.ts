@@ -1,6 +1,4 @@
-import * as Notifications from 'expo-notifications'
-import { Platform } from 'react-native'
-import { MOBILE_PUSH_PROMPT_CATEGORY } from '../../../src/shared/notifications/mobile-push-contract'
+import type * as Notifications from 'expo-notifications'
 import { translate } from '../i18n/mobile-i18n'
 
 export const APPROVE_WATCH_PROMPT_ACTION = 'approve'
@@ -19,13 +17,4 @@ export function watchPromptNotificationActions(): Notifications.NotificationActi
       options: { isDestructive: true, opensAppToForeground: true }
     }
   ]
-}
-
-export async function ensureWatchPromptCategory(): Promise<void> {
-  if (Platform.OS !== 'web') {
-    await Notifications.setNotificationCategoryAsync(
-      MOBILE_PUSH_PROMPT_CATEGORY,
-      watchPromptNotificationActions()
-    )
-  }
 }

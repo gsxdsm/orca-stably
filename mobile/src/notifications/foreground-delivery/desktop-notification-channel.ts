@@ -1,7 +1,6 @@
 import * as Notifications from 'expo-notifications'
 import { Platform } from 'react-native'
 import { translate } from '../../i18n/mobile-i18n'
-import { ensureAndroidReplyCategory } from '../reply/android-reply-presentation'
 
 // Create the shared FCM channel before socket subscription: a background push can arrive first, and Android drops notifications for missing channels.
 export const DESKTOP_NOTIFICATION_CHANNEL_ID = 'orca-desktop'
@@ -11,7 +10,6 @@ export async function ensureDesktopNotificationChannel(): Promise<void> {
   if (Platform.OS !== 'android') {
     return
   }
-  await ensureAndroidReplyCategory()
   await Notifications.setNotificationChannelAsync(`${DESKTOP_NOTIFICATION_CHANNEL_ID}-silent`, {
     name: translate('notifications.desktopChannel.silentName', 'Orca silent notifications'),
     importance: Notifications.AndroidImportance.HIGH,
