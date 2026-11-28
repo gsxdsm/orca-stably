@@ -5,10 +5,7 @@ import {
   AgentSessionRefusalError,
   type AgentSessionWireRefusalCode
 } from '../../../shared/agent-session/failures/agent-session-wire-refusals'
-import {
-  structuredAgentSessionPaneKey,
-  structuredAgentSessionTabId
-} from '../../../shared/agent-session/view/structured-agent-session-projection'
+import { chatPaneKey } from '../../../shared/agent-session/view/structured-agent-session-projection'
 import { mapChatPrompt, parseChatPromptId } from '../../../shared/agent-prompt/pending-agent-prompt'
 import type {
   AgentPromptRespondResult,
@@ -109,7 +106,7 @@ export function listChatPrompts(host: ChatPromptHost | null): LocatedAgentPrompt
       }
       located.push({
         prompt,
-        paneKey: structuredAgentSessionPaneKey(structuredAgentSessionTabId(sessionId), sessionId),
+        paneKey: chatPaneKey(sessionId),
         agent: record.provider
       })
     }
