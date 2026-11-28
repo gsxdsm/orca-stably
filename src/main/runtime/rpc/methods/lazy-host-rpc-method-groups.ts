@@ -23,11 +23,9 @@ export const LAZY_HOST_RPC_METHOD_GROUPS: readonly LazyRpcMethodGroup[] = [
       ]
     }
   ),
-  prefixRpcMethodGroup(
-    [],
-    async () => (await import('./host-resources')).HOST_RESOURCES_METHODS,
-    { exactNames: ['host.resources'] }
-  ),
+  prefixRpcMethodGroup([], async () => (await import('./host-resources')).HOST_RESOURCES_METHODS, {
+    exactNames: ['host.resources']
+  }),
   prefixRpcMethodGroup(
     [],
     async () =>
