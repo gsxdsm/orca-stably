@@ -2,24 +2,10 @@ import { getRepoHostIdentityForParts } from '../../../../shared/repository/repo-
 import { createRepoRowExecutionHostLookup } from '../../../../shared/execution-host/worktree-execution-host-resolution'
 import { resolveWorktreeHostRouting } from '../catalog/worktree-launch-host-repo'
 import { getStructuredAgentSessionHost } from '../../../native-chat/agent-session-wire/host/structured-agent-session-registry'
-import { collectRuntimeWorktreeAgentSources } from './runtime-worktree-agent-sources'
 import { RuntimeChatWorkerEvents } from '../../orchestration/workers/turn-stops/chat-worker-runtime-events'
 
 import type { RuntimeWorktreePsResult } from '../../../../shared/worktree/catalog/runtime-worktree-contracts'
 import type { ResolvedWorktreeSnapshot } from '../catalog/runtime-resolved-worktree-cache'
-import { buildRuntimeWorktreePsSummaries } from './runtime-worktree-ps-summaries'
-import {
-  buildRuntimeWorktreeSummaryPathIndex,
-  createRuntimeWorktreePsSummaryLookup
-} from './runtime-worktree-summary-paths'
-import {
-  applyRuntimeWorktreePsSessionActivity,
-  applyRuntimeWorktreePsTerminalActivity
-} from './runtime-worktree-ps-activity'
-import { applyRuntimeWorktreePsUnverifiableTerminals } from './runtime-worktree-ps-unverifiable-terminals'
-import { attachRuntimeWorktreeAgentRows } from './runtime-worktree-agent-rows'
-import { attachRuntimeWorktreeAgentRowWaits } from './runtime-worktree-agent-row-waits'
-import { compareWorktreePs } from './runtime-worktree-status-projection'
 import type { Repo } from '../../../../shared/repository/repo-types'
 import { enrichMissingRepoGitRemoteIdentities } from '../../../workspaces/catalog/repo-git-remote-identity-enrichment'
 import { openAgentSessionRecordStoreOnce } from '../../agent-session/records/agent-session-record-store-slot'
@@ -57,6 +43,25 @@ export abstract class OrcaRuntimeWithGetWorktreePs extends RuntimeChatWorkerEven
       sourceDefaultsSupported
     )
     const freshPtyLiveness = await this.refreshPtyWorktreeRecordsFromController(resolvedWorktrees)
+    const [
+      { collectRuntimeWorktreeAgentSources },
+      { buildRuntimeWorktreePsSummaries },
+      { buildRuntimeWorktreeSummaryPathIndex, createRuntimeWorktreePsSummaryLookup },
+      { applyRuntimeWorktreePsSessionActivity, applyRuntimeWorktreePsTerminalActivity },
+      { applyRuntimeWorktreePsUnverifiableTerminals },
+      { attachRuntimeWorktreeAgentRows },
+      { attachRuntimeWorktreeAgentRowWaits },
+      { compareWorktreePs }
+    ] = await Promise.all([
+      import('./runtime-worktree-agent-sources'),
+      import('./runtime-worktree-ps-summaries'),
+      import('./runtime-worktree-summary-paths'),
+      import('./runtime-worktree-ps-activity'),
+      import('./runtime-worktree-ps-unverifiable-terminals'),
+      import('./runtime-worktree-agent-rows'),
+      import('./runtime-worktree-agent-row-waits'),
+      import('./runtime-worktree-status-projection')
+    ])
     const summaries = buildRuntimeWorktreePsSummaries({
       store: this.store,
       resolvedWorktrees,
