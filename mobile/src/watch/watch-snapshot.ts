@@ -1,4 +1,4 @@
-import { structuredAgentSessionStatusPaneKey } from '../../../src/shared/agent-session/view/structured-agent-session-tab'
+import { chatPaneKey } from '../../../src/shared/agent-session/view/structured-agent-session-projection'
 import type {
   WatchBot,
   WatchFeedItem,
@@ -238,7 +238,7 @@ export function buildWatchSnapshot(input: WatchSnapshotInput): WatchSnapshot {
     .map((row) => ({ ...row, name: clip(row.name, 100) ?? 'Bot' }))
   const paneAliases = new Map(
     input.chats.map(({ hostId, sessionId }) => [
-      watchSessionKey(hostId, 'term', structuredAgentSessionStatusPaneKey(sessionId)),
+      watchSessionKey(hostId, 'term', chatPaneKey(sessionId)),
       watchSessionKey(hostId, 'chat', sessionId)
     ])
   )

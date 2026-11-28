@@ -186,7 +186,7 @@ describe('buildWatchSnapshot', () => {
     )
   })
 
-  it('deduplicates a session and its bot ask against the correct host prompt', () => {
+  it('deduplicates a chat pane and its bot ask against the correct host prompt', () => {
     const sessionA = 'host-1|chat|chat-1'
     const sessionB = 'host-2|chat|chat-1'
     const snapshot = buildWatchSnapshot({
@@ -202,7 +202,8 @@ describe('buildWatchSnapshot', () => {
           key: 'chat:1',
           title: 'Review',
           botId: 'one',
-          sessionKey: sessionA,
+          sessionKey:
+            'host-1|term|structured-agent-session-chat-1:eaeb9111-b1c6-4442-a8e8-03977dbf25fb',
           updatedAt: 1
         },
         {
