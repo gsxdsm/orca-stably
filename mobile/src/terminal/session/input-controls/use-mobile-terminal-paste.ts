@@ -84,164 +84,174 @@ export function useMobileTerminalPaste({
   const clipboard = useClipboardReader()
   // One paste at a time owns the terminal's input, so another paste or its held-text flush cannot land inside it.
   const pasteRunningRef = useRef(false)
-  return useCallback(async () => {
-    if (!client || !activeHandle || !canSend) {
-      return
-    }
-    if (pasteRunningRef.current) {
-      onError()
-      showToast(translate('session.useTerminalPaste.pasteFailed', 'Paste failed'), 1500)
-      return
-    }
-    pasteRunningRef.current = true
-    const targetHandle = activeHandle
-    try {
-      const text = await clipboard.readText()
-      let payload: string | null = null
-      let bracketed = false
-      if (text.length > 0) {
-        const modes = ptyModesRef.current.get(targetHandle)
-        bracketed = modes?.bracketedPasteMode === true
-        payload = buildMobileTerminalClipboardTextPayload(text, modes)
-      } else {
-        const image = await clipboard.readImage()
-        if (!image) {
-          // Null also covers iOS paste denial and undecodable images.
+  return useCallback(
+    async (options?: { readonly preferImage?: boolean }) => {
+      if (!client || !activeHandle || !canSend) {
+        return
+      }
+      if (pasteRunningRef.current) {
+        onError()
+        showToast(translate('session.useTerminalPaste.pasteFailed', 'Paste failed'), 1500)
+        return
+      }
+      pasteRunningRef.current = true
+      const targetHandle = activeHandle
+      try {
+        // A claimed image paste can still carry the filename as text. That text is not the command.
+        const text = options?.preferImage ? '' : await clipboard.readText()
+        let payload: string | null = null
+        let bracketed = false
+        if (text.length > 0) {
+          const modes = ptyModesRef.current.get(targetHandle)
+          bracketed = modes?.bracketedPasteMode === true
+          payload = buildMobileTerminalClipboardTextPayload(text, modes)
+        } else {
+          const image = await clipboard.readImage()
+          if (!image) {
+            // Null also covers iOS paste denial and undecodable images.
+            onError()
+            showToast(
+              translate(
+                'session.useTerminalPaste.clipboardReadFailed',
+                "Couldn't read the clipboard"
+              ),
+              1500
+            )
+            refreshCanPaste()
+            return
+          }
+          const connectionId = await getActiveWorktreeConnectionId()
+          const base64 = await fitMobileAgentImageBase64(image.data)
+          const imagePath = await saveMobileClipboardImageAsTempFile(client, base64, {
+            connectionId
+          })
+          payload = separateImagePasteFromFollowingText(
+            buildMobileTerminalImagePastePayload(imagePath, agent),
+            true
+          )
+        }
+
+        if (await isTerminalInputTooLargeWithYield(payload)) {
+          onError()
+          console.warn('[mobile-clip] paste oversized', { length: payload.length })
+          showToast(
+            translate('session.useTerminalPaste.pasteTooLarge', 'Paste is too large.'),
+            1500
+          )
+          return
+        }
+        // Accessory paste must follow pending IME text.
+        const flushedPendingInput = await flushPendingLiveInputBeforeExternalSend(targetHandle)
+        const currentClient = clientRef.current
+        if (!currentClient || connStateRef.current !== 'connected') {
+          onError()
+          showToast(
+            translate('session.useTerminalPaste.disconnected', 'Paste failed (disconnected)'),
+            1500
+          )
+          return
+        }
+        if (
+          targetHandle !== activeHandleRef.current ||
+          activeSessionTabTypeRef.current !== 'terminal'
+        ) {
           onError()
           showToast(
             translate(
-              'session.useTerminalPaste.clipboardReadFailed',
-              "Couldn't read the clipboard"
+              'session.useTerminalPaste.terminalChanged',
+              'Paste canceled (terminal changed)'
             ),
             1500
           )
-          refreshCanPaste()
           return
         }
-        const connectionId = await getActiveWorktreeConnectionId()
-        const base64 = await fitMobileAgentImageBase64(image.data)
-        const imagePath = await saveMobileClipboardImageAsTempFile(client, base64, {
-          connectionId
+        if (!flushedPendingInput) {
+          onError()
+          showToast(translate('session.useTerminalPaste.pasteFailed', 'Paste failed'), 1500)
+          return
+        }
+        const buildChunkParams = (text: string) => ({
+          terminal: targetHandle,
+          text,
+          enter: false,
+          ...(deviceTokenRef.current
+            ? { client: { id: deviceTokenRef.current, type: 'mobile' as const } }
+            : {})
         })
-        payload = separateImagePasteFromFollowingText(
-          buildMobileTerminalImagePastePayload(imagePath, agent),
-          true
-        )
-      }
-
-      if (await isTerminalInputTooLargeWithYield(payload)) {
-        onError()
-        console.warn('[mobile-clip] paste oversized', { length: payload.length })
-        showToast(translate('session.useTerminalPaste.pasteTooLarge', 'Paste is too large.'), 1500)
-        return
-      }
-      // Accessory paste must follow pending IME text.
-      const flushedPendingInput = await flushPendingLiveInputBeforeExternalSend(targetHandle)
-      const currentClient = clientRef.current
-      if (!currentClient || connStateRef.current !== 'connected') {
-        onError()
-        showToast(
-          translate('session.useTerminalPaste.disconnected', 'Paste failed (disconnected)'),
-          1500
-        )
-        return
-      }
-      if (
-        targetHandle !== activeHandleRef.current ||
-        activeSessionTabTypeRef.current !== 'terminal'
-      ) {
-        onError()
-        showToast(
-          translate(
-            'session.useTerminalPaste.terminalChanged',
-            'Paste canceled (terminal changed)'
-          ),
-          1500
-        )
-        return
-      }
-      if (!flushedPendingInput) {
-        onError()
-        showToast(translate('session.useTerminalPaste.pasteFailed', 'Paste failed'), 1500)
-        return
-      }
-      const buildChunkParams = (text: string) => ({
-        terminal: targetHandle,
-        text,
-        enter: false,
-        ...(deviceTokenRef.current
-          ? { client: { id: deviceTokenRef.current, type: 'mobile' as const } }
-          : {})
-      })
-      const sendChunk = (text: string) =>
-        sendTerminalUserInput(currentClient, buildChunkParams(text)).then(
-          (response) => terminalInputSend.interpret(response) === true,
-          () => false
-        )
-      // Enqueue every chunk atomically as 1 waiter with no tail merging so >8 MiB pastes stay within
-      // cap, frames stay <= 64 KiB, and keyboard input cannot land inside a bracketed paste.
-      const pasteEpoch = epoch(currentClient)
-      const chunks = splitTerminalInputChunks(payload, PASTE_SEND_CHUNK_BYTES)
-      const results = sendTerminalUserInputChunks
-        ? await sendTerminalUserInputChunks(currentClient, chunks.map(buildChunkParams)).then(
-            (responses) =>
-              responses.map((response) => terminalInputSend.interpret(response) === true),
-            () => chunks.map(() => false)
+        const sendChunk = (text: string) =>
+          sendTerminalUserInput(currentClient, buildChunkParams(text)).then(
+            (response) => terminalInputSend.interpret(response) === true,
+            () => false
           )
-        : await Promise.all(chunks.map((chunk) => sendChunk(chunk)))
-      const firstRefused = results.indexOf(false)
-      if (firstRefused > 0 && bracketed && epoch(currentClient) === pasteEpoch) {
-        // Close a bracketed paste whose start landed so the program leaves paste mode.
-        await sendChunk(BRACKETED_PASTE_END)
+        // Enqueue every chunk atomically as 1 waiter with no tail merging so >8 MiB pastes stay within
+        // cap, frames stay <= 64 KiB, and keyboard input cannot land inside a bracketed paste.
+        const pasteEpoch = epoch(currentClient)
+        const chunks = splitTerminalInputChunks(payload, PASTE_SEND_CHUNK_BYTES)
+        const results = sendTerminalUserInputChunks
+          ? await sendTerminalUserInputChunks(currentClient, chunks.map(buildChunkParams)).then(
+              (responses) =>
+                responses.map((response) => terminalInputSend.interpret(response) === true),
+              () => chunks.map(() => false)
+            )
+          : await Promise.all(chunks.map((chunk) => sendChunk(chunk)))
+        const firstRefused = results.indexOf(false)
+        if (firstRefused > 0 && bracketed && epoch(currentClient) === pasteEpoch) {
+          // Close a bracketed paste whose start landed so the program leaves paste mode.
+          await sendChunk(BRACKETED_PASTE_END)
+        }
+        if (firstRefused !== -1 || epoch(currentClient) !== pasteEpoch) {
+          throw new Error('Terminal input was not accepted')
+        }
+        onSuccess()
+        refreshCanPaste()
+      } catch (e) {
+        onError()
+        const err = e as { name?: string; message?: string }
+        const isDisconnected = connStateRef.current !== 'connected'
+        console.warn('[mobile-clip] paste failed', { name: err.name, message: err.message })
+        if (isDisconnected) {
+          showToast(
+            translate('session.useTerminalPaste.disconnected', 'Paste failed (disconnected)'),
+            1500
+          )
+        } else if (e instanceof Error && 'reason' in e && e.reason === 'reply-too-large') {
+          // The page's clipboard bridge caps one reply below desktop's paste limit.
+          showToast(
+            translate('session.useTerminalPaste.pasteTooLarge', 'Paste is too large.'),
+            1500
+          )
+        } else if (err.message === 'Clipboard image is too large') {
+          showToast(
+            translate('session.useTerminalPaste.imageTooLarge', 'Image too large to paste'),
+            1500
+          )
+        } else {
+          showToast(translate('session.useTerminalPaste.pasteFailed', 'Paste failed'), 1500)
+        }
+      } finally {
+        pasteRunningRef.current = false
       }
-      if (firstRefused !== -1 || epoch(currentClient) !== pasteEpoch) {
-        throw new Error('Terminal input was not accepted')
-      }
-      onSuccess()
-      refreshCanPaste()
-    } catch (e) {
-      onError()
-      const err = e as { name?: string; message?: string }
-      const isDisconnected = connStateRef.current !== 'connected'
-      console.warn('[mobile-clip] paste failed', { name: err.name, message: err.message })
-      if (isDisconnected) {
-        showToast(
-          translate('session.useTerminalPaste.disconnected', 'Paste failed (disconnected)'),
-          1500
-        )
-      } else if (e instanceof Error && 'reason' in e && e.reason === 'reply-too-large') {
-        // The page's clipboard bridge caps one reply below desktop's paste limit.
-        showToast(translate('session.useTerminalPaste.pasteTooLarge', 'Paste is too large.'), 1500)
-      } else if (err.message === 'Clipboard image is too large') {
-        showToast(
-          translate('session.useTerminalPaste.imageTooLarge', 'Image too large to paste'),
-          1500
-        )
-      } else {
-        showToast(translate('session.useTerminalPaste.pasteFailed', 'Paste failed'), 1500)
-      }
-    } finally {
-      pasteRunningRef.current = false
-    }
-  }, [
-    sendTerminalUserInput,
-    sendTerminalUserInputChunks,
-    activeHandle,
-    agent,
-    activeHandleRef,
-    activeSessionTabTypeRef,
-    canSend,
-    client,
-    clientRef,
-    clipboard,
-    connStateRef,
-    deviceTokenRef,
-    flushPendingLiveInputBeforeExternalSend,
-    getActiveWorktreeConnectionId,
-    onError,
-    onSuccess,
-    ptyModesRef,
-    refreshCanPaste,
-    showToast
-  ])
+    },
+    [
+      sendTerminalUserInput,
+      sendTerminalUserInputChunks,
+      activeHandle,
+      agent,
+      activeHandleRef,
+      activeSessionTabTypeRef,
+      canSend,
+      client,
+      clientRef,
+      clipboard,
+      connStateRef,
+      deviceTokenRef,
+      flushPendingLiveInputBeforeExternalSend,
+      getActiveWorktreeConnectionId,
+      onError,
+      onSuccess,
+      ptyModesRef,
+      refreshCanPaste,
+      showToast
+    ]
+  )
 }

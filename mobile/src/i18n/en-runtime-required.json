@@ -946,6 +946,10 @@
         "title": "Webhook"
       }
     },
+    "composer": {
+      "skippedUnsupportedPaste_one": "Skipped {{count}} unsupported file",
+      "skippedUnsupportedPaste_other": "Skipped {{count}} unsupported files"
+    },
     "goal": {
       "checks_one": "{{count}} check",
       "checks_other": "{{count}} checks"
