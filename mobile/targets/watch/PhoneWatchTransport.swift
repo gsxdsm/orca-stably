@@ -21,12 +21,18 @@ final class PhoneWatchTransport: NSObject, WCSessionDelegate {
     let unconfirmed = WatchReply(v: 1, id: commandId, ok: false, reason: "unknown")
     return await withCheckedContinuation { continuation in
       let gate = ResumeOnce()
-      let finish: (WatchReply) -> Void = { reply in
+      let finish: @Sendable (WatchReply) -> Void = { reply in
         gate.run { continuation.resume(returning: reply) }
       }
       guard WCSession.isSupported() else {
         finish(WatchTransportFailure.reply(id: commandId))
         return
+      }
+      // Allow the phone's 24-second deadline to settle before falling back locally.
+      if mutates {
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 28) {
+          finish(unconfirmed)
+        }
       }
       WCSession.default.sendMessage(payload, replyHandler: { message in
         guard let reply = WatchReply.decode(message: message), reply.id == commandId else {
