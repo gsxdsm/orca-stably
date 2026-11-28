@@ -906,7 +906,8 @@
       "emptyTitle": "No usage yet",
       "pairComputer": "Pair a computer to see agent account usage.",
       "addAccountsOnComputer": "Add accounts in Orca on your computer, in Settings → Accounts.",
-      "openComputerAccountsHint": "Opens this computer’s accounts"
+      "openComputerAccountsHint": "Opens this computer’s accounts",
+      "openDetailHint": "Opens detailed usage and history"
     },
     "activeAgents": {
       "heading": "Active",
