@@ -268,6 +268,10 @@ export const DEFAULT_LAZY_RPC_METHOD_GROUPS: readonly LazyRpcMethodGroup[] = [
     { exactNames: ['agentSession.readVisual'] }
   ),
   prefixRpcMethodGroup(
+    ['agentPrompt.'],
+    async () => (await import('./structured-sessions/agent-prompt-methods')).AGENT_PROMPT_METHODS
+  ),
+  prefixRpcMethodGroup(
     ['agentSession.'],
     async () =>
       (await import('./structured-sessions/structured-agent-session'))

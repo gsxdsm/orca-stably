@@ -242,6 +242,9 @@ export class StructuredAgentSessionClientDelivery {
     this.publishJournal(sessionId, journal, false)
   }
 
+  publishedActionablePrompts = (sessionId: string) =>
+    this.statusFeed.publishedActionablePrompts(sessionId)
+
   readCurrentWork = async (sessionId: string) => {
     const journal = this.sessions.get(sessionId)?.journal
     return journal ? this.currentWork(sessionId, journal) : null

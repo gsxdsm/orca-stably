@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the service wires the fork push prompt beside upstream delivery modes. */
 // Push authenticates with host keys, independent of cloud sign-in; retain gateway registrations and durable cleanup for accountless hosts too.
 import { randomUUID } from 'node:crypto'
 import type {
@@ -14,7 +15,9 @@ import { PushBadgeSync } from './push-badge-sync'
 import type { ExecutionHostPushCoverage } from './push-burst-slots'
 import { mobilePushTokenDigest } from './push-token-digest'
 import { pushTestResult, unregisteredTestResult } from './push-test-result'
+import { desktopPushPrompt } from './desktop-push-prompt'
 import { PushGatewayClient } from './push-gateway-client'
+import type { PushPromptCategoryGate } from './push-prompt-category-gate'
 import { PushRegisterThrottle } from './push-register-throttle'
 import {
   readMobilePushDeliveryMode,
@@ -48,6 +51,7 @@ export class DesktopPushService {
   private readonly outbox: PushUnregisterOutbox
   private readonly client: PushGatewayClient
   private readonly dispatcher: PushDispatcher
+  private readonly promptCategory: PushPromptCategoryGate
   private readonly badgeSync: PushBadgeSync
   private readonly deliveryMode: MobilePushDeliveryMode
   private readonly registerThrottle: PushRegisterThrottle
@@ -70,11 +74,15 @@ export class DesktopPushService {
     this.registry = registry
     this.client = client
     this.outbox = options.runtimeRpc.getPushUnregisterOutbox()
+    const prompt = desktopPushPrompt(this.runtime, client)
+    this.promptCategory = prompt.gate
     this.deliveryMode = readMobilePushDeliveryMode()
     this.dispatcher = new PushDispatcher({
       client,
       registry,
       deliveryMode: this.deliveryMode,
+      promptCategory: prompt.gate,
+      promptFor: prompt.promptFor,
       coverage: options.coverage
     })
     this.badgeSync = new PushBadgeSync({ client, registry, runtime: options.runtime })
@@ -101,6 +109,7 @@ export class DesktopPushService {
 
   start(): void {
     this.stopped = false
+    this.promptCategory.refresh()
     this.dispatcher.start()
     this.runtime.setMobilePushRegistrar(this)
     this.unsubscribe = this.runtime.onNotificationDispatched((event) => {
