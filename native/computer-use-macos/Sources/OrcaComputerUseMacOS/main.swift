@@ -5327,7 +5327,9 @@ private func printPermissionStatus() {
 
 private let selfResponsibleMarker = "ORCA_COMPUTER_USE_SELF_RESPONSIBLE"
 
-// Why: TCC judges the spawner's responsible app, so the probe and dev agents disclaim it to be judged as this helper.
+// Why: Orca spawns the helper directly to own its PID, so TCC must be told to judge this helper, not its spawner
+// (Orca.app, or node for a dev server); otherwise the agent fails screen-capture preflight and sees no windows.
+// `required` exits on failure (status probe); the agent keeps running degraded rather than not at all.
 private func becomeSelfResponsible(required: Bool) {
     typealias ResponsiblePid = @convention(c) (pid_t) -> pid_t
     typealias SetDisclaim = @convention(c) (UnsafeMutablePointer<posix_spawnattr_t?>, Bool) -> Int32
@@ -5344,9 +5346,11 @@ private func becomeSelfResponsible(required: Bool) {
         return fail("computer-use helper needs macOS responsibility disclaim")
     }
     if unsafeBitCast(responsibleSymbol, to: ResponsiblePid.self)(getpid()) == getpid() {
+        unsetenv(selfResponsibleMarker)
         return
     }
     guard getenv(selfResponsibleMarker) == nil else {
+        unsetenv(selfResponsibleMarker)
         return fail("computer-use helper is still attributed to its parent")
     }
     setenv(selfResponsibleMarker, "1", 1)
@@ -5358,6 +5362,7 @@ private func becomeSelfResponsible(required: Bool) {
     let executable = Bundle.main.executablePath ?? CommandLine.arguments[0]
     let status = posix_spawn(nil, executable, nil, &attributes, CommandLine.unsafeArgv, environ)
     posix_spawnattr_destroy(&attributes)
+    unsetenv(selfResponsibleMarker)
     fail("failed to re-exec computer-use helper: \(String(cString: strerror(status)))")
 }
 
@@ -5468,9 +5473,8 @@ let permissionLocale = arguments.firstIndex(of: "--locale").flatMap { index -> S
 }
 let permissionCopy = PermissionWindowCopy(localeIdentifier: permissionLocale)
 if arguments.first == "--agent" {
-    if arguments.contains("--self-responsible") {
-        becomeSelfResponsible(required: false)
-    }
+    // Why: dev spawns still pass --self-responsible; it is now implied for every agent launch.
+    becomeSelfResponsible(required: false)
     guard arguments.count >= 2 else {
         fputs("usage: orca-computer-use-macos --agent <socket-path> --token-file <token-path>\n", stderr)
         exit(2)
