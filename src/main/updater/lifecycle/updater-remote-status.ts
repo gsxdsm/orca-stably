@@ -17,7 +17,7 @@ export abstract class UpdaterRemoteStatus extends UpdaterNudge {
   }
 
   protected getRemoteServerUpdateSupport(): RemoteServerUpdateSupport {
-    if (!app.isPackaged) {
+    if (!app.isPackaged || this.isAutoUpdateDisabled()) {
       return {
         installMode: this.updateInstallMode,
         automatic: false,

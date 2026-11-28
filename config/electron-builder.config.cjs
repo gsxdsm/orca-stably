@@ -107,6 +107,7 @@ const {
 const isMacHourly = process.env.ORCA_MAC_HOURLY === '1'
 const isMacDaily = process.env.ORCA_MAC_DAILY === '1'
 const isMacAdhoc = process.env.ORCA_MAC_ADHOC === '1'
+const isMacDev = process.env.ORCA_MAC_DEV === '1'
 // Keep Windows dev flags separate: mac flags enable hardened runtime/notarization/global signing, which would demand an unavailable Windows cert.
 const isWinHourly = process.env.ORCA_WIN_HOURLY === '1'
 const isWinDaily = process.env.ORCA_WIN_DAILY === '1'
@@ -134,7 +135,17 @@ const devChannelRepo = isHourlyChannel
     : isAdhocChannel
       ? 'orca-adhoc'
       : null
-const appId = 'com.stablyai.orca'
+const appId = isMacDev ? 'com.gsxdsm.orca.dev' : 'com.stablyai.orca'
+const productName = isMacDev ? 'Orca Dev' : 'Orca'
+const macIconPath = isMacDev ? 'resources/build/icon-dev.icns' : 'resources/build/icon.icns'
+const extraMetadata = {
+  ...(isMacDev ? { name: 'orca-dev' } : {}),
+  ...(devChannelBuildVersion
+    ? { version: devChannelBuildVersion }
+    : localBuildVersion
+      ? { version: localBuildVersion }
+      : {})
+}
 const featureWallResources = {
   from: 'resources/onboarding/feature-wall',
   to: 'onboarding/feature-wall'
@@ -272,14 +283,12 @@ const ORCA_MAC_TEAM_ID = '6CX3WHS9HZ'
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
   appId,
-  productName: 'Orca',
-  protocols: [{ name: 'Orca', schemes: ['orca'] }],
+  productName,
+  protocols: isMacDev
+    ? [{ name: 'Orca Dev', schemes: ['orca-dev'] }]
+    : [{ name: 'Orca', schemes: ['orca'] }],
   toolsets: { appimage: '1.0.3' },
-  ...(devChannelBuildVersion
-    ? { extraMetadata: { version: devChannelBuildVersion } }
-    : localBuildVersion
-      ? { extraMetadata: { version: localBuildVersion } }
-      : {}),
+  ...(Object.keys(extraMetadata).length > 0 ? { extraMetadata } : {}),
   directories: {
     buildResources: 'resources/build'
   },
@@ -701,7 +710,7 @@ module.exports = {
     // Set for ONNX Runtime (#22690, #39135), now gone; transcribe-cpp needs 11.0, Electron 12.0. Kept until
     // Kelvin decides. The update-manifest gate reads this from Info.plist.
     minimumSystemVersion: '13.4',
-    icon: 'resources/build/icon.icns',
+    icon: macIconPath,
     entitlements: 'resources/build/entitlements.mac.plist',
     entitlementsInherit: 'resources/build/entitlements.mac.plist',
     ...(isMacRelease
@@ -763,11 +772,11 @@ module.exports = {
     target: [
       {
         target: 'dmg',
-        arch: ['x64', 'arm64']
+        arch: isMacDev ? ['arm64'] : ['x64', 'arm64']
       },
       {
         target: 'zip',
-        arch: ['x64', 'arm64']
+        arch: isMacDev ? ['arm64'] : ['x64', 'arm64']
       }
     ]
   },
@@ -775,7 +784,7 @@ module.exports = {
   // silently downgrading to ad-hoc artifacts that look shippable in CI logs.
   forceCodeSigning: isMacRelease,
   dmg: {
-    artifactName: 'orca-macos-${arch}.${ext}'
+    artifactName: isMacDev ? 'orca-dev-macos-${arch}.${ext}' : 'orca-macos-${arch}.${ext}'
   },
   linux: {
     // shared-mime-info already maps md/markdown: advertise handler only, leaving mimeapps.list defaults intact.
@@ -872,13 +881,17 @@ module.exports = {
   // Dual-arch builds need target node-pty rebuilds or Intel Macs get arm64 binaries and posix_spawnp failure.
   // beforeBuild performs targeted rebuild then returns false to skip optional cpu-features.
   npmRebuild: true,
-  publish: {
-    provider: 'github',
-    owner: 'stablyai',
-    repo: devChannelRepo ?? 'orca',
-    // Keep main-repo releases draft until release-cut verifies all assets; early --publish always would expose missing Windows installers.
-    releaseType: devChannelRepo ? 'prerelease' : 'draft'
-  }
+  ...(isMacDev
+    ? { publish: null }
+    : {
+        publish: {
+          provider: 'github',
+          owner: 'stablyai',
+          repo: devChannelRepo ?? 'orca',
+          // Keep main-repo releases draft until release-cut verifies all assets; early --publish always would expose missing Windows installers.
+          releaseType: devChannelRepo ? 'prerelease' : 'draft'
+        }
+      })
 }
 
 // Stamp the effective channel version where node-mode CLI code can read it.
@@ -947,7 +960,7 @@ async function packageMacTerminalHost(appPath, context) {
   await buildMacTerminalHost({
     appPath,
     arch,
-    iconPath: resolve(__dirname, '../resources/build/icon.icns'),
+    iconPath: resolve(__dirname, '..', macIconPath),
     entitlementsPath: resolve(__dirname, '../resources/build/entitlements.mac.plist'),
     usageDescriptions: macUsageDescriptions,
     signCode: (path, { entitlements }) =>
@@ -1021,13 +1034,14 @@ function findInstalledMacSigningIdentity(keychainFile) {
         encoding: 'utf8'
       }
     )
-    const releaseMatch =
-      output.match(/"([^"]*Developer ID Application:[^"]+)"/) ??
-      output.match(/"([^"]*Apple Distribution:[^"]+)"/)
+    const releaseMatch = isMacDev
+      ? output.match(/"([^"]*Developer ID Application:[^"]+)"/)
+      : (output.match(/"([^"]*Developer ID Application:[^"]+)"/) ??
+        output.match(/"([^"]*Apple Distribution:[^"]+)"/))
     if (releaseMatch?.[1]) {
       return releaseMatch[1]
     }
-    if (!isMacRelease) {
+    if (!isMacRelease && !isMacDev) {
       return output.match(/"([^"]*Apple Development:[^"]+)"/)?.[1] ?? null
     }
   } catch {}

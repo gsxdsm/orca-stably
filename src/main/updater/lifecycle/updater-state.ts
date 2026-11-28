@@ -1,4 +1,4 @@
-import type { BrowserWindow } from 'electron'
+import { app, type BrowserWindow } from 'electron'
 import type { ElectronAutoUpdater } from '../electron-updater-loader'
 import type { LocalBuildFeed } from '../../local-builds/local-build-feed-server'
 import type {
@@ -39,6 +39,14 @@ export type PreQuitCleanupFailureMode = 'continue' | 'abort'
 /** 'manual' is the local window's preload, which checkpoints the renderer before invoking; every other trigger needs main to. */
 export type UpdateInstallTrigger = 'manual' | 'remote' | 'automatic' | 'team-policy'
 
+export function isAutoUpdateDisabled(): boolean {
+  if (process.env.ORCA_DISABLE_AUTO_UPDATE === '1') {
+    return true
+  }
+  const appName = app.getName().toLowerCase()
+  return appName === 'orca-dev' || appName === 'orca dev'
+}
+
 export function isPendingTeamRestart(status: UpdateStatus): boolean {
   return (
     status.state === 'downloaded' &&
@@ -61,6 +69,10 @@ export class ReleaseFeedPreflightError extends Error {
 }
 
 export abstract class UpdaterState {
+  protected isAutoUpdateDisabled(): boolean {
+    return isAutoUpdateDisabled()
+  }
+
   protected getMainWindow: () => BrowserWindow | null = () => null
   protected currentStatus: UpdateStatus = { state: 'idle' }
   protected userInitiatedCheck = false

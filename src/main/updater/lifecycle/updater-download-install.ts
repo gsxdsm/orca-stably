@@ -172,6 +172,7 @@ export abstract class UpdaterDownloadInstall extends UpdaterRequiredRestart {
   private canDownloadAutomatically(version: string): boolean {
     return (
       app.isPackaged &&
+      !this.isAutoUpdateDisabled() &&
       this.getAutomaticUpdates?.() === true &&
       this.implicitInstallOnQuit &&
       this.automaticDownloadOfferVersion === version &&
