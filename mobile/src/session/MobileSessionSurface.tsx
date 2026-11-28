@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, type ComponentProps } from 'react'
 import { View } from 'react-native'
 import { stylesSheet } from './mobile-session-styles'
 import { useThemedStyles } from '../theme/themed-styles'
@@ -18,6 +18,15 @@ import { useMobileSessionTabSummaryChannel } from './tabs/use-mobile-session-tab
 import { useSessionRouteRequest } from './use-session-route-request'
 import { useReleasedSideInset } from '../layout/released-side-inset'
 import { sideStripPadding } from './session-side-strip-inset'
+import { DuoRailBackButton } from './DuoRailBackButton'
+import { useKeyboardOcclusion } from '../platform/keyboard/keyboard-occlusion'
+import { useSessionRailBack } from './use-duo-rail-back'
+
+function KeyboardDuoRailBackButton(
+  props: Omit<ComponentProps<typeof DuoRailBackButton>, 'keyboardInset'>
+) {
+  return <DuoRailBackButton {...props} keyboardInset={useKeyboardOcclusion()} />
+}
 
 export function MobileSessionSurface({ controller }: { controller: MobileSessionController }) {
   const styles = useThemedStyles(stylesSheet)
@@ -77,6 +86,7 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
       ),
     [homeChatId, sessionTabs, activeSessionTabId, switchSessionTab, openNativeSession, worktreeId]
   )
+  const onRailBack = useSessionRailBack(controller.requestLeaveSession)
   return (
     <View ref={setMobileSessionRootRef} style={styles.container}>
       <MobileSessionSidebarStage
@@ -115,6 +125,7 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
           </BotItemOpenContext.Provider>
         </View>
       </MobileSessionSidebarStage>
+      <KeyboardDuoRailBackButton chatVisible={controller.showNativeChat} onBack={onRailBack} />
       <MobileSessionSheets controller={controller} />
     </View>
   )
