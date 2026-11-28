@@ -63,7 +63,11 @@ struct NeedsYouView: View {
   }
 
   private func session(for row: InboxRow) -> WatchSession? {
-    guard let snapshot = model.snapshot, let key = row.sessionKey else { return nil }
+    guard let snapshot = model.snapshot else { return nil }
+    let prompt = row.promptId.flatMap { id in
+      snapshot.prompts.first { $0.hostId == row.hostId && $0.promptId == id }
+    }
+    guard let key = row.sessionKey ?? prompt?.sessionKey else { return nil }
     let matches = snapshot.sessions.filter { $0.key == key }
     guard matches.count == 1, let session = matches.first, session.hostId == row.hostId,
           row.promptId == nil || session.pendingPromptId == row.promptId else { return nil }
