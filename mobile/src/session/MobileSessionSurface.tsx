@@ -20,8 +20,16 @@ import { SessionListLongPressOverride } from '../navigation/session-list-long-pr
 import { useReleasedSideInset } from '../layout/released-side-inset'
 import { sideStripPadding } from './session-side-strip-inset'
 import { DuoRailBackButton } from './DuoRailBackButton'
+import { DuoRailJumpHost, DuoRailJumpOverlay } from './duo-rail-jump-controls'
 import { useKeyboardOcclusion } from '../platform/keyboard/keyboard-occlusion'
 import { useSessionRailBack } from './use-duo-rail-back'
+
+// Read the keyboard here, so a keyboard change re-renders only these shells and not the whole session.
+function KeyboardDuoRailJumpHost(
+  props: Omit<ComponentProps<typeof DuoRailJumpHost>, 'keyboardInset'>
+) {
+  return <DuoRailJumpHost {...props} keyboardInset={useKeyboardOcclusion()} />
+}
 
 function KeyboardDuoRailBackButton(
   props: Omit<ComponentProps<typeof DuoRailBackButton>, 'keyboardInset'>
@@ -90,46 +98,49 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
   const onRailBack = useSessionRailBack(controller.requestLeaveSession)
   return (
     <SessionListLongPressOverride action={controller.requestLeaveToSessionList}>
-      <View ref={setMobileSessionRootRef} style={styles.container}>
-        <MobileSessionSidebarStage
-          sidebar={sidebar}
-          cardLabel={controller.activeSessionTab?.title || controller.worktreeName}
-          panel={
-            <MobileSessionSidebar
-              controller={controller}
-              sidebar={sidebar}
-              summaries={summaries}
-              place={controller.terminalSummary}
-              connectionIssue={connectionIssue}
-            />
-          }
-        >
-          <View style={styles.kavInner}>
-            <MobileSessionHeader
-              controller={controller}
-              homeChatId={homeChatId ?? null}
-              summaries={summaries}
-              sidebar={sidebar}
-              connectionIssue={connectionIssue}
-            />
-            <View style={sideStripPadding(releasedStrip)}>
-              <MobileWorkerAutoCloseStrip controller={controller} />
+      <KeyboardDuoRailJumpHost chatVisible={controller.showNativeChat}>
+        <View ref={setMobileSessionRootRef} style={styles.container}>
+          <MobileSessionSidebarStage
+            sidebar={sidebar}
+            cardLabel={controller.activeSessionTab?.title || controller.worktreeName}
+            panel={
+              <MobileSessionSidebar
+                controller={controller}
+                sidebar={sidebar}
+                summaries={summaries}
+                place={controller.terminalSummary}
+                connectionIssue={connectionIssue}
+              />
+            }
+          >
+            <View style={styles.kavInner}>
+              <MobileSessionHeader
+                controller={controller}
+                homeChatId={homeChatId ?? null}
+                summaries={summaries}
+                sidebar={sidebar}
+                connectionIssue={connectionIssue}
+              />
+              <View style={sideStripPadding(releasedStrip)}>
+                <MobileWorkerAutoCloseStrip controller={controller} />
+              </View>
+              {/* A chat's item chips open the item's page in the bot panel. */}
+              <BotItemOpenContext.Provider value={openItem}>
+                <BotChatOpenContext.Provider value={openChat}>
+                  <BotPanelOpenContext.Provider value={panelOpener}>
+                    <SidebarPageDragContext.Provider value={sidebar.pageDrag}>
+                      <MobileSessionContentRow controller={controller} />
+                    </SidebarPageDragContext.Provider>
+                  </BotPanelOpenContext.Provider>
+                </BotChatOpenContext.Provider>
+              </BotItemOpenContext.Provider>
             </View>
-            {/* A chat's item chips open the item's page in the bot panel. */}
-            <BotItemOpenContext.Provider value={openItem}>
-              <BotChatOpenContext.Provider value={openChat}>
-                <BotPanelOpenContext.Provider value={panelOpener}>
-                  <SidebarPageDragContext.Provider value={sidebar.pageDrag}>
-                    <MobileSessionContentRow controller={controller} />
-                  </SidebarPageDragContext.Provider>
-                </BotPanelOpenContext.Provider>
-              </BotChatOpenContext.Provider>
-            </BotItemOpenContext.Provider>
-          </View>
-        </MobileSessionSidebarStage>
-        <KeyboardDuoRailBackButton chatVisible={controller.showNativeChat} onBack={onRailBack} />
-        <MobileSessionSheets controller={controller} />
-      </View>
+          </MobileSessionSidebarStage>
+          <KeyboardDuoRailBackButton chatVisible={controller.showNativeChat} onBack={onRailBack} />
+          <DuoRailJumpOverlay />
+          <MobileSessionSheets controller={controller} />
+        </View>
+      </KeyboardDuoRailJumpHost>
     </SessionListLongPressOverride>
   )
 }

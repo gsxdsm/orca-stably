@@ -102,6 +102,37 @@ export function duoRailBackFrame(args: RowArgs): DuoRailControlFrame {
   return { top, left, size }
 }
 
+export type DuoRailJumpFrames = {
+  previous: DuoRailControlFrame
+  latest: DuoRailControlFrame
+}
+
+/**
+ * ↑ above ↓, on the back button's midX, with a gap above the composer.
+ * Null when that stack would meet the back button or the status occlusion.
+ * While the keyboard is up the back button is hidden, so the stack may use that slot.
+ */
+export function duoRailJumpFrames(
+  args: RowArgs & { composerTop: number; keyboardUp: boolean }
+): DuoRailJumpFrames | null {
+  if (!(args.composerTop > 0)) {
+    return null
+  }
+  const back = duoRailBackFrame(args)
+  const size = back.size
+  const gap = spacing.sm
+  const latestTop = args.composerTop - gap - size
+  const previousTop = latestTop - gap - size
+  const floor = args.keyboardUp ? args.strip.top : back.top + back.size + gap
+  if (previousTop < floor || latestTop + size > args.composerTop - gap) {
+    return null
+  }
+  return {
+    previous: { top: previousTop, left: back.left, size },
+    latest: { top: latestTop, left: back.left, size }
+  }
+}
+
 function clusterMidX(args: RowArgs, column: ReservedRect | null): number {
   const mark = column === null ? null : statusGlyph(column, args.occlusions)
   if (mark !== null) {

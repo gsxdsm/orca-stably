@@ -35,7 +35,6 @@ import { useMobileNativeChatTurnDisclosure } from './transcript/turn-state/use-m
 import { mobileNativeChatComposerPlaceholder } from './composer/field/use-mobile-native-chat-input-lease'
 import { MobileNativeChatLiveLine } from './transcript/messages/MobileNativeChatLiveLine'
 import { MobileNativeChatAwaitingInputRow } from './transcript/messages/MobileNativeChatAwaitingInputRow'
-import { MobileNativeChatFloatingControls } from './lower-region/MobileNativeChatFloatingControls'
 import { MobileNativeChatDraftComposer } from './composer/MobileNativeChatDraftComposer'
 import { MobileNativeChatPromptCard } from './input/prompts/MobileNativeChatPromptCard'
 import { useMobileNativeChatWorkerApprovalSlot } from './input/prompts/MobileNativeChatWorkerApproval'
@@ -51,6 +50,9 @@ import {
 } from './composer/menus/use-mobile-native-chat-composer-tray'
 import { MobileNativeChatScrollRootsBoundary } from './transcript/viewport/MobileNativeChatScrollRootsBoundary'
 import { useChatBottomFit } from './composer/use-chat-bottom-fit'
+import { DuoRailComposerTop, MobileNativeChatJumpControls } from '../duo-rail-jump-controls'
+import { MobileEdgeFade } from '../../components/list/MobileEdgeFade'
+import { useMobileColors } from '../../theme/use-mobile-color-scheme'
 import { useMobileNativeChatPreviousStops } from './transcript/use-mobile-native-chat-previous-stops'
 import { MobileNativeChatRowList } from './transcript/MobileNativeChatRowList'
 import { useMobileNativeChatRowRenderer } from './transcript/projection/use-mobile-native-chat-row-renderer'
@@ -152,6 +154,7 @@ export function MobileNativeChatView({
   keyboardInset = 0
 }: Props): React.JSX.Element {
   const styles = useThemedStyles(stylesSheet)
+  const colors = useMobileColors()
   const t = useMobileTranslation()
   const { bottomPad, composerFit, transcriptInset } = useChatBottomFit(keyboardInset)
   const rootStyle = [styles.root, { paddingBottom: bottomPad }]
@@ -340,7 +343,7 @@ export function MobileNativeChatView({
         {...{ permission, onRespondPermission, question, onAnswerQuestion, onCollapsePrompt }}
         {...{ onAnswerInTerminal, collapsedPrompt, notice }}
       />
-      <View style={promptOwnsInput ? styles.hidden : undefined}>
+      <DuoRailComposerTop keyboardInset={keyboardInset} hidden={promptOwnsInput}>
         <MobileNativeChatDraftComposer
           {...composerFit}
           draftScopeKey={composerScopeKey}
@@ -361,7 +364,7 @@ export function MobileNativeChatView({
           {...{ filePaths, onNeedFiles, fileReference, skillDiscovery, onNeedSkills }}
           stop={canStop ? { onStop, held: turnIndicator?.stopRequestInFlight === true } : null}
         />
-      </View>
+      </DuoRailComposerTop>
     </>
   )
 
@@ -413,8 +416,10 @@ export function MobileNativeChatView({
                 </MobileMarkdownBotCardContext.Provider>
               </MobileBotCardSendContext.Provider>
             </MobileNativeChatDisclosureContext.Provider>
-            <MobileNativeChatFloatingControls
-              canvasFades
+            {/* Drawn here, not by the jump controls, so the fades stay while the jumps sit in the Duo rail. */}
+            <MobileEdgeFade edge="top" color={colors.chatCanvas} />
+            <MobileEdgeFade edge="bottom" color={colors.chatCanvas} />
+            <MobileNativeChatJumpControls
               showJumpToTail={tail.showJumpToTail}
               onJumpToTail={jumpToTail}
               showPreviousMessage={tail.showPreviousMessage}
