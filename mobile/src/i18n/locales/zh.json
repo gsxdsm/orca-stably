@@ -2823,6 +2823,12 @@
       "needsMeHint": "仅限权限请求和提问",
       "notWhileViewing": "不提醒我正在查看的工作区",
       "sound": "通知声音"
+    },
+    "reply": {
+      "failed": "回复未发送",
+      "unconfirmed": "无法确认送达。重新发送前请检查聊天。",
+      "refused": "主机拒绝了回复。请检查聊天。",
+      "unreachable": "无法连接主机。您的回复已保存。"
     }
   },
   "onboarding": {

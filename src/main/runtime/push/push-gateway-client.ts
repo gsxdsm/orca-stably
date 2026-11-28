@@ -1,5 +1,6 @@
 // Return best-effort gateway outcomes instead of throwing through notification fan-out.
 import { z } from 'zod'
+import type { NotificationReplyTarget } from '../../../shared/notifications/notification-reply'
 import { lazyZodSchema } from '../../../shared/schema/lazy-zod-schema'
 import { cancelUnreadResponseBody } from '../../lib/unread-response-body'
 import type { E2EEKeypair } from '../rpc/server/pairing/e2ee-keypair'
@@ -55,7 +56,8 @@ export type PushSendNotification = {
   worktreeId?: string
   paneKey?: string
   executionHost?: `runtime:${string}`
-  category?: typeof MOBILE_PUSH_PROMPT_CATEGORY
+  category?: typeof MOBILE_PUSH_PROMPT_CATEGORY | 'orca.reply'
+  replyTarget?: NotificationReplyTarget
   prompt?: MobilePushPrompt
 }
 
@@ -128,6 +130,14 @@ export class PushGatewayClient {
 
   /** Unauthenticated. A 404 or any error is "this gateway does not advertise prompt categories". */
   async readPromptCategory(): Promise<boolean> {
+    return this.readCategoryCapability('promptCategory')
+  }
+
+  async readReplyCategory(): Promise<boolean> {
+    return this.readCategoryCapability('replyCategory')
+  }
+
+  private async readCategoryCapability(name: 'promptCategory' | 'replyCategory'): Promise<boolean> {
     try {
       const response = await this.fetchImpl(`${this.origin}/v1/capabilities`, {
         method: 'GET',
@@ -142,8 +152,10 @@ export class PushGatewayClient {
       return (
         typeof body === 'object' &&
         body !== null &&
-        'promptCategory' in body &&
-        body.promptCategory === true
+        name in body &&
+        (name === 'replyCategory'
+          ? 'replyCategory' in body && body.replyCategory === true
+          : 'promptCategory' in body && body.promptCategory === true)
       )
     } catch {
       return false
