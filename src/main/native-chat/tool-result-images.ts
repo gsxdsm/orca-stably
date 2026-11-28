@@ -1,3 +1,5 @@
+import type { AgentJournalToolCallItem } from '../../shared/agent-session/journal/agent-session-journal-types'
+import type { ToolCallUpdate } from '../acp/generated/acp-protocol.generated'
 import { createHash } from 'node:crypto'
 import { readFileSync, statSync } from 'node:fs'
 import { basename, extname, isAbsolute } from 'node:path'
@@ -254,4 +256,20 @@ function defaultSpool(bytes: Buffer, extension: string): string | null {
   const hash = createHash('sha256').update(bytes).digest('hex')
   const name = `chat-image-${hash}${extension}`
   return getAgentSessionAttachmentStore()?.storeImageOnce(name, bytes) ?? null
+}
+
+export function acpToolCallImageFields(
+  update: ToolCallUpdate,
+  previous: AgentJournalToolCallItem['images']
+): Pick<AgentJournalToolCallItem, 'images'> {
+  const discovered = acpToolImageRefs(update)
+  const images =
+    discovered.length > 0
+      ? discovered.map(({ path, url, alt }) => ({
+          ...(path ? { path } : {}),
+          ...(url ? { url } : {}),
+          ...(alt ? { alt } : {})
+        }))
+      : previous
+  return images?.length ? { images } : {}
 }

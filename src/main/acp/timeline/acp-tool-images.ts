@@ -8,9 +8,7 @@ import {
 import { assertRasterImagePreviewWithinLimits } from '../../../shared/file-preview/raster-image-preview-limits'
 import { getAgentSessionAttachmentStore } from '../../native-chat/agent-session-attachments/agent-session-attachment-store-registry'
 import { LOCAL_PREVIEWABLE_BINARY_MAX_BYTES } from '../../runtime/files/file-preview-budget'
-import type { AgentJournalToolCallItem } from '../../../shared/agent-session/journal/agent-session-journal-types'
-import { acpToolImageRefs } from '../../native-chat/tool-result-images'
-import type { ToolCallContent, ToolCallUpdate } from '../generated/acp-protocol.generated'
+import type { ToolCallContent } from '../generated/acp-protocol.generated'
 
 // Raster only: SVG is script-capable markup, not a picture tile.
 const RASTER_EXTENSIONS = new Map([
@@ -64,20 +62,4 @@ export function acpToolImagePaths(content: readonly ToolCallContent[]): string[]
     }
   }
   return paths
-}
-
-export function acpToolCallImageFields(
-  update: ToolCallUpdate,
-  previous: AgentJournalToolCallItem['images']
-): Pick<AgentJournalToolCallItem, 'images'> {
-  const discovered = acpToolImageRefs(update)
-  const images =
-    discovered.length > 0
-      ? discovered.map(({ path, url, alt }) => ({
-          ...(path ? { path } : {}),
-          ...(url ? { url } : {}),
-          ...(alt ? { alt } : {})
-        }))
-      : previous
-  return images?.length ? { images } : {}
 }

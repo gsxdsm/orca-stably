@@ -16,7 +16,8 @@ import { BoundedMap } from '../../../shared/collections/bounded-map'
 import type { AcpBackgroundTaskUpdate, AcpDialect } from '../acp-dialects/acp-dialect'
 import type { ToolCallUpdate } from '../generated/acp-protocol.generated'
 import { nativeChatToolImageReadPath } from '../../../shared/native-chat/tools/native-chat-tool-viewed-images'
-import { acpToolCallImageFields, acpToolImagePaths } from './acp-tool-images'
+import { acpToolImagePaths } from './acp-tool-images'
+import { acpToolCallImageFields } from '../../native-chat/tool-result-images'
 
 const rawStreamsSchema = z.object({ stdout: z.string().optional(), stderr: z.string().optional() })
 const rawExitCodeSchema = z.looseObject({ exitCode: z.number().int().safe() })
@@ -257,13 +258,11 @@ export class AcpToolTimeline {
       this.tools.delete(update.toolCallId)
     }
     // A call this run never saw start (a cut replay; its row is saved): every update keeps that row.
+    const callId = update.toolCallId
     if (!previous && 'sessionUpdate' in raw && raw.sessionUpdate === 'tool_call_update') {
-      this.unseen.add(update.toolCallId)
+      this.unseen.add(callId)
     }
-    const unseen = this.unseen.has(update.toolCallId)
-    if (state !== 'running') {
-      this.unseen.delete(update.toolCallId)
-    }
+    const unseen = state === 'running' ? this.unseen.has(callId) : this.unseen.delete(callId)
     const events: ProviderTimelineEvent[] = [
       {
         type: state === 'running' ? (previous ? 'item.update' : 'item.open') : 'item.close',

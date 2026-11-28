@@ -5,7 +5,10 @@ import type { RpcClient } from '../../../transport/rpc/rpc-client-contract'
 import { useMobileWorkerApprovals } from '../input/prompts/use-mobile-worker-approvals'
 import { useMobilePairedServerAsks } from '../input/prompts/use-mobile-paired-server-asks'
 import { useMobileWorkerDock } from '../input/tasks/use-mobile-worker-dock'
-import type { MobileNativeChatController } from '../mobile-native-chat-controller-contract'
+import type {
+  MobileNativeChatController,
+  MobileNativeChatShownSession
+} from '../mobile-native-chat-controller-contract'
 import type { StructuredAgentSessionHostSupport } from '../agent-session/mobile-structured-agent-session-host-support'
 import type { ConnectionState } from '../../../transport/connection/connection-state'
 import { useMobileNativeChatSession } from './use-mobile-native-chat-session'
@@ -13,7 +16,6 @@ import { useMobileStructuredAgentSession } from '../agent-session/use-mobile-str
 import { useMobileStructuredSessionCommands } from '../composer/commands/use-mobile-structured-session-commands'
 import type { MobileNativeChatResolution } from './mobile-native-chat-eligibility'
 import type { MobileNativeChatSendErrorReporter } from '../composer/delivery/use-mobile-native-chat-send-error'
-import type { MobileNativeChatShownSession } from '../mobile-native-chat-controller-contract'
 import { useMobileTranscriptTaskList } from '../use-mobile-transcript-task-list'
 import { useMobileNativeChatSubagentReader } from '../input/read-mobile-native-chat-subagent-page'
 
