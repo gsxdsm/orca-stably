@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the page list keeps previous-message alignment beside upstream row scrolling. */
 import type { MobileNativeChatItemJump } from './use-mobile-native-chat-item-navigation'
 import { useMobileNativeChatPageItemJump } from './use-mobile-native-chat-page-item-jump'
 import {
@@ -29,6 +30,7 @@ import {
   type MobileNativeChatScrollNode
 } from './mobile-native-chat-reading-place'
 import type { MobileNativeChatListHandle } from './use-mobile-native-chat-tail-follow'
+import { useMobileNativeChatPreviousAlign } from '../use-mobile-native-chat-previous-align'
 import type { MobileNativeChatScrollRoots } from './mobile-native-chat-scroll-roots'
 import { scrollWritesStopMomentum } from './mobile-native-chat-scroll-motion'
 import {
@@ -272,23 +274,39 @@ export function MobileNativeChatPageList({
     [isFollowing]
   )
 
+  const align = useMobileNativeChatPreviousAlign({
+    scroller,
+    write,
+    notePlace,
+    keepPlace,
+    latest,
+    revealUndrawn: (index) => {
+      const { keys: rows, n, rowKeys: scoped } = latest.current
+      setDrawn({ scope: scoped.scope, firstKey: rows[index]!, count: n - index })
+    }
+  })
+
   useImperativeHandle(
     ref,
     () => ({
       scrollToEnd: () => {
+        align.cancelAlign()
         const s = scroller()
         if (s) {
           write(s, 0)
         }
       },
       scrollToOffset: ({ offset }) => {
+        align.cancelAlign()
         const s = scroller()
         if (s) {
           write(s, offset - (s.scrollHeight - s.clientHeight))
         }
-      }
+      },
+      hasPreviousMessage: align.hasPreviousMessage,
+      revealPreviousMessage: align.revealPreviousMessage
     }),
-    [scroller, write]
+    [align.cancelAlign, align.hasPreviousMessage, align.revealPreviousMessage, scroller, write]
   )
 
   useMobileNativeChatPageItemJump({
@@ -308,7 +326,7 @@ export function MobileNativeChatPageList({
       return
     }
     // Chromium keeps a touch scroll's offset from the top, so rows drawn or cut above would carry the reader with them; a write hands the scroll the end-anchored offset.
-    if (keys[first] !== drawnHead.current) {
+    if (!align.aligning.current && keys[first] !== drawnHead.current) {
       drawnHead.current = keys[first]
       if (!resting() && !scrollWritesStopMomentum()) {
         const top = s.scrollTop
@@ -316,8 +334,9 @@ export function MobileNativeChatPageList({
         write(s, top)
       }
     }
-    keepPlace(s)
+    align.keepPlaceUnlessAligning(s)
     drawAndFetch(s)
+    align.finishPendingAlign(s)
   })
 
   // Content and viewport resizes (e.g. the composer growing) bypass commits; restore nested scroll boxes first.
@@ -330,8 +349,9 @@ export function MobileNativeChatPageList({
     }
     const observer = new ResizeObserver(() => {
       roots?.restoreAll()
-      keepPlace(s)
+      align.keepPlaceUnlessAligning(s)
       drawAndFetch(s)
+      align.finishPendingAlign(s)
     })
     observer.observe(viewport)
     observer.observe(content)
@@ -349,6 +369,7 @@ export function MobileNativeChatPageList({
     }
     // A release that hands over to a fling comes right after a scroll, which still counts.
     const down = () => {
+      align.cancelAlign()
       touching.current = true
       hold()
     }
@@ -365,7 +386,7 @@ export function MobileNativeChatPageList({
       downs.forEach((type) => s.removeEventListener(type, down, options))
       ups.forEach((type) => s.removeEventListener(type, up, options))
     }
-  }, [scroller, hold])
+  }, [align.cancelAlign, scroller, hold])
 
   const scrolled = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -374,8 +395,10 @@ export function MobileNativeChatPageList({
       if (!s) {
         return
       }
-      const byReader = own.current === null || Math.abs(s.scrollTop - own.current) >= 1
       // RN Web repeats the last scroll event 100 ms after scrolling stops; keep our write so that repeat is ours too.
+      const byReader =
+        !align.aligning.current &&
+        (own.current === null || Math.abs(s.scrollTop - own.current) >= 1)
       if (byReader) {
         own.current = null
         readerScrolledAt.current = Date.now()
