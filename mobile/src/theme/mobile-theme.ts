@@ -259,6 +259,8 @@ export const typography = {
   titleSize: 18,
   bodySize: 14,
   metaSize: 12,
+  /** Dense secondary readouts that must fit beside controls, like the composer usage meter. */
+  captionSize: 11,
   monoFamily: codeFontFamily
 } as const
 

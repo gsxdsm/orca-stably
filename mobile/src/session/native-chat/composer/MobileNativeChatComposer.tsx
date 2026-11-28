@@ -48,7 +48,8 @@ import { MobileNativeChatMcpTray } from '../mcp/MobileNativeChatMcpTray'
 import { MobileNativeChatQuoteTab } from './quotes/MobileNativeChatQuoteTab'
 import { tuiAgentDisplayName } from '../../../../../src/shared/agent-launch/catalog/tui-agent-display-names'
 import { useThemedStyles } from '../../../theme/themed-styles'
-import { MobileNativeChatWidthToggle } from './MobileNativeChatWidthToggle'
+import { MobileNativeChatActionGap } from './MobileNativeChatActionGap'
+import { ComposerUsageStrip } from '../../../composer-usage/ComposerUsageMeter'
 
 const NO_FILE_PATHS: string[] = []
 const NO_ATTACHMENTS: PendingNativeChatImage[] = []
@@ -297,6 +298,7 @@ export function MobileNativeChatComposer({
             onLayout={collapse.onContentLayout}
           >
             {collapsed ? null : <MobileNativeChatContextLimitLine {...modes.context} />}
+            {editSession || collapsed ? null : <ComposerUsageStrip agent={agent} spanSideStrip />}
             <MobileNativeChatComposerAttachments
               images={attachments}
               files={files}
@@ -380,8 +382,13 @@ export function MobileNativeChatComposer({
                   />
                 )}
               </MobileNativeChatDictationLeading>
-              {/* The pill's field lies over the row's middle, so the toggle waits for the full form. */}
-              {widthToggle && !collapsed ? <MobileNativeChatWidthToggle {...widthToggle} /> : null}
+              {/* The pill's field lies over the row's middle, so the meter and toggle wait for the full form. */}
+              {collapsed ? null : (
+                <MobileNativeChatActionGap
+                  agent={editSession ? null : agent}
+                  toggle={widthToggle}
+                />
+              )}
               {editSession ? mic : null}
               {editSession ? (
                 <MobileNativeChatEditActions

@@ -70,7 +70,9 @@
     },
     "nativeChatSettingsScreen": {
       "defaultViewFooter": "Switch one session from its long-press menu.",
-      "openInChat": "Open agent sessions in chat"
+      "openInChat": "Open agent sessions in chat",
+      "composerUsageHeading": "COMPOSER USAGE",
+      "composerUsageDescription": "Chat and agent terminal composers show your agent plan as used or left. Tap the meter for every window, reset times and pace."
     },
     "nativeChatText": {
       "heading": "Text",
@@ -8545,6 +8547,51 @@
           }
         }
       }
+    }
+  },
+  "composerUsage": {
+    "meter": {
+      "label": "{{provider}} {{window}} usage: {{percent}}% used. Show details",
+      "labelRemaining": "{{provider}} {{window}} usage: {{percent}}% left. Show details",
+      "left": "{{percent}}% left"
+    },
+    "display": {
+      "label": "Meter shows",
+      "used": "Used",
+      "remaining": "Remaining",
+      "usedHint": "Show how much of the window is used",
+      "remainingHint": "Show how much of the window is left"
+    },
+    "sheet": {
+      "title": "{{provider}} usage",
+      "description": "Pace compares what you have used with an even burn across each window."
+    },
+    "window": {
+      "sessionTitle": "{{length}} session",
+      "weeklyTitle": "Weekly",
+      "fableWeeklyTitle": "Weekly (Fable)",
+      "monthlyTitle": "Monthly",
+      "resets": "Resets {{when}} · in {{duration}}",
+      "usedLeft": "{{used}}% used · {{left}}% left"
+    },
+    "pace": {
+      "onPace": "On pace",
+      "under": "{{percent}}% under pace",
+      "ahead": "{{percent}}% ahead of pace",
+      "aheadRunOut": "{{percent}}% ahead of pace — at this rate you'd run out ~{{duration}} before reset",
+      "exhausted": "Limit reached for this window"
+    },
+    "picker": {
+      "label": "Show in composer",
+      "session": "5-hour",
+      "weekly": "Weekly"
+    },
+    "position": {
+      "label": "Meter position",
+      "row": "Controls",
+      "rowHint": "Show the meter in the controls row",
+      "above": "Above text",
+      "aboveHint": "Show the meter on its own line above the text"
     }
   },
   "hostMutation": {

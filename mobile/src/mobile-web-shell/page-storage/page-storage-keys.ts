@@ -54,6 +54,12 @@ export const PAGE_STORAGE_EXACT_KEYS = [
   'orca:terminalLinkOpenMode',
   /** The split terminal's chosen direction. */
   'orca:terminalSplitLayout',
+  /** Which usage window the composer meter shows. */
+  'orca:composerUsageWindow',
+  /** Whether that meter shows percent used or percent left. */
+  'orca:composerUsageDisplay',
+  /** Whether the chat composer's meter sits in its controls row or above the text. */
+  'orca:composerUsagePosition',
   /** Whether every Duo chat runs across the status column. */
   'orca:duoChatExpanded',
   /** Terminal font, line spacing and weight. */
@@ -73,6 +79,9 @@ export const PAGE_STORAGE_EXACT_KEYS = [
  */
 export const NEGOTIATED_PAGE_STORAGE_KEYS = [
   'orca:terminalSplitLayout',
+  'orca:composerUsageWindow',
+  'orca:composerUsageDisplay',
+  'orca:composerUsagePosition',
   'orca:duoChatExpanded',
   'orca:terminalFontStyle',
   'orca:nativeChatText',

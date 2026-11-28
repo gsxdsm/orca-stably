@@ -82,6 +82,7 @@ export function ModelPill({
           size={15}
           color={warning ? colors.statusAmber : disabled ? colors.textMuted : colors.textSecondary}
           strokeWidth={2.2}
+          style={styles.pillIcon}
         />
       ) : null}
       {!Icon ? (
@@ -333,6 +334,10 @@ const stylesSheet = themedStyleSheet((colors) => ({
     paddingRight: 10,
     borderRadius: radii.pill,
     backgroundColor: colors.composerControl
+  },
+  // The label truncates; the icon keeps its size.
+  pillIcon: {
+    flexShrink: 0
   },
   pillText: {
     flexShrink: 1,

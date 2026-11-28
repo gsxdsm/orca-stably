@@ -68,6 +68,12 @@ export const mobileNativeChatComposerStylesSheet = themedStyleSheet((_colors, sc
   },
   // One line while dictating: a long computer name truncates instead of wrapping and growing the composer.
   dictationLeading: {
-    flexWrap: 'nowrap'
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 'auto',
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm
   }
 }))

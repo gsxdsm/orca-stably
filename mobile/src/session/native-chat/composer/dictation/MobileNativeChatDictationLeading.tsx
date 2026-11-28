@@ -28,7 +28,7 @@ export function MobileNativeChatDictationLeading({
   const live = useContext(MobileDictationLiveContext)
   if (live?.failureReason != null) {
     return (
-      <View style={[styles.leadingControls, styles.dictationLeading]}>
+      <View style={styles.dictationLeading}>
         <MobileDictationCancelButton onCancel={live.cancel} discards />
         <MobileDictationFailureNote reason={live.failureReason} />
       </View>
@@ -38,7 +38,7 @@ export function MobileNativeChatDictationLeading({
     return <View style={styles.leadingControls}>{children}</View>
   }
   return (
-    <View style={[styles.leadingControls, styles.dictationLeading]}>
+    <View style={styles.dictationLeading}>
       <MobileDictationCancelButton onCancel={live.cancel} targetRef={cancelRef} />
       {micProcessing ? (
         <MobileDictationFinishingNote engine={live.engine} computerName={live.computerName} />

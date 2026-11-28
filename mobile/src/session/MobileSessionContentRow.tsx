@@ -13,6 +13,11 @@ import type { MobileSessionController } from './use-mobile-session-controller'
 import { MobileSessionActiveContent } from './MobileSessionActiveContent'
 import { MobileSessionCommandDock } from './MobileSessionCommandDock'
 import {
+  ComposerUsageClientContext,
+  ComposerUsageTabAgentContext
+} from '../composer-usage/composer-usage-client-context'
+import { getMobileTerminalTabHostAgentIdentity } from './tabs/mobile-terminal-tab-agent'
+import {
   sideStripMargin,
   sideStripPadding,
   useSessionSideStripInset
@@ -37,7 +42,9 @@ export function MobileSessionContentRow({ controller }: { controller: MobileSess
     createWarning,
     dictation,
     cancelDictation,
-    handleSessionContentRowLayout
+    handleSessionContentRowLayout,
+    client,
+    connState
   } = controller
   const dictationLive = useMobileDictationLive(dictation, cancelDictation, hostId)
   // A leftward swipe across a chat, a note or a terminal opens the tabs sidebar (a terminal decides
@@ -48,6 +55,10 @@ export function MobileSessionContentRow({ controller }: { controller: MobileSess
       controller.activeMarkdownTab != null ||
       controller.activeSessionTab?.type === 'terminal'
   )
+  const tabAgent =
+    (controller.activeSessionTab &&
+      getMobileTerminalTabHostAgentIdentity(controller.activeSessionTab, controller.terminals)) ??
+    null
   const strip = useSessionSideStripInset(canDockPanel && activePanel !== null)
   return (
     <View
@@ -72,13 +83,17 @@ export function MobileSessionContentRow({ controller }: { controller: MobileSess
             </Pressable>
           </View>
         ) : null}
-        <MobileDictationLiveContext.Provider value={dictationLive}>
-          <MobileSessionActiveContent controller={controller} />
-          {/* Why: translate instead of resize so keyboard toggles don't trigger a server-side PTY viewport change. */}
-          <View style={sideStripMargin(strip.main)}>
-            <MobileSessionCommandDock controller={controller} />
-          </View>
-        </MobileDictationLiveContext.Provider>
+        <ComposerUsageClientContext.Provider value={connState === 'connected' ? client : null}>
+          <ComposerUsageTabAgentContext.Provider value={tabAgent}>
+            <MobileDictationLiveContext.Provider value={dictationLive}>
+              <MobileSessionActiveContent controller={controller} />
+              {/* Why: translate instead of resize so keyboard toggles don't trigger a server-side PTY viewport change. */}
+              <View style={sideStripMargin(strip.main)}>
+                <MobileSessionCommandDock controller={controller} />
+              </View>
+            </MobileDictationLiveContext.Provider>
+          </ComposerUsageTabAgentContext.Provider>
+        </ComposerUsageClientContext.Provider>
       </View>
       {canDockPanel && activePanel !== null && (
         <SessionDockColumn

@@ -60,6 +60,9 @@ const groupOfOne = (colors: MobilePalette) =>
 // The caret is the only focus sign, so the browser's own ring is dropped.
 const noOwnRing = { outlineWidth: 0 } as const
 
+/** The message text's side inset; a line drawn over the text lines up with it. */
+export const MESSAGE_TEXT_INSET = 6
+
 // The chat composer's look, shared by every text input so they cannot drift apart; plain fields are grouped rows.
 export const composerInputStylesSheet = themedStyleSheet((colors) => ({
   box: {
@@ -114,7 +117,7 @@ export const composerInputStylesSheet = themedStyleSheet((colors) => ({
     fontSize: COMPOSER_TEXT_SIZE,
     lineHeight: COMPOSER_LINE_HEIGHT,
     color: colors.textPrimary,
-    paddingHorizontal: 6,
+    paddingHorizontal: MESSAGE_TEXT_INSET,
     paddingTop: MESSAGE_PADDING_VERTICAL,
     paddingBottom: MESSAGE_PADDING_VERTICAL
   },
@@ -203,6 +206,9 @@ export const composerInputStylesSheet = themedStyleSheet((colors) => ({
   },
   mono: {
     fontFamily: typography.monoFamily
+  },
+  hiddenText: {
+    color: 'transparent'
   },
   disabled: {
     opacity: feedback.disabledOpacity
