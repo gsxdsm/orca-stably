@@ -25,6 +25,11 @@ export async function detectRuntimeMachineName(
   } = {}
 ): Promise<MachineNameDetection> {
   const platform = args.platform ?? process.platform
+  // Lets a second runtime on the same machine (a dev build) announce itself under its own name.
+  const override = normalizeMachineName(process.env.ORCA_MACHINE_NAME ?? '')
+  if (override) {
+    return { name: override, final: true }
+  }
   const fallback = normalizeMachineName(args.fallback ?? os.hostname())
   if (platform !== 'darwin') {
     // Off macOS, hostname is the final name source.
