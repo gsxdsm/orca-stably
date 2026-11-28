@@ -35,6 +35,7 @@ import {
   UNCONFIRMED_SEND_RESTORED_MESSAGE
 } from '../../composer/delivery/use-mobile-native-chat-unconfirmed-sends'
 import { retryHeldHermesSubmit } from '../../mobile-hermes-held-submit'
+import { projectMobileCrewMentions } from '../../../orchestration-crew/mobile-orchestration-crew'
 
 export type MobileNativeChatMessageSend = {
   send: (text: string, images?: string[]) => Promise<boolean>
@@ -114,8 +115,9 @@ export function useMobileNativeChatMessageSend(args: {
     ): Promise<MobileNativeChatSendOutcome> => {
       // Trim only outgoing bytes to prevent rapid-send concatenation; restore the exact typed draft on rejection.
       const text = draftText.trimEnd()
+      const wireText = projectMobileCrewMentions(text)
       const handle = handleRef.current
-      const origin = captureSendOrigin(text, sentAt)
+      const origin = captureSendOrigin(wireText, sentAt)
       const agent = agentRef.current
       const recordCommand = commandSendRef.current
       // Connection drops precede lease collapse by one render; gate immediately to avoid waiting the whole send budget.
@@ -128,7 +130,7 @@ export function useMobileNativeChatMessageSend(args: {
       const classification = classifyMobileNativeChatSend(agent, text, skillOrigin)
       const optimisticId =
         agent === 'hermes' && classification === 'chat'
-          ? acceptSend(origin, text, images, true)
+          ? acceptSend(origin, wireText, images, true)
           : undefined
       // Heal orphaned input before clearing draft; failed heals preserve typing, and heal/text spend the same action deadline.
       const deadline = sharedDeadline ?? openMobileNativeChatSendBudget(agent)
@@ -208,7 +210,7 @@ export function useMobileNativeChatMessageSend(args: {
         : await sendMobileNativeChatMessageWithOutcome({
             client,
             terminal: handle,
-            text: buildNativeChatPasteBytes(text),
+            text: buildNativeChatPasteBytes(wireText),
             ...(resolvedLaunchDraft ? { resolvedLaunchDraft } : {}),
             deadline,
             ...(mobileClient ? { mobileClient } : {})
@@ -218,7 +220,7 @@ export function useMobileNativeChatMessageSend(args: {
           // Lost acknowledgement proves no failure; wait for the transcript, then hand back text it never showed.
           holdUnconfirmedSend(
             origin,
-            text,
+            wireText,
             () => {
               // A TUI holds a mid-turn send with no transcript row until the turn ends, so its absence proves nothing.
               if (!owner.owned || origin.queuedDuringWorkingEpoch !== undefined) {
@@ -245,7 +247,7 @@ export function useMobileNativeChatMessageSend(args: {
         await retryHeldHermesSubmit({
           client,
           terminal: handle,
-          text: text,
+          text: wireText,
           deadline,
           deviceToken: deviceTokenRef.current,
           isCurrent: () => handleRef.current === handle && agentRef.current === 'hermes'
@@ -253,7 +255,7 @@ export function useMobileNativeChatMessageSend(args: {
       }
       if (classification === 'chat') {
         if (!optimisticId) {
-          acceptSend(origin, text, images)
+          acceptSend(origin, wireText, images)
         }
       } else if (recordControlSend) {
         // The session-option catalog can recognize controls omitted from the

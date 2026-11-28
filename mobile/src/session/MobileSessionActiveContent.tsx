@@ -390,6 +390,7 @@ export function MobileSessionActiveContent({
                     onClearSendError={nativeChatSendError.clear}
                     sendSurfaceId={controller.nativeChatScopeKey ?? ''}
                     sessionId={resolveMobileNativeChatSessionId(controller.activeSessionTab)}
+                    worktreeId={worktreeId}
                     getSendCompletionGeneration={controller.getSendCompletionGeneration}
                     keyboardInset={keyboardLift}
                     // A workspace routed to another server stops with that server, whose name the phone lacks.

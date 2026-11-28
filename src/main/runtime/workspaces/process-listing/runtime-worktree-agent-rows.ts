@@ -28,11 +28,104 @@ import {
   formatOrcaSessionAddress,
   isOrcaSessionId
 } from '../../../../shared/agent-session/identity/orca-session-address'
+import { FORK_CROSS_WORKSPACE_MIRROR_ENABLED } from '../../../../shared/fork-cross-workspace-mirror-flag'
 
 type OrchestrationDisplay = {
   taskTitle?: string | null
   displayName?: string | null
   parentPaneKey?: string | null
+  parentTerminalHandle?: string | null
+  coordinatorHandle?: string | null
+}
+
+function sourceForHandle(
+  rowSources: ReadonlyMap<string, RuntimeWorktreeAgentSource>,
+  handle: string | null | undefined
+): RuntimeWorktreeAgentSource | undefined {
+  if (!handle) {
+    return undefined
+  }
+  for (const source of rowSources.values()) {
+    if (source.terminalHandle === handle) {
+      return source
+    }
+  }
+  return undefined
+}
+
+/** The visible parent row. A stored pane that no longer matches a listed session falls back to the live terminal. */
+function visibleParentPaneKey(
+  source: RuntimeWorktreeAgentSource,
+  orchestration: OrchestrationDisplay | undefined,
+  rowSources: ReadonlyMap<string, RuntimeWorktreeAgentSource>
+): string | null {
+  const explicit = orchestration?.parentPaneKey
+  if (explicit && explicit !== source.paneKey && rowSources.has(explicit)) {
+    return explicit
+  }
+  const byHandle =
+    sourceForHandle(rowSources, orchestration?.parentTerminalHandle) ??
+    sourceForHandle(rowSources, orchestration?.coordinatorHandle)
+  if (byHandle && byHandle.paneKey !== source.paneKey) {
+    return byHandle.paneKey
+  }
+  return null
+}
+
+function summaryForSource(
+  source: RuntimeWorktreeAgentSource | undefined,
+  getSummary: RuntimeWorktreePsSummaryLookup
+): RuntimeWorktreePsSummary | null {
+  return source?.worktreeId
+    ? getSummary(source.worktreeId, connectionEvidenceHostId(source.connectionId))
+    : null
+}
+
+/** A mirrored child keeps another workspace's summary. A path alias of this summary still owns it. */
+function rowBelongsToSummary(
+  source: RuntimeWorktreeAgentSource | undefined,
+  summary: RuntimeWorktreePsSummary,
+  getSummary: RuntimeWorktreePsSummaryLookup
+): boolean {
+  return summaryForSource(source, getSummary) === summary
+}
+
+function mirrorCrossWorkspaceChildren(
+  rowsBySummary: Map<RuntimeWorktreePsSummary, RuntimeWorktreeAgentRow[]>,
+  rowSources: ReadonlyMap<string, RuntimeWorktreeAgentSource>,
+  summaries: Map<string, RuntimeWorktreePsSummary>,
+  getSummary: RuntimeWorktreePsSummaryLookup
+): void {
+  const knownSummaries = new Set(summaries.values())
+  const mirrors: [RuntimeWorktreePsSummary, RuntimeWorktreeAgentRow][] = []
+  const rowsByPaneKey = new Map<string, RuntimeWorktreeAgentRow>()
+  for (const rows of rowsBySummary.values()) {
+    for (const row of rows) {
+      rowsByPaneKey.set(row.paneKey, row)
+    }
+  }
+  for (const [summary, rows] of rowsBySummary) {
+    for (const row of rows) {
+      const visited = new Set<string>()
+      let ancestorPaneKey = row.parentPaneKey ?? null
+      while (ancestorPaneKey && !visited.has(ancestorPaneKey)) {
+        visited.add(ancestorPaneKey)
+        const ancestorSummary = summaryForSource(rowSources.get(ancestorPaneKey), getSummary)
+        if (ancestorSummary && ancestorSummary !== summary && knownSummaries.has(ancestorSummary)) {
+          mirrors.push([ancestorSummary, row])
+        }
+        ancestorPaneKey = rowsByPaneKey.get(ancestorPaneKey)?.parentPaneKey ?? null
+      }
+    }
+  }
+  for (const [parentSummary, row] of mirrors) {
+    const parentRows = rowsBySummary.get(parentSummary) ?? []
+    if (parentRows.some((existing) => existing.paneKey === row.paneKey)) {
+      continue
+    }
+    parentRows.push(row)
+    rowsBySummary.set(parentSummary, parentRows)
+  }
 }
 
 /** A terminal agent by its handle; a chat by its Orca session address. */
@@ -89,6 +182,8 @@ export function attachRuntimeWorktreeAgentRows(args: {
   conversationName?: (source: RuntimeWorktreeAgentSource) => string | null
   /** The desktop window's Agents-list verdicts; null when no window has published them. */
   agentList?: AgentListPublication | null
+  /** Fork override for tests; defaults to FORK_CROSS_WORKSPACE_MIRROR_ENABLED. */
+  mirrorCrossWorkspace?: boolean
 }): void {
   const { rowSources } = args
   const now = Date.now()
@@ -104,7 +199,7 @@ export function attachRuntimeWorktreeAgentRows(args: {
       continue
     }
     const orchestration = args.orchestrationByPaneKey?.[source.paneKey]
-    const parentPaneKey = orchestration?.parentPaneKey ?? null
+    const parentPaneKey = visibleParentPaneKey(source, orchestration, rowSources)
     const { taskTitle, displayName, conversationName } = runtimeWorktreeAgentRowNames(
       source,
       orchestration,
@@ -117,6 +212,8 @@ export function attachRuntimeWorktreeAgentRows(args: {
       ...(address ? { address } : {}),
       ...(source.orcaSessionId ? { orcaSessionId: source.orcaSessionId } : {}),
       parentPaneKey,
+      homeWorktreeId: summary.worktreeId,
+      ...(summary.hostId ? { homeHostId: summary.hostId } : {}),
       state: source.state,
       ...(source.workingMode ? { workingMode: source.workingMode } : {}),
       agentType: source.agentType,
@@ -152,12 +249,19 @@ export function attachRuntimeWorktreeAgentRows(args: {
       rowsBySummary.set(summary, [row])
     }
   }
+  if (args.mirrorCrossWorkspace ?? FORK_CROSS_WORKSPACE_MIRROR_ENABLED) {
+    mirrorCrossWorkspaceChildren(rowsBySummary, rowSources, args.summaries, args.getSummary)
+  }
   for (const [summary, rows] of rowsBySummary) {
     rows.sort((a, b) => a.stateStartedAt - b.stateStartedAt)
     summary.agents = rows
     let hasForegroundWorkingAgent = false
     const monitoringSources: RuntimeWorktreeAgentSource[] = []
     for (const row of rows) {
+      // A child mirrored onto its coordinator's workspace must not mark that workspace busy.
+      if (!rowBelongsToSummary(rowSources.get(row.paneKey), summary, args.getSummary)) {
+        continue
+      }
       if (!isFreshNonDoneAgentStatus(row, now)) {
         continue
       }
@@ -195,7 +299,8 @@ export function attachRuntimeWorktreeAgentRows(args: {
       summary,
       now,
       args.terminalTitleEvidenceByRow.get(summary) ?? [],
-      (paneKey) => rowSources.get(paneKey)
+      (paneKey) => rowSources.get(paneKey),
+      (paneKey) => rowBelongsToSummary(rowSources.get(paneKey), summary, args.getSummary)
     )
   }
 }
