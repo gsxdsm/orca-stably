@@ -26,15 +26,18 @@ function entryFor(client: RpcClient): Entry {
 
 function startStream(client: RpcClient, entry: Entry): () => void {
   let stopped = false
-  const accept = (value: unknown): void => {
+  // A retained snapshot must not block a later list. Only a snapshot from this call's stream is newer.
+  let sawStream = false
+  const accept = (value: unknown): boolean => {
     try {
       entry.snapshot = decodeAccountsSnapshot(value)
     } catch {
-      return
+      return false
     }
     for (const listener of entry.listeners) {
       listener()
     }
+    return true
   }
   const unsubscribe = client.subscribe('accounts.subscribe', null, (payload) => {
     if (
@@ -44,13 +47,15 @@ function startStream(client: RpcClient, entry: Entry): () => void {
       (payload.type === 'ready' || payload.type === 'snapshot') &&
       'snapshot' in payload
     ) {
-      accept(payload.snapshot)
+      if (accept(payload.snapshot)) {
+        sawStream = true
+      }
     }
   })
   // Hosts without the stream still answer the one-shot list; a streamed snapshot is never older.
   void client.sendRequest('accounts.list').then(
     (res) => {
-      if (!stopped && entry.snapshot === null && res.ok) {
+      if (!stopped && !sawStream && res.ok) {
         accept(res.result)
       }
     },
