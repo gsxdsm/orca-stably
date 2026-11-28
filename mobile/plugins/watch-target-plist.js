@@ -1,3 +1,4 @@
+const { withDangerousMod } = require('expo/config-plugins')
 const fs = require('node:fs')
 const path = require('node:path')
 
@@ -39,4 +40,15 @@ function writeInfoPlist(directory, entries) {
   fs.writeFileSync(path.join(directory, 'Info.plist'), lines.join('\n'))
 }
 
-module.exports = { writeInfoPlist }
+function writeInfoPlistOnPrebuild(config, directory, entries) {
+  // Expo also evaluates target configs during pods and bundling, which may lack the prebuild env.
+  return withDangerousMod(config, [
+    'ios',
+    (modConfig) => {
+      writeInfoPlist(directory, entries)
+      return modConfig
+    }
+  ])
+}
+
+module.exports = { writeInfoPlistOnPrebuild }

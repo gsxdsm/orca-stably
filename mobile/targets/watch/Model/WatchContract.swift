@@ -74,6 +74,33 @@ struct WatchFeedItem: Codable, Equatable, Sendable {
   var kind: WatchFeedKind
 }
 
+struct WatchBot: Codable, Equatable, Sendable {
+  var hostId: String
+  var botId: String
+  var name: String
+  var status: String
+  var updatedAt: Int64
+}
+
+struct WatchNeed: Codable, Equatable, Sendable {
+  var hostId: String
+  var key: String
+  var title: String
+  var botId: String?
+  var sessionKey: String?
+  var promptId: String?
+  var updatedAt: Int64
+}
+
+struct WatchUsage: Codable, Equatable, Sendable {
+  var hostId: String
+  var provider: String
+  var window: String
+  var usedPercent: Double
+  var updatedAt: Int64
+  var resetsAt: Int64?
+}
+
 struct WatchSnapshot: Codable, Equatable, Sendable {
   var v: Int
   var generatedAt: Int64
@@ -81,6 +108,9 @@ struct WatchSnapshot: Codable, Equatable, Sendable {
   var sessions: [WatchSession]
   var prompts: [WatchPrompt]
   var feed: [WatchFeedItem]
+  var bots: [WatchBot]? = nil
+  var needsYou: [WatchNeed]? = nil
+  var usage: [WatchUsage]? = nil
 
   static func decode(_ data: Data) -> WatchSnapshot? {
     guard let snapshot = try? JSONDecoder().decode(WatchSnapshot.self, from: data), snapshot.v == 1 else {

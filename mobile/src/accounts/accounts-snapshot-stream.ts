@@ -4,6 +4,7 @@ import type { AccountsSnapshot } from './accounts-snapshot'
 import { hostQueryKey, type HostQueryKey } from '../query/host-query-key'
 import type { PersistedHostFamily } from '../query/host-query-persistence'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
+import { hostConnectionEpoch } from '../query/host-status-query'
 
 /** Usage and rate limits are live facts: a stored snapshot keeps the accounts and drops every number. */
 export function withoutAccountUsage(snapshot: AccountsSnapshot | null): AccountsSnapshot | null {
@@ -47,6 +48,19 @@ export const accountsSnapshotOptions = (hostId: string) =>
     meta: { streamBacked: true, persist: accountsSnapshotFamily.persist }
   })
 
+type AccountsSnapshotEvent =
+  | { type: 'snapshot'; snapshot: AccountsSnapshot }
+  | { type: 'invalid' | 'error' }
+
+type AccountsListener = (event: AccountsSnapshotEvent) => void
+type AccountsStream = {
+  listeners: Set<AccountsListener>
+  latest?: { event: AccountsSnapshotEvent; epoch: string }
+  stop: () => void
+}
+
+const accountsStreams = new WeakMap<RpcClient, AccountsStream>()
+
 /** The desktop's `accounts.subscribe` stream, decoded: rate-limit polls and account switches as they happen. */
 export function subscribeAccountsSnapshots(
   client: RpcClient,
@@ -56,12 +70,64 @@ export function subscribeAccountsSnapshots(
     onStreamError: () => void
   }
 ): () => void {
+  const listener: AccountsListener = (event) => {
+    if (event.type === 'snapshot') {
+      handlers.onSnapshot(event.snapshot)
+    } else if (event.type === 'invalid') {
+      handlers.onInvalidSnapshot()
+    } else {
+      handlers.onStreamError()
+    }
+  }
+  let stream = accountsStreams.get(client)
+  if (!stream) {
+    const opened: AccountsStream = { listeners: new Set([listener]), stop: () => {} }
+    accountsStreams.set(client, opened)
+    const publish = (event: AccountsSnapshotEvent) => {
+      if (accountsStreams.get(client) === opened) {
+        opened.latest = { event, epoch: hostConnectionEpoch(client) }
+        for (const accept of opened.listeners) {
+          accept(event)
+        }
+      }
+    }
+    try {
+      opened.stop = subscribeAccountsWire(client, publish)
+    } catch {
+      publish({ type: 'error' })
+    }
+    stream = opened
+  } else {
+    const joined = stream
+    stream.listeners.add(listener)
+    const last = stream.latest
+    queueMicrotask(() => {
+      if (
+        last &&
+        joined.latest === last &&
+        last.epoch === hostConnectionEpoch(client) &&
+        joined.listeners.has(listener)
+      ) {
+        listener(last.event)
+      }
+    })
+  }
+  const joined = stream
+  return () => {
+    if (joined.listeners.delete(listener) && joined.listeners.size === 0) {
+      accountsStreams.delete(client)
+      joined.stop()
+    }
+  }
+}
+
+function subscribeAccountsWire(client: RpcClient, publish: AccountsListener): () => void {
   return client.subscribe('accounts.subscribe', null, (payload) => {
     if (!payload || typeof payload !== 'object' || !('type' in payload)) {
       return
     }
     if (payload.type === 'error') {
-      handlers.onStreamError()
+      publish({ type: 'error' })
       return
     }
     if (payload.type !== 'ready' && payload.type !== 'snapshot') {
@@ -71,9 +137,9 @@ export function subscribeAccountsSnapshots(
     try {
       snapshot = decodeAccountsSnapshot('snapshot' in payload ? payload.snapshot : undefined)
     } catch {
-      handlers.onInvalidSnapshot()
+      publish({ type: 'invalid' })
       return
     }
-    handlers.onSnapshot(snapshot)
+    publish({ type: 'snapshot', snapshot })
   })
 }

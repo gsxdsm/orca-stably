@@ -217,55 +217,61 @@ export function assembleWatchSources(input: {
     chats.push(...mapChats(host.hostId, host.client, hostRows))
     terminals.push(...mapTerminals(host.hostId, hostRows))
   }
-  for (const prompt of input.prompts.values()) {
-    for (const item of prompt) {
-      const known =
-        item.targetKind === 'chat'
-          ? chats.some((chat) => chat.hostId === item.hostId && chat.sessionId === item.targetId)
-          : terminals.some(
-              (terminal) => terminal.hostId === item.hostId && terminal.paneKey === item.targetId
-            )
-      if (known) {
-        continue
-      }
-      const workspaceName =
-        input.rows.get(item.hostId)?.find((row) => row.worktreeId === item.worktreeId)
-          ?.displayName ?? item.worktreeId
-      if (item.targetKind === 'chat') {
-        chats.push({
-          hostId: item.hostId,
-          sessionId: item.targetId,
-          workspaceId: item.worktreeId,
-          workspaceName,
-          agent: item.agent,
-          projectedStatus: 'attention',
-          conversationName: item.title,
-          ...(item.detail ? { latestPrompt: item.detail } : {}),
-          updatedAt: item.createdAt
-        })
-      } else {
-        terminals.push({
-          hostId: item.hostId,
-          paneKey: item.targetId,
-          terminalHandle: item.targetId,
-          workspaceId: item.worktreeId,
-          workspaceName,
-          agent: item.agent,
-          state: 'waiting',
-          conversationName: item.title,
-          ...(item.detail ? { prompt: item.detail } : {}),
-          updatedAt: item.createdAt
-        })
-      }
+  const targets = new Map<string, string>()
+  for (const chat of chats) {
+    const key = watchSessionKey(chat.hostId, 'chat', chat.sessionId)
+    targets.set(key, key)
+  }
+  for (const terminal of terminals) {
+    const key = watchSessionKey(terminal.hostId, 'term', terminal.paneKey)
+    targets.set(key, key)
+    if (terminal.terminalHandle) {
+      targets.set(watchSessionKey(terminal.hostId, 'term', terminal.terminalHandle), key)
+    }
+  }
+  const activePrompts = [...input.prompts.values()].flat()
+  for (const item of activePrompts) {
+    if (targets.has(item.sessionKey)) {
+      continue
+    }
+    targets.set(item.sessionKey, item.sessionKey)
+    const workspaceName =
+      input.rows.get(item.hostId)?.find((row) => row.worktreeId === item.worktreeId)?.displayName ??
+      item.worktreeId
+    if (item.targetKind === 'chat') {
+      chats.push({
+        hostId: item.hostId,
+        sessionId: item.targetId,
+        workspaceId: item.worktreeId,
+        workspaceName,
+        agent: item.agent,
+        projectedStatus: 'attention',
+        conversationName: item.title,
+        ...(item.detail ? { latestPrompt: item.detail } : {}),
+        updatedAt: item.createdAt
+      })
+    } else {
+      terminals.push({
+        hostId: item.hostId,
+        paneKey: item.targetId,
+        terminalHandle: item.targetId,
+        workspaceId: item.worktreeId,
+        workspaceName,
+        agent: item.agent,
+        state: 'waiting',
+        conversationName: item.title,
+        ...(item.detail ? { prompt: item.detail } : {}),
+        updatedAt: item.createdAt
+      })
     }
   }
   return {
     chats,
     terminals,
-    prompts: [...input.prompts.values()].flat().map((prompt) => ({
+    prompts: activePrompts.map((prompt) => ({
       hostId: prompt.hostId,
       promptId: prompt.promptId,
-      sessionKey: prompt.sessionKey,
+      sessionKey: targets.get(prompt.sessionKey) ?? prompt.sessionKey,
       kind: prompt.kind,
       title: prompt.title,
       ...(prompt.detail ? { detail: prompt.detail } : {}),

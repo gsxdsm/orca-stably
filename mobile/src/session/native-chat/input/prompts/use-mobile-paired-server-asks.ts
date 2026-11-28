@@ -45,6 +45,13 @@ const listCards = bindDeferredRpcOperation(
   })
 )
 
+export async function readMobilePairedServerAsks(
+  client: RpcClient,
+  botId: string | null
+): Promise<PairedServerAskCard[]> {
+  return listCards.interpret(await listCards.request(client, botId ? { botId } : {})).cards
+}
+
 const decideCard = bindDeferredRpcOperation(
   defineRpcOperation({
     name: 'paired-server-asks.decide',
@@ -83,12 +90,9 @@ export function useMobilePairedServerAsks({
     }
     let live = true
     const read = (): void => {
-      void listCards
-        .request(client, botId ? { botId } : {})
-        .then((reply) => {
-          const shown = listCards
-            .interpret(reply)
-            .cards.filter((card) => !sessionId || card.botChatSessionId === sessionId)
+      void readMobilePairedServerAsks(client, botId)
+        .then((cards) => {
+          const shown = cards.filter((card) => !sessionId || card.botChatSessionId === sessionId)
           if (live) {
             setCards(shown.length > 0 ? shown : NONE)
           }
