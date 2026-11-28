@@ -9,6 +9,10 @@ export function selectBareRecipientOwner(params: {
   boundRuns: () => readonly { id: string }[]
   dispatches: () => Pick<DispatchContextRow, 'id' | 'run_id'>[]
   ownerRunIds: () => string[]
+  /** The handle is a chat: while `fallback` can reach it, its former Runs only get mail sent in them. */
+  chatRecipient: boolean
+  /** Whether the sender coordinates the named Run. */
+  senderCoordinates?: (runId: string) => boolean
   fallback: () => BareRecipientResolution
 }): BareRecipientResolution {
   const { handle } = params
@@ -33,7 +37,20 @@ export function selectBareRecipientOwner(params: {
     return mismatch ?? { ok: true, to: `dispatch:${dispatch.id}`, runId: dispatch.run_id }
   }
 
-  const ownerRunIds = params.ownerRunIds()
+  const owners = params.ownerRunIds()
+  const chatReach = owners.length > 0 && params.chatRecipient ? params.fallback() : undefined
+  const senderRunId = params.senderRunId
+  // runId is cleared so trg_messages_route_coordinator_mail does not rewrite the row to run:<id>.
+  const handBack =
+    chatReach?.ok &&
+    senderRunId !== undefined &&
+    owners.includes(senderRunId) &&
+    params.senderCoordinates?.(senderRunId)
+      ? { ...chatReach, runId: undefined }
+      : undefined
+  const ownerRunIds = chatReach?.ok
+    ? owners.filter((id) => id === params.explicitRunId || (id === senderRunId && !handBack))
+    : owners
   const selectedRunId = selectHistoricalRun(ownerRunIds, params)
   if (ownerRunIds.length > 0 && !selectedRunId) {
     return ambiguous(
@@ -46,7 +63,7 @@ export function selectBareRecipientOwner(params: {
     return mismatch ?? { ok: true, to: `run:${selectedRunId}`, runId: selectedRunId }
   }
 
-  return params.fallback()
+  return handBack ?? chatReach ?? params.fallback()
 }
 
 function selectDispatch<T extends Pick<DispatchContextRow, 'id' | 'run_id'>>(

@@ -222,6 +222,7 @@ export function createCrewRecipientInputs(
         }
         return [...ids].sort()
       },
+      chatRecipient: key.terminalHandle === null && Boolean(key.orcaSessionId) && records !== null,
       fallback: () => {
         const reachable = key.orcaSessionId ? fallback(key.orcaSessionId) : Boolean(key.paneKey)
         if (reachable === undefined) {

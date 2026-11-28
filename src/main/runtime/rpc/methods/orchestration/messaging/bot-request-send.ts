@@ -79,7 +79,6 @@ export async function sendToBot(
 ): Promise<{ receipt: unknown; nudge: () => void } | null> {
   const { runtime } = context
   const db = runtime.getOrchestrationDb()
-  const senderRunId = mail.routing.run?.id
   const reach = botAddressReach(runtime, db, mail.to, mail.sender)
   const found = await receivingBot(runtime, reach, mail.to)
   if (!found) {
@@ -103,7 +102,7 @@ export async function sendToBot(
     ...mail,
     receiving,
     acting,
-    senderRunId,
+    senderRunId: mail.routing.run?.id,
     senderPaneKey: mail.sender.paneKey ?? undefined,
     recordMutationReceipt: context.recordMutationReceipt,
     ...(mail.holdNudge ? { held } : {})
@@ -111,7 +110,7 @@ export async function sendToBot(
   return { receipt, nudge: () => held.splice(0).forEach((nudge) => nudge()) }
 }
 
-type SendBotRequestArgs = {
+type SendBotRequestArgs = ActingMail & {
   runtime: OrcaRuntimeService
   db: OrchestrationDb
   params: SendParamsInput
@@ -256,7 +255,8 @@ async function admitBotRequestMail(
             runtime,
             db,
             handle: address,
-            senderRunId: args.senderRunId
+            senderRunId: args.senderRunId,
+            senderCoordinates: (runId) => db.getCoordinatedRun(args.sender, runId) !== undefined
           })
     if (!recipient.ok) {
       throw new OrchestrationError(recipient.code, recipient.message)

@@ -160,14 +160,14 @@ export const ORCHESTRATION_SEND_METHODS = [
       const sendWarnings: SendRecipientWarning[] = []
       let messageRunId = routing.run?.id
       if (!isGroupAddress(to) && !to.startsWith('run:') && !to.startsWith('dispatch:')) {
-        const terminal = await prepareSessionRecipient(runtime, to, revalidateLegacyCoordinator)
         const recipient = resolveBareOrchestrationRecipient({
           runtime,
           db,
           handle: to,
           senderRunId: routing.run?.id,
+          senderCoordinates: (runId) => db.getCoordinatedRun(sender, runId) !== undefined,
           explicitRunId: params.run,
-          terminalRecipient: terminal
+          terminalRecipient: await prepareSessionRecipient(runtime, to, revalidateLegacyCoordinator)
         })
         if (!recipient.ok) {
           throw new OrchestrationError(recipient.code, withDispatchPrefixHint(db, to, recipient))
