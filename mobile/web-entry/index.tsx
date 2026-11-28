@@ -50,6 +50,7 @@ import { publishHapticsNotifier } from '../src/platform/haptics/haptics.web'
 import { startBlurringOnKeyboardClose } from '../src/platform/keyboard/keyboard-close-blur.web'
 import { publishShellKeyboardSource } from '../src/platform/keyboard/keyboard-occlusion.web'
 import { startIgnoringPressableIconHits } from '../src/platform/pressable-svg-hits.web'
+import { SessionListLongPressProvider } from '../src/navigation/session-list-long-press'
 // Select the page-client provider explicitly; the builder aliases extensionless screen imports to this same web module.
 import { RpcClientProvider } from '../src/transport/connection/client-context.web'
 import { OrcaQueryProvider } from '../src/query/orca-query-provider.web'
@@ -89,9 +90,11 @@ function createRootProviders(
     return (
       <RpcClientProvider client={client}>
         <OrcaQueryProvider client={queryClient}>
-          <RouteScreenPaintProvider report={reportRouteScreenPaint}>
-            {children}
-          </RouteScreenPaintProvider>
+          <SessionListLongPressProvider>
+            <RouteScreenPaintProvider report={reportRouteScreenPaint}>
+              {children}
+            </RouteScreenPaintProvider>
+          </SessionListLongPressProvider>
         </OrcaQueryProvider>
       </RpcClientProvider>
     )

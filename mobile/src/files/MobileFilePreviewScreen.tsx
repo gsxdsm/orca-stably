@@ -296,11 +296,14 @@ function MobileFilePreviewDocument({ route }: Props) {
   const leave = useCallback(() => router.back(), [router])
   const editDraftKey = filePreviewEditDraftKey(previewSource, previewParams?.hostId, executionHost)
   const dropEditDraft = () => editDraftKey && dropDocumentEditDraft(editDraftKey)
-  const { confirmingDiscard, requestBack, stay, discard } = useMobileFilePreviewBack({
-    hasUnsavedDraft,
-    leave,
-    onDiscard: dropEditDraft
-  })
+  const { confirmingDiscard, requestBack, requestLeaveToSessionList, stay, discard } =
+    useMobileFilePreviewBack({
+      hasUnsavedDraft,
+      leave,
+      router,
+      hostId: previewParams?.hostId,
+      onDiscard: dropEditDraft
+    })
   // Reload, once confirmed, drops the draft for what disk holds now.
   const reloadFromDisk = () => {
     revertDraft()
@@ -316,6 +319,7 @@ function MobileFilePreviewDocument({ route }: Props) {
             <NavBarButton
               icon={ChevronLeft}
               onPress={requestBack}
+              onLongPress={previewParams?.hostId ? requestLeaveToSessionList : undefined}
               accessibilityLabel={t('files.filePreviewScreen.backToFiles', 'Back to files')}
             />
           }

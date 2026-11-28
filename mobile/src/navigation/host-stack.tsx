@@ -10,6 +10,7 @@ export function HostStack({ animation }: { animation: HostStackAnimation }) {
     <Stack
       screenOptions={{
         headerShown: false,
+        fullScreenGestureEnabled: true,
         contentStyle: { backgroundColor: colors.bgBase },
         // Swap tablet detail panes instantly so slides cannot reveal the outgoing pane’s underlying screen; phones retain native slides.
         animation

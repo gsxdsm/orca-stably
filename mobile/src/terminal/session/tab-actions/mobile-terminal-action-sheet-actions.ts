@@ -18,6 +18,7 @@ export function getMobileTerminalActionSheetActions<
   structuredAgents?: readonly string[]
   hostAgentIdentity?: string | null
   onDismiss: () => void
+  onActivateSessionTab: (tab: Tab) => void
   onToggleChat: (tabId: string) => void
   /** Continue in chat, for a terminal whose conversation a chat can take over. */
   chatContinuationActions: ActionSheetAction[]
@@ -50,7 +51,12 @@ export function getMobileTerminalActionSheetActions<
       structuredAgents: args.structuredAgents,
       hostAgentIdentity: args.hostAgentIdentity,
       onClose: args.onDismiss,
-      onToggle: args.onToggleChat,
+      onToggle: (tabId) => {
+        if (sessionTab) {
+          args.onActivateSessionTab(sessionTab)
+        }
+        args.onToggleChat(tabId)
+      },
       t
     }),
     ...args.chatContinuationActions,
@@ -62,6 +68,9 @@ export function getMobileTerminalActionSheetActions<
       icon: phoneMode ? Monitor : Smartphone,
       onPress: () => {
         args.onDismiss()
+        if (sessionTab) {
+          args.onActivateSessionTab(sessionTab)
+        }
         args.onToggleDisplayMode(target.handle)
       }
     },

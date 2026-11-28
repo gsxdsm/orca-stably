@@ -1141,6 +1141,10 @@
       "automations": "Automations",
       "mcpServers": "MCP servers",
       "editComputer": "Edit computer"
+    },
+    "sessionListBack": {
+      "action": "Back to sessions",
+      "hint": "Long press to go back to sessions"
     }
   },
   "resources": {

@@ -52,6 +52,7 @@ export function MobileSessionHeader({
     worktreeName,
     setShowHeaderMoreActions,
     requestLeaveSession,
+    requestLeaveToSessionList,
     showConnectionRetry,
     terminalSummary,
     routeBot,
@@ -103,6 +104,7 @@ export function MobileSessionHeader({
         accessibilityLabel={t('session.header.backToWorktrees', 'Back to worktrees')}
         icon={ChevronLeft}
         onPress={press(requestLeaveSession)}
+        onLongPress={requestLeaveToSessionList}
       />
     </>
   )

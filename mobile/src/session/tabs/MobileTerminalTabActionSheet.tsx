@@ -61,6 +61,7 @@ export function MobileTerminalTabActionSheet({
           (terminal) => terminal.handle === actionTarget?.handle
         )?.agentIdentity,
         onDismiss: () => setActionTarget(null),
+        onActivateSessionTab: controller.switchSessionTab,
         onToggleChat: controller.toggleTabChatView,
         chatContinuationActions,
         isPhoneMode: (handle) => isTerminalPhoneDisplayMode(handle, controller.terminalModes),

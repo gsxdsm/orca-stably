@@ -16,6 +16,7 @@ import { useMobileSessionSidebar } from './tabs/use-mobile-session-sidebar'
 import { SidebarPageDragContext } from './tabs/sidebar-page-drag'
 import { useMobileSessionTabSummaryChannel } from './tabs/use-mobile-session-tab-summaries'
 import { useSessionRouteRequest } from './use-session-route-request'
+import { SessionListLongPressOverride } from '../navigation/session-list-long-press-context'
 import { useReleasedSideInset } from '../layout/released-side-inset'
 import { sideStripPadding } from './session-side-strip-inset'
 import { DuoRailBackButton } from './DuoRailBackButton'
@@ -88,45 +89,47 @@ export function MobileSessionSurface({ controller }: { controller: MobileSession
   )
   const onRailBack = useSessionRailBack(controller.requestLeaveSession)
   return (
-    <View ref={setMobileSessionRootRef} style={styles.container}>
-      <MobileSessionSidebarStage
-        sidebar={sidebar}
-        cardLabel={controller.activeSessionTab?.title || controller.worktreeName}
-        panel={
-          <MobileSessionSidebar
-            controller={controller}
-            sidebar={sidebar}
-            summaries={summaries}
-            place={controller.terminalSummary}
-            connectionIssue={connectionIssue}
-          />
-        }
-      >
-        <View style={styles.kavInner}>
-          <MobileSessionHeader
-            controller={controller}
-            homeChatId={homeChatId ?? null}
-            summaries={summaries}
-            sidebar={sidebar}
-            connectionIssue={connectionIssue}
-          />
-          <View style={sideStripPadding(releasedStrip)}>
-            <MobileWorkerAutoCloseStrip controller={controller} />
+    <SessionListLongPressOverride action={controller.requestLeaveToSessionList}>
+      <View ref={setMobileSessionRootRef} style={styles.container}>
+        <MobileSessionSidebarStage
+          sidebar={sidebar}
+          cardLabel={controller.activeSessionTab?.title || controller.worktreeName}
+          panel={
+            <MobileSessionSidebar
+              controller={controller}
+              sidebar={sidebar}
+              summaries={summaries}
+              place={controller.terminalSummary}
+              connectionIssue={connectionIssue}
+            />
+          }
+        >
+          <View style={styles.kavInner}>
+            <MobileSessionHeader
+              controller={controller}
+              homeChatId={homeChatId ?? null}
+              summaries={summaries}
+              sidebar={sidebar}
+              connectionIssue={connectionIssue}
+            />
+            <View style={sideStripPadding(releasedStrip)}>
+              <MobileWorkerAutoCloseStrip controller={controller} />
+            </View>
+            {/* A chat's item chips open the item's page in the bot panel. */}
+            <BotItemOpenContext.Provider value={openItem}>
+              <BotChatOpenContext.Provider value={openChat}>
+                <BotPanelOpenContext.Provider value={panelOpener}>
+                  <SidebarPageDragContext.Provider value={sidebar.pageDrag}>
+                    <MobileSessionContentRow controller={controller} />
+                  </SidebarPageDragContext.Provider>
+                </BotPanelOpenContext.Provider>
+              </BotChatOpenContext.Provider>
+            </BotItemOpenContext.Provider>
           </View>
-          {/* A chat's item chips open the item's page in the bot panel. */}
-          <BotItemOpenContext.Provider value={openItem}>
-            <BotChatOpenContext.Provider value={openChat}>
-              <BotPanelOpenContext.Provider value={panelOpener}>
-                <SidebarPageDragContext.Provider value={sidebar.pageDrag}>
-                  <MobileSessionContentRow controller={controller} />
-                </SidebarPageDragContext.Provider>
-              </BotPanelOpenContext.Provider>
-            </BotChatOpenContext.Provider>
-          </BotItemOpenContext.Provider>
-        </View>
-      </MobileSessionSidebarStage>
-      <KeyboardDuoRailBackButton chatVisible={controller.showNativeChat} onBack={onRailBack} />
-      <MobileSessionSheets controller={controller} />
-    </View>
+        </MobileSessionSidebarStage>
+        <KeyboardDuoRailBackButton chatVisible={controller.showNativeChat} onBack={onRailBack} />
+        <MobileSessionSheets controller={controller} />
+      </View>
+    </SessionListLongPressOverride>
   )
 }
