@@ -13,6 +13,7 @@ export abstract class OrcaRuntimeWithInvalidateAllHandlesForPty extends OrcaRunt
   protected retirePredecessorPtyExitEvidence(pty: RuntimePtyWorktreeRecord): void {
     pty.lastExitCode = null
     pty.lastExitCause = null
+    pty.lastExitOutput = undefined
     for (const leaf of this.getLeavesForPty(pty.ptyId)) {
       leaf.lastExitCode = null
       leaf.lastExitCause = null
