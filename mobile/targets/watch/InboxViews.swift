@@ -72,8 +72,10 @@ struct NeedsYouView: View {
     guard matches.count == 1, let session = matches.first, session.hostId == row.hostId,
           row.promptId == nil || session.pendingPromptId == row.promptId else { return nil }
     if let promptId = session.pendingPromptId {
-      let prompts = snapshot.prompts.filter { $0.promptId == promptId }
-      guard prompts.count == 1, prompts[0].hostId == row.hostId else { return nil }
+      let prompts = snapshot.prompts.filter {
+        $0.hostId == row.hostId && $0.sessionKey == key && $0.promptId == promptId
+      }
+      guard prompts.count == 1 else { return nil }
     }
     return session
   }
