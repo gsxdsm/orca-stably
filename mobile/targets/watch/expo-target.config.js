@@ -17,10 +17,11 @@ module.exports = (config) => {
     type: 'watch',
     name: 'OrcaWatch',
     displayName: 'Orca',
+    ...(config.icon ? { icon: `../../${config.icon}` } : {}),
     deploymentTarget: '10.0',
     // Companion id is <phone>.watchkitapp. A leading dot appends to the phone bundle id.
     bundleIdentifier: '.watchkitapp',
-    frameworks: ['SwiftUI', 'WatchConnectivity', 'WatchKit', 'WidgetKit'],
+    frameworks: ['Charts', 'SwiftUI', 'WatchConnectivity', 'WatchKit', 'WidgetKit'],
     ...(teamId ? { appleTeamId: teamId } : {}),
     entitlements: {
       'com.apple.security.application-groups': [`group.${bundleId}`]

@@ -21,9 +21,14 @@ import {
 } from '../session/native-chat/input/prompts/use-mobile-paired-server-asks'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import type { WatchBot, WatchNeed } from './watch-contract'
-import { watchSessionKey } from './watch-snapshot'
+import { watchSessionKey, type WatchSnapshotChat, type WatchSnapshotItem } from './watch-snapshot'
 
-type Activity = { bots: WatchBot[]; needsYou: WatchNeed[] }
+type Activity = {
+  bots: WatchBot[]
+  needsYou: WatchNeed[]
+  chats: WatchSnapshotChat[]
+  items: WatchSnapshotItem[]
+}
 
 function chatSessionKey(hostId: string, chat: BotChatTreeChat): string | undefined {
   if (!chat.run) {
@@ -40,7 +45,12 @@ async function readBotActivity(
   pairedAsks: readonly PairedServerAskCard[],
   connectorSignIn: boolean,
   now: number
-): Promise<{ bot: WatchBot; needsYou: WatchNeed[] }> {
+): Promise<{
+  bot: WatchBot
+  needsYou: WatchNeed[]
+  chats: WatchSnapshotChat[]
+  items: WatchSnapshotItem[]
+}> {
   const [tree, read] = await Promise.all([
     botChatTreeRead.request(client, { botId: bot.id }).then(
       (reply) => readHostMethodReply(reply, botChatTreeRead.interpret),
@@ -53,6 +63,9 @@ async function readBotActivity(
   const byDispatch = botItemsByDispatch(items)
   const matchedItems = new Set<string>()
   const needsYou: WatchNeed[] = []
+  const threadKeys: string[] = []
+  const watchChats: WatchSnapshotChat[] = []
+  const watchItems: WatchSnapshotItem[] = []
   const add = (key: string, title: string, updatedAt: number, sessionKey?: string) =>
     needsYou.push({
       hostId,
@@ -69,13 +82,31 @@ async function readBotActivity(
     if (chat.closed) {
       continue
     }
+    const sessionKey = chatSessionKey(hostId, chat)
+    if (sessionKey && threadKeys.length < 8) {
+      threadKeys.push(sessionKey)
+      if (!chat.run) {
+        watchChats.push({
+          hostId,
+          sessionId: chat.liveSessionId ?? chat.chatId,
+          workspaceId: bot.folderWorkspaceId,
+          workspaceName: bot.name,
+          agent: bot.agent,
+          conversationName: chat.title,
+          lastAssistantMessage: chat.preview,
+          projectedStatus:
+            chat.live === 'replying' ? 'working' : chat.live === 'needs-you' ? 'attention' : 'idle',
+          updatedAt: chat.lastActiveAt
+        })
+      }
+    }
     working ||= chat.live === 'replying'
     if (chat.live === 'needs-you' && !(chat.origin === 'home' && pairedAsks.length > 0)) {
       add(
         `chat:${JSON.stringify([bot.id, chat.chatId])}`,
         chat.title,
         chat.lastActiveAt,
-        chatSessionKey(hostId, chat)
+        sessionKey
       )
     }
     for (const worker of chat.running) {
@@ -88,22 +119,47 @@ async function readBotActivity(
         matchedItems.add(item.uid)
       }
       // A server's pane key names a terminal on that server, never on the host that listed it.
-      const sessionKey =
+      const workerKey =
         worker.paneKey && worker.host !== 'remote' && !worker.hostId
           ? watchSessionKey(hostId, 'term', worker.paneKey)
-          : undefined
+          : item
+            ? watchSessionKey(hostId, 'item', item.uid)
+            : undefined
       add(
         `worker:${worker.dispatchId ?? worker.key}`,
         item?.title ?? worker.title,
         item?.lastActivityAt ?? worker.startedAt,
-        sessionKey
+        workerKey
       )
     }
   }
   const staleDays = botItemStaleDays(bot.itemsStale)
-  for (const item of items) {
-    if (!matchedItems.has(item.uid) && botItemGroupOf(item, staleDays, now) === 'needs_you') {
-      add(`item:${item.uid}`, item.title, item.lastActivityAt)
+  const orderedItems = items
+    .map((item) => ({
+      item,
+      needs: botItemGroupOf(item, staleDays, now) === 'needs_you'
+    }))
+    .sort(
+      (a, b) => Number(b.needs) - Number(a.needs) || b.item.lastActivityAt - a.item.lastActivityAt
+    )
+  for (const { item, needs } of orderedItems.slice(0, 12)) {
+    const key = watchSessionKey(hostId, 'item', item.uid)
+    if (needs && !matchedItems.has(item.uid)) {
+      add(`item:${item.uid}`, item.title, item.lastActivityAt, key)
+    }
+    watchItems.push({
+      key,
+      hostId,
+      title: item.title,
+      workspace: bot.name,
+      workspaceId: bot.folderWorkspaceId,
+      agent: bot.name,
+      status: needs ? 'needs-input' : 'idle',
+      updatedAt: item.lastActivityAt,
+      canSend: true
+    })
+    if (threadKeys.length < 12) {
+      threadKeys.push(key)
     }
   }
   for (const request of access) {
@@ -136,9 +192,12 @@ async function readBotActivity(
       name: bot.name.trim() || bot.folder || bot.id,
       status:
         needsYou.length > 0 ? 'needs-you' : bot.paused ? 'paused' : working ? 'working' : 'idle',
-      updatedAt: Math.trunc(Math.max(0, lastActivityAt))
+      updatedAt: Math.trunc(Math.max(0, lastActivityAt)),
+      threadKeys: [...new Set(threadKeys)]
     },
-    needsYou
+    needsYou,
+    chats: watchChats,
+    items: watchItems
   }
 }
 
@@ -152,7 +211,7 @@ export async function readWatchBotActivity(
   if (!current() || listing.kind === 'unreadable') {
     return null
   }
-  const activity: Activity = { bots: [], needsYou: [] }
+  const activity: Activity = { bots: [], needsYou: [], chats: [], items: [] }
   if (listing.kind !== 'bots' || listing.bots.length === 0) {
     return activity
   }
@@ -178,6 +237,8 @@ export async function readWatchBotActivity(
     for (const row of batch) {
       activity.bots.push(row.bot)
       activity.needsYou.push(...row.needsYou)
+      activity.chats.push(...row.chats)
+      activity.items.push(...row.items)
     }
   }
   return current() ? activity : null

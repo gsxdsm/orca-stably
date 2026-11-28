@@ -16,7 +16,12 @@ struct WatchSnapshotCache {
     let next = WatchGlance(
       generatedAt: snapshot.generatedAt,
       needsYouCount: Self.count(snapshot),
-      usage: snapshot.usage ?? []
+      usage: (snapshot.usage ?? []).map { entry in
+        var glance = entry
+        glance.samples = nil
+        glance.windowMinutes = nil
+        return glance
+      }
     )
     guard let data = try? encoder.encode(snapshot),
           let glanceData = try? encoder.encode(next) else {

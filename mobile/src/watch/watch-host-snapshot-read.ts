@@ -1,4 +1,6 @@
 import * as z from 'zod'
+import { chatPaneKeySessionId } from '../../../src/shared/agent-session/view/structured-agent-session-projection'
+import { readNotificationReplyTarget } from '../../../src/shared/notifications/notification-reply'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import { worktreeCatalogRead } from '../worktree/catalog/worktree-catalog-operations'
 import { WORKTREE_PS_FULL_LIMIT } from '../worktree/catalog/worktree-catalog-snapshot-client'
@@ -14,6 +16,13 @@ import {
 const agentRowSchema = z.looseObject({
   paneKey: z.string().min(1),
   terminalHandle: z.string().min(1).optional(),
+  providerSession: z
+    .looseObject({
+      id: z.string().min(1),
+      transcriptPath: z.string().optional()
+    })
+    .optional(),
+  providerSessionId: z.string().min(1).optional(),
   state: z.enum(['working', 'blocked', 'waiting', 'done']),
   agentType: z.string().nullable().optional(),
   prompt: z.string().optional(),
@@ -40,6 +49,8 @@ const notificationSchema = z.looseObject({
   source: z.enum(['agent-task-complete', 'terminal-bell', 'test', 'plugin']).optional(),
   agentState: z.enum(['working', 'blocked', 'waiting', 'done']).optional(),
   paneKey: z.string().optional(),
+  worktreeId: z.string().min(1).optional(),
+  replyTarget: z.unknown().optional(),
   notificationId: z.string().optional()
 })
 
@@ -140,11 +151,23 @@ export function watchFeedItemFromNotification(
         : event.source === 'terminal-bell'
           ? 'bell'
           : 'other'
-  const sessionKey = event.paneKey ? watchSessionKey(hostId, 'term', event.paneKey) : undefined
+  const target = readNotificationReplyTarget(event.replyTarget)
+  const chatId =
+    target?.type === 'chat'
+      ? target.sessionId
+      : event.paneKey && chatPaneKeySessionId(event.paneKey)
+  const sessionKey = chatId
+    ? watchSessionKey(hostId, 'chat', chatId)
+    : target?.type === 'bot-item'
+      ? watchSessionKey(hostId, 'item', target.itemUid)
+      : event.paneKey
+        ? watchSessionKey(hostId, 'term', event.paneKey)
+        : undefined
   return {
     id: event.notificationId ?? `${hostId}:${event.emittedAt ?? now}:${event.title}`,
     hostId,
     ...(sessionKey ? { sessionKey } : {}),
+    ...(event.worktreeId ? { workspaceId: event.worktreeId } : {}),
     title: event.title,
     body: event.body,
     at: event.emittedAt ?? now,
@@ -156,10 +179,14 @@ function mapTerminals(hostId: string, rows: readonly WatchWorktreeRow[]): WatchS
   const terminals: WatchSnapshotTerminal[] = []
   for (const row of rows) {
     for (const agent of row.agents) {
+      const providerSession =
+        agent.providerSession ??
+        (agent.providerSessionId ? { id: agent.providerSessionId } : undefined)
       terminals.push({
         hostId,
         paneKey: agent.paneKey,
         ...(agent.terminalHandle ? { terminalHandle: agent.terminalHandle } : {}),
+        ...(providerSession ? { providerSession } : {}),
         workspaceId: row.worktreeId,
         workspaceName: row.displayName,
         agent: agent.agentType ?? 'unknown',

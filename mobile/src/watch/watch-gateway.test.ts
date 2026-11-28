@@ -33,7 +33,10 @@ function terminal(): WatchSnapshotTerminal {
   }
 }
 
-function harness(initialConnection: WatchHost['connection'] = 'connected') {
+function harness(
+  initialConnection: WatchHost['connection'] = 'connected',
+  readHistory?: WatchGatewayHandlers['readHistory']
+) {
   let now = 10_000
   const hosts: WatchHost[] = [{ hostId: 'host-1', name: 'Studio', connection: initialConnection }]
   const chats = [chat()]
@@ -57,6 +60,7 @@ function harness(initialConnection: WatchHost['connection'] = 'connected') {
   const controller = createWatchGatewayController({
     now: () => now,
     hosts: () => hosts,
+    readHistory,
     sources: () => ({ chats, terminals, prompts: [], feed: [] }),
     schedule(_delay, run) {
       scheduled = run
@@ -425,5 +429,36 @@ describe('watch command routing', () => {
     gate.chats[0] = { ...gate.chats[0], projectedStatus: 'attention' }
     gate.controller.publish()
     expect(gate.pushes).toHaveLength(3)
+  })
+
+  it('scopes history pages to a live paired target and omits the application snapshot', async () => {
+    const gate = harness('connected', async (target, before) =>
+      target.hostId === 'host-1' &&
+      target.kind === 'chat' &&
+      target.id === 'session-1' &&
+      before === 'older-page'
+        ? { messages: [{ id: 'first', role: 'agent', text: 'Ready', at: 4 }] }
+        : null
+    )
+    const command = {
+      v: 1,
+      id: 'read',
+      type: 'history',
+      sessionKey: 'host-1|chat|session-1',
+      before: 'older-page'
+    }
+    expect(await gate.controller.handleCommand(command)).toEqual({
+      v: 1,
+      id: 'read',
+      ok: true,
+      history: { messages: [{ id: 'first', role: 'agent', text: 'Ready', at: 4 }] }
+    })
+    expect(
+      await gate.controller.handleCommand({
+        ...command,
+        id: 'other',
+        sessionKey: 'host-2|chat|session-1'
+      })
+    ).toEqual({ v: 1, id: 'other', ok: false, reason: 'not_found' })
   })
 })

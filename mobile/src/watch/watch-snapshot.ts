@@ -1,4 +1,5 @@
 import { chatPaneKey } from '../../../src/shared/agent-session/view/structured-agent-session-projection'
+import { isNativeChatSupportedAgent } from '../../../src/shared/native-chat/native-chat-agent-support'
 import type {
   WatchBot,
   WatchFeedItem,
@@ -27,6 +28,9 @@ const STATUS_RANK: Record<WatchSession['status'], number> = {
   idle: 2
 }
 
+export type WatchSessionKind = 'chat' | 'term' | 'item'
+export type WatchSnapshotItem = WatchSession & { workspaceId: string }
+
 export type WatchSnapshotChat = {
   hostId: string
   sessionId: string
@@ -46,6 +50,7 @@ export type WatchSnapshotTerminal = {
   paneKey: string
   /** Issued handle for `terminal.send`. A pane key is not one. */
   terminalHandle?: string
+  providerSession?: { id: string; transcriptPath?: string }
   workspaceId: string
   workspaceName: string
   agent: string
@@ -65,6 +70,7 @@ export type WatchSnapshotInput = {
   hosts: ReadonlyArray<WatchHost>
   chats: ReadonlyArray<WatchSnapshotChat>
   terminals: ReadonlyArray<WatchSnapshotTerminal>
+  items?: ReadonlyArray<WatchSnapshotItem>
   prompts: ReadonlyArray<WatchPrompt>
   feed: ReadonlyArray<WatchFeedItem>
   bots?: ReadonlyArray<WatchBot>
@@ -72,26 +78,26 @@ export type WatchSnapshotInput = {
   usage?: ReadonlyArray<WatchUsage>
 }
 
-export function watchSessionKey(hostId: string, kind: 'chat' | 'term', id: string): string {
+export function watchSessionKey(hostId: string, kind: WatchSessionKind, id: string): string {
   return `${hostId}|${kind}|${id}`
 }
 
 export function parseWatchSessionKey(
   key: string
-): { hostId: string; kind: 'chat' | 'term'; id: string } | null {
+): { hostId: string; kind: WatchSessionKind; id: string } | null {
   const first = key.indexOf('|')
   const second = key.indexOf('|', first + 1)
   if (first <= 0 || second <= first + 1 || second >= key.length - 1) {
     return null
   }
   const kind = key.slice(first + 1, second)
-  if (kind !== 'chat' && kind !== 'term') {
+  if (kind !== 'chat' && kind !== 'term' && kind !== 'item') {
     return null
   }
   return { hostId: key.slice(0, first), kind, id: key.slice(second + 1) }
 }
 
-function clip(value: string | undefined, limit: number): string | undefined {
+export function clipWatchText(value: string | undefined, limit: number): string | undefined {
   const trimmed = value?.trim()
   if (!trimmed) {
     return undefined
@@ -106,7 +112,7 @@ function clip(value: string | undefined, limit: number): string | undefined {
 
 function firstText(values: Array<string | undefined>, fallback: string): string {
   for (const value of values) {
-    const clipped = clip(value, 500)
+    const clipped = clipWatchText(value, 500)
     if (clipped) {
       return clipped
     }
@@ -114,20 +120,12 @@ function firstText(values: Array<string | undefined>, fallback: string): string 
   return fallback
 }
 
-function compareSessions(a: WatchSession, b: WatchSession): number {
-  const rank = STATUS_RANK[a.status] - STATUS_RANK[b.status]
-  return rank === 0 ? b.updatedAt - a.updatedAt : rank
-}
-
 function jsonBytes(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value)).length
 }
 
 export function buildWatchSnapshot(input: WatchSnapshotInput): WatchSnapshot {
-  const prompts = input.prompts.map((prompt) => {
-    const detail = clip(prompt.detail, DETAIL_LIMIT)
-    return detail === undefined ? { ...prompt, detail: undefined } : { ...prompt, detail }
-  })
+  const prompts = input.prompts
   const promptBySession = new Map<string, WatchPrompt>()
   for (const prompt of [...prompts].sort((a, b) => b.createdAt - a.createdAt)) {
     if (!promptBySession.has(prompt.sessionKey)) {
@@ -135,7 +133,11 @@ export function buildWatchSnapshot(input: WatchSnapshotInput): WatchSnapshot {
     }
   }
   const connection = new Map(input.hosts.map((host) => [host.hostId, host.connection]))
-  const sessions: WatchSession[] = []
+  const sessions: WatchSession[] = (input.items ?? []).map(({ workspaceId, ...item }) => ({
+    ...item,
+    workspace: item.workspace || workspaceId,
+    canSend: item.canSend && connection.get(item.hostId) === 'connected'
+  }))
 
   for (const chat of input.chats) {
     const key = watchSessionKey(chat.hostId, 'chat', chat.sessionId)
@@ -146,19 +148,20 @@ export function buildWatchSnapshot(input: WatchSnapshotInput): WatchSnapshot {
         : chat.projectedStatus === 'working'
           ? 'working'
           : 'idle'
-    const toolName = clip(chat.toolName, 80)
-    const latest = clip(chat.lastAssistantMessage ?? chat.latestPrompt, LATEST_LIMIT)
+    const toolName = clipWatchText(chat.toolName, 80)
+    const latest = clipWatchText(chat.lastAssistantMessage ?? chat.latestPrompt, LATEST_LIMIT)
     sessions.push({
       key,
       hostId: chat.hostId,
       title: firstText([chat.conversationName, chat.latestPrompt, chat.agent], chat.sessionId),
-      agent: clip(chat.agent, 80) ?? 'unknown',
-      workspace: clip(chat.workspaceName, 120) ?? chat.workspaceId,
+      agent: clipWatchText(chat.agent, 80) ?? 'unknown',
+      workspace: clipWatchText(chat.workspaceName, 120) ?? chat.workspaceId,
       status,
       ...(latest ? { latest } : {}),
       ...(toolName ? { toolName } : {}),
       updatedAt: chat.updatedAt,
       canSend: connection.get(chat.hostId) === 'connected',
+      ...(status === 'working' ? { canStop: true } : {}),
       ...(prompt ? { pendingPromptId: prompt.promptId } : {})
     })
   }
@@ -177,8 +180,8 @@ export function buildWatchSnapshot(input: WatchSnapshotInput): WatchSnapshot {
           : terminal.state === 'done'
             ? 'done'
             : 'idle'
-    const toolName = clip(terminal.toolName, 80)
-    const latest = clip(terminal.lastAssistantMessage ?? terminal.prompt, LATEST_LIMIT)
+    const toolName = clipWatchText(terminal.toolName, 80)
+    const latest = clipWatchText(terminal.lastAssistantMessage ?? terminal.prompt, LATEST_LIMIT)
     sessions.push({
       key,
       hostId: terminal.hostId,
@@ -192,39 +195,45 @@ export function buildWatchSnapshot(input: WatchSnapshotInput): WatchSnapshot {
         ],
         terminal.paneKey
       ),
-      agent: clip(terminal.agent, 80) ?? 'unknown',
-      workspace: clip(terminal.workspaceName, 120) ?? terminal.workspaceId,
+      agent: clipWatchText(terminal.agent, 80) ?? 'unknown',
+      workspace: clipWatchText(terminal.workspaceName, 120) ?? terminal.workspaceId,
       status,
       ...(latest ? { latest } : {}),
       ...(toolName ? { toolName } : {}),
       updatedAt: terminal.updatedAt,
       canSend: connection.get(terminal.hostId) === 'connected',
+      ...(status === 'working' && isNativeChatSupportedAgent(terminal.agent)
+        ? { canStop: true }
+        : {}),
       ...(prompt ? { pendingPromptId: prompt.promptId } : {})
     })
   }
 
-  sessions.sort(compareSessions)
+  sessions.sort(
+    (a, b) => STATUS_RANK[a.status] - STATUS_RANK[b.status] || b.updatedAt - a.updatedAt
+  )
   const feed = [...input.feed]
     .sort((a, b) => b.at - a.at)
     .slice(0, FEED_LIMIT)
     .map((item) => ({
       ...item,
-      title: clip(item.title, LATEST_LIMIT) ?? '',
-      body: clip(item.body, LATEST_LIMIT) ?? ''
+      title: clipWatchText(item.title, LATEST_LIMIT) ?? '',
+      body: clipWatchText(item.body, LATEST_LIMIT) ?? ''
     }))
   const hosts = input.hosts.map((host) => ({
     hostId: host.hostId,
-    name: clip(host.name, 120) ?? host.hostId,
-    connection: host.connection
+    name: clipWatchText(host.name, 120) ?? host.hostId,
+    connection: host.connection,
+    ...(host.fingerprint ? { fingerprint: host.fingerprint } : {})
   }))
   const visiblePrompts = prompts.map((prompt) => {
-    const detail = clip(prompt.detail, DETAIL_LIMIT)
+    const detail = clipWatchText(prompt.detail, DETAIL_LIMIT)
     return {
       hostId: prompt.hostId,
       promptId: prompt.promptId,
       sessionKey: prompt.sessionKey,
       kind: prompt.kind,
-      title: clip(prompt.title, 300) ?? prompt.promptId,
+      title: clipWatchText(prompt.title, 300) ?? prompt.promptId,
       ...(detail ? { detail } : {}),
       options: prompt.options,
       createdAt: prompt.createdAt
@@ -235,7 +244,7 @@ export function buildWatchSnapshot(input: WatchSnapshotInput): WatchSnapshot {
     ?.slice()
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, BOTS_LIMIT)
-    .map((row) => ({ ...row, name: clip(row.name, 100) ?? 'Bot' }))
+    .map((row) => ({ ...row, name: clipWatchText(row.name, 100) ?? 'Bot' }))
   const paneAliases = new Map(
     input.chats.map(({ hostId, sessionId }) => [
       watchSessionKey(hostId, 'term', chatPaneKey(sessionId)),
@@ -253,7 +262,7 @@ export function buildWatchSnapshot(input: WatchSnapshotInput): WatchSnapshot {
       visiblePrompts
     )
       .slice(0, NEEDS_LIMIT)
-      .map((row) => ({ ...row, title: clip(row.title, 160) ?? 'Needs you' }))
+      .map((row) => ({ ...row, title: clipWatchText(row.title, 160) ?? 'Needs you' }))
   const usage = input.usage
     ?.slice()
     .sort((a, b) => b.updatedAt - a.updatedAt)
@@ -298,12 +307,10 @@ export function buildWatchSnapshot(input: WatchSnapshotInput): WatchSnapshot {
   trim(sessions)
   trim(visiblePrompts)
   trim(hosts)
-  if (needsYou) {
-    const sessionKeys = new Set(sessions.map((row) => row.key))
-    for (const need of needsYou) {
-      if (need.sessionKey && !sessionKeys.has(need.sessionKey)) {
-        delete need.sessionKey
-      }
+  const sessionKeys = new Set(sessions.map((row) => row.key))
+  for (const need of needsYou ?? []) {
+    if (need.sessionKey && !sessionKeys.has(need.sessionKey)) {
+      delete need.sessionKey
     }
   }
   return snapshot

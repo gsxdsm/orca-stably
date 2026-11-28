@@ -1,3 +1,4 @@
+import { mergeWatchThreadChats } from './watch-thread-target'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import { isRpcDeliveryUnknown } from '../transport/rpc/rpc-delivery-ambiguity'
 import { isLogicalClientCutoverError } from '../transport/connection/logical-client-cutover-error'
@@ -22,6 +23,9 @@ import {
 } from './watch-host-snapshot-read'
 import { sendWatchStructuredChat } from './watch-structured-chat-send'
 import { sendWatchTerminalText } from './watch-terminal-send'
+import { boundWatchThreadPage, readWatchThreadHistory } from './watch-thread-history'
+import { commentOnBotItem } from '../bots/items/bot-item-operations'
+import { controlWatchAgent } from './watch-agent-control'
 
 export type WatchLiveHost = WatchHost & { client: RpcClient }
 
@@ -36,8 +40,8 @@ export function startWatchGateway(options: {
   ) => () => void
   openSession: (target: {
     hostId: string
-    kind: 'chat' | 'term'
-    id: string
+    kind?: 'chat' | 'term' | 'item'
+    id?: string
     workspaceId?: string
     paneKey?: string
   }) => void
@@ -57,8 +61,15 @@ export function startWatchGateway(options: {
 
   function sources() {
     const entries = [...activity.values()]
+    const live = assembleWatchSources({ hosts: hosts.values(), rows, prompts, feed })
     return {
-      ...assembleWatchSources({ hosts: hosts.values(), rows, prompts, feed }),
+      ...live,
+      chats: mergeWatchThreadChats(
+        live.chats,
+        entries.flatMap((entry) => entry.chats),
+        live.feed
+      ),
+      items: entries.flatMap((entry) => entry.items),
       bots: entries.flatMap((entry) => entry.bots),
       needsYou: entries.flatMap((entry) => entry.needsYou),
       usage: [...usage.values()].flat()
@@ -67,8 +78,7 @@ export function startWatchGateway(options: {
 
   controller = createWatchGatewayController({
     now,
-    hosts: () =>
-      [...hosts.values()].map(({ hostId, name, connection }) => ({ hostId, name, connection })),
+    hosts: () => [...hosts.values()].map(({ client: _client, ...host }) => host),
     sources,
     schedule: (delayMs, run) => {
       const timer = setTimeout(run, delayMs)
@@ -76,6 +86,43 @@ export function startWatchGateway(options: {
     },
     push: options.push,
     openSession: options.openSession,
+    async controlAgent(target, action) {
+      const client = hosts.get(target.hostId)?.client
+      return client ? controlWatchAgent(client, target, action) : { outcome: 'unavailable' }
+    },
+    async readHistory(target, before) {
+      const client = hosts.get(target.hostId)?.client
+      const history = client && (await readWatchThreadHistory(client, target, before))
+      return history && hosts.get(target.hostId)?.client === client
+        ? boundWatchThreadPage(history)
+        : null
+    },
+    async sendItem({ hostId, id }, text, requestId) {
+      const client = hosts.get(hostId)?.client
+      if (!client) {
+        return { outcome: 'unavailable' }
+      }
+      const result = await commentOnBotItem(client, id, text, { requestId })
+      if (result.kind === 'done') {
+        const value = result.result
+        const messageId =
+          value &&
+          typeof value === 'object' &&
+          'eventId' in value &&
+          typeof value.eventId === 'string'
+            ? value.eventId
+            : undefined
+        return { outcome: 'accepted', ...(messageId ? { messageId } : {}) }
+      }
+      return {
+        outcome:
+          result.kind === 'refused'
+            ? 'rejected'
+            : result.kind === 'unknown'
+              ? 'unknown'
+              : 'unavailable'
+      }
+    },
     async respond(hostId, input) {
       const client = hosts.get(hostId)?.client
       if (!client) {

@@ -1,20 +1,22 @@
-import type { WatchCommand, WatchHost, WatchReply, WatchSnapshot } from './watch-contract'
+import type {
+  WatchCommand,
+  WatchHost,
+  WatchReply,
+  WatchSnapshot,
+  WatchThreadPage
+} from './watch-contract'
 import { watchCommandSchema } from './watch-contract'
 import { createWatchCommandDedupe } from './watch-command-dedupe'
-import {
-  buildWatchSnapshot,
-  parseWatchSessionKey,
-  watchSessionKey,
-  type WatchSnapshotChat,
-  type WatchSnapshotInput,
-  type WatchSnapshotTerminal
-} from './watch-snapshot'
+import { findLiveWatchThread, type WatchThreadTarget } from './watch-thread-target'
+import type { WatchAgentAction } from './watch-agent-control'
+import { chatPaneKey } from '../../../src/shared/agent-session/view/structured-agent-session-projection'
+import { buildWatchSnapshot, parseWatchSessionKey, type WatchSnapshotInput } from './watch-snapshot'
 
 export const WATCH_PUSH_INTERVAL_MS = 2_000
 
 export type WatchGatewaySources = Pick<
   WatchSnapshotInput,
-  'chats' | 'terminals' | 'prompts' | 'feed' | 'bots' | 'needsYou' | 'usage'
+  'chats' | 'terminals' | 'prompts' | 'feed' | 'bots' | 'needsYou' | 'usage' | 'items'
 >
 
 export type WatchSendOutcome =
@@ -28,6 +30,7 @@ export type WatchSendOutcome =
 export type WatchSendResult = {
   outcome: WatchSendOutcome
   detail?: string
+  messageId?: string
 }
 
 export type WatchGatewayHandlers = {
@@ -52,10 +55,17 @@ export type WatchGatewayHandlers = {
     target: { workspaceId?: string; paneKey: string },
     text: string
   ) => Promise<WatchSendResult>
+  sendItem?: (
+    target: WatchThreadTarget,
+    text: string,
+    requestId: string
+  ) => Promise<WatchSendResult>
+  readHistory?: (target: WatchThreadTarget, before?: string) => Promise<WatchThreadPage | null>
+  controlAgent?: (target: WatchThreadTarget, action: WatchAgentAction) => Promise<WatchSendResult>
   openSession: (target: {
     hostId: string
-    kind: 'chat' | 'term'
-    id: string
+    kind?: WatchThreadTarget['kind']
+    id?: string
     workspaceId?: string
     paneKey?: string
   }) => void
@@ -168,58 +178,32 @@ export function createWatchGatewayController(handlers: WatchGatewayHandlers) {
     )
   }
 
-  function findLive(key: string): {
-    hostId: string
-    kind: 'chat' | 'term'
-    id: string
-    workspaceId?: string
-  } | null {
-    const sources = handlers.sources()
-    const chat = sources.chats.find(
-      (session) => watchSessionKey(session.hostId, 'chat', session.sessionId) === key
-    )
-    if (chat) {
-      return {
-        hostId: chat.hostId,
-        kind: 'chat',
-        id: chat.sessionId,
-        workspaceId: chat.workspaceId
-      }
-    }
-    const terminal = sources.terminals.find(
-      (session) =>
-        !session.structuredHostOwned &&
-        watchSessionKey(session.hostId, 'term', session.paneKey) === key
-    )
-    if (terminal) {
-      return {
-        hostId: terminal.hostId,
-        kind: 'term',
-        id: terminal.paneKey,
-        workspaceId: terminal.workspaceId
-      }
-    }
-    return null
-  }
-
   async function execute(command: WatchCommand): Promise<WatchReply> {
     if (command.type === 'refresh') {
       const snapshot = current()
       emit(snapshot, true)
       return success(command.id, snapshot)
     }
+    if (command.type === 'openHost') {
+      if (!connection(command.hostId)) {
+        return failure(command.id, 'not_found')
+      }
+      handlers.openSession({ hostId: command.hostId })
+      return success(command.id, current())
+    }
     if (command.type === 'openOnPhone') {
       const parsed = parseWatchSessionKey(command.sessionKey)
       if (!parsed) {
         return failure(command.id, 'invalid')
       }
-      const live = findLive(command.sessionKey)
+      const live = findLiveWatchThread(handlers.sources(), command.sessionKey)
       handlers.openSession({
         hostId: parsed.hostId,
         kind: parsed.kind,
         id: parsed.id,
         ...(live?.workspaceId ? { workspaceId: live.workspaceId } : {}),
-        ...(parsed.kind === 'term' ? { paneKey: parsed.id } : {})
+        ...(parsed.kind === 'term' ? { paneKey: parsed.id } : {}),
+        ...(parsed.kind === 'chat' ? { paneKey: chatPaneKey(parsed.id) } : {})
       })
       return success(command.id, current())
     }
@@ -235,7 +219,7 @@ export function createWatchGatewayController(handlers: WatchGatewayHandlers) {
       })
       return result.ok ? success(command.id, current()) : failure(command.id, result.reason)
     }
-    const live = findLive(command.sessionKey)
+    const live = findLiveWatchThread(handlers.sources(), command.sessionKey)
     if (!live) {
       return failure(command.id, 'not_found')
     }
@@ -243,16 +227,37 @@ export function createWatchGatewayController(handlers: WatchGatewayHandlers) {
     if (blocked) {
       return blocked
     }
+    if (command.type === 'history') {
+      try {
+        const history = await handlers.readHistory?.(live, command.before)
+        return history
+          ? { v: 1, id: command.id, ok: true, history }
+          : failure(command.id, 'unavailable')
+      } catch {
+        return failure(command.id, 'unavailable')
+      }
+    }
     const result =
-      live.kind === 'chat'
-        ? await handlers.sendChat(live.hostId, live.id, command.text, command.id)
-        : await handlers.sendTerminal(
-            live.hostId,
-            { workspaceId: live.workspaceId, paneKey: live.id },
-            command.text
-          )
+      command.type === 'stop' || command.type === 'continue'
+        ? (command.type === 'stop' ? live.canStop : live.kind === 'chat') &&
+          (await handlers.controlAgent?.(live, command.type))
+        : live.kind === 'chat'
+          ? await handlers.sendChat(live.hostId, live.id, command.text, command.id)
+          : live.kind === 'item'
+            ? await handlers.sendItem?.(live, command.text, command.id)
+            : await handlers.sendTerminal(
+                live.hostId,
+                { workspaceId: live.workspaceId, paneKey: live.id },
+                command.text
+              )
+    if (!result) {
+      return failure(command.id, 'unavailable')
+    }
     if (result.outcome === 'accepted' || result.outcome === 'queued') {
-      return success(command.id, current())
+      return {
+        ...success(command.id, current()),
+        ...(result.messageId ? { messageId: result.messageId } : {})
+      }
     }
     return failure(
       command.id,
@@ -285,4 +290,5 @@ export function createWatchGatewayController(handlers: WatchGatewayHandlers) {
 
 export type WatchGatewayController = ReturnType<typeof createWatchGatewayController>
 
-export type { WatchSnapshotChat, WatchSnapshotTerminal }
+export type { WatchThreadTarget } from './watch-thread-target'
+export type { WatchSnapshotChat, WatchSnapshotTerminal } from './watch-snapshot'

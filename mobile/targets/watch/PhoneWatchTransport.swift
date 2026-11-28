@@ -17,7 +17,7 @@ final class PhoneWatchTransport: NSObject, WCSessionDelegate {
   func send(_ command: WatchCommand) async -> WatchReply {
     let payload = command.plist()
     let commandId = command.id
-    let mutates = command.type == "send" || command.type == "respond"
+    let mutates = ["send", "respond", "stop", "continue"].contains(command.type)
     let unconfirmed = WatchReply(v: 1, id: commandId, ok: false, reason: "unknown")
     return await withCheckedContinuation { continuation in
       let gate = ResumeOnce()
@@ -32,6 +32,10 @@ final class PhoneWatchTransport: NSObject, WCSessionDelegate {
       if mutates {
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 28) {
           finish(unconfirmed)
+        }
+      } else if command.type == "history" {
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 12) {
+          finish(WatchTransportFailure.reply(id: commandId))
         }
       }
       WCSession.default.sendMessage(payload, replyHandler: { message in

@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Platform } from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { OrcaWatchConnectivity } from '../../modules/orca-watch-connectivity/src'
 import { mobileSessionRouteTarget } from '../session/mobile-session-route'
 import { loadHostCatalog } from '../host-catalog/host-store'
 import type { ConnectionState } from '../transport/connection/connection-state'
 import { useAllHostClients } from '../transport/connection/use-all-host-clients'
 import { useOpenNotificationRoute } from '../notifications/navigation/use-open-notification-route'
-import type { WatchHost } from './watch-contract'
+import { deriveHostFingerprint } from '../notifications/payload-identity/push-host-fingerprint'
+import { watchUsagePaceSchema, type WatchHost } from './watch-contract'
 import { watchGatewayEnabled } from './watch-gateway-availability'
 import { startWatchGateway, type WatchLiveHost } from './watch-gateway-live'
 
@@ -30,9 +32,12 @@ function plainSnapshot(snapshot: unknown): Record<string, unknown> {
 export function WatchGatewayHost() {
   const openNotificationRoute = useOpenNotificationRoute()
   const openRouteRef = useRef(openNotificationRoute)
+  const usagePace = useRef<ReturnType<typeof watchUsagePaceSchema.parse> | undefined>(undefined)
   openRouteRef.current = openNotificationRoute
   const enabled = watchGatewayEnabled(Platform.OS, OrcaWatchConnectivity)
-  const [catalog, setCatalog] = useState<Array<{ id: string; name: string }>>([])
+  const [catalog, setCatalog] = useState<Array<{ id: string; name: string; fingerprint?: string }>>(
+    []
+  )
   const clients = useAllHostClients(enabled ? catalog.map((host) => host.id) : [])
   const gatewayRef = useRef<ReturnType<typeof startWatchGateway> | null>(null)
   const catalogRef = useRef(catalog)
@@ -41,14 +46,15 @@ export function WatchGatewayHost() {
   clientsRef.current = clients
 
   function linkedHosts(): WatchLiveHost[] {
-    const names = new Map(catalogRef.current.map((host) => [host.id, host.name]))
+    const linked = new Map(catalogRef.current.map((host) => [host.id, host]))
     return clientsRef.current.flatMap((entry) => {
-      const name = names.get(entry.hostId)
-      return name
+      const host = linked.get(entry.hostId)
+      return host
         ? [
             {
               hostId: entry.hostId,
-              name,
+              name: host.name,
+              fingerprint: host.fingerprint,
               connection: watchConnection(entry.state),
               client: entry.client
             }
@@ -63,6 +69,14 @@ export function WatchGatewayHost() {
     }
     let stopped = false
     const load = () => {
+      void AsyncStorage.getItem('orca:usagePaceColorThresholds')
+        .then((raw) => {
+          if (!stopped) {
+            usagePace.current =
+              raw === null ? undefined : watchUsagePaceSchema.safeParse(JSON.parse(raw)).data
+          }
+        })
+        .catch(() => {})
       void loadHostCatalog()
         .then((hosts) => {
           if (stopped) {
@@ -71,7 +85,8 @@ export function WatchGatewayHost() {
           setCatalog(
             hosts.map((host) => ({
               id: host.id,
-              name: host.personalName?.trim() || host.name.trim() || host.id
+              name: host.personalName?.trim() || host.name.trim() || host.id,
+              fingerprint: deriveHostFingerprint(host.publicKeyB64) ?? undefined
             }))
           )
         })
@@ -92,10 +107,23 @@ export function WatchGatewayHost() {
     const native = OrcaWatchConnectivity
     const gateway = startWatchGateway({
       push(snapshot) {
-        native?.updateContext(plainSnapshot(snapshot))
+        native?.updateContext(
+          plainSnapshot({
+            ...snapshot,
+            ...(usagePace.current ? { usagePace: usagePace.current } : {})
+          })
+        )
       },
       sendReply(replyToken, reply) {
-        native?.sendReply(replyToken, plainSnapshot(reply))
+        const usage = reply.ok && reply.snapshot && usagePace.current
+        native?.sendReply(
+          replyToken,
+          plainSnapshot(
+            usage && reply.ok && reply.snapshot
+              ? { ...reply, snapshot: { ...reply.snapshot, usagePace: usage } }
+              : reply
+          )
+        )
       },
       subscribeCommands(onCommand) {
         if (!native) {
@@ -112,7 +140,8 @@ export function WatchGatewayHost() {
             ? mobileSessionRouteTarget({
                 hostId: target.hostId,
                 worktreeId: target.workspaceId,
-                ...(target.paneKey ? { paneKey: target.paneKey } : {})
+                ...(target.paneKey ? { paneKey: target.paneKey } : {}),
+                ...(target.kind === 'item' ? { botItem: target.id } : {})
               })
             : null
         })

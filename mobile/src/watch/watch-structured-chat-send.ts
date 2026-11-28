@@ -1,4 +1,5 @@
 import { structuredAgentSessionHolderId } from '../../../src/shared/agent-session/view/structured-agent-session-holder'
+import { agentJournalSubmissionKey } from '../../../src/shared/agent-session/journal/agent-session-journal-item-key'
 import {
   EMPTY_STRUCTURED_AGENT_SESSION,
   reduceStructuredAgentSession,
@@ -21,15 +22,10 @@ import {
 import { subscribeTranscriptAfterHold } from '../session/native-chat/agent-session/mobile-structured-transcript-subscription'
 import { structuredSessionOperationId } from '../session/native-chat/agent-session/structured-session-operation-id'
 import { watchStructuredChatDelivery } from './watch-structured-chat-delivery'
-import { watchSendOutcomeFromHost, type WatchSendOutcome } from './watch-gateway'
+import { watchSendOutcomeFromHost, type WatchSendResult } from './watch-gateway'
 import { openMobileNativeChatSendBudget } from '../session/native-chat/composer/delivery/mobile-native-chat-send'
 
 const JOURNAL_WAIT_MS = 2_500
-
-export type WatchChatSendResult = {
-  outcome: WatchSendOutcome
-  detail?: string
-}
 
 function watchReplyDetail(text: string | undefined): string | undefined {
   const trimmed = text?.replace(/\s+/g, ' ').trim()
@@ -107,7 +103,7 @@ export async function sendWatchStructuredChat(input: {
   client: RpcClient
   sessionId: string
   text: string
-}): Promise<WatchChatSendResult> {
+}): Promise<WatchSendResult> {
   const deadline = openMobileNativeChatSendBudget()
   const holderId = structuredAgentSessionHolderId('mobile-chat')
   const held = callAgentSession(input.client, 'agentSession.hold', {
@@ -126,6 +122,7 @@ export async function sendWatchStructuredChat(input: {
       QUEUE_FOLLOW_UPS_PREFERENCE
     ).getSnapshot()
     let detail: string | undefined
+    const clientMessageId = structuredSessionOperationId()
     const outcome = await sendMobileStructuredAgentSessionMessage({
       client: input.client,
       sessionId: input.sessionId,
@@ -133,7 +130,7 @@ export async function sendWatchStructuredChat(input: {
       text: input.text,
       attachments: [],
       ...watchStructuredChatDelivery(state, { queueCapable, queueFollowUps }),
-      clientMessageId: structuredSessionOperationId(),
+      clientMessageId,
       deadline,
       onError: (message) => {
         detail = message
@@ -142,6 +139,9 @@ export async function sendWatchStructuredChat(input: {
     const replyDetail = watchReplyDetail(detail)
     return {
       outcome: watchSendOutcomeFromHost(outcome),
+      ...(outcome === 'accepted' || outcome === 'queued'
+        ? { messageId: agentJournalSubmissionKey(clientMessageId) }
+        : {}),
       ...(replyDetail ? { detail: replyDetail } : {})
     }
   } catch (error) {
