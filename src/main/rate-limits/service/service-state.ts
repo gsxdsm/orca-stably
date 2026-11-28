@@ -1,9 +1,12 @@
+import type { LocalAccountRuntimeTarget } from '../../../shared/agent-accounts/local-account-runtime'
 import type { BrowserWindow } from 'electron'
 import type {
+  AntigravityAccountUsage,
   InactiveAccountUsage,
   ProviderRateLimits,
   RateLimitState
 } from '../../../shared/agent-usage/rate-limits/rate-limit-types'
+import type { AntigravityAccountUsageRecorder } from '../providers/antigravity/antigravity-account-usage'
 import {
   type ActiveRateLimitProvider,
   type InactiveCodexAccountInfo,
@@ -13,6 +16,8 @@ import {
   type ClaudeAuthPreparationResolver,
   type OpenCodeGoRateLimitConfig,
   type MiniMaxRateLimitConfig,
+  type AntigravityUsageEnabledResolver,
+  type AntigravityUsageSourceResolver,
   type ClaudeOAuthUsageEnabledResolver,
   type MuseUsageEnabledResolver,
   type ZcodePlanRateLimitConfig,
@@ -32,6 +37,7 @@ export abstract class RateLimitServiceState {
     codex: null,
     opencodeGo: null,
     kimi: null,
+    antigravity: null,
     minimax: null,
     grok: null,
     cursor: null,
@@ -53,6 +59,7 @@ export abstract class RateLimitServiceState {
     kimi: 0,
     minimax: 0,
     grok: 0,
+    antigravity: 0,
     cursor: 0,
     zcode: 0,
     muse: 0
@@ -65,6 +72,7 @@ export abstract class RateLimitServiceState {
     kimi: 0,
     minimax: 0,
     grok: 0,
+    antigravity: 0,
     cursor: 0,
     zcode: 0,
     muse: 0
@@ -99,6 +107,7 @@ export abstract class RateLimitServiceState {
   protected opencodeFetchGeneration = 0
   protected minimaxFetchGeneration = 0
   protected zcodeFetchGeneration = 0
+  protected antigravityFetchGeneration = 0
   protected lastOpencodeConfigHash = ''
   protected lastMiniMaxConfigHash = ''
   protected lastZcodeConfigHash = ''
@@ -123,6 +132,12 @@ export abstract class RateLimitServiceState {
     | (() => ZcodePlanRateLimitConfig | Promise<ZcodePlanRateLimitConfig>)
     | null = null
   protected claudeOAuthUsageEnabledResolver: ClaudeOAuthUsageEnabledResolver | null = null
+  protected antigravityUsageEnabledResolver: AntigravityUsageEnabledResolver | null = null
+  protected antigravityUsageSourceResolver: AntigravityUsageSourceResolver | null = null
+  protected liveAntigravityUsage: ProviderRateLimits | null = null
+  protected antigravityFetchTarget: LocalAccountRuntimeTarget = { runtime: 'host', wslDistro: null }
+  protected antigravityAccountUsageRecorder: AntigravityAccountUsageRecorder | null = null
+  protected antigravityAccounts: AntigravityAccountUsage[] = []
   protected museUsageEnabledResolver: MuseUsageEnabledResolver | null = null
   protected inactiveClaudeAccountsResolver: (() => InactiveClaudeAccount[]) | null = null
   protected inactiveCodexAccountsResolver: (() => InactiveCodexAccountInfo[]) | null = null

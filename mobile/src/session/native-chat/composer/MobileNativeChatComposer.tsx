@@ -26,9 +26,8 @@ import { useMobileNativeChatMentionBots } from './menus/use-mobile-native-chat-m
 import { shownDictationPreview } from './menus/mobile-native-chat-bot-mention-display'
 import { mobileNativeChatComposerStylesSheet as stylesSheet } from './field/mobile-native-chat-composer-styles'
 import { composerInputStylesSheet as inputStylesSheet } from '../../../components/composer-input/composer-input-styles'
-import { MobileNativeChatComposerSendSlot } from './delivery/MobileNativeChatComposerSendSlot'
+import { MobileNativeChatComposerTrailingSlot } from './MobileNativeChatComposerTrailingSlot'
 import { useMobileNativeChatComposerSend } from './delivery/use-mobile-native-chat-composer-send'
-import { MobileNativeChatEditActions } from './field/MobileNativeChatEditActions'
 import {
   MobileNativeChatContextLimitLine,
   mobileNativeChatContextNearLimit
@@ -48,7 +47,6 @@ import { MobileNativeChatMcpTray } from '../mcp/MobileNativeChatMcpTray'
 import { MobileNativeChatQuoteTab } from './quotes/MobileNativeChatQuoteTab'
 import { tuiAgentDisplayName } from '../../../../../src/shared/agent-launch/catalog/tui-agent-display-names'
 import { useThemedStyles } from '../../../theme/themed-styles'
-import { MobileNativeChatActionGap } from './MobileNativeChatActionGap'
 import { ComposerUsageStrip } from '../../../composer-usage/ComposerUsageMeter'
 
 const NO_FILE_PATHS: string[] = []
@@ -383,46 +381,16 @@ export function MobileNativeChatComposer({
                   />
                 )}
               </MobileNativeChatDictationLeading>
-              {/* The pill's field lies over the row's middle, so the meter and toggle wait for the full form. */}
-              {collapsed ? null : (
-                <MobileNativeChatActionGap
-                  agent={editSession ? null : agent}
-                  toggle={widthToggle}
-                />
-              )}
-              {editSession ? mic : null}
-              {editSession ? (
-                <MobileNativeChatEditActions
-                  canSave={canSend}
-                  saving={sending}
-                  onCancel={editSession.cancel}
-                  onSave={() => void handleSend()}
-                />
-              ) : (
-                <MobileNativeChatComposerSendSlot
-                  {...{
-                    fieldRef,
-                    value,
-                    draftScopeKey,
-                    attachmentCount,
-                    structured,
-                    agent,
-                    followUp,
-                    canSend,
-                    sending,
-                    stop,
-                    mic
-                  }}
-                  micLive={micLive}
-                  snapshot={sessionOptions?.controller.snapshot}
-                  steerHead={headChord}
-                  pickerOpen={menu.rows.length > 0}
-                  sendDisabled={sendDisabled}
-                  attaching={isAttaching || filesUploading || micActive}
-                  onSend={(intent, keepFocus) => void handleSend(intent, keepFocus)}
-                  onWidth={collapse.onSlotWidth}
-                />
-              )}
+              <MobileNativeChatComposerTrailingSlot
+                {...{ collapsed, editSession, widthToggle, fieldRef, value, draftScopeKey }}
+                {...{ attachmentCount, structured, agent, followUp, canSend, sending, stop }}
+                {...{ mic, micLive, sendDisabled, steerHead: headChord }}
+                snapshot={sessionOptions?.controller.snapshot}
+                pickerOpen={menu.rows.length > 0}
+                attaching={isAttaching || filesUploading || micActive}
+                onSend={(intent, keepFocus) => void handleSend(intent, keepFocus)}
+                onWidth={collapse.onSlotWidth}
+              />
             </View>
           </View>
         </Animated.View>

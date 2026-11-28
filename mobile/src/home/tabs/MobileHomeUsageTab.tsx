@@ -9,13 +9,9 @@ import Animated, {
 } from 'react-native-reanimated'
 import { formatUsageBarValue, usageBarFill } from '../../accounts/usage/UsageBar'
 import { useUsagePercentageDisplay } from '../../accounts/usage/usage-percentage-display-preference'
-import {
-  getUsageBarState,
-  getWindowResetLabel,
-  type ProviderKey
-} from '../../accounts/usage/usage-selectors'
+import { getUsageBarState, getWindowResetLabel } from '../../accounts/usage/usage-selectors'
 import type { AccountsSnapshot } from '../../accounts/accounts-snapshot'
-import { ClaudeIcon, OpenAIIcon } from '../../components/icons/AgentIcons'
+import { AntigravityIcon, ClaudeIcon, OpenAIIcon } from '../../components/icons/AgentIcons'
 import { useNow } from '../../hooks/use-now'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
 import { useResponsiveLayout } from '../../layout/responsive-layout'
@@ -33,13 +29,21 @@ import { homeListStylesSheet } from '../home-list-styles'
 import { MobileHomeSectionHeading } from '../MobileHomeSectionHeading'
 import { MobileHomeStats } from '../MobileHomeStats'
 import { HOME_EASE_OUT } from './home-tabs'
-import { selectHomeUsageSections, type HomeUsageCard } from './home-usage-cards'
+import {
+  selectHomeUsageSections,
+  type HomeUsageCard,
+  type HomeUsageProviderKey
+} from './home-usage-cards'
 import { MobileHomeHostPill, useHomeTabHost } from './MobileHomeHostPill'
 import { MobileHomeTabHeader, MobileHomeTabHeaderButton } from './MobileHomeTabHeader'
 import { mobileHomeUsageStylesSheet } from './mobile-home-usage-styles'
 import { getManagedAccountPrimaryLabel } from '../../../../src/shared/agent-accounts/managed-account-display-names'
 
-const PROVIDER_TITLES: Record<ProviderKey, string> = { claude: 'Claude Code', codex: 'Codex' }
+const PROVIDER_TITLES: Record<HomeUsageProviderKey, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  antigravity: 'Antigravity'
+}
 
 /** Usage: agent account quota on one desktop, after the totals across all of them. */
 export function MobileHomeUsageTab(props: {
@@ -211,7 +215,7 @@ function HostUsage(props: {
 }
 
 function UsageCard(props: {
-  provider: ProviderKey
+  provider: HomeUsageProviderKey
   card: HomeUsageCard
   separated: boolean
   now: number
@@ -265,6 +269,8 @@ function UsageCard(props: {
           <View style={styles.tile}>
             {props.provider === 'claude' ? (
               <ClaudeIcon size={16} />
+            ) : props.provider === 'antigravity' ? (
+              <AntigravityIcon size={16} />
             ) : (
               <OpenAIIcon size={16} color={colors.textPrimary} />
             )}

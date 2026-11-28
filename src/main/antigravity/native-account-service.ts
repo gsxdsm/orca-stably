@@ -1,6 +1,17 @@
 import { randomUUID } from 'node:crypto'
 import type { AntigravityAccountState } from '../../shared/agent-accounts/antigravity/antigravity-account-types'
 import {
+  ANTIGRAVITY_USAGE_HOST_TARGET,
+  runAntigravityBeginUsageRead,
+  runAntigravityFinishUsageRead,
+  withAntigravityAccountUsage,
+  type AntigravityUsageLogin,
+  type AntigravityUsageReadFinish,
+  type AntigravityUsageReadStart,
+  type ProviderRateLimits,
+  type RateLimitRuntimeTarget
+} from './native-account-usage-reading'
+import {
   parseAntigravityNativeCredential,
   type AntigravityNativeCredential
 } from './native-credential-codec'
@@ -20,7 +31,7 @@ import {
   refreshSavedAntigravityLogin,
   type AntigravityQuietRead
 } from './native-account-login-view'
-import { AntigravityKeychainAccessError, withBriefKeychainAccess } from './native-macos-credentials'
+import { prepareAntigravityLaunchLogin } from './native-account-launch-restore'
 
 export type AntigravityCredentialBackend = {
   parse?(contents: string): AntigravityNativeCredential
@@ -50,7 +61,8 @@ export class AntigravityAccountService {
     private readonly now: () => number = Date.now,
     private readonly lookupIdentity = fetchGoogleIdentity,
     // Only the host's service restores at launch; absent, launches still refuse a moved login.
-    private readonly launchRestore?: AntigravityLaunchRestore
+    private readonly launchRestore?: AntigravityLaunchRestore,
+    private readonly target: RateLimitRuntimeTarget = ANTIGRAVITY_USAGE_HOST_TARGET
   ) {
     this.logins = new AntigravityLoginReader(backend, store, (account, login) =>
       this.matches(account, login)
@@ -80,7 +92,8 @@ export class AntigravityAccountService {
   private async listKeychainLogin(fingerprint: string, persist: boolean) {
     const vault = await this.store.read()
     const login = (await this.logins.known(vault, fingerprint, persist)) ?? 'unread'
-    return antigravityAccountState(vault, login, Boolean(this.launchRestore))
+    const base = antigravityAccountState(vault, login, Boolean(this.launchRestore))
+    return withAntigravityAccountUsage(base, vault, this.target)
   }
 
   /** Reads only Orca's saved accounts, never agy's login, and waits on no other account work. */
@@ -195,74 +208,30 @@ export class AntigravityAccountService {
   ): Promise<string | null> {
     const seen: LoginEvidence = {}
     try {
-      return await this.prepareLogin(options, seen)
+      return await prepareAntigravityLaunchLogin(
+        {
+          readWithoutPrompt: this.backend.readWithoutPrompt
+            ? () => this.backend.readWithoutPrompt!()
+            : undefined,
+          logins: this.logins,
+          store: this.store,
+          prompting: () => this.prompting,
+          reconcile: (id, q) => this.reconcile(id, q),
+          matches: (a, c) => this.matches(a, c),
+          hasLaunchRestore: Boolean(this.launchRestore),
+          signInHoldsLogin: () => this.launchRestore?.signInHoldsLogin() ?? false,
+          switchNative: (s, c) => this.switchNative(s, c),
+          serialize: (op, mayPrompt) => this.serialize(op, mayPrompt)
+        },
+        options,
+        seen
+      )
     } catch (error) {
       throw new AntigravityLaunchRestoreError(
         error,
         await this.logins.holderAfterFailure(seen).catch(() => null)
       )
     }
-  }
-
-  private async prepareLogin(
-    { mayPrompt = true, quiet = false }: { mayPrompt?: boolean; quiet?: boolean },
-    seen: LoginEvidence
-  ): Promise<string | null> {
-    const early = mayPrompt ? undefined : await this.backend.readWithoutPrompt?.()
-    const settled = await this.logins.settlesLaunch(early, false)
-    if (settled !== null) {
-      return settled
-    }
-    // Nobody asked (`quiet`): a login only a keychain read could name waits for the next launch.
-    if (quiet && early && 'fingerprint' in early) {
-      return null
-    }
-    if (early && 'fingerprint' in early && (this.logins.briefAccessFailed || this.prompting > 0)) {
-      throw new Error(
-        "Checking agy's login for the selected account could ask for keychain access, so it was left as it is."
-      )
-    }
-    const restore = async (): Promise<string> => {
-      const quiet = await this.backend.readWithoutPrompt?.()
-      const settled = await this.logins.settlesLaunch(quiet, true)
-      if (settled !== null) {
-        return settled
-      }
-      const { vault, current } = await this.reconcile(undefined, quiet)
-      seen.login = current
-      const selected = vault.accounts.find((account) => account.id === vault.selectedAccountId)
-      if (!vault.selectedAccountId || (selected && current && this.matches(selected, current))) {
-        return vault.selectedAccountId ?? ''
-      }
-      // Each running agy writes its own login back to the one native slot on every token refresh.
-      // Exactly one saved account holding it (reconcile just saved it) restores the selection, as
-      // best effort as selecting: the native store has no compare-and-swap.
-      const holders = current ? vault.accounts.filter((entry) => this.matches(entry, current)) : []
-      if (!selected || holders.length !== 1 || !this.launchRestore) {
-        throw new Error(
-          'The native Antigravity account changed. Select the account again in Accounts before launching agy.'
-        )
-      }
-      if (this.launchRestore.signInHoldsLogin()) {
-        throw new Error('Antigravity sign-in is in progress. Finish it, then launch agy again.')
-      }
-      // From the write on, what this restore read no longer names agy's login.
-      delete seen.login
-      await this.switchNative(selected, current)
-      // No vault write: both logins are already saved, and another Orca process selecting meanwhile wins.
-      if ((await this.store.read()).selectedAccountId !== selected.id) {
-        throw new Error('Antigravity snapshots changed during selection; refresh before retrying.')
-      }
-      return selected.id
-    }
-    // A chat's keychain calls give up early; one the keychain refused or left unanswered stops the
-    // next chats asking, while other refusals (a sign-in in progress) don't.
-    const chatRestore = () =>
-      withBriefKeychainAccess(restore).catch((error: unknown) => {
-        this.logins.briefAccessFailed ||= error instanceof AntigravityKeychainAccessError
-        throw error
-      })
-    return this.serialize(mayPrompt ? restore : chatRestore, mayPrompt)
   }
 
   private async switchNative(
@@ -283,6 +252,34 @@ export class AntigravityAccountService {
       )
     }
     return { readback, switching }
+  }
+
+  beginUsageRead(): Promise<AntigravityUsageReadStart | null> {
+    return this.serialize(() =>
+      runAntigravityBeginUsageRead(
+        this.store,
+        this.target,
+        () => this.reconcile(),
+        (a, c) => this.matches(a, c)
+      )
+    )
+  }
+
+  /** Keeps a successful reading only when the login that started the read is still signed in. */
+  finishUsageRead(
+    login: AntigravityUsageLogin,
+    limits: ProviderRateLimits
+  ): Promise<AntigravityUsageReadFinish> {
+    return this.serialize(() =>
+      runAntigravityFinishUsageRead(
+        this.store,
+        this.target,
+        () => this.reconcile(),
+        (a, c) => this.matches(a, c),
+        login,
+        limits
+      )
+    )
   }
 
   private matches(
@@ -329,7 +326,8 @@ export class AntigravityAccountService {
     current: AntigravityNativeCredential | null
   }): AntigravityAccountState {
     const login = current ? this.logins.view(vault, current) : null
-    return antigravityAccountState(vault, login, Boolean(this.launchRestore))
+    const base = antigravityAccountState(vault, login, Boolean(this.launchRestore))
+    return withAntigravityAccountUsage(base, vault, this.target)
   }
 
   private serialize<T>(operation: () => Promise<T>, mayPrompt = true): Promise<T> {

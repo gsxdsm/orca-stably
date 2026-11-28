@@ -6,6 +6,7 @@ import {
   callAntigravityAccounts,
   selectAntigravityAccount
 } from '@/runtime/provider-accounts/sign-in/runtime-antigravity-accounts-client'
+import { callRuntimeRpc } from '@/runtime/rpc/calls/runtime-rpc-call'
 import { useDetectedAgents } from '@/lib/agent-session/launch/inventory/useDetectedAgents'
 import { useAppStore } from '@/store/index'
 import {
@@ -19,6 +20,11 @@ import type {
   AntigravityAccountState,
   AntigravityAccountTarget
 } from '../../../../../../shared/agent-accounts/antigravity/antigravity-account-types'
+import type {
+  ProviderRateLimits,
+  RateLimitState
+} from '../../../../../../shared/agent-usage/rate-limits/rate-limit-types'
+import { localAccountRuntimeTargetKey } from '../../../../../../shared/agent-accounts/local-account-runtime'
 import { Button } from '../../../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../../ui/tooltip'
 import { AntigravityChatAuthRows } from '../../../provider-accounts/AntigravityChatAuthRows'
@@ -37,18 +43,44 @@ import {
   AntigravityAgyAccountRows,
   type AntigravityAccountAction
 } from './AntigravityAgyAccountRows'
+import { AntigravityUsageSourceSetting } from './AntigravityUsageSourceSetting'
+import type { UsageHostSettingsModel } from '../usage/use-usage-host-settings'
+import type { FeatureInteractionId } from '../../../../../../shared/feature-education/interactions/feature-interaction-catalog'
 import { AntigravityAgyCliRow } from './AntigravityAgyCliRow'
+
+function usageMatchesTarget(provenance: string, target: AntigravityAccountTarget): boolean {
+  if (target.runtime === 'host' || target.wslDistro) {
+    return (
+      provenance ===
+      localAccountRuntimeTargetKey({
+        runtime: target.runtime,
+        wslDistro: target.wslDistro ?? null
+      })
+    )
+  }
+  // The host names the default distro; this client does not know it.
+  return provenance.startsWith('wsl:')
+}
+
+// Why a helper: React Compiler cannot compile a throw statement inside try/catch.
+function staleUsageRead(message: string): never {
+  throw new Error(message)
+}
 
 export function AntigravityAccountsSection({
   owner,
   target,
   label,
-  ownerPlatform
+  ownerPlatform,
+  usageSettings,
+  recordFeatureInteraction
 }: {
   owner: RuntimeClientTarget
   target: AntigravityAccountTarget
   label: string
   ownerPlatform?: string | null
+  usageSettings?: UsageHostSettingsModel
+  recordFeatureInteraction?: (feature: FeatureInteractionId) => void
 }): React.JSX.Element {
   const t = useTranslate()
   const runningSessionsPolicy = useAppStore(
@@ -56,6 +88,7 @@ export function AntigravityAccountsSection({
   )
   const updateSettings = useAppStore((s) => s.updateSettings)
   const [state, setState] = useState<AntigravityAccountState | null>(null)
+  const [usage, setUsage] = useState<ProviderRateLimits | null>(null)
   const [error, setError] = useState<string | null>(null)
   const mounted = useRef(true)
   const { busy, run } = useAntigravityAccountRun(perform, mounted)
@@ -117,7 +150,7 @@ export function AntigravityAccountsSection({
     }
   }, [ownerKind, environmentId, runtime, wslDistro])
 
-  /** `keepShown`: a background re-read, which leaves an error on screen. */
+  /** `keepShown`: a background re-read, which leaves a Usage reading or error on screen. */
   async function perform(
     action: AntigravityAccountAction,
     accountId: string | undefined,
@@ -125,8 +158,43 @@ export function AntigravityAccountsSection({
   ) {
     if (!keepShown) {
       setError(null)
+      setUsage(null)
     }
     try {
+      if (action === 'Usage') {
+        const before = await callAntigravityAccounts(owner, target, 'List')
+        const snapshot = await callRuntimeRpc<{ rateLimits: RateLimitState }>(
+          owner,
+          'accounts.list',
+          { refreshUsage: true }
+        )
+        const after = await callAntigravityAccounts(owner, target, 'List')
+        if (mounted.current) {
+          setState(after)
+        }
+        const account = before.currentAccount
+        // Native credentials may expose no subject, making two unidentified logins indistinguishable.
+        if (
+          !account ||
+          !after.currentAccount ||
+          account.subject !== after.currentAccount.subject ||
+          account.authMethod !== after.currentAccount.authMethod
+        ) {
+          staleUsageRead('The native account changed while reading usage. Refresh usage again.')
+        }
+        const usage = snapshot.rateLimits.antigravity
+        const provenance = usage?.usageMetadata?.authProvenance
+        // Usage follows the Accounts location; a reading from another runtime is another login's.
+        if (provenance && !usageMatchesTarget(provenance, target)) {
+          staleUsageRead(
+            'Antigravity usage was read from a different location. Refresh usage again.'
+          )
+        }
+        if (mounted.current) {
+          setUsage(usage)
+        }
+        return
+      }
       if (action === 'Select' && accountId) {
         const previous = state
         const next = await selectAntigravityAccount(
@@ -240,12 +308,19 @@ export function AntigravityAccountsSection({
         {chatsHere ? <AntigravityChatAuthRows owner={owner} onSaved={reread} /> : null}
         <AntigravityAgyAccountRows
           state={state}
+          usage={usage}
           error={error}
           busy={busy}
           windowsHost={windowsHost}
           run={(action, accountId) => void run(action, accountId)}
           {...(signInControls ? { signIn: signInControls } : {})}
         />
+        {usageSettings ? (
+          <AntigravityUsageSourceSetting
+            usageSettings={usageSettings}
+            recordFeatureInteraction={recordFeatureInteraction}
+          />
+        ) : null}
         {chats ? (
           <AntigravityAgyCliRow
             owner={owner}

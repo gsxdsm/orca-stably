@@ -16,6 +16,7 @@ import { WorkspaceCleanupRulesParam } from '../workspace-cleanup/workspace-clean
 import { AGENT_CHAT_PERMISSION_MODES } from '../../agent-launch/permissions/agent-chat-permission-mode'
 import { PR_AUTO_REFRESH_CADENCES } from '../../source-control/hosted-review/review-refresh-policy'
 import { HOST_OWNED_SETTING_UPDATE_SHAPE } from '../../settings/host-owned-settings'
+import { ANTIGRAVITY_USAGE_SOURCES } from '../../agent-usage/rate-limits/antigravity-usage-source'
 
 export const TaskProviderParam = lazyZodSchema(() =>
   z.custom<TaskProvider>(isTaskProvider, {
@@ -156,6 +157,7 @@ export const SettingsUpdate = lazyZodSchema(() =>
       minimaxUsageModels: z.string().optional(),
       minimaxEndpoint: z.enum(['overseas', 'cn']).optional(),
       zcodePlanSite: z.enum(['zai', 'bigmodel']).optional(),
+      antigravityUsageSource: z.enum(ANTIGRAVITY_USAGE_SOURCES).optional(),
       githubProjects: GitHubProjectSettings.optional(),
       prBotAuthorOverrides: z
         .unknown()

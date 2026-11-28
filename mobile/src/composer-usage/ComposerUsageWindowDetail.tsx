@@ -5,9 +5,9 @@ import { UsageBar } from '../accounts/usage/UsageBar'
 import type { Translate } from '../i18n/mobile-i18n'
 import { getUiIntlLocale } from '../i18n/ui-intl-locale'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { colors, radii, spacing, typography } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { radii, spacing, typography, type MobilePalette } from '../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
+import { useMobileColors } from '../theme/use-mobile-color-scheme'
 import { formatUsageWindowLength, type UsageWindowEntry } from './agent-usage-provider'
 import { useComposerUsageDisplay } from './composer-usage-display-preference'
 import { usagePaceColor } from './usage-pace-color'
@@ -31,23 +31,30 @@ export function windowTitle(entry: UsageWindowEntry, t: Translate): string {
   }
 }
 
-function paceCopy(pace: UsagePace, t: Translate): { text: string; color: string } | null {
+function paceCopy(
+  pace: UsagePace,
+  t: Translate,
+  colors: MobilePalette
+): { text: string; color: string } | null {
   switch (pace.kind) {
     case 'unknown':
       return null
     case 'exhausted':
       return {
         text: t('composerUsage.pace.exhausted', 'Limit reached for this window'),
-        color: usagePaceColor(pace, null)
+        color: usagePaceColor(pace, null, colors)
       }
     case 'on-pace':
-      return { text: t('composerUsage.pace.onPace', 'On pace'), color: usagePaceColor(pace, null) }
+      return {
+        text: t('composerUsage.pace.onPace', 'On pace'),
+        color: usagePaceColor(pace, null, colors)
+      }
     case 'under':
       return {
         text: t('composerUsage.pace.under', '{{percent}}% under pace', {
           percent: pace.deltaPercent
         }),
-        color: usagePaceColor(pace, null)
+        color: usagePaceColor(pace, null, colors)
       }
     case 'ahead':
       return {
@@ -64,7 +71,7 @@ function paceCopy(pace: UsagePace, t: Translate): { text: string; color: string 
                   duration: formatResetDuration(pace.runOutBeforeResetMs)
                 }
               ),
-        color: usagePaceColor(pace, null)
+        color: usagePaceColor(pace, null, colors)
       }
   }
 }
@@ -85,29 +92,33 @@ function resetCopy(entry: UsageWindowEntry, now: number, t: Translate): string |
   })
 }
 
-function paceStatus(pace: UsagePace, t: Translate): { text: string; color: string } | null {
+function paceStatus(
+  pace: UsagePace,
+  t: Translate,
+  colors: MobilePalette
+): { text: string; color: string } | null {
   switch (pace.kind) {
     case 'unknown':
       return null
     case 'exhausted':
       return {
         text: t('composerUsage.status.exhausted', 'limit reached'),
-        color: usagePaceColor(pace, null)
+        color: usagePaceColor(pace, null, colors)
       }
     case 'on-pace':
       return {
         text: t('composerUsage.status.onPace', 'on pace'),
-        color: usagePaceColor(pace, null)
+        color: usagePaceColor(pace, null, colors)
       }
     case 'under':
       return {
         text: t('composerUsage.status.under', 'under pace'),
-        color: usagePaceColor(pace, null)
+        color: usagePaceColor(pace, null, colors)
       }
     case 'ahead':
       return {
         text: t('composerUsage.status.ahead', 'ahead of pace'),
-        color: usagePaceColor(pace, null)
+        color: usagePaceColor(pace, null, colors)
       }
   }
 }
@@ -138,6 +149,7 @@ function StatTile({
   color?: string
   testID: string
 }) {
+  const styles = useThemedStyles(stylesSheet)
   return (
     <View style={styles.tile} testID={testID}>
       <Text style={styles.tileLabel} numberOfLines={1}>
@@ -163,20 +175,21 @@ export function ComposerUsageWindowDetail({
   samples: readonly UsageHistorySample[]
   now: number
 }) {
-  useMobileColorScheme()
+  const colors = useMobileColors()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const display = useComposerUsageDisplay()
   const remaining = display === 'remaining'
   const used = Math.round(Math.max(0, Math.min(100, entry.window.usedPercent)))
   const pace = computeUsagePace(entry.window, now)
-  const status = paceStatus(pace, t)
+  const status = paceStatus(pace, t, colors)
   const runOut =
-    pace.kind === 'ahead' && pace.runOutBeforeResetMs !== null ? paceCopy(pace, t) : null
+    pace.kind === 'ahead' && pace.runOutBeforeResetMs !== null ? paceCopy(pace, t, colors) : null
   const reset = resetCopy(entry, now, t)
   const stats = computeUsageWindowStats(entry.window, samples, now)
   const chart = buildUsageChartModel(entry.window, samples, now, display)
   const paceColor = status?.color ?? colors.textPrimary
-  const fill = usagePaceColor(pace, used)
+  const fill = usagePaceColor(pace, used, colors)
   // Remaining counts the other way: under pace leaves more than an even burn would.
   const paceDelta =
     stats.paceDeltaPoints === null
@@ -296,7 +309,7 @@ export function ComposerUsageWindowDetail({
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   detail: {
     gap: spacing.sm,
     paddingVertical: spacing.md

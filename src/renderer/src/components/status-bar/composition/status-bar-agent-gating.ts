@@ -6,6 +6,7 @@ const CLI_GATED_ITEMS: ReadonlySet<StatusBarItem> = new Set([
   'claude',
   'codex',
   'kimi',
+  'antigravity',
   'grok',
   'zcode',
   'muse'

@@ -265,6 +265,7 @@ export function buildDefaultSettings(args: {
     minimaxEndpoint: 'overseas',
     zcodePlanSite: 'zai',
     claudeOAuthUsageEnabled: true,
+    antigravityUsageSource: 'both',
     agentCmdOverrides: {},
     // Arguments hold only the user's own text; the permission flag comes from the choice below.
     agentDefaultArgs: {},

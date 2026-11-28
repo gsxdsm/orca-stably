@@ -63,3 +63,32 @@ export function MiniMaxIcon({ size = 16 }: { size?: number }) {
     </Svg>
   )
 }
+
+/** Crisp vector Google Antigravity arch mark for usage rings, pop-up tabs, and account cards. */
+export function AntigravityIcon({ size = 16 }: { size?: number }) {
+  const gradientId = `antigravityGradient-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Defs>
+        <LinearGradient
+          id={gradientId}
+          x1="18"
+          y1="2"
+          x2="5"
+          y2="21"
+          gradientUnits="userSpaceOnUse"
+        >
+          <Stop offset="0" stopColor="#EA4335" />
+          <Stop offset="0.28" stopColor="#FBBC04" />
+          <Stop offset="0.52" stopColor="#34A853" />
+          <Stop offset="0.78" stopColor="#4285F4" />
+          <Stop offset="1" stopColor="#2979FF" />
+        </LinearGradient>
+      </Defs>
+      <Path
+        d="M12 1.8C9.2 1.8 7.4 6.2 5.6 12.1C4.4 16.1 2.8 19.3 1.4 20.9C0.8 21.6 1.2 22.6 2.1 22.4C4.8 21.7 7.1 19.5 8.7 16.9C9.8 15.1 10.8 14.1 12 14.1C13.2 14.1 14.2 15.1 15.3 16.9C16.9 19.5 19.2 21.7 21.9 22.4C22.8 22.6 23.2 21.6 22.6 20.9C21.2 19.3 19.6 16.1 18.4 12.1C16.6 6.2 14.8 1.8 12 1.8Z"
+        fill={`url(#${gradientId})`}
+      />
+    </Svg>
+  )
+}

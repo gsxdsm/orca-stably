@@ -8,7 +8,8 @@ const saved = {
   subject: 'work',
   authMethod: 'consumer',
   createdAt: 0,
-  updatedAt: 0
+  updatedAt: 0,
+  usage: null
 }
 
 function rows(
@@ -19,6 +20,7 @@ function rows(
     <div className="bg-background px-5">
       <AntigravityAgyAccountRows
         state={state}
+        usage={null}
         error={error}
         busy={false}
         windowsHost={false}

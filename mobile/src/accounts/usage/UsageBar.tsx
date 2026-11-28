@@ -1,10 +1,5 @@
 import { View, Text, ActivityIndicator, type StyleProp, type ViewStyle } from 'react-native'
-import {
-  getMobilePalette,
-  spacing,
-  typography,
-  type MobilePalette
-} from '../../theme/mobile-theme'
+import { getMobilePalette, spacing, typography, type MobilePalette } from '../../theme/mobile-theme'
 import { themedStyleSheet, useThemedStyles } from '../../theme/themed-styles'
 import { useMobileColors } from '../../theme/use-mobile-color-scheme'
 

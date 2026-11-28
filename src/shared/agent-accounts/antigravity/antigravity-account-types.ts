@@ -1,3 +1,4 @@
+import type { ProviderRateLimits } from '../../agent-usage/rate-limits/rate-limit-types'
 import type { ClaudeHostRunningSessionsMove } from '../managed-account-types'
 
 /** Long enough to answer the macOS keychain's access or unlock dialog, which reading agy's login
@@ -13,6 +14,8 @@ export type AntigravityAccountSummary = {
   authMethod: string
   createdAt: number
   updatedAt: number
+  /** Last reading verified as this account on this runtime; null when never read, absent from older hosts. */
+  usage?: ProviderRateLimits | null
 }
 
 export type AntigravityAccountState = {

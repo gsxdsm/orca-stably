@@ -7,6 +7,7 @@ import {
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { radii, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
+import { useMobileColors } from '../theme/use-mobile-color-scheme'
 import type { AccountsSnapshot } from '../accounts/accounts-snapshot'
 import { useAccountsSnapshot } from './accounts-snapshot-store'
 import {
@@ -63,6 +64,7 @@ type Reading = {
 }
 
 function useComposerUsageReading(agent: string | null | undefined): Reading | null {
+  const colors = useMobileColors()
   const t = useMobileTranslation()
   const client = useContext(ComposerUsageClientContext)
   // Before a hook status names the agent, the host's own identification of the tab still does.
@@ -88,7 +90,7 @@ function useComposerUsageReading(agent: string | null | undefined): Reading | nu
     usage,
     snapshot,
     readout,
-    color: usagePaceColor(computeUsagePace(entry.window, now), readout.used),
+    color: usagePaceColor(computeUsagePace(entry.window, now), readout.used, colors),
     paceMarkerPercent: usagePaceMarkerPercent(entry.window, now, display),
     length,
     resetsIn: usageResetLabel(entry.window, now),

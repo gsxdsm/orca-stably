@@ -107,6 +107,7 @@ export class RuntimeClientSettingsController {
       minimaxUsageModels: settings.minimaxUsageModels ?? 'general',
       minimaxEndpoint: settings.minimaxEndpoint ?? 'overseas',
       zcodePlanSite: settings.zcodePlanSite ?? 'zai',
+      antigravityUsageSource: settings.antigravityUsageSource ?? 'both',
       prBotAuthorOverrides: settings.prBotAuthorOverrides ?? [],
       // Paired clients order their Source Control lists the way this desktop does.
       sourceControlGroupOrder: normalizeSourceControlGroupOrder(settings.sourceControlGroupOrder),

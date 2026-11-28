@@ -42,6 +42,10 @@ vi.mock('../providers/zcode/zcode-usage-fetcher', () => ({
   fetchZcodeRateLimits: failing('zcode')
 }))
 vi.mock('../providers/muse/muse-usage-fetcher', () => ({ fetchMuseRateLimits: failing('muse') }))
+// No agy running: the Antigravity read finds no status port and keeps its last reading.
+vi.mock('../../ports/local-workspace-platform-port-scanner', () => ({
+  scanPlatformListeningPorts: async () => ({ ports: [], metadataAvailable: true })
+}))
 vi.mock('../../minimax/minimax-cookie-store', () => ({
   hasMiniMaxSessionCookie: async () => false
 }))
@@ -69,7 +73,7 @@ const window = (usedPercent: number, windowMinutes: number, resetsAt: number) =>
 })
 
 async function persistThenRestart(
-  readings: Partial<Record<'claude' | 'kimi', ProviderRateLimits>>
+  readings: Partial<Record<'claude' | 'kimi' | 'antigravity', ProviderRateLimits>>
 ): Promise<RateLimitService> {
   const dir = mkdtempSync(join(tmpdir(), 'usage-last-good-'))
   dirs.push(dir)
@@ -81,6 +85,7 @@ async function persistThenRestart(
     codex: null,
     opencodeGo: null,
     kimi: readings.kimi ?? null,
+    antigravity: readings.antigravity ?? null,
     minimax: null,
     grok: null,
     cursor: null,
@@ -144,4 +149,24 @@ it('does not restore windows whose reset passed while the process was down', asy
   expect(state.claude?.session).toBeNull()
   expect(state.claude?.weekly?.usedPercent).toBe(55)
   expect(state.kimi?.session ?? null).toBeNull()
+})
+
+it('keeps the restored Antigravity reading while no agy is running to read', async () => {
+  const service = await persistThenRestart({
+    antigravity: {
+      provider: 'antigravity',
+      session: window(35, 300, now + 3 * HOUR),
+      weekly: null,
+      buckets: [{ name: 'Claude Opus 5.5', ...window(35, 300, now + 3 * HOUR) }],
+      updatedAt: now - 10 * 60_000,
+      error: null,
+      status: 'ok'
+    }
+  })
+
+  const state = await service.refresh()
+
+  expect(state.antigravity?.status).toBe('ok')
+  expect(state.antigravity?.session?.usedPercent).toBe(35)
+  expect(state.antigravity?.buckets?.[0]?.name).toBe('Claude Opus 5.5')
 })

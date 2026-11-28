@@ -5,6 +5,13 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { ComposerUsageDisplayPicker } from '../composer-usage/ComposerUsageDisplayPicker'
 import { ComposerUsagePositionPicker } from '../composer-usage/ComposerUsagePositionPicker'
 import { ComposerUsageWindowPicker } from '../composer-usage/ComposerUsageWindowPicker'
+import {
+  AntigravityUsageSourcePicker,
+  useHostAntigravityUsageSource
+} from '../accounts/AntigravityUsageSourcePicker'
+import { peekHosts } from '../host-catalog/host-store'
+import { useRpcClientContext } from '../transport/connection/client-context'
+import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import { ListRow } from '../components/list/ListGroup'
 import { MobileSegmentedControl } from '../components/controls/MobileSegmentedControl'
 import { MobileSwitch } from '../components/controls/MobileSwitch'
@@ -64,6 +71,15 @@ export default function NativeChatSettingsScreen({ onBack }: { onBack?: () => vo
   const settingsScreenStyles = useThemedStyles(settingsScreenStylesSheet)
   const t = useMobileTranslation()
   const router = useRouter()
+  const clients = useRpcClientContext()
+  const connectedHosts = clients
+    .getAllClients()
+    .filter((entry) => clients.getKnownState(entry.hostId) === 'connected')
+    .map((entry) => ({
+      hostId: entry.hostId,
+      client: entry.client,
+      name: peekHosts()?.find((host) => host.id === entry.hostId)?.name ?? null
+    }))
   const { settings, stored } = useNativeChatTextSettingsSnapshot()
   const [fontPickerOpen, setFontPickerOpen] = useState(false)
   // The preview follows a drag; the size saves once when it ends.
@@ -180,6 +196,13 @@ export default function NativeChatSettingsScreen({ onBack }: { onBack?: () => vo
           <ComposerUsageWindowPicker inSettings />
           <ComposerUsageDisplayPicker inSettings />
           <ComposerUsagePositionPicker inSettings />
+          {connectedHosts.map((entry) => (
+            <ConnectedHostAntigravityUsageSourceRow
+              key={`antigravity-source-${entry.hostId}`}
+              client={entry.client}
+              hostName={connectedHosts.length > 1 ? entry.name : null}
+            />
+          ))}
           {hasSideRail ? (
             <ListRow
               key="railRings"
@@ -232,5 +255,26 @@ export default function NativeChatSettingsScreen({ onBack }: { onBack?: () => vo
         ) : null}
       </SettingsScreen>
     </GestureHandlerRootView>
+  )
+}
+
+function ConnectedHostAntigravityUsageSourceRow({
+  client,
+  hostName
+}: {
+  client: RpcClient
+  hostName: string | null
+}) {
+  const usageSource = useHostAntigravityUsageSource({ client, connected: true })
+  return (
+    <AntigravityUsageSourcePicker
+      source={usageSource.source}
+      saving={usageSource.saving}
+      inSettings
+      hostName={hostName}
+      onSelect={(next) => {
+        void usageSource.select(next)
+      }}
+    />
   )
 }

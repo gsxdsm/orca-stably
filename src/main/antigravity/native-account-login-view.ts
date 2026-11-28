@@ -246,7 +246,7 @@ export function antigravityAccountState(
       : null
   return {
     accounts: vault.accounts.map((account) => {
-      const { credentials: _credentials, ...summary } = account
+      const { credentials: _credentials, usage: _usage, ...summary } = account
       return summary
     }),
     activeAccountId,

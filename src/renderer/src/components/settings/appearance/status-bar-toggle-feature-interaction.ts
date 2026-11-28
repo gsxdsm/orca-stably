@@ -16,6 +16,7 @@ export function recordStatusBarToggleInteraction(
     id === 'codex' ||
     id === 'opencode-go' ||
     id === 'kimi' ||
+    id === 'antigravity' ||
     id === 'minimax' ||
     id === 'grok' ||
     id === 'cursor' ||

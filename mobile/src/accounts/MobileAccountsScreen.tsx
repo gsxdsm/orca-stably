@@ -19,10 +19,8 @@ import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { stylesSheet } from './mobile-accounts-screen-styles'
 import { useNow } from '../hooks/use-now'
 import { ClaudeIcon, OpenAIIcon } from '../components/icons/AgentIcons'
-import type { AccountsSnapshot } from './accounts-snapshot'
 import {
   type ProviderKey,
-  MOBILE_USAGE_PROVIDER_IDS,
   getActiveProviderRateLimits,
   getInactiveProviderUsage,
   getSystemDefaultProviderUsage,
@@ -43,10 +41,10 @@ import { NavBar } from '../components/nav-bar/NavBar'
 import { NavBarButton, NavBarButtonOnSheetContext } from '../components/nav-bar/NavBarButton'
 import { ListGroup, SectionHeader, ListRow } from '../components/list/ListGroup'
 import { useRouteHandoff } from '../navigation/route-handoff'
-import { AntigravityUsageSection } from './antigravity-account-section'
-import { ProviderUsageSection } from './provider-usage-section'
 import { useMobileAccountsSnapshot } from './use-mobile-accounts-snapshot'
 import { ProviderAccountSections } from './provider-account-sections'
+import { AntigravityUsageSection } from './antigravity-account-section'
+import { DedicatedProviderUsageSections, withoutDedicatedUsage } from './provider-usage-section'
 import {
   getManagedAccountInlineLabel,
   getManagedAccountPrimaryLabel
@@ -125,16 +123,7 @@ export function MobileAccountsScreen() {
   })
   // Stored accounts wait on the stream's first answer for their usage.
   const showRefreshLine = useRefreshHint(showsAccounts && !live && offlineBanner === null)
-  const {
-    supported: codexResetSupported,
-    resetting: resettingCodex,
-    resetScope,
-    scopeLabel: resetScopeLabel,
-    confirmReset: confirmCodexReset,
-    confirmation: codexResetConfirmation,
-    acceptReset: acceptCodexReset,
-    cancelReset: cancelCodexReset
-  } = useCodexResetCreditAction({
+  const codexReset = useCodexResetCreditAction({
     client,
     connected: connState === 'connected',
     snapshot,
@@ -142,6 +131,7 @@ export function MobileAccountsScreen() {
     onSnapshot: acceptSnapshot,
     onNotice: setNotice
   })
+  const switchBlocked = busyAccountId !== null || codexReset.resetting || !live
 
   useFocusEffect(
     useCallback(() => {
@@ -175,25 +165,22 @@ export function MobileAccountsScreen() {
 
   const selectAccount = useCallback(
     async (provider: ProviderKey, accountId: string | null) => {
-      if (!client) {
-        return
-      }
       const codexTarget = provider === 'codex' ? snapshot?.rateLimits.codexTarget : null
-      if (provider === 'codex' && !codexTarget) {
+      if (!client || (provider === 'codex' && !codexTarget)) {
         return
       }
       setBusyAccountId(accountId ?? `${provider}:default`)
+      const isWslCodex = codexTarget?.runtime === 'wsl'
       const method =
         provider === 'claude'
           ? 'accounts.selectClaude'
-          : codexTarget?.runtime === 'wsl'
+          : isWslCodex
             ? 'accounts.selectCodexForTarget'
             : 'accounts.selectCodex'
       const title = t('accounts.screen.switchFailed', 'Could not switch account')
       try {
         // Use distinct WSL-targeted RPC: older hosts silently strip unknown fields, so version skew must fail before mutation.
-        const params =
-          codexTarget?.runtime === 'wsl' ? { accountId, target: codexTarget } : { accountId }
+        const params = isWslCodex ? { accountId, target: codexTarget } : { accountId }
         const res = await client.sendRequest(method, params)
         if (!res.ok) {
           setNotice({ title, message: res.error.message })
@@ -224,8 +211,6 @@ export function MobileAccountsScreen() {
     const resetCredit =
       provider === 'codex' ? getCodexResetCreditSummary(activeUsage, now, t) : null
     const Icon = provider === 'claude' ? ClaudeIcon : OpenAIIcon
-    // Stored rows may name a selection or Codex target the desktop has since changed.
-    const switchBlocked = busyAccountId !== null || resettingCodex || !live
     const spinner = <ActivityIndicator size="small" color={colors.textSecondary} />
     return (
       <View>
@@ -311,19 +296,33 @@ export function MobileAccountsScreen() {
             )
           })}
           {signIn.addRow(provider, state.accounts)}
-          {resetCredit && codexResetSupported && resetScope && connState === 'connected' ? (
+          {resetCredit &&
+          codexReset.supported &&
+          codexReset.resetScope &&
+          connState === 'connected' ? (
             <CodexResetCreditAction
               key="codex-reset"
               summary={resetCredit}
-              scopeLabel={resetScopeLabel}
-              busy={resettingCodex}
-              disabled={resettingCodex || busyAccountId !== null || connState !== 'connected'}
-              onPress={confirmCodexReset}
+              scopeLabel={codexReset.scopeLabel}
+              busy={codexReset.resetting}
+              disabled={codexReset.resetting || busyAccountId !== null || connState !== 'connected'}
+              onPress={codexReset.confirmReset}
             />
           ) : null}
         </ListGroup>
       </View>
     )
+  }
+
+  const providerProps = {
+    client,
+    live,
+    snapshot,
+    now,
+    reloadKey: providerAccountsReload,
+    switchBlocked,
+    onSwitched: refresh,
+    onNotice: setNotice
   }
 
   return (
@@ -381,38 +380,27 @@ export function MobileAccountsScreen() {
             ) : null}
             {renderProviderSection('claude')}
             {renderProviderSection('codex')}
-            <ProviderUsageSection provider="gemini" snapshot={snapshot} now={now} />
-            <AntigravityUsageSection snapshot={snapshot} now={now} />
-            <ProviderUsageSection provider="opencodeGo" snapshot={snapshot} now={now} />
-            <ProviderUsageSection provider="minimax" snapshot={snapshot} now={now} />
-            <ProviderUsageSection provider="grok" snapshot={snapshot} now={now} />
-            <ProviderUsageSection provider="cursor" snapshot={snapshot} now={now} />
-            <ProviderUsageSection provider="zcode" snapshot={snapshot} now={now} />
             <ProviderAccountSections
-              client={client}
-              live={live}
+              {...providerProps}
               snapshot={withoutDedicatedUsage(snapshot)}
-              now={now}
-              reloadKey={providerAccountsReload}
               busyAccountId={busyAccountId}
-              switchBlocked={busyAccountId !== null || resettingCodex || !live}
               onBusyAccountId={setBusyAccountId}
-              onSwitched={refresh}
-              onNotice={setNotice}
               onToast={showToast}
             />
+            <AntigravityUsageSection {...providerProps} snapshot={snapshot} />
+            <DedicatedProviderUsageSections snapshot={snapshot} now={now} />
             {signIn.supported ? null : <ManageOnDesktopHint />}
           </>
         )}
       </ScrollView>
       {signIn.overlay}
       <ConfirmModal
-        visible={codexResetConfirmation !== null}
-        title={codexResetConfirmation?.title ?? ''}
-        message={codexResetConfirmation?.message}
+        visible={codexReset.confirmation !== null}
+        title={codexReset.confirmation?.title ?? ''}
+        message={codexReset.confirmation?.message}
         confirmLabel={t('accounts.screen.useReset', 'Use reset')}
-        onConfirm={acceptCodexReset}
-        onCancel={cancelCodexReset}
+        onConfirm={codexReset.acceptReset}
+        onCancel={codexReset.cancelReset}
       />
       <TransientToast message={toastMessage} bottomInset={insets.bottom} />
       <ConfirmModal
@@ -425,15 +413,6 @@ export function MobileAccountsScreen() {
       />
     </SafeAreaView>
   )
-}
-
-// Providers with their own usage section stay out of the generic "Other agents" list.
-function withoutDedicatedUsage(snapshot: AccountsSnapshot): AccountsSnapshot {
-  const rateLimits = { ...snapshot.rateLimits }
-  for (const provider of MOBILE_USAGE_PROVIDER_IDS) {
-    rateLimits[provider] = null
-  }
-  return { ...snapshot, rateLimits }
 }
 
 function RefreshingIcon({ color }: { color?: string }) {

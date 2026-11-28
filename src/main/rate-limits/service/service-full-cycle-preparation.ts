@@ -1,10 +1,13 @@
+import { fetchAntigravityRateLimits } from '../providers/antigravity/antigravity-usage-fetcher'
+import { antigravityUsageDisabledSnapshot } from '../providers/antigravity/antigravity-usage-snapshot'
+import { antigravityUsageReadsAcp } from '../../../shared/agent-usage/rate-limits/antigravity-usage-source'
 import { ZCODE_PLAN_SITE_BASE_URLS } from '../../../shared/agent-accounts/usage-credentials/zcode-plan-sites'
 import { createHash } from 'node:crypto'
-import { RateLimitServiceFetchPolicy } from './service-fetch-policy'
+import { RateLimitServiceAntigravityAccounts } from './service-antigravity-accounts'
 import type { FetchAllCyclePrepared } from './full-cycle-prepared'
 import type { ProviderRateLimits } from '../../../shared/agent-usage/rate-limits/rate-limit-types'
 
-export abstract class RateLimitServiceFullCyclePreparation extends RateLimitServiceFetchPolicy {
+export abstract class RateLimitServiceFullCyclePreparation extends RateLimitServiceAntigravityAccounts {
   protected async prepareFetchAllCycle(
     signal: AbortSignal,
     options?: { force?: boolean }
@@ -30,6 +33,20 @@ export abstract class RateLimitServiceFullCyclePreparation extends RateLimitServ
     const codexGeneration = this.codexFetchGeneration
     // Gate only Codex, never siblings, when its runtime is skipped (#STA-4422).
     const codexHome = await this.resolveCodexHome(codexTarget)
+    const antigravitySource = this.getAntigravityUsageSource()
+    const antigravityAcpEnabled = antigravityUsageReadsAcp(antigravitySource)
+    const antigravityFetchAllowed =
+      antigravityAcpEnabled &&
+      (this.usageViewers > 0 || (this.antigravityUsageEnabledResolver?.() ?? true)) &&
+      (options?.force || !this.shouldSkipAutomatedFetch('antigravity', this.state.antigravity))
+    // A login change seen here invalidates before the baseline below, so this read still counts.
+    const recorder = antigravityFetchAllowed ? this.antigravityAccountUsageRecorder : null
+    const antigravityRead = recorder ? await this.beginAntigravityAccountRead(recorder) : null
+    if (signal.aborted) {
+      return null
+    }
+    const antigravityGeneration = this.antigravityFetchGeneration
+    const antigravityTarget = this.antigravityFetchTarget
     const codexFetchGated = codexHome.skip
     const codexHomePath = codexHome.homePath
     const codexProvenance = codexFetchGated
@@ -55,6 +72,7 @@ export abstract class RateLimitServiceFullCyclePreparation extends RateLimitServ
     if (
       claudeGeneration !== this.claudeFetchGeneration ||
       codexGeneration !== this.codexFetchGeneration ||
+      antigravityGeneration !== this.antigravityFetchGeneration ||
       credentialGenerations.some(
         (generation, index) =>
           generation !==
@@ -120,6 +138,11 @@ export abstract class RateLimitServiceFullCyclePreparation extends RateLimitServ
         ? this.withFetchingStatus(null, 'opencode-go')
         : this.withFetchingStatus(previousState.opencodeGo, 'opencode-go'),
       kimi: this.withFetchingStatus(previousState.kimi, 'kimi'),
+      antigravity: antigravityFetchAllowed
+        ? this.withFetchingStatus(previousState.antigravity, 'antigravity')
+        : !antigravityAcpEnabled
+          ? this.antigravityUsageWithoutAcp()
+          : (previousState.antigravity ?? antigravityUsageDisabledSnapshot()),
       minimax: miniMaxConfigChanged
         ? this.withFetchingStatus(null, 'minimax')
         : this.withFetchingStatus(previousState.minimax, 'minimax'),
@@ -150,6 +173,28 @@ export abstract class RateLimitServiceFullCyclePreparation extends RateLimitServ
         ? Promise.resolve(this.getZcodePlanCredentialError(zcodePlanConfigResult.error))
         : import('../providers/zcode/zcode-usage-fetcher').then(({ fetchZcodeRateLimits }) =>
             fetchZcodeRateLimits({ signal, planCredential: zcodePlanCredential })
+          )
+    ).then(
+      (value) => ({ status: 'fulfilled', value }) as const,
+      (reason) => ({ status: 'rejected', reason }) as const
+    )
+    // Hidden meters and statusline-only mode skip the agy port scan; the separate promise keeps other providers responsive.
+    const antigravityResultPromise = (
+      antigravityFetchAllowed
+        ? fetchAntigravityRateLimits({
+            signal,
+            target: antigravityTarget,
+            previous: previousState.antigravity
+          }).then((limits) =>
+            // A kept earlier reading was attributed when it was read.
+            limits === previousState.antigravity
+              ? limits
+              : this.attributeAntigravityReading(antigravityRead, antigravityGeneration, limits)
+          )
+        : Promise.resolve(
+            !antigravityAcpEnabled
+              ? this.antigravityUsageWithoutAcp()
+              : (previousState.antigravity ?? antigravityUsageDisabledSnapshot())
           )
     ).then(
       (value) => ({ status: 'fulfilled', value }) as const,
@@ -266,11 +311,13 @@ export abstract class RateLimitServiceFullCyclePreparation extends RateLimitServ
       miniMaxGeneration,
       zcodeConfigChanged,
       zcodeGeneration,
+      antigravityGeneration,
       claudeFetchGated,
       results: [claudeResult, codexResult, opencodeGoResult, kimiResult, miniMaxResult],
       grokResultPromise,
       cursorResultPromise,
-      zcodeResultPromise
+      zcodeResultPromise,
+      antigravityResultPromise
     }
   }
 }

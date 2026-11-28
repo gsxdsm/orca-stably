@@ -5,12 +5,7 @@ import {
   PHONE_PROVIDER_ACCOUNT_SWITCH_RUNTIME_CAPABILITY
 } from '../../../src/shared/remote-runtime/protocol/account-runtime-capabilities'
 import { TUI_AGENT_DISPLAY_NAMES } from '../../../src/shared/agent-launch/catalog/tui-agent-display-names'
-import {
-  collectProviderUsageMeters,
-  hasRenderableProviderUsage,
-  providerUsagePlaceholder,
-  type AccountsSnapshot
-} from './usage/usage-selectors'
+import { hasRenderableProviderUsage, type AccountsSnapshot } from './usage/usage-selectors'
 import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
 import { ListGroup, ListRow, SectionHeader } from '../components/list/ListGroup'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
@@ -24,7 +19,12 @@ import {
 } from './provider-account-operations'
 import { useThemedStyles } from '../theme/themed-styles'
 import { stylesSheet } from './mobile-accounts-screen-styles'
-import { UsageMeterList } from './provider-usage-section'
+import { ProviderUsageWindows } from './ProviderUsageWindows'
+import { UsageStatusNote } from './usage/UsageStatusNote'
+import {
+  AntigravityUsageSourcePicker,
+  useHostAntigravityUsageSource
+} from './AntigravityUsageSourcePicker'
 
 export type ProviderAccountSwitch = {
   /** The host takes a phone's OpenCode, Devin and Antigravity switches. */
@@ -183,41 +183,75 @@ export function AntigravityAccountSection({
   )
 }
 
-/** Antigravity usage, which only older hosts still publish. */
 export function AntigravityUsageSection({
   snapshot,
-  now
+  now,
+  client,
+  live,
+  reloadKey,
+  switchBlocked,
+  onNotice,
+  onSwitched
 }: {
   snapshot: AccountsSnapshot
   now: number
+  client: RpcClient | null
+  live: boolean
+  reloadKey: number
+  switchBlocked: boolean
+  onNotice: (notice: { title: string; message: string }) => void
+  onSwitched: () => Promise<void>
 }) {
   const t = useMobileTranslation()
-  const styles = useThemedStyles(stylesSheet)
-  if (!hasRenderableProviderUsage(snapshot, 'antigravity')) {
+  const usageSource = useHostAntigravityUsageSource({ client, connected: live, reloadKey })
+  const limits = snapshot.rateLimits.antigravity ?? null
+  const showUsage = hasRenderableProviderUsage(snapshot, 'antigravity') && limits !== null
+  const showSourcePicker = usageSource.source !== null
+  if (!showUsage && !showSourcePicker) {
     return null
   }
-  const limits = snapshot.rateLimits.antigravity ?? null
-  const collected = collectProviderUsageMeters('antigravity', limits)
-  const meters =
-    collected.length > 0 ? collected : [providerUsagePlaceholder('antigravity', limits)]
   return (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <MobileAgentIcon agentId="antigravity" size={14} />
-        <Text style={styles.sectionHeading}>{t('accounts.screen.antigravity', 'Antigravity')}</Text>
-      </View>
-      <View style={styles.card}>
-        <View style={styles.row}>
-          <View style={styles.rowMain}>
-            <UsageMeterList meters={meters} now={now} />
-            {limits?.error ? (
-              <Text style={styles.errorText} numberOfLines={3}>
-                {limits.error}
-              </Text>
-            ) : null}
-          </View>
-        </View>
-      </View>
+    <View>
+      <SectionHeader
+        title={TUI_AGENT_DISPLAY_NAMES.antigravity}
+        icon={<MobileAgentIcon agentId="antigravity" size={14} />}
+      />
+      <ListGroup>
+        {showUsage ? (
+          <ListRow
+            title={TUI_AGENT_DISPLAY_NAMES.antigravity}
+            leading={<MobileAgentIcon agentId="antigravity" size={16} />}
+            detail={
+              <>
+                <ProviderUsageWindows limits={limits} now={now} />
+                <UsageStatusNote limits={limits} />
+              </>
+            }
+          />
+        ) : null}
+        {showSourcePicker ? (
+          <AntigravityUsageSourcePicker
+            source={usageSource.source}
+            saving={usageSource.saving}
+            disabled={switchBlocked}
+            onSelect={(next) => {
+              void usageSource.select(next).then((errorMessage) => {
+                if (errorMessage) {
+                  onNotice({
+                    title: t(
+                      'accounts.antigravity.usageSource.updateFailed',
+                      'Could not update Antigravity usage source'
+                    ),
+                    message: errorMessage
+                  })
+                  return
+                }
+                void onSwitched()
+              })
+            }}
+          />
+        ) : null}
+      </ListGroup>
     </View>
   )
 }

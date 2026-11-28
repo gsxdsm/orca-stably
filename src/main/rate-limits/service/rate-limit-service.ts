@@ -1,3 +1,7 @@
+import {
+  localAccountRuntimeTargetKey,
+  type LocalAccountRuntimeTarget
+} from '../../../shared/agent-accounts/local-account-runtime'
 import type { BrowserWindow } from 'electron'
 import {
   USAGE_PROVIDER_KEYS,
@@ -7,6 +11,7 @@ import { hasMiniMaxSessionCookie } from '../../minimax/minimax-cookie-store'
 import { hasMiniMaxApiKey } from '../../minimax/minimax-api-key-store'
 import { hasZcodePlanApiKey } from '../../zcode/zcode-plan-api-key-store'
 import { RateLimitServiceTargetUsageRead } from './service-target-usage-read'
+import type { AntigravityAccountUsageRecorder } from '../providers/antigravity/antigravity-account-usage'
 import {
   type CodexAccountSelectionTarget,
   normalizeCodexAccountSelectionTarget
@@ -18,6 +23,8 @@ import {
   type ClaudeAuthPreparationResolver,
   type OpenCodeGoRateLimitConfig,
   type MiniMaxRateLimitConfig,
+  type AntigravityUsageEnabledResolver,
+  type AntigravityUsageSourceResolver,
   type ClaudeOAuthUsageEnabledResolver,
   type MuseUsageEnabledResolver,
   type ZcodePlanRateLimitConfig,
@@ -30,6 +37,11 @@ import {
 } from '../../claude-accounts/selection/runtime-selection'
 import type { InactiveClaudeAccount } from '../providers/claude/claude-managed-account-usage'
 import type { RateLimitState } from '../../../shared/agent-usage/rate-limits/rate-limit-types'
+import {
+  pickFresherAntigravityReading,
+  type AntigravityUsageSource
+} from '../../../shared/agent-usage/rate-limits/antigravity-usage-source'
+import { hasUsageWindows, withoutResetWindows } from './service-result-policy'
 import type { NetworkProxySettings } from '../../../shared/network/network-proxy'
 import type { UsageHistoryRecorder } from '../usage-history/usage-history-recorder'
 
@@ -125,6 +137,66 @@ export class RateLimitService extends RateLimitServiceTargetUsageRead {
     if (!this.lastClaudeAuthSnapshot) {
       void this.fetchClaudeOnly({ force: true })
     }
+  }
+
+  setAntigravityUsageEnabledResolver(resolver: AntigravityUsageEnabledResolver): void {
+    this.antigravityUsageEnabledResolver = resolver
+  }
+
+  setAntigravityUsageSourceResolver(resolver: AntigravityUsageSourceResolver): void {
+    this.antigravityUsageSourceResolver = resolver
+  }
+
+  applyAntigravityUsageSourceChange(source: AntigravityUsageSource): void {
+    this.antigravityFetchGeneration += 1
+    this.activeFailureStreakByProvider.antigravity = 0
+    if (source === 'statusline') {
+      this.updateState({ ...this.state, antigravity: this.antigravityUsageWithoutAcp() })
+      return
+    }
+    if (source === 'acp') {
+      this.liveAntigravityUsage = null
+      if (this.state.antigravity?.usageMetadata?.source === 'live-session') {
+        this.updateState({ ...this.state, antigravity: null })
+      }
+      return
+    }
+    const now = Date.now()
+    const live = this.liveAntigravityUsage
+      ? withoutResetWindows(this.liveAntigravityUsage, now)
+      : null
+    if (live && hasUsageWindows(live)) {
+      const current = this.state.antigravity
+        ? withoutResetWindows(this.state.antigravity, now)
+        : null
+      this.updateState({
+        ...this.state,
+        antigravity:
+          pickFresherAntigravityReading(
+            current && hasUsageWindows(current) ? current : null,
+            live,
+            now
+          ) ?? live
+      })
+    }
+  }
+
+  setAntigravityFetchTarget(target: LocalAccountRuntimeTarget): void {
+    if (
+      localAccountRuntimeTargetKey(target) ===
+      localAccountRuntimeTargetKey(this.antigravityFetchTarget)
+    ) {
+      return
+    }
+    this.antigravityFetchTarget = { ...target }
+    this.antigravityFetchGeneration += 1
+    this.antigravityAccounts = []
+    this.activeFailureStreakByProvider.antigravity = 0
+    this.updateState({ ...this.state, antigravity: null })
+  }
+
+  setAntigravityAccountUsageRecorder(recorder: AntigravityAccountUsageRecorder): void {
+    this.antigravityAccountUsageRecorder = recorder
   }
 
   setMuseUsageEnabledResolver(resolver: MuseUsageEnabledResolver): void {
@@ -253,7 +325,7 @@ export class RateLimitService extends RateLimitServiceTargetUsageRead {
         this.inactiveCodexCache,
         this.inactiveCodexFetching
       ),
-      antigravityAccounts: [],
+      antigravityAccounts: this.antigravityAccounts,
       usageHistory: this.usageHistory?.snapshot()
     }
   }
