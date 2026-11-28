@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto'
+import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
+import { getOwnedAgentBrowserSocketDirectory } from '../browser/agent-browser/helper-process/agent-browser-process-environment'
 import type { DesktopCore } from './desktop-core'
 import type { Store } from '../persistence/loading-store/store'
 import type { AutomationUsageClient } from '../../shared/backend/backend-service-contract'
@@ -75,7 +77,9 @@ export type DesktopCoreNative = {
   getDesktopWindowStatus(): RuntimeDesktopWindowStatus
   sendTerminalSideEffects(batch: TerminalSideEffectBatch): void
   attachBrowserHost(runtime: OrcaRuntimeService): void
-  createAgentBrowserBridge(onTabsChanged: (worktreeId?: string) => void): AgentBrowserBridge
+  createAgentBrowserBridge(
+    onTabsChanged: (worktreeId?: string) => void
+  ): Promise<AgentBrowserBridge>
   configureBrowserAutomation(executeRpc: BrowserClientPageAutomationRpc): void
   afterFirstWindowShown(task: () => void, fallbackMs: number): void
   /** Speech warmup, theme sync and theme source, at their place after core's deferred maintenance. */
@@ -138,17 +142,46 @@ function startCoreObservers(core: DesktopCore, store: Store, deps: DesktopCoreCo
   core.codexUsage = usage.codexUsage
 }
 
+async function sweepOrphanedAgentBrowserSessionsIfPresent(
+  userDataPath: string,
+  ensureBridge: () => Promise<AgentBrowserBridge | null>
+): Promise<void> {
+  if (process.env.ORCA_DISABLE_AGENT_BROWSER_SWEEP === '1') {
+    return
+  }
+  const socketDir = getOwnedAgentBrowserSocketDirectory({
+    inheritedEnv: process.env,
+    platform: process.platform,
+    userDataPath
+  })
+  if (!socketDir) {
+    return
+  }
+  try {
+    if ((await readdir(socketDir)).length === 0) {
+      return
+    }
+    await (await ensureBridge())?.sweepOrphanedSessions()
+  } catch {
+    // Missing socket directory or transient sweep failure: nothing to reclaim on startup.
+  }
+}
+
 function startBrowserAutomation(
   core: DesktopCore,
   runtime: OrcaRuntimeService,
-  native: DesktopCoreNative
+  native: DesktopCoreNative,
+  userDataPath: string
 ): void {
-  const agentBrowserBridge = native.createAgentBrowserBridge((worktreeId) =>
-    runtime.notifyMobileSessionTabsChanged(worktreeId)
+  runtime.setAgentBrowserBridgeLoader(() =>
+    native.createAgentBrowserBridge((worktreeId) =>
+      runtime.notifyMobileSessionTabsChanged(worktreeId)
+    )
   )
-  runtime.setAgentBrowserBridge(agentBrowserBridge)
-  // Reclaim browser daemons orphaned by prior crashes/SIGKILL.
-  void agentBrowserBridge.sweepOrphanedSessions()
+  // Reclaim browser daemons orphaned by prior crashes/SIGKILL without loading the bridge when empty.
+  void sweepOrphanedAgentBrowserSessionsIfPresent(userDataPath, () =>
+    runtime.ensureAgentBrowserBridge()
+  )
   const dispatcher = new RpcDispatcher({ runtime, ...DEFAULT_RPC_DISPATCH_CONFIG })
   native.configureBrowserAutomation(async (method, params, agent, signal) => {
     const response = await dispatcher.dispatch(
@@ -230,7 +263,7 @@ export async function composeDesktopCore(
   installFirstWorkRenameHookSubscription(firstWorkRenameDeps(store, runtime))
   installAgentTurnWorktreeActivity()
   await initializeMainProcessPlugins(core, store)
-  startBrowserAutomation(core, runtime, native)
+  startBrowserAutomation(core, runtime, native, paths.userData)
   let releaseProviderMaintenance: () => void = () => {}
   const providerMaintenanceReady = new Promise<void>((resolve) => {
     releaseProviderMaintenance = resolve

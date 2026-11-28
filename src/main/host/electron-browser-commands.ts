@@ -28,12 +28,18 @@ function createLazyRuntimeBrowserCommands(host: RuntimeBrowserCommandHost): Runt
   let instancePromise: Promise<RuntimeBrowserCommands> | null = null
   const load = (): Promise<RuntimeBrowserCommands> => {
     if (!instancePromise) {
-      instancePromise = import('../runtime/browser/commands/browser-commands')
-        .then(({ RuntimeBrowserCommands }) => new RuntimeBrowserCommands(host))
+      const pending = Promise.all([
+        import('../runtime/browser/commands/browser-commands'),
+        host.ensureAgentBrowserBridge?.() ?? Promise.resolve(null)
+      ])
+        .then(([{ RuntimeBrowserCommands }]) => new RuntimeBrowserCommands(host))
         .catch((error: unknown) => {
-          instancePromise = null
+          if (instancePromise === pending) {
+            instancePromise = null
+          }
           throw error
         })
+      instancePromise = pending
     }
     return instancePromise
   }

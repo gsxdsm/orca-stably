@@ -1,6 +1,7 @@
 import { app, nativeTheme, shell } from 'electron'
 import { performance } from 'node:perf_hooks'
-import { AgentBrowserBridge } from '../browser/agent-browser/agent-browser-bridge'
+import type { AgentBrowserBridge } from '../browser/agent-browser/agent-browser-bridge'
+import { setAgentBrowserBridgeRef } from '../ipc/browser/browser'
 import { browserManager } from '../browser/guest-lifecycle/manager/browser-manager'
 import { browserSessionRegistry } from '../browser/sessions/profiles/browser-session-registry'
 import { configureBrowserClientPageAutomationRuntime } from '../browser/client-pages/execution/browser-client-page-automation-runtime'
@@ -157,9 +158,13 @@ function desktopCoreNative(store: Store): DesktopCoreNative {
       })
       browserSessionRegistry.onProfilesChanged = () => runtime.notifyBrowserProfilesChanged()
     },
-    createAgentBrowserBridge: (onTabsChanged) => {
-      state.agentBrowserBridge = new AgentBrowserBridge(browserManager, { onTabsChanged })
-      return state.agentBrowserBridge
+    createAgentBrowserBridge: async (onTabsChanged) => {
+      const { AgentBrowserBridge: Ctor } =
+        await import('../browser/agent-browser/agent-browser-bridge')
+      const bridge: AgentBrowserBridge = new Ctor(browserManager, { onTabsChanged })
+      state.agentBrowserBridge = bridge
+      setAgentBrowserBridgeRef(bridge)
+      return bridge
     },
     configureBrowserAutomation: (executeRpc) =>
       configureBrowserClientPageAutomationRuntime({

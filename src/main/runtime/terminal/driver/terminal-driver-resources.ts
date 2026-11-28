@@ -179,6 +179,8 @@ export abstract class OrcaRuntimeWithTerminalDrivers extends OrcaRuntimeWithFitO
     this.serveBrowserTabs.navigated(page)
   }
 
+  abstract ensureAgentBrowserBridge(): Promise<typeof this.agentBrowserBridge>
+
   protected readonly edgeCommands = new RuntimeEdgeCommandController({
     jiraHost: {
       getSettings: () => this.requireStore().getSettings(),
@@ -187,6 +189,7 @@ export abstract class OrcaRuntimeWithTerminalDrivers extends OrcaRuntimeWithFitO
     browserHost: {
       getRuntimeId: () => this.getRuntimeId(),
       getAgentBrowserBridge: () => this.agentBrowserBridge,
+      ensureAgentBrowserBridge: () => this.ensureAgentBrowserBridge(),
       resolveWorkspaceSelector: (selector) =>
         resolveBrowserHostWorkspaceSelector(
           selector,
