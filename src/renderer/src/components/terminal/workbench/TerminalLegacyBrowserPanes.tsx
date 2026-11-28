@@ -1,5 +1,8 @@
-import BrowserPane from '../../browser-pane/assemble-chrome/browser-workspace-pane'
+import { Suspense } from 'react'
+import { lazyWithRetry as lazy } from '@/app-shell/startup/lazy-with-retry'
 import type { TerminalController } from './use-terminal-controller'
+
+const BrowserPane = lazy(() => import('../../browser-pane/assemble-chrome/browser-workspace-pane'))
 
 export function TerminalLegacyBrowserPanes({
   controller
@@ -46,7 +49,9 @@ export function TerminalLegacyBrowserPanes({
                   }`}
                 >
                   {isBrowserActive ? (
-                    <BrowserPane browserTab={browserTab} isActive={isBrowserActive} />
+                    <Suspense fallback={null}>
+                      <BrowserPane browserTab={browserTab} isActive={isBrowserActive} />
+                    </Suspense>
                   ) : null}
                 </div>
               )
