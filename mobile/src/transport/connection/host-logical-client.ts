@@ -9,6 +9,11 @@ import type { HostProfile } from '../../host-catalog/host-profile'
 import { directPathForEndpoint } from '../relay/mobile-direct-endpoint-probe'
 import { startMobileEndpointLifecycle } from './mobile-endpoint-lifecycle'
 import { watchHostRevocation } from './host-revocation-watch'
+import {
+  setHostPairingRefused,
+  setHostReachesOffLan
+} from '../../host-descriptors/direct-pairing-installations'
+import { isTailscaleEndpoint } from '../../../../src/shared/remote-runtime/remote-runtime-tailscale-hint'
 import { createUndialableDirectClient, skipsDirectEndpoint } from './undialable-direct-endpoint'
 import { readvertiseOnPageChange } from './mobile-runtime-capability-negotiation'
 
@@ -29,6 +34,7 @@ export function openHostLogicalClient(
     return logical
   }
 
+  setHostReachesOffLan(host.id, host.relay !== undefined || isTailscaleEndpoint(host.endpoint))
   const endpointLifecycle = startMobileEndpointLifecycle(logical, host, onLog)
   endpointLifecycle.setForeground(
     options?.backgroundSend === true || AppState.currentState === 'active'
@@ -43,6 +49,7 @@ export function openHostLogicalClient(
     const store = processDeviceStore()
     store.fenceHostCache(host.id, revoked)
     setKeptBotsRevoked(host.id, revoked)
+    setHostPairingRefused(host.id, revoked)
     if (revoked) {
       void store.wipeHost(host.id, ['cache']).catch(() => undefined)
     }

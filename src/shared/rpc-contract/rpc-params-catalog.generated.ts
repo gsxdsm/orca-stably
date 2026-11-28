@@ -104,11 +104,13 @@ import {
 import { PrepareCodexForWslPaneParams } from './accounts/agent-hooks-params'
 import {
   AntigravityAccountMutationParams,
+  AntigravityAccountSelectParams,
   AntigravityAccountTargetParams,
   AntigravityChatApiKeySaveParams,
   AntigravityChatSignInCompleteParams,
   AntigravityChatSignInFlowParams,
-  AntigravityChatSignInStartParams
+  AntigravityChatSignInStartParams,
+  AntigravityUnheldTerminalsParams
 } from './accounts/antigravity-accounts-params'
 import {
   UsageCredentialApiKeyParams,
@@ -359,6 +361,7 @@ import {
   PRBotAuthorOverrideUpdate,
   SettingsUpdate
 } from './client-ui/client-settings-params'
+import { UiSetWorkspaceNotificationMuted } from './client-ui/client-ui-notification-mute-params'
 import { FeatureInteractionIdParam, UiUpdate } from './client-ui/client-ui-params'
 import { ClientWorkspaceViewParams } from './client-ui/client-workspace-view-params'
 import { SidebarSessionBeginParams } from './client-ui/sidebar-session-params'
@@ -1165,9 +1168,10 @@ export const RPC_PARAMS_BY_METHOD = {
   'accounts.antigravityChatSignInStart': AntigravityChatSignInStartParams,
   'accounts.antigravityChatSignInSubscribe': null,
   'accounts.antigravityList': AntigravityAccountTargetParams,
+  'accounts.antigravityMoveUnheldTerminals': AntigravityUnheldTerminalsParams,
   'accounts.antigravityReadCurrent': AntigravityAccountTargetParams,
   'accounts.antigravityRemove': AntigravityAccountMutationParams,
-  'accounts.antigravitySelect': AntigravityAccountMutationParams,
+  'accounts.antigravitySelect': AntigravityAccountSelectParams,
   'accounts.beginClaudeSignIn': BeginClaudeSignInParams,
   'accounts.cancelClaudeSignIn': FinishClaudeSignInParams,
   'accounts.consumeCodexResetCredit': ConsumeCodexResetCreditParams,
@@ -2309,6 +2313,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'ui.set': UiUpdate,
   'ui.setCollapsed': SetCollapsedParams,
   'ui.setJiraQuickFilters': JiraQuickFilterStateParam,
+  'ui.setWorkspaceNotificationMuted': UiSetWorkspaceNotificationMuted,
   'updater.check': UpdaterCheckParams,
   'updater.download': null,
   'updater.getStatus': null,
