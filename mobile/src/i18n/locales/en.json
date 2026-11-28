@@ -1198,6 +1198,13 @@
     "desktopChannel": {
       "silentName": "Orca silent notifications",
       "name": "Desktop Notifications"
+    },
+    "watchPrompt": {
+      "approve": "Approve",
+      "deny": "Deny",
+      "reply": "Reply",
+      "send": "Send",
+      "placeholder": "Message"
     }
   },
   "onboarding": {

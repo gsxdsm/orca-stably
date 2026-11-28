@@ -2584,6 +2584,13 @@
       "name": "Notificaciones del escritorio",
       "silentName": "Notificaciones silenciosas de Orca"
     },
+    "watchPrompt": {
+      "approve": "Aprobar",
+      "deny": "Denegar",
+      "placeholder": "Mensaje",
+      "reply": "Responder",
+      "send": "Enviar"
+    },
     "notificationDeliverySection": {
       "onlyWhenAgentNeedsInput": "Solo cuando un agente me necesite",
       "sound": "Sonido de notificación"

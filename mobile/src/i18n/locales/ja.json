@@ -2507,6 +2507,13 @@
       "name": "デスクトップ通知",
       "silentName": "Orca のサイレント通知"
     },
+    "watchPrompt": {
+      "approve": "承認",
+      "deny": "拒否",
+      "placeholder": "メッセージ",
+      "reply": "返信",
+      "send": "送信"
+    },
     "notificationDeliverySection": {
       "onlyWhenAgentNeedsInput": "Agent が対応を求めているときのみ",
       "sound": "通知音"

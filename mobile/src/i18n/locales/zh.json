@@ -2808,6 +2808,13 @@
       "name": "桌面通知",
       "silentName": "Orca 静默通知"
     },
+    "watchPrompt": {
+      "approve": "批准",
+      "deny": "拒绝",
+      "placeholder": "消息",
+      "reply": "回复",
+      "send": "发送"
+    },
     "notificationDeliverySection": {
       "onlyWhenAgentNeedsInput": "仅在智能体需要我时",
       "pauseFooter": "7 天未打开此应用后会暂停提醒",

@@ -2516,6 +2516,13 @@
       "name": "데스크톱 알림",
       "silentName": "Orca 무음 알림"
     },
+    "watchPrompt": {
+      "approve": "승인",
+      "deny": "거부",
+      "placeholder": "메시지",
+      "reply": "답장",
+      "send": "보내기"
+    },
     "notificationDeliverySection": {
       "onlyWhenAgentNeedsInput": "에이전트가 내 응답을 기다릴 때만",
       "sound": "알림음"

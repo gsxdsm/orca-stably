@@ -7,6 +7,8 @@ export type SidebarSessionTab = {
   parentTabId?: string
   leafId?: string
   sessionId?: string
+  /** Issued terminal handle. Absent until the tab is ready. */
+  terminal?: string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -28,12 +30,14 @@ export function sidebarSessionTabs(snapshot: unknown): SidebarSessionTab[] | nul
     if (!isRecord(entry) || typeof entry.id !== 'string' || typeof entry.type !== 'string') {
       continue
     }
+    const terminal = optionalString(entry, 'terminal')
     tabs.push({
       id: entry.id,
       type: entry.type,
       parentTabId: optionalString(entry, 'parentTabId'),
       leafId: optionalString(entry, 'leafId'),
-      sessionId: optionalString(entry, 'sessionId')
+      sessionId: optionalString(entry, 'sessionId'),
+      ...(terminal ? { terminal } : {})
     })
   }
   return tabs

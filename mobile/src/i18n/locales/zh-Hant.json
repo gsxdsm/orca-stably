@@ -2507,6 +2507,13 @@
       "name": "桌面通知",
       "silentName": "Orca 靜音通知"
     },
+    "watchPrompt": {
+      "approve": "核准",
+      "deny": "拒絕",
+      "placeholder": "訊息",
+      "reply": "回覆",
+      "send": "傳送"
+    },
     "notificationDeliverySection": {
       "onlyWhenAgentNeedsInput": "僅在代理程式需要我時",
       "sound": "通知音效"

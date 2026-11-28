@@ -163,6 +163,13 @@
             "extraProguardRules": "-keep class expo.modules.orcamobilewebshell.** { *; }\n-keep class expo.modules.orcagziputf8codec.** { *; }\n-keep class expo.modules.orcaplaystorepresence.** { *; }\n-keep class expo.modules.twowayaudio.** { *; }"
           }
         }
+      ],
+      "./plugins/ios-optional-development-team.js",
+      [
+        "@bacons/apple-targets",
+        {
+          "root": "./targets"
+        }
       ]
     ]
   }

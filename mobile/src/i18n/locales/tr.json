@@ -2712,6 +2712,13 @@
       "name": "Masaüstü Bildirimleri",
       "silentName": "Orca sessiz bildirimleri"
     },
+    "watchPrompt": {
+      "approve": "Onayla",
+      "deny": "Reddet",
+      "placeholder": "Mesaj",
+      "reply": "Yanıtla",
+      "send": "Gönder"
+    },
     "notificationDeliverySection": {
       "sound": "Bildirim sesi",
       "onlyWhenAgentNeedsInput": "Yalnızca bir ajan bana ihtiyaç duyduğunda",

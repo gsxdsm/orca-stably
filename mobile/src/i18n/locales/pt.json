@@ -2590,6 +2590,13 @@
       "name": "Notificações do desktop",
       "silentName": "Notificações silenciosas do Orca"
     },
+    "watchPrompt": {
+      "approve": "Aprovar",
+      "deny": "Recusar",
+      "placeholder": "Mensagem",
+      "reply": "Responder",
+      "send": "Enviar"
+    },
     "notificationDeliverySection": {
       "sound": "Som de notificação",
       "onlyWhenAgentNeedsInput": "Somente quando um agente precisa de mim"
