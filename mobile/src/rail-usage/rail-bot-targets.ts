@@ -139,3 +139,33 @@ export function hostAnswersToRailBotsSource(args: {
     hostName
   }
 }
+
+/** One offline computer's name, or null when none or several never loaded. */
+export function singleNullClientHostName(targets: readonly RailBotTarget[]): string | null {
+  const names = new Set(
+    targets.filter((target) => target.client == null).map((target) => target.hostName)
+  )
+  if (names.size !== 1) {
+    return null
+  }
+  return [...names][0] ?? null
+}
+
+/** The host an open item was last seen on, after a page refresh drops it from the loaded list. */
+export function rememberedRailTarget(
+  itemUid: string | null,
+  ownerOf: ReadonlyMap<string, RailBotTarget>,
+  targets: readonly RailBotTarget[],
+  remembered: Map<string, string>
+): RailBotTarget | null {
+  if (!itemUid) {
+    return null
+  }
+  const live = ownerOf.get(itemUid)
+  if (live) {
+    remembered.set(itemUid, live.key)
+    return live
+  }
+  const key = remembered.get(itemUid)
+  return (key ? targets.find((target) => target.key === key) : undefined) ?? null
+}

@@ -275,6 +275,7 @@ export function MobileBotNeedsYouGroup({
   ownerOf,
   client,
   clientOf,
+  askDisabled,
   onSkipFailed
 }: {
   botName: string
@@ -286,6 +287,8 @@ export function MobileBotNeedsYouGroup({
   now: number
   /** Offline or the read failed: rows stay, taps wait. */
   disabled: boolean
+  /** One ask's host failed while another is healthy. Falls back to `disabled`. */
+  askDisabled?: (ask: PhoneAsk) => boolean
   renderItem: (item: BotItem) => ReactNode
   onOpenAsk: (ask: PhoneAsk) => void
   /** The host's client, which a chat's Skip saves through. */
@@ -311,6 +314,8 @@ export function MobileBotNeedsYouGroup({
   }
   const fold = needsYouFold(rows, { expanded, focusedKey: null, showAll: disabled })
   const shown = new Set(fold.visible)
+  const rowDisabled = (ask: PhoneAsk): boolean => askDisabled?.(ask) ?? disabled
+  const askClient = (ask: PhoneAsk): RpcClient | null => (clientOf ? clientOf(ask) : client)
   return (
     <>
       <SectionHeader
@@ -328,7 +333,7 @@ export function MobileBotNeedsYouGroup({
                   <ConnectorsAskRow
                     key={row.key}
                     needs={row.ask.open.connectors}
-                    disabled={disabled}
+                    disabled={rowDisabled(row.ask)}
                     onOpen={() => onOpenAsk(row.ask!)}
                   />
                 ) : row.ask?.open && 'pairedAsk' in row.ask.open ? (
@@ -338,7 +343,7 @@ export function MobileBotNeedsYouGroup({
                     card={row.ask.open.pairedAsk.card}
                     botName={botName}
                     now={now}
-                    disabled={disabled}
+                    disabled={rowDisabled(row.ask)}
                     onOpen={row.ask.open.pairedAsk.home ? () => onOpenAsk(row.ask!) : null}
                   />
                 ) : row.ask?.open && 'access' in row.ask.open ? (
@@ -346,7 +351,7 @@ export function MobileBotNeedsYouGroup({
                     key={row.key}
                     request={row.ask.open.access}
                     now={now}
-                    disabled={disabled}
+                    disabled={rowDisabled(row.ask)}
                     onOpen={() => onOpenAsk(row.ask!)}
                   />
                 ) : row.ask ? (
@@ -356,8 +361,8 @@ export function MobileBotNeedsYouGroup({
                     botName={botName}
                     owner={ownerOf?.(row.ask)}
                     now={now}
-                    client={clientOf?.(row.ask) ?? client}
-                    disabled={disabled}
+                    client={askClient(row.ask)}
+                    disabled={rowDisabled(row.ask)}
                     onOpen={() => onOpenAsk(row.ask!)}
                     onSkipFailed={onSkipFailed}
                   />

@@ -224,7 +224,10 @@ export function useRailBotItems({
       }),
       staleDays: botItemStaleDays(target.bot.itemsStale),
       seenEventId: read.seenEventId,
-      more: items.loadMoreClosed !== null
+      // A Closed rebuild drops loadMoreClosed until the new pages land. The cursor still means more.
+      more:
+        items.loadMoreClosed !== null ||
+        (!items.closedEnded && items.read?.nextClosedCursor != null)
     }))
     const grouped = groupBotsItems(perBot, now)
     const groups = {
@@ -256,9 +259,15 @@ export function useRailBotItems({
     return seen !== undefined && isBotItemUnseen(item, seen)
   }
 
-  const failed = shownTargets.some((target) => {
+  const targetFailed = (target: RailBotTarget): boolean => {
     const report = reports.get(target.key)
     return (report?.items.error ?? null) !== null || report?.tree.refreshFailed === true
+  }
+  const failed = shownTargets.some(targetFailed)
+  // A shown computer with no client never loaded. An empty list would claim it has no items.
+  const unavailable = shownTargets.some((target) => {
+    const report = reports.get(target.key)
+    return target.client == null && report?.items.read == null
   })
   // A null client never produces a read. Waiting on it keeps a loaded sheet on the spinner.
   // An in-flight read (client, no read, no error) still blocks so the list does not flash partial.
@@ -325,6 +334,8 @@ export function useRailBotItems({
     isUnseen,
     allRead,
     failed,
+    targetFailed,
+    unavailable,
     error,
     filterOn,
     clearFilter,
