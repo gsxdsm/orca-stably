@@ -1,10 +1,10 @@
 import { app, nativeTheme, shell } from 'electron'
 import { performance } from 'node:perf_hooks'
-import { AgentBrowserBridge } from '../browser/agent-browser/agent-browser-bridge'
+import type { AgentBrowserBridge } from '../browser/agent-browser/agent-browser-bridge'
+import { setAgentBrowserBridgeRef } from '../ipc/browser/browser'
 import { browserManager } from '../browser/guest-lifecycle/manager/browser-manager'
 import { browserSessionRegistry } from '../browser/sessions/profiles/browser-session-registry'
 import { configureBrowserClientPageAutomationRuntime } from '../browser/client-pages/execution/browser-client-page-automation-runtime'
-import { openOffscreenBrowserPageLink } from '../runtime/browser/commands/offscreen-browser-page-link'
 import {
   readLiveProcessMetricDetails,
   startPreGoneCrashSampling
@@ -15,15 +15,12 @@ import {
 } from '../memory/main-memory-spike-capture'
 import { registeredPtyCount } from '../memory/pty-registry'
 import { getStructuredAgentSessionHost } from '../native-chat/agent-session-wire/host/structured-agent-session-registry'
-import { refuseRealtimeSchedulingUnderZeroRtTime } from './linux-runtime/linux-realtime-scheduling-guard'
 import { recordProcessGoneCrash } from './main-window/main-window-lifecycle-flags'
-import { handleGpuChildCrash } from './gpu-recovery/gpu-lifecycle'
 import { isGpuFallbackCrashCandidate } from '../crash-reporting/recovery/gpu-crash-fallback-decision'
 import { mainProcessState as state } from './main-process-state'
-import { isNativeUpdateInstallUnderWay } from '../updater/updater-service'
+import { isNativeUpdateInstallUnderWay } from '../updater/updater-service-slot'
 import { initializeMainProcessObservers, startUsageBackend } from './main-process-observers'
 import { runAfterFirstWindowShown } from './main-window/first-window-deferral'
-import { startClaudeCodeThemeSync } from '../claude/theme-sync/claude-code-theme-sync-schedule'
 import {
   composeDesktopCore,
   type DesktopCoreNative
@@ -67,7 +64,13 @@ function startProcessCrashObservers(): void {
     ) {
       const crashedAt = performance.now()
       void state.gpuCrashDiagnostics?.record()
-      void handleGpuChildCrash(details.reason, details.exitCode ?? null, crashedAt)
+      void import('./gpu-recovery/gpu-lifecycle')
+        .then(({ handleGpuChildCrash }) =>
+          handleGpuChildCrash(details.reason, details.exitCode ?? null, crashedAt)
+        )
+        .catch((error: unknown) =>
+          console.warn('[gpu] Could not load GPU child crash handler:', error)
+        )
     }
   })
 }
@@ -102,14 +105,20 @@ function startThemeAndSpeech(store: Store, fallbackMs: number): void {
     startWarmupOnce()
   }, fallbackMs)
   runAfterFirstWindowShown(() => {
-    startClaudeCodeThemeSync({
-      getSettings: () => store.getSettings(),
-      onSettingsChanged: (listener) => store.onSettingsChanged(listener),
-      systemPrefersDark: () => nativeTheme.shouldUseDarkColors,
-      onSystemThemeChanged: (listener) => nativeTheme.on('updated', listener),
-      onAppFocused: (listener) => app.on('browser-window-focus', listener),
-      userDataPath: app.getPath('userData')
-    })
+    void import('../claude/theme-sync/claude-code-theme-sync-schedule')
+      .then(({ startClaudeCodeThemeSync }) => {
+        startClaudeCodeThemeSync({
+          getSettings: () => store.getSettings(),
+          onSettingsChanged: (listener) => store.onSettingsChanged(listener),
+          systemPrefersDark: () => nativeTheme.shouldUseDarkColors,
+          onSystemThemeChanged: (listener) => nativeTheme.on('updated', listener),
+          onAppFocused: (listener) => app.on('browser-window-focus', listener),
+          userDataPath: app.getPath('userData')
+        })
+      })
+      .catch((error: unknown) =>
+        console.warn('[claude] Could not load Claude Code theme sync:', error)
+      )
   }, fallbackMs)
   nativeTheme.themeSource = store.getSettings().theme ?? 'system'
 }
@@ -134,12 +143,14 @@ function desktopCoreNative(store: Store): DesktopCoreNative {
       browserManager.setBrowserGuestStateChangedListener((worktreeId) => {
         runtime.notifyMobileSessionTabsChanged(worktreeId)
       })
-      browserManager.setOffscreenTabOpener((request) =>
-        openOffscreenBrowserPageLink(
+      browserManager.setOffscreenTabOpener(async (request) => {
+        const { openOffscreenBrowserPageLink } =
+          await import('../runtime/browser/commands/offscreen-browser-page-link')
+        return openOffscreenBrowserPageLink(
           (params, caller) => runtime.browserTabCreate(params, caller),
           request
         )
-      )
+      })
       browserManager.setServerPagePopupPresenter((popup) => {
         void runtime.showServerPagePopupToClient(popup).catch((error: unknown) => {
           console.warn('[browser] could not show a page popup to its client:', error)
@@ -147,9 +158,13 @@ function desktopCoreNative(store: Store): DesktopCoreNative {
       })
       browserSessionRegistry.onProfilesChanged = () => runtime.notifyBrowserProfilesChanged()
     },
-    createAgentBrowserBridge: (onTabsChanged) => {
-      state.agentBrowserBridge = new AgentBrowserBridge(browserManager, { onTabsChanged })
-      return state.agentBrowserBridge
+    createAgentBrowserBridge: async (onTabsChanged) => {
+      const { AgentBrowserBridge: Ctor } =
+        await import('../browser/agent-browser/agent-browser-bridge')
+      const bridge: AgentBrowserBridge = new Ctor(browserManager, { onTabsChanged })
+      state.agentBrowserBridge = bridge
+      setAgentBrowserBridgeRef(bridge)
+      return bridge
     },
     configureBrowserAutomation: (executeRpc) =>
       configureBrowserClientPageAutomationRuntime({
@@ -169,7 +184,11 @@ export async function initializeReadyRuntimeServices(): Promise<void> {
     throw new Error('Store must be initialized before ready services')
   }
   // Renderers fork from zygotes that exist already, so this must land before the first window.
-  await refuseRealtimeSchedulingUnderZeroRtTime()
+  if (process.platform === 'linux') {
+    const { refuseRealtimeSchedulingUnderZeroRtTime } =
+      await import('./linux-runtime/linux-realtime-scheduling-guard')
+    await refuseRealtimeSchedulingUnderZeroRtTime()
+  }
   await composeDesktopCore(state.core, {
     store,
     paths: {

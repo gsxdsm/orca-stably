@@ -21,7 +21,7 @@ vi.mock('../../../git/command-runner/hosted-cli/gh-exec-file', () => ({
 vi.mock('../../../bots/bot-session-tabs', () => ({
   botOfSession: () => ({ name: 'Ada', github: {}, slack: null, linear: null, google: false })
 }))
-vi.mock('../../../google/google-connect', () => ({ getGoogleConnect: () => null }))
+vi.mock('../../../google/google-connect-slot', () => ({ resolveGoogleConnect: async () => null }))
 vi.mock('./connector-act', () => ({
   CONNECTOR_ACT_METHOD: { handler: async () => ({ ok: false, message: 'Not connected.' }) }
 }))

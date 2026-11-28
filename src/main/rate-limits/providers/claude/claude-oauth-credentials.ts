@@ -17,6 +17,8 @@ export type ClaudeOAuthCredentialSource =
 export type ClaudeOAuthCredentialReadResult = {
   token: string | null
   hasRefreshableCredentials: boolean
+  /** Epoch ms Claude Code stored for the access token; never decides validity alone. */
+  accessTokenExpiresAt?: number
   /** Epoch ms; Claude Code 2.1.x records it beside the refresh token. */
   refreshTokenExpiresAt?: number
   /** Last plan Claude Code wrote beside this token, e.g. "pro" or "max_20x"; not live billing. */
@@ -36,6 +38,7 @@ const schema = lazyZodSchema(() =>
     claudeAiOauth: z
       .object({
         accessToken: z.string().optional(),
+        expiresAt: z.unknown().optional(),
         refreshToken: z.string().optional(),
         refreshTokenExpiresAt: z.unknown().optional(),
         // Plan metadata never decides whether the token is usable.
@@ -52,10 +55,11 @@ export function parseClaudeOAuthCredentialsJson(
   try {
     const oauth = schema.parse(JSON.parse(raw)).claudeAiOauth
     const planType = readClaudePlanType(oauth?.subscriptionType, oauth?.rateLimitTier)
-    // The usage server, not stored expiresAt, decides token validity.
+    // Stored expiresAt never decides validity alone; it only gates the rejected-token hold.
     return {
       token: oauth?.accessToken || null,
       hasRefreshableCredentials: Boolean(oauth?.refreshToken),
+      ...(typeof oauth?.expiresAt === 'number' ? { accessTokenExpiresAt: oauth.expiresAt } : {}),
       ...(typeof oauth?.refreshTokenExpiresAt === 'number'
         ? { refreshTokenExpiresAt: oauth.refreshTokenExpiresAt }
         : {}),

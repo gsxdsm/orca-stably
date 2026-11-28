@@ -11,10 +11,9 @@ import {
   isCodexAccountHistoryWorkStopping,
   requestHostCodexIndexHeal
 } from './codex-account-history-index'
-import { shareCodexAccountHistory, unshareCodexAccountHistory } from './codex-account-history-links'
-import {
+import type {
   CodexHistoryImportRunner,
-  type CodexHistoryImportSettings
+  CodexHistoryImportSettings
 } from '../import/codex-history-import-runner'
 
 import { CodexHistoryPassRequests } from './codex-history-pass-queue'
@@ -89,27 +88,51 @@ export class CodexAccountHistoryPasses {
   private readonly lockFolderFailedAt = new Map<string, number>()
   private readonly busyRetries = new Map<string, ReturnType<typeof setTimeout>>()
   private activePasses = 0
-  // When each import folder last finished a pass this run.
-  private readonly imports = new CodexHistoryImportRunner({
-    indexPendingDir: INDEX_PENDING_DIR,
-    // Only publishing pauses the index heal: a frozen import folder must not hold it.
-    publish: (job) =>
-      this.requests.enqueue('host', async () => {
-        this.activePasses += 1
-        this.startedPasses += 1
-        try {
-          return await job()
-        } finally {
-          this.activePasses -= 1
+  // Loaded on first importHistory call so profiles without an import folder skip the runner graph.
+  private importsPromise: Promise<CodexHistoryImportRunner> | null = null
+
+  private loadImports(): Promise<CodexHistoryImportRunner> {
+    if (!this.importsPromise) {
+      const pending = import('../import/codex-history-import-runner').then(
+        ({ CodexHistoryImportRunner }) =>
+          new CodexHistoryImportRunner({
+            indexPendingDir: INDEX_PENDING_DIR,
+            // Only publishing pauses the index heal: a frozen import folder must not hold it.
+            publish: (job) =>
+              this.requests.enqueue('host', async () => {
+                this.activePasses += 1
+                this.startedPasses += 1
+                try {
+                  return await job()
+                } finally {
+                  this.activePasses -= 1
+                }
+              }),
+            waitForLaunches: () => this.requests.whenNoLaunchWaiting('host'),
+            requestIndexHeal: () =>
+              requestHostCodexIndexHeal(
+                INDEX_PENDING_DIR(),
+                getSystemCodexHomePath(),
+                this.passProgress
+              ),
+            imported: () => {
+              requestHostCodexIndexHeal(
+                INDEX_PENDING_DIR(),
+                getSystemCodexHomePath(),
+                this.passProgress
+              )
+            }
+          })
+      )
+      this.importsPromise = pending.catch((error) => {
+        if (this.importsPromise === pending) {
+          this.importsPromise = null
         }
-      }),
-    waitForLaunches: () => this.requests.whenNoLaunchWaiting('host'),
-    requestIndexHeal: () =>
-      requestHostCodexIndexHeal(INDEX_PENDING_DIR(), getSystemCodexHomePath(), this.passProgress),
-    imported: () => {
-      requestHostCodexIndexHeal(INDEX_PENDING_DIR(), getSystemCodexHomePath(), this.passProgress)
+        throw error
+      })
     }
-  })
+    return this.importsPromise
+  }
   private startedPasses = 0
   private readonly passProgress = {
     isPaused: (): boolean => this.activePasses > 0,
@@ -191,11 +214,12 @@ export class CodexAccountHistoryPasses {
   }
 
   /** Copies the import folder's conversations that ~/.codex lacks into it (see the runner). */
-  importHistory(
+  async importHistory(
     getSettings: () => CodexHistoryImportSettings,
     options: { settingChanged?: boolean } = {}
   ): Promise<void> {
-    return this.imports.importHistory(getSettings, options)
+    const imports = await this.loadImports()
+    return imports.importHistory(getSettings, options)
   }
 
   private async runPass(
@@ -240,6 +264,8 @@ export class CodexAccountHistoryPasses {
     // Whatever this pass settles, an older busy retry no longer speaks for the home.
     this.cancelRetry(key)
     try {
+      const { shareCodexAccountHistory, unshareCodexAccountHistory } =
+        await import('./codex-account-history-links')
       if (!shared) {
         this.lockFolderFailedAt.delete(key)
         if (await unshareCodexAccountHistory({ accountHome, storeHome, onWarning })) {

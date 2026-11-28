@@ -33,6 +33,7 @@ export type ResolvedBrowserPageWebContents = {
 export type RuntimeBrowserCommandHost = {
   getRuntimeId(): string
   getAgentBrowserBridge(): AgentBrowserBridge | null
+  ensureAgentBrowserBridge?(): Promise<AgentBrowserBridge | null>
   resolveWorkspaceSelector(selector: string): Promise<{
     id: string
     repoId?: string

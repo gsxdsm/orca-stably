@@ -1,6 +1,7 @@
 import {
+  journalLegacySourceAbsorbed,
   readJournalLegacySourceReceipt,
-  sameJournalLegacySource
+  type JournalLegacyAbsorbedSource
 } from './database/journal-legacy-source-receipt'
 import { journalDomainDatabasePath } from './database/journal-host-database'
 import { legacyDestinationMain, legacyFilePresent } from './journal-legacy-retirement-files'
@@ -191,14 +192,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export async function observeLegacySource(
   filename: string,
   directory: string,
-  saved: { kept: boolean; receipt: string | null }
+  saved: JournalLegacyAbsorbedSource
 ): Promise<(LegacyProofObservation & { walBytes: string }) | null> {
   const current = await readJournalLegacySourceReceipt(filename)
-  if (
-    !saved.kept ||
-    current.disposition !== 'copied-source' ||
-    !sameJournalLegacySource(saved.receipt ?? undefined, current)
-  ) {
+  if (current.disposition !== 'copied-source' || !journalLegacySourceAbsorbed(saved, current)) {
     return null
   }
   if (await legacyFilePresent(`${filename}-journal`)) {

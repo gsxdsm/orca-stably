@@ -63,7 +63,8 @@ function readLogin(
   const read = fetchActiveClaudeRateLimits({
     signal: options.signal,
     authPreparation,
-    networkProxySettings: options.networkProxySettings
+    networkProxySettings: options.networkProxySettings,
+    rejectedTokensByHome: options.rejectedTokensByHome
   })
   options.readsByHome?.set(authPreparation.configDir, read)
   return read

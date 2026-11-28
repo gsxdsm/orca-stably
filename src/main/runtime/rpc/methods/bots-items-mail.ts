@@ -52,7 +52,7 @@ function noteBy(
   }
   const items = runtime.botItems
   const source = items.chatSource(bot, actor.chatId, (id) => items.chatRootOf(id), null)
-  const chat = items.owningChat({ chatId: actor.chatId, source })
+  const chat = items.owningChat({ chatId: actor.chatId, ownerBotId: bot.id, source })
   if (chat.gone) {
     return 'other-chat'
   }

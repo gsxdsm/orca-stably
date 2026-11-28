@@ -9,7 +9,7 @@ import {
   googleSetupDoneRefusal,
   googleSetupKeyBlocker
 } from '../../../../shared/google/google-setup-blocker'
-import { getGoogleConnect } from '../../../google/google-connect'
+import { resolveGoogleConnect } from '../../../google/google-connect-slot'
 import { markGoogleSetupFinishedOutside } from '../../../google/google-setup-finished-outside'
 import {
   GoogleSetupError,
@@ -41,7 +41,7 @@ export async function hostGoogle(): Promise<Pick<
   GoogleStatusView,
   'client' | 'accounts' | 'clientKey'
 > | null> {
-  const connect = getGoogleConnect()
+  const connect = await resolveGoogleConnect()
   if (!connect) {
     return null
   }
@@ -102,7 +102,7 @@ export async function refuseUnfinishedDone(run: GoogleSetupRun | null): Promise<
   if (run?.state !== 'running') {
     return
   }
-  const connect = getGoogleConnect()
+  const connect = await resolveGoogleConnect()
   if (!connect) {
     throw new InvalidArgumentError("Google isn't available on this computer.")
   }

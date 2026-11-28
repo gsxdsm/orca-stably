@@ -1,10 +1,13 @@
 import { capabilityKinds } from '../../../shared/plugins/capabilities/plugin-capabilities'
 import type { ValidDiscoveredPlugin } from '../discovery/plugin-discovery'
 import type { PluginAuditLog } from '../logging/plugin-audit-log'
-import type { PluginHostCallPolicy } from '../workers/host-api/plugin-host-call-adapter'
-import {
+import type {
+  executePluginHostCallRequest,
+  PluginHostCallPolicy
+} from '../workers/host-api/plugin-host-call-adapter'
+import type {
   bindPluginHostServices,
-  type PluginRuntimeDelegate
+  PluginRuntimeDelegate
 } from '../workers/host-api/plugin-host-service-bindings'
 import type { PluginDesktopFrameServices } from '../workers/host-api/plugin-host-method-bindings'
 import {
@@ -19,9 +22,42 @@ import type {
   PluginHostCallOutcome,
   PluginSurface
 } from '../../../shared/plugins/frames/plugin-protocol'
-import { executePluginHostCallRequest } from '../workers/host-api/plugin-host-call-adapter'
 import { getPluginHostRendererActions } from '../view/plugin-host-renderer-actions'
 import type { PluginServiceOptions } from '../plugin-service-options'
+
+type PluginHostCallRuntime = {
+  executePluginHostCallRequest: typeof executePluginHostCallRequest
+  bindPluginHostServices: typeof bindPluginHostServices
+}
+
+let hostCallRuntime: PluginHostCallRuntime | null = null
+let hostCallRuntimePromise: Promise<PluginHostCallRuntime> | null = null
+
+function loadPluginHostCallRuntime(): Promise<PluginHostCallRuntime> {
+  if (hostCallRuntime) {
+    return Promise.resolve(hostCallRuntime)
+  }
+  if (!hostCallRuntimePromise) {
+    const pending = Promise.all([
+      import('../workers/host-api/plugin-host-call-adapter'),
+      import('../workers/host-api/plugin-host-service-bindings')
+    ]).then(([adapter, bindings]) => {
+      const loaded: PluginHostCallRuntime = {
+        executePluginHostCallRequest: adapter.executePluginHostCallRequest,
+        bindPluginHostServices: bindings.bindPluginHostServices
+      }
+      hostCallRuntime = loaded
+      return loaded
+    })
+    hostCallRuntimePromise = pending.catch((error: unknown) => {
+      if (hostCallRuntimePromise === pending) {
+        hostCallRuntimePromise = null
+      }
+      throw error
+    })
+  }
+  return hostCallRuntimePromise
+}
 
 /** Who made a call: the open panel (frames only), and its host window's WebContents for desktop
  *  IPC calls. */
@@ -82,23 +118,24 @@ export function resolvePluginServiceHostCallPolicy(input: {
   return {
     grantedCapabilities: plugin ? capabilityKinds(plugin.manifest.capabilities) : null,
     allowProposed: plugin?.isDev === true,
-    services: input.runtimeDelegate
-      ? bindPluginHostServices({
-          delegate: input.runtimeDelegate,
-          pluginsDataDir: input.pluginsDataDir,
-          desktop: input.desktop,
-          panels: input.panels,
-          renderer: getPluginHostRendererActions(),
-          declaredSettings: plugin?.manifest.contributes.settings,
-          statusBar: input.sinks.statusBar,
-          appearance: input.sinks.appearance,
-          editorTypography: input.sinks.editorTypography,
-          declaredStatusBarItemIds: plugin?.manifest.contributes.statusBarItems.map(
-            (item) => item.id
-          ),
-          statusBarRevision: plugin ? pluginStatusBarRevision(plugin) : undefined
-        })
-      : null,
+    services:
+      input.runtimeDelegate && hostCallRuntime
+        ? hostCallRuntime.bindPluginHostServices({
+            delegate: input.runtimeDelegate,
+            pluginsDataDir: input.pluginsDataDir,
+            desktop: input.desktop,
+            panels: input.panels,
+            renderer: getPluginHostRendererActions(),
+            declaredSettings: plugin?.manifest.contributes.settings,
+            statusBar: input.sinks.statusBar,
+            appearance: input.sinks.appearance,
+            editorTypography: input.sinks.editorTypography,
+            declaredStatusBarItemIds: plugin?.manifest.contributes.statusBarItems.map(
+              (item) => item.id
+            ),
+            statusBarRevision: plugin ? pluginStatusBarRevision(plugin) : undefined
+          })
+        : null,
     audit: input.audit,
     scope: plugin
       ? createPluginHostCallScope(
@@ -132,11 +169,13 @@ export type PluginServiceHostCall = (
 export function createPluginServiceHostCall(
   policy: (pluginKey: string, caller: PluginHostCaller | undefined) => PluginHostCallPolicy
 ): PluginServiceHostCall {
-  return (pluginKey, method, params, surface, caller) =>
-    executePluginHostCallRequest({
+  return async (pluginKey, method, params, surface, caller) => {
+    const runtime = await loadPluginHostCallRuntime()
+    return runtime.executePluginHostCallRequest({
       pluginKey,
       request: { method, params },
       surface,
       resolvePolicy: (boundPluginKey) => policy(boundPluginKey, caller)
     })
+  }
 }

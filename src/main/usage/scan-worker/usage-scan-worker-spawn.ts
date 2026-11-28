@@ -74,12 +74,18 @@ export function scanCodexUsageFilesViaWorker(
 
 export function scanOpenCodeUsageDatabasesViaWorker(
   worktrees: UsageScanWorktreeRef[],
-  sourceCache: UsageSourceCacheRef
+  sourceCache: UsageSourceCacheRef,
+  accountDataDirs: string[]
 ): Promise<{
   sessions: OpenCodeUsageSession[]
   dailyAggregates: OpenCodeUsageDailyAggregate[]
 }> {
-  return scanOpenCodeUsageOnWorker((body) => getSharedClient().scan(body), worktrees, sourceCache)
+  return scanOpenCodeUsageOnWorker(
+    (body) =>
+      getSharedClient().scan(body.providerId === 'opencode' ? { ...body, accountDataDirs } : body),
+    worktrees,
+    sourceCache
+  )
 }
 
 export function scanMuseUsageFilesViaWorker(

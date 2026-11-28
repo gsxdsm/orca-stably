@@ -6,6 +6,7 @@ import {
   type LegacySourceRefusalReason
 } from './journal-legacy-retention-error'
 import { lazyZodSchema } from '../../../shared/schema/lazy-zod-schema'
+import type { JournalLegacyAbsorbedSource } from './database/journal-legacy-source-receipt'
 
 /**
  * Saved beside the copy receipt. Builds from before on-update retirement read the v1 key, so this
@@ -30,9 +31,7 @@ const RECHECKED_WITHOUT_INVENTORY: readonly LegacySourceRefusalReason[] = [
 export const JOURNAL_LEGACY_ORIGINAL = 'journal.legacy-original:'
 
 /** What the writer reports before an attempt; "retired" itself is the original being absent. */
-export type JournalLegacyRetirementState = {
-  receipt: string | null
-  kept: boolean
+export type JournalLegacyRetirementState = JournalLegacyAbsorbedSource & {
   convertedBy: string | null
   retirement: string | null
   /** What this store last reported about the cleanup, so a repeat isn't sent again. */

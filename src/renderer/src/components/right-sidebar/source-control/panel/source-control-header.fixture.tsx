@@ -15,11 +15,11 @@ import type {
   PrimaryAction,
   PrimaryActionInputs
 } from '../review/source-control-primary-action-types'
-import type { BaseRebaseActions } from './base-rebase-control'
 import { SourceControlChangeScopeBar } from './change-scope-bar'
 import { ALL_CHANGES_SCOPE, type SourceControlChangeScope } from './change-scope'
 import { SourceControlHeaderOverflowMenu } from './header-overflow-menu'
 import { SourceControlHeaderToolbar } from './header-toolbar'
+import { OperationRow } from './operation-row'
 import type { SourceControlPanelReadyProps } from './panel-props'
 import { resolveDropdownItems } from './source-control-dropdown-items'
 
@@ -31,11 +31,12 @@ type Scenario = {
   lines?: { added: number; removed: number } | null
   compare?: 'ready' | 'loading' | 'error'
   review?: 'create' | 'creating' | 'disabled' | 'open' | 'unlinked' | null
-  rebasePaused?: boolean
   filterExpanded?: boolean
   filterQuery?: string
   scope?: SourceControlChangeScope
   graphSupported?: boolean
+  /** A paused rebase on this branch, which replaces the HEAD row. */
+  rebasing?: string
 }
 
 const FILES: GitStatusEntry[] = [
@@ -92,22 +93,6 @@ function summaryFor(scenario: Scenario): GitBranchCompareSummary {
     return { ...base, status: 'error', errorMessage: 'Could not read origin/main' }
   }
   return { ...base, status: 'ready' }
-}
-
-const PAUSED_REBASE: BaseRebaseActions = {
-  state: {
-    kind: 'rebase_paused',
-    unresolvedCount: 2,
-    continueState: 'ready',
-    inspectFailureMessage: null
-  },
-  isAbortingRebase: false,
-  isContinuingRebase: false,
-  isRetryingRebaseInspect: false,
-  hasGitOwner: true,
-  onAbortRebase: () => {},
-  onContinueRebase: () => {},
-  onRetryRebaseInspect: () => {}
 }
 
 function Composer() {
@@ -256,7 +241,17 @@ function Panel(scenario: Scenario) {
         branchSummary={summary}
         compareBaseRef="origin/main"
         branchLineTotal={branchLineTotal}
-        rebase={scenario.rebasePaused ? PAUSED_REBASE : null}
+        operationRow={
+          scenario.rebasing ? (
+            <OperationRow
+              operation="rebase"
+              branch={scenario.rebasing}
+              primary={{ kind: 'resolve', busy: false, onPress: () => {} }}
+              abort={{ unavailable: false, busy: false, onAbort: () => {} }}
+              abortTargetKey="fixture|rebase"
+            />
+          ) : null
+        }
         toolsInFileListHeader
       />
       <div className="pt-1">
@@ -351,6 +346,13 @@ const remoteOldHost = variants({ behind: 4, graphSupported: false })
 export const remoteOldHostNarrow = remoteOldHost.narrow
 export const remoteOldHostWide = remoteOldHost.wide
 
+const rebasingLong = variants({ rebasing: 'feature/very-long-example-branch-name-for-testing' })
+export const rebasingLongMinimum = rebasingLong.minimum
+export const rebasingLongWide = rebasingLong.wide
+const rebasingShort = variants({ rebasing: 'feature/ledger' })
+export const rebasingShortMinimum = rebasingShort.minimum
+export const rebasingShortWide = rebasingShort.wide
+
 export const compareLoading = defineFixture({
   width: panelWidth(264),
   render: () => <Panel compare="loading" />
@@ -374,10 +376,6 @@ export const createPrDisabled = defineFixture({
 export const unlinkedPr = defineFixture({
   width: panelWidth(264),
   render: () => <Panel review="unlinked" />
-})
-export const rebasePaused = defineFixture({
-  width: panelWidth(264),
-  render: () => <Panel rebasePaused detached review={null} />
 })
 const filterOpen = variants({ filterExpanded: true, filterQuery: 'settings', behind: 45 })
 export const filterOpenMinimum = filterOpen.minimum

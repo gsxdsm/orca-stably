@@ -98,7 +98,7 @@ export type RuntimeServiceCommandSurface = {
 }
 
 type RuntimeServiceCommandOwners = {
-  aiVault: RuntimeAiVaultCommands
+  aiVault: Pick<RuntimeAiVaultCommands, keyof RuntimeAiVaultCommands>
   sessionSearchSettings: RuntimeSessionSearchSettingsController
   clientEvents: RuntimeClientEventBus
   nativeChatDraftResolutions: RuntimeNativeChatDraftResolutions

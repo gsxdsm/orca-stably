@@ -18,7 +18,10 @@
       "title": "アカウント",
       "useReset": "リセット枠を使用",
       "pairingInvalidMessage": "アカウントを表示するには、このスマートフォンをデスクトップと再ペアリングしてください。",
-      "weeklyWindow": "7日"
+      "weeklyWindow": "7日",
+      "signedOut": "サインアウト済み",
+      "addAccount": "アカウントを追加",
+      "signIn": "サインイン"
     },
     "claude": {
       "usageSignInLabel": "もう一度サインイン",
@@ -29,6 +32,31 @@
     },
     "usage": {
       "percentLeft": "残り {{value}}%"
+    },
+    "hostSignIn": {
+      "errors": {
+        "ownerSilent": "このサインインを開始したデバイスが応答しなくなりました。",
+        "superseded": "このホスト上でアカウントが変更されたため、サインインが中止されました。やり直してください。",
+        "noPrompt": "サーバーのログインコマンドが1分以内にサインインリンクを表示しませんでした。サーバーのOrcaを更新してから、もう一度お試しください。",
+        "failed": "サインインに失敗しました。もう一度お試しください。"
+      },
+      "starting": "{{host}} にサインインを開始しています…",
+      "copied": "コピーしました",
+      "copyLink": "リンクをコピー",
+      "continue": "続行",
+      "copyCode": "コードをコピーする",
+      "signingIn": "サインイン中…",
+      "tryAgain": "再試行",
+      "titleClaude": "Claude にサインイン",
+      "titleCodex": "Codex にサインイン",
+      "savedOn": "{{host}} に保存",
+      "newCode": "新しいコードを取得",
+      "openPage": "サインインページを開く",
+      "pasteStep": "コードを貼り付け",
+      "codePlaceholder": "ページに表示されたコード",
+      "enterCodeStep": "このコードを入力",
+      "waitingForPage": "ページでの操作が終わるのを待っています",
+      "signedInAs": "{{email}} としてサインインしました"
     }
   },
   "agentHistory": {
@@ -49,9 +77,7 @@
       "skipped_one": "{{count}} 件のトランスクリプトをスキップしました",
       "skipped_other": "{{count}} 件のトランスクリプトをスキップしました",
       "title": "Agent セッション履歴",
-      "unavailable": "Agent セッション履歴を利用できません",
       "unknownHostPlatform": "ホストのプラットフォームを判別できません。",
-      "updateHost": "Agent セッション履歴を表示するには、このホストの Orca を更新してください。",
       "waitingForHost": "ホストの接続待ち…",
       "workspace": "ワークスペース"
     },
@@ -247,8 +273,7 @@
       "certificateChallengeExpired": "この証明書の承認は期限切れです。ページを再試行して、承認をもう一度リクエストしてください。",
       "certificateChallengeChanged": "証明書のリクエストが変更されました。ページを再試行して、警告の内容を改めて確認してください。",
       "certificateProceedFailed": "Orca はこの証明書のリクエストを承認できませんでした。ページを再試行して、もう一度お試しください。",
-      "certificateChallengeUnavailable": "この証明書のリクエストは利用できなくなりました。ページを再試行して、もう一度リクエストしてください。",
-      "certificateProceedNeedsHostUpdate": "スマートフォンから証明書の警告を承認するには、このホストの Orca を更新してください。"
+      "certificateChallengeUnavailable": "この証明書のリクエストは利用できなくなりました。ページを再試行して、もう一度リクエストしてください。"
     },
     "pagePrompt": {
       "downloadStarted": "ホスト上の {{path}} にダウンロードしています",
@@ -433,7 +458,10 @@
       "modelFallback": "Claudeがモデルを切り替えました: {{from}} → {{to}}。",
       "signIn": "サインイン",
       "signInHint": "このチャットを実行しているコンピューターでターミナルを開きます",
-      "forkedFrom": "分岐元"
+      "forkedFrom": "分岐元",
+      "notSignedIn": "{{agent}} にサインインしていません。",
+      "signInAccountHint": "このチャットを実行しているコンピューターでこのアカウントに再度サインインします",
+      "signedInSendAgain": "サインインしました。もう一度送信してください。"
     },
     "ciResultLine": {
       "failingLead": "CI 失敗:",
@@ -1154,7 +1182,9 @@
         "pending": "接続中…",
         "tools_other": "{{count}} 個のツール",
         "waitingForSignIn": "サインイン待ち…",
-        "tools_one": "{{count}} 個のツール"
+        "tools_one": "{{count}} 個のツール",
+        "orcaRemoved": "削除済み: 次のメッセージで再起動します",
+        "orcaChanged": "変更済み: 次のメッセージで再起動します"
       },
       "source": {
         "project": "プロジェクト",
@@ -1165,7 +1195,6 @@
       },
       "title": "MCP サーバー",
       "notRunning": "MCP サーバーは次のメッセージを送信すると接続されます。",
-      "unsupported": "ここで MCP サーバーを管理するには、このチャットのホストの Orca を更新してください。",
       "readFailed": "MCP サーバーを読み込めませんでした。",
       "retry": "再試行",
       "empty": "このチャットには MCP サーバーが設定されていません。",
@@ -1186,7 +1215,8 @@
         "failed": "失敗: {{count}}"
       },
       "pasteHint": "ブラウザーが読み込めないページに移動したら、そのアドレスをコピーしてここに貼り付けてください。",
-      "manage": "MCP サーバーを管理"
+      "manage": "MCP サーバーを管理",
+      "stillFailing": "再接続後も失敗しています。"
     }
   },
   "common": {
@@ -1411,7 +1441,7 @@
       "pairingTemporarilyUnavailable": "ペアリングが一時的に利用できません",
       "unlockHint": "スマートフォンのロックを解除してから、タップして再試行してください。",
       "worktreeAccessibilitySummary": "{{summary}}、{{activeCount}} 件がアクティブ",
-      "tapToPairAgain": "タップしてデスクトップと再ペアリングしてください。"
+      "tapToPairAgain": "タップして再ペアリング"
     },
     "hostProtocolGate": {
       "checkingCompatibility": "ホストの互換性を確認中"
@@ -1431,7 +1461,9 @@
       "connectHint": "デスクトップの Orca で「設定 → 連携」から Jira サイトを追加し、再確認してください。",
       "connectOnDesktop": "デスクトップで Jira に接続",
       "credentialUnreadable": "Jira の認証情報は保存されていますが、読み取れません：{{credentialError}}",
-      "updateDesktop": "このホストの Orca を更新"
+      "connectTitle": "Jira アカウントを接続",
+      "connectMessage": "割り当てられた Jira 課題をタスクから直接閲覧して作業を始められます。",
+      "connect": "Jira を接続"
     },
     "markdownBlocks": {
       "copyCode": "コードをコピーする",
@@ -1709,7 +1741,9 @@
         "permissionAcceptEditsDescription": "ファイルの編集とファイル操作コマンドを承認し、それ以外は確認します",
         "permissionAutoDescription": "承認リクエストを代わりに審査します",
         "permissionFullAccessCodexDescription": "確認しません。任意のファイルを編集し、ネットワークを使用できます",
-        "permissionFullAccessDescription": "編集やコマンドの前に確認しません"
+        "permissionFullAccessDescription": "編集やコマンドの前に確認しません",
+        "permissionAgentSettings": "{{agent}} の設定",
+        "permissionFromAgentSettings": "{{mode}}（{{agent}} の設定より）"
       },
       "goal": {
         "sentAsGoal": "ゴールとして送信されました"
@@ -2038,7 +2072,9 @@
       "loading": "ファイルを読み込み中…",
       "loadFailed": "ファイルを読み込めませんでした。",
       "title": "ファイル",
-      "truncatedList": "{{worktreeLabel}} - 先頭の 5000 件を表示"
+      "truncatedList": "{{worktreeLabel}} - 先頭の 5000 件を表示",
+      "newEntry": "新規",
+      "add": "追加"
     },
     "fileExplorerRow": {
       "fileUnavailable": "「{{name}}」はモバイルでは利用できません",
@@ -2053,7 +2089,56 @@
     },
     "fileExplorerRowActions": {
       "copyName": "名前をコピー",
-      "copyRelativePath": "相対パスをコピー"
+      "copyRelativePath": "相対パスをコピー",
+      "newFile": "新しいファイル",
+      "newFolder": "新しいフォルダ",
+      "rename": "名前を変更",
+      "duplicate": "複製",
+      "create": "作成",
+      "fileName": "ファイル名",
+      "folderName": "フォルダ名",
+      "deleteTitle": "{{name}} を削除しますか？",
+      "deleteFileDetail": "ファイルを完全に削除します。元に戻せません。",
+      "deleteFolderDetail": "フォルダとその中身を完全に削除します。元に戻せません。",
+      "duplicateFailed": "{{name}} を複製できませんでした。{{reason}}",
+      "duplicateUnconfirmed": "コピーが完了していない可能性があります。確認してもう一度お試しください。",
+      "deleteFailed": "{{name}} を削除できませんでした。{{reason}}",
+      "deleteUnconfirmed": "まだ残っています。フォルダを確認して、もう一度お試しください。",
+      "renameFailed": "{{name}} の名前を変更できませんでした。{{reason}}",
+      "newFileFailed": "ファイルを作成できませんでした。{{reason}}",
+      "newFolderFailed": "フォルダを作成できませんでした。{{reason}}",
+      "share": "共有",
+      "shareFailed": "{{name}} を共有できませんでした",
+      "shareTooLarge": "256 MB を超えるファイルはスマートフォンから共有できません",
+      "shareHostOutdated": "ファイルを共有するには、このワークスペースを実行している Orca を更新してください",
+      "uploadHere": "ここにアップロード",
+      "uploadFiles": "ファイルをアップロード",
+      "noFreeCopyName": "{{name}} のコピーに使える名前がありません"
+    },
+    "fileExplorerUpload": {
+      "waiting": "待機中",
+      "waitingForConnection": "接続を待っています",
+      "failed": "{{reason}} · タップして再試行",
+      "failedReason": "アップロードに失敗しました",
+      "dismiss": "{{name}} をアップロードしない",
+      "tooLarge": "{{max}} MB を超えるファイルは、まだスマートフォンからアップロードできません。",
+      "busy": "一度にアップロードできるのは {{max}} 件までです。",
+      "pickFailed": "ファイルを開けませんでした。{{reason}}",
+      "clashMessage": "{{folder}} に既にあります",
+      "keepBoth": "両方残す",
+      "keepBothAs": "{{name}} として保存",
+      "keepBothCopies": "それぞれコピーとして保存",
+      "skip": "スキップ",
+      "skipAll": "すべてスキップ",
+      "uploaded_one": "{{count}} 件のファイルを {{folder}} にアップロードしました",
+      "uploaded_other": "{{count}} 件のファイルを {{folder}} にアップロードしました",
+      "clashTitleSeveral_one": "{{count}} 件のファイルが {{folder}} に既にあります",
+      "clashTitleSeveral_other": "{{count}} 件のファイルが {{folder}} に既にあります",
+      "lost_one": "{{count}} 件のファイルはアップロードされませんでした。スマートフォンが保持を終了しました。もう一度選んでください。",
+      "lost_other": "{{count}} 件のファイルはアップロードされませんでした。スマートフォンが保持を終了しました。もう一度選んでください。",
+      "nameTaken": "同じ名前があります · タップして選択",
+      "workspaceRoot": "ワークスペースのルート",
+      "unconfirmed": "アップロードを確認できませんでした。フォルダを確認してください。"
     },
     "fileMarkdownPreview": {
       "copyLoadedSource": "読み込み済みの Markdown ソースをコピー",
@@ -2145,7 +2230,6 @@
       "scheduled": "スケジュール実行",
       "showFor": "自動化を表示するデスクトップ",
       "toggleFailed": "{{name}} を更新できませんでした",
-      "updateDesktop": "自動化を使用するには、{{desktop}} の Orca を更新してください。",
       "pairComputer": "自動化を表示・実行するには、デスクトップとペアリングしてください。"
     },
     "listFooter": {
@@ -2276,7 +2360,6 @@
       "ignoredNamesMore": "{{names}} など",
       "ignoredNamesCount": "{{names}} 他 {{value0}} 件",
       "ignoredUnchecked": "無視されたファイルを完全には確認できませんでした",
-      "needsUpdate": "スマートフォンからこのワークスペースを削除するには、コンピュータの Orca を更新してください。",
       "removeTitle": "ワークスペースを削除",
       "removeFolderMessage": "「{{name}}」を Orca から削除しますか？ディスク上のフォルダーは残ります。"
     },
@@ -2902,7 +2985,6 @@
       "committedDiffUnavailable": "コミット済みの差分は利用できません。",
       "commitLoadFailed": "このコミットを読み込めません。",
       "commitDiffUnavailable": "コミットの差分は利用できません。",
-      "desktopUpdateRequired": "モバイルで変更をレビューするには、このホストの Orca を更新してください。",
       "diffLoadFailed": "差分を読み込めません。",
       "reviewNotesLoadFailed": "レビューノートを読み込めません。"
     },
@@ -3125,7 +3207,7 @@
       "collapse": "折りたたむ"
     },
     "nativeChatCliFork": {
-      "resumeInNewCli": "新しい CLI で再開"
+      "continueInTerminal": "ターミナルで続行"
     },
     "nativeChatFloatingControls": {
       "scrollToLatest": "最新の内容にスクロール"
@@ -3298,8 +3380,7 @@
       "messageNotSent": "メッセージは送信されませんでした"
     },
     "tabStrip": {
-      "checkingCapabilities": "デスクトップの対応機能を確認中です。少し待ってから再試行してください。",
-      "quickCommandsUpdateRequired": "クイックコマンドの利用にはデスクトップの更新が必要です。"
+      "checkingCapabilities": "デスクトップの対応機能を確認中です。少し待ってから再試行してください。"
     },
     "terminalActionSheetActions": {
       "clearTerminal": "ターミナルをクリア",
@@ -3679,6 +3760,18 @@
       "terminalTitle": "ターミナルのテキスト",
       "pointsAndColumns": "{{points}} · {{count}} 列",
       "moreTerminal": "その他のターミナル設定"
+    },
+    "terminalChatContinuation": {
+      "busy": "別のチャットまたはターミナルを開いています。しばらく待ってから再試行してください。",
+      "continueInChat": "チャットで続行",
+      "failed": "チャットで続行できませんでした。{{detail}}",
+      "failedAfterClose": "チャットで続行できませんでした。{{detail}} 会話は Agent の履歴にあります。",
+      "otherJob": "このターミナルで {{process}} が実行中です。終了してからチャットで続行してください。",
+      "terminalChanged": "Orca が確認している間にこのターミナルが変わりました。再試行してください。",
+      "tryAgain": "再試行してください。",
+      "unavailable": "このコンピューターでは {{agent}} のチャットを利用できません。",
+      "uncheckable": "このターミナルで何が実行中か Orca が確認できませんでした。再試行してください。",
+      "unconfirmed": "チャットが開いたことを Orca が確認できませんでした。再試行する前にタブを確認してください。"
     }
   },
   "settings": {
@@ -3836,9 +3929,6 @@
       "title": "音声",
       "toggleMode": "トグル",
       "updateFailed": "更新できませんでした"
-    },
-    "agents": {
-      "permissionOwnAll": "Agent 独自の設定"
     },
     "voiceTranscribeOn": {
       "heading": "文字起こしの場所",
@@ -4119,8 +4209,7 @@
       "pullRequest": "PR"
     },
     "loaders": {
-      "loadFailed": "ソース管理を読み込めませんでした。",
-      "updateDesktop": "モバイルでソース管理を使うには、このホストの Orca を更新してください。"
+      "loadFailed": "ソース管理を読み込めませんでした。"
     },
     "modals": {
       "discardButton": "破棄",
@@ -4264,6 +4353,9 @@
       "agentCouldNotStart": "{{label}} を起動できませんでした。設定で Agent のコマンドを確認し、もう一度お試しください。",
       "agentFailedToStart": "{{label}} の起動に失敗しました。設定で Agent のコマンドを確認し、もう一度お試しください。",
       "agentReportedError": "{{label}} がエラーを報告しました。",
+      "antigravityInvalidEvents": "Antigravity が無効な JSON イベントを返しました。",
+      "antigravityInvalidResult": "Antigravity が無効な結果を返しました。",
+      "antigravityNoFinalResult": "Antigravity が最終結果を返しませんでした。",
       "chatNameAgentUnsupported": "この操作に対応するチャット名生成用の Agent を設定 -> チャット -> チャット名で選択してください。対応 Agent: {{agents}}、またはカスタムコマンド。",
       "chatNameCustomCommandEmpty": "カスタムコマンドが空です。設定 -> チャット -> チャット名で追加してください。",
       "cliFailed": "{{label}} の CLI コマンドがコード {{exitCode}} で失敗しました。",
@@ -4585,9 +4677,7 @@
       "connectLinearButton": "Linear に接続",
       "connectLinearMessage": "「タスク」から、担当する Linear の Issue を確認して作業を開始できます。",
       "connectLinearTitle": "Linear アカウントを接続する",
-      "jiraStatusFailed": "Jira の状態の読み取りに失敗しました。",
-      "updateDesktopMessage": "モバイルの「タスク」画面には、このホストに新しいバージョンの Orca が必要です。",
-      "updateDesktopTitle": "このホストの Orca を更新"
+      "jiraStatusFailed": "Jira の状態の読み取りに失敗しました。"
     },
     "options": {
       "all": "全て",
@@ -4916,6 +5006,16 @@
     },
     "worktreeCreateRetry": {
       "createFailed": "ワークスペースの作成に失敗しました"
+    },
+    "jiraConnect": {
+      "title": "Jira を接続",
+      "siteUrl": "your-team.atlassian.net",
+      "email": "Atlassian のメールアドレス",
+      "apiToken": "API トークン",
+      "storageHint": "トークンはこのホストに保存され、OS が対応していれば暗号化されます。",
+      "createToken": "API トークンを作成",
+      "failed": "接続に失敗しました",
+      "serverNeedsUpdate": "このサーバーは先に Orca の更新が必要です。代わりに Orca デスクトップで Jira を接続してください。"
     }
   },
   "terminal": {
@@ -5075,7 +5175,7 @@
       "started": "開始済み",
       "trigger": "トリガー",
       "output": "出力",
-      "noOutput": "出力内容はありません。",
+      "noOutput": "表示できる出力はありません。",
       "loadingRuns": "実行を読み込み中…",
       "loading": "読み込み中…",
       "hourly": "毎時",
@@ -5757,7 +5857,7 @@
         "count": "{{count}} 件"
       },
       "empty": {
-        "allClear": "対応が必要なものはありません"
+        "allClear": "対応が必要な項目はありません"
       }
     },
     "needs": {
@@ -7238,6 +7338,7 @@
     "workspacesCount": "{{count}} 件のワークスペース",
     "workspacesAllButCount": "{{count}} 件以外すべて",
     "headerMissing": "このサーバーを追加するには、{{header}} を入力してください。",
-    "servers": "サーバー"
+    "servers": "サーバー",
+    "unreadable": "保存されたサインインまたはキーを開けません。もう一度サインインしてください。"
   }
 }

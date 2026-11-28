@@ -182,6 +182,10 @@ async function bootstrap(raw: unknown, port: BackendNativePort): Promise<void> {
         readCatalog: async () => (await call('usage.catalog')) as UsageWorktreeCatalog,
         // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: The private control peer returns the account owner's typed string array.
         claudeProfileDirs: async () => (await call('usage.claudeProfileDirs')) as string[],
+        openCodeAccountDataDirs: async () => {
+          const dirs = await call('usage.openCodeAccountDataDirs')
+          return Array.isArray(dirs) ? dirs.filter((dir) => typeof dir === 'string') : []
+        },
         telemetry: {
           isEnabled: async () => (await call('usage.telemetry.enabled')) === true,
           capture: async (totals) =>

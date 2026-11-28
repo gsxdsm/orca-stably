@@ -1,5 +1,5 @@
 import { access } from 'node:fs/promises'
-import { OrcaRuntimeWithClaudeRunningPaneAccountMove } from './claude-running-pane-account-move'
+import { OrcaRuntimeWithAntigravityRunningPaneAccountMove } from './antigravity-running-pane-account-move'
 import { isRemoteRuntimePtyId } from '../../../../shared/remote-runtime/remote-runtime-pty-id'
 import {
   isResumableTuiAgent,
@@ -12,7 +12,6 @@ import { readAgentPaneForeground } from './agent-pane-foreground-read'
 import { isShellProcess } from '../../../../shared/agent-status/process/shell-process-detection'
 import type { RuntimePtyWorktreeRecord } from '../../terminal/records/runtime-terminal-state-records'
 import { terminalMcpPanes } from '../../../mcp-servers/terminal/terminal-mcp-panes'
-import { currentTerminalMcpFingerprints } from '../../../mcp-servers/terminal/terminal-mcp-launch'
 import type { TerminalMcpPaneLaunch } from '../../../mcp-servers/terminal/terminal-mcp-launch'
 
 type StaleTerminal = {
@@ -36,7 +35,7 @@ const RESTARTS_AT_ONCE = 3
 
 /** This host's own agent terminals still on an older MCP server list than the host's now, and
  *  restarting them in place, their conversation resumed. Chats pick a change up on their next turn. */
-export abstract class OrcaRuntimeWithMcpStaleTerminals extends OrcaRuntimeWithClaudeRunningPaneAccountMove {
+export abstract class OrcaRuntimeWithMcpStaleTerminals extends OrcaRuntimeWithAntigravityRunningPaneAccountMove {
   private async staleMcpTerminals(): Promise<StaleTerminal[]> {
     const live: { pty: RuntimePtyWorktreeRecord; pane: TerminalMcpPaneLaunch }[] = []
     for (const [ptyId, pane] of await terminalMcpPanes.all()) {
@@ -52,7 +51,12 @@ export abstract class OrcaRuntimeWithMcpStaleTerminals extends OrcaRuntimeWithCl
         live.push({ pty, pane })
       }
     }
+    if (live.length === 0) {
+      return []
+    }
     // A pane's workspace and agent decide which servers it would get now.
+    const { currentTerminalMcpFingerprints } =
+      await import('../../../mcp-servers/terminal/terminal-mcp-launch')
     const current = await currentTerminalMcpFingerprints(live.map(({ pane }) => pane))
     const changed = live.filter(({ pane }) => {
       const now = current.get(pane) ?? null
@@ -158,6 +162,8 @@ export abstract class OrcaRuntimeWithMcpStaleTerminals extends OrcaRuntimeWithCl
           }
           const live = await this.mcpTerminalSession(current, agent)
           // An unreadable list gives no replacement config, so the agent keeps running as it is.
+          const { currentTerminalMcpFingerprints } =
+            await import('../../../mcp-servers/terminal/terminal-mcp-launch')
           const now = (await currentTerminalMcpFingerprints([pane])).get(pane) ?? null
           return (
             live?.providerSession.id === session!.providerSession.id &&

@@ -122,7 +122,8 @@ async function runScan(
         normalizeOpenCodeUsagePersistedDatabases(
           await readUsageSourceCache<OpenCodeUsagePersistedDatabase>(request.sourceCache)
         ),
-        onFilesScanned
+        onFilesScanned,
+        request.accountDataDirs
       )
       await persistSourceCache(request.sourceCache, result.processedDatabases)
       return {

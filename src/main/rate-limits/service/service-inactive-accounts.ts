@@ -1,5 +1,3 @@
-import { fetchInactiveClaudeAccountUsage } from '../providers/claude/claude-managed-account-usage'
-import { fetchCodexRateLimits } from '../providers/codex/codex-fetcher'
 import { RateLimitServicePolling } from './service-polling'
 import {
   INACTIVE_CODEX_PROBE_STAGGER_MS,
@@ -53,10 +51,13 @@ export abstract class RateLimitServiceInactiveAccounts extends RateLimitServiceP
           continue
         }
         try {
+          const { fetchInactiveClaudeAccountUsage } =
+            await import('../providers/claude/claude-managed-account-usage')
           const fresh = await fetchInactiveClaudeAccountUsage(account, {
             allowUsagePanelSupplement: this.shouldAllowClaudeUsagePanelSupplement(),
             networkProxySettings: this.networkProxySettingsResolver?.(),
             readsByHome,
+            rejectedTokensByHome: this.inactiveClaudeRejectedTokens,
             signal
           })
           if (
@@ -177,6 +178,7 @@ export abstract class RateLimitServiceInactiveAccounts extends RateLimitServiceP
     this.inactiveCodexFetching.add(account.id)
     this.pushToRenderer()
     try {
+      const { fetchCodexRateLimits } = await import('../providers/codex/codex-fetcher')
       // Read the managed home directly; do not materialize credentials in the shared runtime.
       const fresh = await fetchCodexRateLimits({
         codexHomePath: home.managedHomePath,

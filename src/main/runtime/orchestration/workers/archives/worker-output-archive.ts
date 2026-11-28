@@ -127,16 +127,22 @@ export function captureWorkerOutputReference(args: {
 export function deriveWorkerOutputReferenceFromSavedState(args: {
   resource: Pick<WorkerTerminalResourceRow, 'resume_session' | 'host_scope'>
   structuredWorker?: StructuredWorkerIdentity | null
+  /** The store no longer holds the chat; its history is readable again only if the record comes back. */
+  chatForgotten?: boolean
   platform?: NodeJS.Platform
 }): WorkerOutputArchiveCapture {
-  if (args.structuredWorker) {
+  const { structuredWorker, chatForgotten } = args
+  if (structuredWorker) {
     return {
       kind: 'structured_journal',
-      status: 'captured',
+      status: chatForgotten ? 'unavailable' : 'captured',
       content: {
         version: 3,
-        agent: structuredWorkerAgent(args.structuredWorker),
-        processIncarnation: args.structuredWorker.processIncarnation
+        // Without its record the provider is unknown; the read resolves it rather than persisting a Claude guess.
+        agent: chatForgotten
+          ? (structuredWorker.agent ?? undefined)
+          : structuredWorkerAgent(structuredWorker),
+        processIncarnation: structuredWorker.processIncarnation
       }
     }
   }

@@ -92,6 +92,43 @@ describe("Orca's tool relay", () => {
     expect(tool.seen[0]?.body).toContain('tools/call')
   })
 
+  it('leaves browser fetch metadata behind, which Node’s fetch sends and Electron’s turns into CORS', async () => {
+    const sent: Headers[] = []
+    relay.close()
+    relay = new BotToolRelay((url, init) => {
+      sent.push(new Headers(init.headers))
+      return fetch(url, init)
+    })
+    const tool = await upstream((_seen, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end('{"jsonrpc":"2.0","id":1,"result":{}}')
+    })
+    const bot = await botWith(tool.url)
+    const answer = await call(bot.address, {
+      headers: {
+        ...json,
+        authorization: `Bearer ${bot.token}`,
+        'mcp-session-id': 's1',
+        'mcp-protocol-version': '2025-06-18',
+        'accept-language': '*',
+        'user-agent': 'node',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'cross-site',
+        'sec-fetch-dest': 'empty'
+      },
+      body: '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+    })
+    expect(answer.status).toBe(200)
+    expect(Object.fromEntries(sent[0] ?? [])).toEqual({
+      ...json,
+      'mcp-session-id': 's1',
+      'mcp-protocol-version': '2025-06-18',
+      'accept-language': '*',
+      'user-agent': 'node',
+      'x-api-key': SECRET
+    })
+  })
+
   it('refuses a call without the token, with another bot’s token, or from a browser page', async () => {
     const tool = await upstream((_seen, res) => res.end('{}'))
     const scout = await botWith(tool.url, 'scout', 'cred-scout-1', 'scout-secret')

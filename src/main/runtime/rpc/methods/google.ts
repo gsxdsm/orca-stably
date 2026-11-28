@@ -2,7 +2,8 @@
 // Tokens stay on this host; clients see emails and per-service states only.
 import { GOOGLE_OWNER_ONLY, readGoogleRefusal } from '../../../bots/bot-google-access'
 import { botOfToken } from '../../../bots/bot-of-caller'
-import { getGoogleConnect, type GoogleConnect } from '../../../google/google-connect'
+import type { GoogleConnect } from '../../../google/google-connect'
+import { resolveGoogleConnect } from '../../../google/google-connect-slot'
 import type { GoogleStatusView } from '../../../../shared/google/google-connect-types'
 import {
   botAskerKeys,
@@ -37,8 +38,8 @@ import {
 } from '../../../../shared/google/google-bot-accounts'
 import { tellBotCardAnswer } from './bots-offer-answer'
 
-function google(): GoogleConnect {
-  const installed = getGoogleConnect()
+async function google(): Promise<GoogleConnect> {
+  const installed = await resolveGoogleConnect()
   if (!installed) {
     throw new Error('Google is not available on this computer. Update Orca on it.')
   }
@@ -139,7 +140,7 @@ export const GOOGLE_METHODS = [
       { check, botToken },
       { runtime, pairedDeviceId }
     ): Promise<GoogleStatusView> => {
-      const connect = google()
+      const connect = await google()
       // A bot without every account sees (and a check reads tokens of) only its own accounts, none
       // while Google is off for it, and the default its own calls use; the owner sees them all.
       const caller = botOfToken(runtime, botToken, pairedDeviceId)
@@ -164,7 +165,7 @@ export const GOOGLE_METHODS = [
     params: GoogleClientImportParams,
     handler: async ({ botToken, file }, ctx) => {
       refuseFromBot(botToken, ctx)
-      return { client: await google().importClient(file) }
+      return { client: await (await google()).importClient(file) }
     }
   }),
   defineMethod({
@@ -173,7 +174,7 @@ export const GOOGLE_METHODS = [
     params: GoogleClientExportParams,
     handler: async ({ botToken }, ctx) => {
       refuseFromBot(botToken, ctx)
-      return { file: await google().exportClient() }
+      return { file: await (await google()).exportClient() }
     }
   }),
   defineMethod({
@@ -184,7 +185,7 @@ export const GOOGLE_METHODS = [
       refuseFromBot(botToken, ctx)
       // Only a person at this host sees a browser opened here; a paired device opens its own.
       const here = ctx.caller?.kind === 'local-cli' || ctx.caller?.kind === 'desktop'
-      return google().startSignIn(flowOwner(ctx), {
+      return (await google()).startSignIn(flowOwner(ctx), {
         ...(callerLoopbackPort !== undefined ? { callerLoopbackPort } : {}),
         ...(account ? { loginHint: account } : {}),
         ...(services ? { services } : {}),
@@ -198,20 +199,20 @@ export const GOOGLE_METHODS = [
     permission: 'workspace',
     params: GoogleSignInWaitParams,
     handler: async ({ flowId, afterRevision }, ctx) =>
-      google().waitSignIn(flowOwner(ctx), flowId, afterRevision, ctx.signal)
+      (await google()).waitSignIn(flowOwner(ctx), flowId, afterRevision, ctx.signal)
   }),
   defineMethod({
     name: 'google.finishSignIn',
     permission: 'workspace',
     params: GoogleFinishSignInParams,
     handler: async ({ flowId, address }, ctx) =>
-      google().finishSignIn(flowOwner(ctx), flowId, address)
+      (await google()).finishSignIn(flowOwner(ctx), flowId, address)
   }),
   defineMethod({
     name: 'google.signIn.cancel',
     permission: 'workspace',
     params: GoogleSignInFlowParams,
-    handler: async ({ flowId }, ctx) => google().cancelSignIn(flowOwner(ctx), flowId)
+    handler: async ({ flowId }, ctx) => (await google()).cancelSignIn(flowOwner(ctx), flowId)
   }),
   defineMethod({
     name: 'google.disconnect',
@@ -219,7 +220,7 @@ export const GOOGLE_METHODS = [
     params: GoogleDisconnectParams,
     handler: async ({ botToken, account, revoke }, ctx) => {
       refuseFromBot(botToken, ctx)
-      const connect = google()
+      const connect = await google()
       return connect.disconnect(await pickAccount(connect, account), revoke === true)
     }
   }),
@@ -235,7 +236,7 @@ export const GOOGLE_METHODS = [
       }
       // A bot limited to some accounts may only pick among them.
       await googleCallerAccount({ botToken, account }, ctx)
-      return { defaultAccount: await google().setDefaultAccount(account) }
+      return { defaultAccount: await (await google()).setDefaultAccount(account) }
     }
   }),
   defineMethod({
@@ -289,7 +290,7 @@ export const GOOGLE_METHODS = [
         throw new InvalidArgumentError(GOOGLE_OWNER_ONLY)
       }
       ctx.runtime.bots.assertEnabled()
-      const connect = google()
+      const connect = await google()
       if (!(await connect.accounts()).some((entry) => entry.email === account)) {
         throw new InvalidArgumentError(`${account} isn't connected on this computer.`)
       }

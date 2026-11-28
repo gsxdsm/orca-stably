@@ -2,16 +2,11 @@
 // sign-in flows a client starts here. Only the client that started a flow can see or answer it.
 import { googleClientView, type GoogleClientView } from '../../shared/google/google-client-config'
 import { googleClientFile, parseGoogleClientFile } from './google-client-file'
-import {
-  GOOGLE_BOT_ACCOUNTS_RUNTIME_CAPABILITY,
-  GOOGLE_CONNECT_RUNTIME_CAPABILITY,
-  GOOGLE_TRIGGERS_RUNTIME_CAPABILITY,
-  GOOGLE_SETUP_NEW_APP_RUNTIME_CAPABILITY,
-  GOOGLE_CONNECTED_ANSWER_RUNTIME_CAPABILITY,
-  type GoogleAccountView,
-  type GoogleClientKeyState,
-  type GoogleSignInPrompt,
-  type GoogleSignInStatus
+import type {
+  GoogleAccountView,
+  GoogleClientKeyState,
+  GoogleSignInPrompt,
+  GoogleSignInStatus
 } from '../../shared/google/google-connect-types'
 import {
   GOOGLE_SERVICE_CHOICES,
@@ -319,25 +314,9 @@ function toWire(status: {
 const keyOf = (client: { clientId: string; savedAt: number }): string =>
   `${client.clientId}:${client.savedAt}`
 
-let installed: GoogleConnect | null = null
-
-/** One per host process; the runtime advertises google.connect only once installed. */
-export function installGoogleConnect(connect: GoogleConnect | null): void {
-  installed = connect
-}
-
-export function getGoogleConnect(): GoogleConnect | null {
-  return installed
-}
-
-export function googleRuntimeCapabilities(): string[] {
-  return installed
-    ? [
-        GOOGLE_CONNECT_RUNTIME_CAPABILITY,
-        GOOGLE_TRIGGERS_RUNTIME_CAPABILITY,
-        GOOGLE_CONNECTED_ANSWER_RUNTIME_CAPABILITY,
-        GOOGLE_SETUP_NEW_APP_RUNTIME_CAPABILITY,
-        GOOGLE_BOT_ACCOUNTS_RUNTIME_CAPABILITY
-      ]
-    : []
-}
+export {
+  getGoogleConnect,
+  googleRuntimeCapabilities,
+  installGoogleConnect,
+  resolveGoogleConnect
+} from './google-connect-slot'

@@ -71,13 +71,22 @@ export type RuntimeRepositoryCommandSurface = {
 type RuntimeRepositoryCommandOwners = {
   projectHostSetups: RuntimeProjectHostSetupController
   projectGroups: RuntimeProjectGroupController
-  nestedRepoImport: RuntimeNestedRepoImport
-  serverEnvironment: RuntimeServerEnvironmentCommands
-  repositorySparsePresets: RuntimeRepositorySparsePresets
-  repositoryRegistrations: RuntimeRepositoryRegistrationController
-  repositoryClones: RuntimeRepositoryCloneController
-  repositorySettings: RuntimeRepositorySettingsController
-  repositoryRefQueries: RuntimeRepositoryRefQueries
+  nestedRepoImport: Pick<RuntimeNestedRepoImport, keyof RuntimeNestedRepoImport>
+  serverEnvironment: Pick<RuntimeServerEnvironmentCommands, keyof RuntimeServerEnvironmentCommands>
+  repositorySparsePresets: Pick<
+    RuntimeRepositorySparsePresets,
+    keyof RuntimeRepositorySparsePresets
+  >
+  repositoryRegistrations: Pick<
+    RuntimeRepositoryRegistrationController,
+    keyof RuntimeRepositoryRegistrationController
+  >
+  repositoryClones: Pick<RuntimeRepositoryCloneController, keyof RuntimeRepositoryCloneController>
+  repositorySettings: Pick<
+    RuntimeRepositorySettingsController,
+    keyof RuntimeRepositorySettingsController
+  >
+  repositoryRefQueries: Pick<RuntimeRepositoryRefQueries, keyof RuntimeRepositoryRefQueries>
   hostedReviews: RuntimeHostedReviewSurface
   gitHubRepositoryQueries: RuntimeGitHubRepositoryQuerySurface
   repositoryHooks: RuntimeRepositoryHooksSurface

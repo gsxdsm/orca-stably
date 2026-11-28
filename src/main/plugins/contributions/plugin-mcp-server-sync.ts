@@ -4,11 +4,7 @@ import { pluginMcpServerTool } from '../../../shared/plugins/contributions/plugi
 import type { PluginChangeEvent } from '../../../shared/plugins/events/plugin-change-event'
 import { isMcpServersFeatureEnabled } from '../../mcp-servers/mcp-servers-feature'
 import type { PluginActivationState } from '../../../shared/plugins/approval/plugin-consent-state'
-import {
-  pluginMcpServersVersion,
-  syncPluginMcpServers,
-  type PluginMcpServers
-} from '../../mcp-servers/mcp-plugin-server-sync'
+import type { PluginMcpServers } from '../../mcp-servers/mcp-plugin-server-sync'
 import {
   isInvalidDiscoveredPlugin,
   type DiscoveredPlugin,
@@ -78,6 +74,8 @@ export function installPluginMcpServerSync(
       settled = null
       return
     }
+    const { pluginMcpServersVersion, syncPluginMcpServers } =
+      await import('../../mcp-servers/mcp-plugin-server-sync')
     if (retry) {
       clearTimeout(retry)
       retry = null

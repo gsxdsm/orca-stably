@@ -19,11 +19,7 @@ import type {
 } from '../../../../shared/workspace/lifecycle/workspace-sleep'
 import { getStructuredAgentSessionHost } from '../../../native-chat/agent-session-wire/host/structured-agent-session-registry'
 import type { RemoteWorkspaceCall } from './remote-workspace-terminal-sleep'
-import {
-  sleepWorkspaces,
-  type WorkspaceSleepDeps,
-  type WorkspaceSleepQueue
-} from './workspace-sleep-execution'
+import type { WorkspaceSleepDeps, WorkspaceSleepQueue } from './workspace-sleep-execution'
 import type { WorkspaceChatStopAdmission } from '../../../native-chat/agent-session-wire/termination/structured-agent-session-workspace-sleep'
 import type { WorkspaceSleepPlatform } from './workspace-sleep-platform'
 import type { LaunchHostRepo } from '../catalog/worktree-launch-host-repo'
@@ -101,10 +97,11 @@ export class WorkspaceSleepCoordinator {
 
   constructor(private readonly runtime: WorkspaceSleepRuntime) {}
 
-  sleep(request: WorkspaceSleepRequest, admit?: WorkspaceChatStopAdmission) {
+  async sleep(request: WorkspaceSleepRequest, admit?: WorkspaceChatStopAdmission) {
     for (const { worktreeId } of request.targets) {
       this.sleepRequests.noteRequested(worktreeId)
     }
+    const { sleepWorkspaces } = await import('./workspace-sleep-execution')
     return sleepWorkspaces(this.deps(), this.queue(), request, admit)
   }
 

@@ -15,7 +15,8 @@ function withoutTrailingClosers(text: string): string {
 }
 
 // Why: a CJK sentence whose catalog value drops its final stop still ends there, so it gets 。, not a space.
-function separatorAfter(previous: string): string {
+/** What goes after a sentence when the next one is markup (a link), not a string joinSentences can join. */
+export function sentenceSeparatorAfter(previous: string): string {
   const text = withoutTrailingClosers(previous)
   if (RUNS_ON_AFTER.test(text)) {
     return ''
@@ -46,7 +47,7 @@ export function joinSentences(sentences: readonly string[]): string {
     if (sentence === '') {
       continue
     }
-    joined += previous === null ? sentence : `${separatorAfter(previous)}${sentence}`
+    joined += previous === null ? sentence : `${sentenceSeparatorAfter(previous)}${sentence}`
     previous = sentence
   }
   return joined

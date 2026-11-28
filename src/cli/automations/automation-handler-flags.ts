@@ -1,25 +1,14 @@
-import type {
-  AutomationPrecheck,
-  AutomationSchedulePreset
-} from '../../shared/automations/automation-definition'
+import type { AutomationSchedulePreset } from '../../shared/automations/automation-definition'
 import {
   normalizeTaskSourceContext,
   type TaskSourceContext
 } from '../../shared/work-items/task-source-context'
 import type { TuiAgent } from '../../shared/agent-launch/catalog/tui-agent'
-import {
-  DEFAULT_AUTOMATION_PRECHECK_TIMEOUT_SECONDS,
-  MAX_AUTOMATION_PRECHECK_TIMEOUT_SECONDS
-} from '../../shared/automations/launch/automation-precheck'
 import { buildAutomationRrule } from '../../shared/automations/scheduling/automation-schedule-occurrences'
 import { getAutomationScheduleInputError } from '../../shared/automations/scheduling/automation-schedule-parsing'
 import { TRIGGER_REFUSAL_HINTS } from '../specs/automation-trigger-hints'
 import { isTuiAgent } from '../../shared/agent-launch/catalog/tui-agent-config'
-import {
-  getOptionalPositiveIntegerFlag,
-  getOptionalStringFlag,
-  getRequiredStringFlag
-} from '../arguments/flags'
+import { getOptionalStringFlag, getRequiredStringFlag } from '../arguments/flags'
 import { RuntimeClientError } from '../runtime/connection/types'
 
 const PRESET_TRIGGERS = new Set<AutomationSchedulePreset>(['hourly', 'daily', 'weekdays', 'weekly'])
@@ -73,6 +62,22 @@ function getOptionalDayFlag(flags: Map<string, string | boolean>): number | unde
     throw new RuntimeClientError('invalid_argument', '--day must be an integer from 0 to 6')
   }
   return day
+}
+
+function requirePromptText(prompt: string): string {
+  if (!prompt.trim()) {
+    throw new RuntimeClientError('invalid_argument', '--prompt requires non-whitespace text')
+  }
+  return prompt
+}
+
+export function getPromptFlag(flags: Map<string, string | boolean>): string {
+  return requirePromptText(getRequiredStringFlag(flags, 'prompt'))
+}
+
+export function getOptionalPromptFlag(flags: Map<string, string | boolean>): string | undefined {
+  const prompt = getOptionalStringFlag(flags, 'prompt')
+  return prompt === undefined ? undefined : requirePromptText(prompt)
 }
 
 export function getProviderFlag(flags: Map<string, string | boolean>): TuiAgent {
@@ -221,37 +226,6 @@ export function getReuseSessionFlag(flags: Map<string, string | boolean>): boole
     return false
   }
   return undefined
-}
-
-export function getPrecheckFlag(
-  flags: Map<string, string | boolean>
-): AutomationPrecheck | null | undefined {
-  const hasPrecheck = flags.has('precheck')
-  const timeoutSeconds = getOptionalPositiveIntegerFlag(flags, 'precheck-timeout')
-  if (!hasPrecheck) {
-    if (timeoutSeconds !== undefined) {
-      throw new RuntimeClientError('invalid_argument', '--precheck-timeout requires --precheck')
-    }
-    return undefined
-  }
-  const value = flags.get('precheck')
-  if (typeof value !== 'string') {
-    throw new RuntimeClientError('invalid_argument', '--precheck requires a command')
-  }
-  const command = value.trim()
-  if (!command) {
-    return null
-  }
-  if (timeoutSeconds !== undefined && timeoutSeconds > MAX_AUTOMATION_PRECHECK_TIMEOUT_SECONDS) {
-    throw new RuntimeClientError(
-      'invalid_argument',
-      `--precheck-timeout must be at most ${MAX_AUTOMATION_PRECHECK_TIMEOUT_SECONDS} seconds`
-    )
-  }
-  return {
-    command,
-    timeoutSeconds: timeoutSeconds ?? DEFAULT_AUTOMATION_PRECHECK_TIMEOUT_SECONDS
-  }
 }
 
 export function getSourceContextFlag(

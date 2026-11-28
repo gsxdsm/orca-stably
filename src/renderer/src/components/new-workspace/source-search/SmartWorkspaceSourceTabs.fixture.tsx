@@ -26,7 +26,7 @@ export const iconOnly = defineFixture({
 export const tooltip = defineFixture({
   width: 560,
   render: () => (
-    <div className="rounded-xl border border-border bg-background p-5 pb-12">
+    <div className="rounded-xl border border-border bg-background p-5 pt-12">
       <Preview />
     </div>
   ),

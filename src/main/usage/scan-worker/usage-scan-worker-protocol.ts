@@ -32,6 +32,7 @@ export type UsageScanWorkerScanBody =
   | {
       operation: 'scan'
       providerId: 'opencode'
+      accountDataDirs?: string[]
       worktrees: UsageScanWorktreeRef[]
       sourceCache: UsageSourceCacheRef
     }

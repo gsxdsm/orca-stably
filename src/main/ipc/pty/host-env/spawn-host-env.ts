@@ -9,7 +9,6 @@ import { isTuiAgent } from '../../../../shared/agent-launch/catalog/tui-agent-co
 import { addWslEnvKeys } from '../../../../shared/shell/wsl/wsl-env'
 import { isAgentStatusHooksEnabled } from '../../../../shared/agent-hook-listener/configuration/agent-status-hooks-setting'
 import { awaitExplicitAgentPluginGuestReadiness } from '../../../agent-hooks/wsl-relay/wsl-agent-plugin-readiness'
-import { ensureCodexStateDbBackfillRecoveryStarted } from '../../../codex/history/index/codex-state-db-backfill-recovery'
 import type { CodexSessionResumePreparation } from '../../../codex/history/resume/codex-session-resume-home'
 import type { CodexAccountSelectionTarget } from '../../../../shared/agent-accounts/codex/codex-selection-lane'
 import { isSafePtySessionId } from '../../../daemon/sessions/pty-session-id'
@@ -178,6 +177,8 @@ async function resolvePtySpawnHostEnvForAct(args: PtySpawnHostEnvArgs): Promise<
     selectedCodexHomePath &&
     !(await blockedWslDistroForPath(selectedCodexHomePath))
   ) {
+    const { ensureCodexStateDbBackfillRecoveryStarted } =
+      await import('../../../codex/history/index/codex-state-db-backfill-recovery')
     await ensureCodexStateDbBackfillRecoveryStarted(selectedCodexHomePath)
   }
   args.mark?.('codex_home')

@@ -14,7 +14,7 @@ import { botHomeFolder } from '../bots/bot-home'
 import { BROWSER_CLIENT_DOWNLOAD_WORKSPACE_DIRECTORY } from '../runtime/browser/downloads/browser-client-download-transfers'
 import { clientDownloadCommits } from '../runtime/browser/downloads/client-download-provenance'
 import { parseGoogleClientFile } from './google-client-file'
-import { getGoogleConnect } from './google-connect'
+import { resolveGoogleConnect } from './google-connect-slot'
 import { GOOGLE_KEY_FILE_NAME } from './google-key-download-watch'
 import { googleSetupRuns } from './google-setup-runs'
 
@@ -96,7 +96,7 @@ export async function importGoogleSetupKeySavedHere(
   pick?: { name: string; id: string }
 ): Promise<SavedKeyImport> {
   const run = googleSetupRuns().get(bot.id)
-  const connect = getGoogleConnect()
+  const connect = await resolveGoogleConnect()
   if (!run || !googleSetupAwaitsKey(run) || !connect) {
     return { found: false, candidates: [] }
   }

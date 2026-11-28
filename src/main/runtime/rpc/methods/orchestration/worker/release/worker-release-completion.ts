@@ -21,6 +21,7 @@ import { classifyWorkerTerminalCloseError } from './worker-release-close-error'
 import { workerTerminalLeaseIsCurrent } from './worker-terminal-release-lease'
 import { resolveStructuredWorkerForDispatch } from '../../structured-workers/orchestration-structured-worker-lifecycle'
 import { stopStructuredWorkerForRelease } from './structured-worker-release-stop'
+import { structuredWorkerSessionForgotten } from '../../../../../orchestration/terminal-authority/structured-sessions/structured-worker-session-forgotten'
 import { isStructuredWorkerHandle } from '../../../../../../../shared/orchestration/workers/structured-worker-handle'
 import { captureWorkerReleaseArchive } from './worker-release-archive-capture'
 import {
@@ -110,9 +111,16 @@ async function completeWorkerTerminalReleaseOnce(
   if (observation.status === 'identity_changed') {
     return retainUnproven(db, dispatchId, resource.id)
   }
-  if (observation.status === 'missing' || observation.status === 'unattached') {
+  const chatForgotten = await structuredWorkerSessionForgotten(resource.process_incarnation)
+  if (observation.status === 'missing' || observation.status === 'unattached' || chatForgotten) {
     // After remint fails, proven incarnation death settles before recovery deferral; never leave dead workers release_pending.
-    const exited = await settleProvenExitedWorkerTerminal({ runtime, db, dispatchId, resource })
+    const exited = await settleProvenExitedWorkerTerminal({
+      runtime,
+      db,
+      dispatchId,
+      resource,
+      chatForgotten
+    })
     if (exited) {
       return {
         dispatchId,

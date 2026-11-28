@@ -1,3 +1,4 @@
+import { dirname } from 'node:path'
 import { yieldToEventLoop } from '../../shared/concurrency/event-loop-yield'
 import Database from '../sqlite/sync-database'
 import { createUsageEventAggregation } from '../usage/rollups/usage-event-aggregation'
@@ -8,7 +9,8 @@ import {
 import {
   compareOpenCodeClaimPriority,
   getProcessedDatabaseInfo,
-  listOpenCodeDatabases
+  listOpenCodeDatabases,
+  listOpenCodeDatabasesInDirectory
 } from './opencode-database-discovery'
 import { parseOpenCodeUsageRow } from './opencode-usage-row-parsing'
 import { selectUsageRows } from './opencode-usage-row-queries'
@@ -53,7 +55,12 @@ const openCodeUsageAggregation = createUsageEventAggregation<
         (target.cacheWriteInputTokens ?? 0) + (source.cacheWriteInputTokens ?? 0)
     }
   },
-  cloneSessionForMerge: (session) => structuredClone(session)
+  cloneSessionForMerge: (session) => ({
+    ...session,
+    locationBreakdown: session.locationBreakdown.map((location) => ({ ...location })),
+    modelBreakdown: session.modelBreakdown.map((model) => ({ ...model })),
+    locationModelBreakdown: session.locationModelBreakdown.map((entry) => ({ ...entry }))
+  })
 })
 
 const { finalizeSessions, mergeSessions, mergeDailyAggregates, sortDailyAggregates } =
@@ -107,13 +114,19 @@ export async function parseOpenCodeUsageDatabase(
 export async function scanOpenCodeUsageDatabases(
   worktrees: OpenCodeUsageWorktreeRef[],
   previousProcessedDatabases: OpenCodeUsagePersistedDatabase[],
-  onFilesScanned?: (count: number) => void
+  onFilesScanned?: (count: number) => void,
+  /** Orca-managed accounts relocate XDG_DATA_HOME, so the default lookup misses their stores. */
+  accountDataDirs: readonly string[] = []
 ): Promise<{
   processedDatabases: OpenCodeUsagePersistedDatabase[]
   sessions: OpenCodeUsageSession[]
   dailyAggregates: OpenCodeUsageDailyAggregate[]
 }> {
-  const dbPaths = await listOpenCodeDatabases()
+  const discovered = await Promise.all([
+    listOpenCodeDatabases(),
+    ...accountDataDirs.map((dir) => listOpenCodeDatabasesInDirectory(dir))
+  ])
+  const dbPaths = [...new Set(discovered.flat())]
   const previousByPath = new Map(
     previousProcessedDatabases.map((database) => [database.path, database])
   )
@@ -150,14 +163,17 @@ export async function scanOpenCodeUsageDatabases(
   }
 
   // A returning live database must reclaim sticky backup ownership; backups owning nothing
-  // need no reparse when live data changes.
+  // need no reparse when live data changes. Backups sit beside their live database, so a
+  // change in another store (a managed account) must not reparse this one.
   const demotedReusePaths: string[] = []
   for (const [dbPath, reused] of reusedByPath) {
     if ((reused.ownedSessionIds?.length ?? 0) === 0) {
       continue
     }
+    const directory = dirname(dbPath)
     const higherPriorityParsing = pathsToParse.some(
-      (candidate) => compareOpenCodeClaimPriority(candidate, dbPath) < 0
+      (candidate) =>
+        dirname(candidate) === directory && compareOpenCodeClaimPriority(candidate, dbPath) < 0
     )
     if (higherPriorityParsing) {
       demotedReusePaths.push(dbPath)

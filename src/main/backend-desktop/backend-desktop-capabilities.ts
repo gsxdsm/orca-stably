@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { agentTokenUsageDailySchema } from '../../shared/telemetry/schemas/telemetry-agent-token-usage-schema'
 import { claudeProfileTranscriptDirs } from '../claude-usage/transcript-file-discovery'
+import { managedOpenCodeAccountDataDirs } from '../opencode/accounts/opencode-managed-account-data-dirs'
 import { readUsageWorktreeCatalog } from '../usage/worktree-attribution/usage-worktree-metadata'
 import { isTelemetryEnabled } from '../telemetry/client'
 import { captureAgentTokenUsageDaily } from '../telemetry/agent-token-usage-capture'
@@ -57,6 +58,9 @@ export function createBackendDesktopCapabilities(
     }
     if (method === 'usage.claudeProfileDirs') {
       return claudeProfileTranscriptDirs()
+    }
+    if (method === 'usage.openCodeAccountDataDirs') {
+      return managedOpenCodeAccountDataDirs()
     }
     if (method === 'usage.telemetry.enabled') {
       return isTelemetryEnabled()

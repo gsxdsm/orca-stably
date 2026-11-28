@@ -1,4 +1,3 @@
-import { consumeCodexRateLimitResetCredit } from '../providers/codex/codex-fetcher'
 import { RateLimitServiceInactiveAccounts } from './service-inactive-accounts'
 import { hasUsageWindows } from './service-result-policy'
 import {
@@ -185,6 +184,7 @@ export abstract class RateLimitServiceAccountRefresh extends RateLimitServiceIna
       throw new Error(missingWslCodexHome.error ?? 'Codex home unavailable')
     }
     try {
+      const { consumeCodexRateLimitResetCredit } = await import('../providers/codex/codex-fetcher')
       const outcome = await consumeCodexRateLimitResetCredit({
         codexHomePath,
         idempotencyKey: options.idempotencyKey

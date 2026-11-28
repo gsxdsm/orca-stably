@@ -1,6 +1,4 @@
 import { getOrcaPushGatewayUrl } from '../../orca-profiles/cloud-auth/profile-cloud-auth-config'
-import { DesktopPushService } from '../../runtime/push/desktop-push-service'
-import { executionHostPushCoverage } from '../../notifications/execution-host-push-coverage'
 import type { OrcaRuntimeService } from '../../runtime/orca-runtime'
 import type { OrcaRuntimeRpcServer } from '../../runtime/rpc/server/runtime-rpc'
 import { mainProcessState as state } from '../main-process-state'
@@ -12,19 +10,27 @@ export function startDesktopPushService(runtimeRpc: OrcaRuntimeRpcServer): void 
     console.warn('[push] Background push startup skipped: runtime not started')
     return
   }
-  try {
-    const pushService = DesktopPushService.create({
-      runtime,
-      runtimeRpc,
-      gatewayUrl: getOrcaPushGatewayUrl(),
-      coverage: executionHostPushCoverage
+  void Promise.all([
+    import('../../runtime/push/desktop-push-service'),
+    import('../../notifications/execution-host-push-coverage')
+  ])
+    .then(([{ DesktopPushService }, { executionHostPushCoverage }]) => {
+      if (state.isQuitting || state.core.runtime !== runtime) {
+        return
+      }
+      const pushService = DesktopPushService.create({
+        runtime,
+        runtimeRpc,
+        gatewayUrl: getOrcaPushGatewayUrl(),
+        coverage: executionHostPushCoverage
+      })
+      pushService?.start()
+      state.core.desktopPushService = pushService
     })
-    pushService?.start()
-    state.core.desktopPushService = pushService
-  } catch (error) {
-    console.warn(
-      '[push] Background push startup unavailable:',
-      error instanceof Error ? error.message : String(error)
-    )
-  }
+    .catch((error) => {
+      console.warn(
+        '[push] Background push startup unavailable:',
+        error instanceof Error ? error.message : String(error)
+      )
+    })
 }

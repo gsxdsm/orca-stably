@@ -24,8 +24,8 @@ import {
   type PluginServiceHostCall
 } from './runtime/plugin-service-host-call'
 import { PluginPanelBridge } from './panels/plugin-panel-bridge'
-import { PluginPanelController } from './panels/plugin-panel-controller'
-import { PluginWorkerController } from './workers/plugin-worker-controller'
+import { LazyPluginPanelController } from './panels/lazy-plugin-panel-controller'
+import { LazyPluginWorkerController } from './workers/lazy-plugin-worker-controller'
 import { PluginServiceHousekeeping } from './development/plugin-service-housekeeping'
 import {
   collectApprovedWorkerSpecs,
@@ -50,10 +50,10 @@ import { PluginInstallationState } from './installation/plugin-installation-stat
 export class PluginService {
   readonly options: PluginServiceOptions
   private readonly audit: PluginAuditLog
-  private readonly workerController: PluginWorkerController
+  private readonly workerController: LazyPluginWorkerController
   private readonly contentVerifier = new PluginContentVerifier()
   readonly contentPacks: ReturnType<typeof createPluginContentPacks>
-  readonly panels: PluginPanelController
+  readonly panels: LazyPluginPanelController
   readonly panelBridge: PluginPanelBridge
   private readonly hostCall: PluginServiceHostCall
   private readonly changeListeners = new Set<(event: PluginChangeEvent) => void>()
@@ -97,7 +97,7 @@ export class PluginService {
         log: (pluginKey) => this.installed.captureLog(pluginKey, 'info')
       })
     )
-    this.panels = new PluginPanelController({
+    this.panels = new LazyPluginPanelController({
       resolveApprovedPlugin: resolveApproved,
       contentVerifier: this.contentVerifier,
       executeHostCall: (pluginKey, method, params, surface, caller) =>
@@ -105,7 +105,7 @@ export class PluginService {
       log: (pluginKey) => this.installed.captureLog(pluginKey, 'error'),
       onSessionClosed: (panelId) => this.panelBridge.close(panelId)
     })
-    this.workerController = new PluginWorkerController({
+    this.workerController = new LazyPluginWorkerController({
       entryPath: options.hostEntryPath ?? '',
       maxActive: options.maxActiveWorkers,
       idleReapMs: options.idleReapMs,

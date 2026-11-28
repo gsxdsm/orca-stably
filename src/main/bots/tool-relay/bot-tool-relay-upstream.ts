@@ -57,6 +57,8 @@ export async function sendUpstream(
       value !== undefined &&
       !DROPPED_REQUEST_HEADERS.has(name) &&
       !name.startsWith('proxy-') &&
+      // Browser fetch metadata; Electron's fetch fails a forwarded Sec-Fetch-Mode: cors that has no origin.
+      !name.startsWith('sec-fetch-') &&
       !named.has(name) &&
       !saved.has(name)
     ) {

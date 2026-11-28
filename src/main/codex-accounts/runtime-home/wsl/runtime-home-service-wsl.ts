@@ -11,11 +11,8 @@ import {
 } from '../../../../shared/agent-accounts/codex/codex-selection-lane'
 import { getDefaultWslDistro, getWslHome } from '../../../wsl/discovery/distro-catalog'
 import { hasRecordedLegacyWslCodexPane } from '../../../codex/configuration/homes/codex-pane-account-registry'
-import {
-  startLegacyWslRuntimeAuthDrain,
-  type LegacyWslRuntimeAuthDestination
-} from '../../legacy-wsl-auth-drain/legacy-wsl-runtime-auth-drain'
-import { readWslCodexAuths, type WslCodexAuthRead } from './wsl-codex-auth-batch-reader'
+import type { LegacyWslRuntimeAuthDestination } from '../../legacy-wsl-auth-drain/legacy-wsl-runtime-auth-drain'
+import type { WslCodexAuthRead } from './wsl-codex-auth-batch-reader'
 import type { CodexManagedAccount } from '../../../../shared/agent-accounts/managed-account-types'
 import type { CodexRateLimitHomeResolution } from '../runtime-home-service-types'
 import { CodexRuntimeHomeWslCore } from '../credentials/runtime-home-service-wsl-core'
@@ -117,15 +114,18 @@ export abstract class CodexRuntimeHomeWsl extends CodexRuntimeHomeWslCore {
       // Unknown pane liveness preserves source auth while allowing promotion before direct-home launch.
       console.warn('[codex-wsl-auth-drain] Pane registry unavailable; preserving source:', error)
     }
-    return startLegacyWslRuntimeAuthDrain(
-      {
-        distro,
-        guestHomeLinuxPath,
-        legacyPanePresent,
-        resolveDestination: (runtimeAuthContents) =>
-          this.resolveLegacyWslAuthDestination(distro, runtimeAuthContents)
-      },
-      options
+    return import('../../legacy-wsl-auth-drain/legacy-wsl-runtime-auth-drain').then(
+      ({ startLegacyWslRuntimeAuthDrain }) =>
+        startLegacyWslRuntimeAuthDrain(
+          {
+            distro,
+            guestHomeLinuxPath,
+            legacyPanePresent,
+            resolveDestination: (runtimeAuthContents) =>
+              this.resolveLegacyWslAuthDestination(distro, runtimeAuthContents)
+          },
+          options
+        )
     )
   }
 
@@ -144,6 +144,7 @@ export abstract class CodexRuntimeHomeWsl extends CodexRuntimeHomeWslCore {
     const parsedSystemHome = systemHome ? parseWslUncPath(systemHome) : null
     let reads: WslCodexAuthRead[]
     try {
+      const { readWslCodexAuths } = await import('./wsl-codex-auth-batch-reader')
       reads = await readWslCodexAuths(distro, [
         ...accountHomes.map(({ linuxPath }) => linuxPath),
         ...(parsedSystemHome ? [parsedSystemHome.linuxPath] : [])

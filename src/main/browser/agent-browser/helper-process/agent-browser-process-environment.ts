@@ -15,6 +15,18 @@ export type AgentBrowserProcessEnvironment = {
   ownsSocketDirectory: boolean
 }
 
+export function getOwnedAgentBrowserSocketDirectory(options: {
+  inheritedEnv: NodeJS.ProcessEnv
+  platform: NodeJS.Platform
+  userDataPath: string
+}): string | null {
+  if (options.platform === 'win32' || options.inheritedEnv.AGENT_BROWSER_SOCKET_DIR?.trim()) {
+    return null
+  }
+  const profileKey = createHash('sha256').update(options.userDataPath).digest('hex').slice(0, 16)
+  return join('/tmp', `${AGENT_BROWSER_SOCKET_DIRECTORY_PREFIX}${profileKey}`)
+}
+
 export function createAgentBrowserProcessEnvironment(options: {
   inheritedEnv: NodeJS.ProcessEnv
   platform: NodeJS.Platform
@@ -33,11 +45,10 @@ export function createAgentBrowserProcessEnvironment(options: {
   env.AGENT_BROWSER_NO_AUTO_DIALOG = '1'
   // Electron's Chromium updates only with Orca; skip the CVE feed fetch 0.41.2+ awaits on each session's first command.
   env.AGENT_BROWSER_NO_VERSION_CHECK = '1'
-  if (options.platform === 'win32' || env.AGENT_BROWSER_SOCKET_DIR?.trim()) {
+  const socketDirectory = getOwnedAgentBrowserSocketDirectory(options)
+  if (!socketDirectory) {
     return { env, ownsSocketDirectory: false }
   }
-  const profileKey = createHash('sha256').update(options.userDataPath).digest('hex').slice(0, 16)
-  const socketDirectory = join('/tmp', `${AGENT_BROWSER_SOCKET_DIRECTORY_PREFIX}${profileKey}`)
   try {
     mkdirSync(socketDirectory, { recursive: true, mode: 0o700 })
     chmodSync(socketDirectory, 0o700)

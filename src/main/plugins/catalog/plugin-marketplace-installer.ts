@@ -5,21 +5,11 @@ import { join } from 'node:path'
 import type { PluginManifest } from '../../../shared/plugins/manifest/plugin-manifest'
 import type { PluginHostImages } from '../../../shared/plugins/images/plugin-image-url'
 import type { PluginImageCache } from '../media/plugin-image-cache'
-import { cachePluginPreviewImages } from './plugin-marketplace-preview-images'
-import { readPluginVmRecipeIdentities } from '../contributions/plugin-vm-recipe-identities'
 import type { PluginVmRecipeIdentities } from '../../../shared/plugins/approval/plugin-update-access-growth'
 import { pluginCatalogReleaseCompatibilityError } from '../../../shared/plugins/manifest/plugin-manifest-compatibility'
 import { isQualifiedPluginKey } from '../../../shared/plugins/manifest/plugin-manifest'
 import { getUserPluginsDir } from '../discovery/plugin-discovery'
-import { readPluginRollbackVersion } from '../installation/plugin-rollback-candidate'
-import { checkoutPluginGitSource } from '../installation/plugin-git-repository'
-import {
-  installPluginFromMarketplace,
-  readPluginLockfile,
-  rollbackInstalledPlugin,
-  type PluginInstallResult
-} from '../installation/plugin-install'
-import { inspectPluginInstallTree } from '../installation/plugin-install-staging'
+import type { PluginInstallResult } from '../installation/plugin-install'
 import type {
   PluginMarketplaceListing,
   PluginMarketplaceService
@@ -105,6 +95,15 @@ export class PluginMarketplaceInstaller {
     }
     const stagingDirectory = await mkdtemp(join(tmpdir(), 'orca-plugin-marketplace-preview-'))
     try {
+      const [
+        { checkoutPluginGitSource },
+        { inspectPluginInstallTree },
+        { cachePluginPreviewImages }
+      ] = await Promise.all([
+        import('../installation/plugin-git-repository'),
+        import('../installation/plugin-install-staging'),
+        import('./plugin-marketplace-preview-images')
+      ])
       const resolvedCommit = await checkoutPluginGitSource({
         url: listing.source.url,
         // Why: a pinned release names its commit; the listed ref is only what the author calls it.
@@ -129,7 +128,9 @@ export class PluginMarketplaceInstaller {
       )
       const vmRecipeIdentities =
         inspection.manifest.contributes.vmRecipes.length > 0
-          ? await readPluginVmRecipeIdentities(stagingDirectory, inspection.manifest)
+          ? await (
+              await import('../contributions/plugin-vm-recipe-identities')
+            ).readPluginVmRecipeIdentities(stagingDirectory, inspection.manifest)
           : undefined
       // Why every preview, not only updates: an install link to an installed plugin replaces it too.
       const moved = marketplaceInstallMoved(await this.readLockEntry(pluginKey), listing.source)
@@ -196,6 +197,7 @@ export class PluginMarketplaceInstaller {
     const repositoryMoved = marketplaceInstallMoved(priorEntry, listing.source)
     // Why revoke before publishing: a content-only fingerprint does not name its repository.
     await (repositoryMoved ? this.revokeConsent(preview.pluginKey) : undefined)
+    const { installPluginFromMarketplace } = await import('../installation/plugin-install')
     const result = await installPluginFromMarketplace({
       pluginsDir: getUserPluginsDir(this.userDataPath),
       hostVersion: this.hostVersion,
@@ -240,7 +242,8 @@ export class PluginMarketplaceInstaller {
   }
 
   /** Why: one read lets a pass over every plugin skip a full lockfile recovery per plugin. */
-  readInstallLockfile(): Promise<PluginLockfile> {
+  async readInstallLockfile(): Promise<PluginLockfile> {
+    const { readPluginLockfile } = await import('../installation/plugin-install')
     return readPluginLockfile(getUserPluginsDir(this.userDataPath))
   }
 
@@ -289,12 +292,15 @@ export class PluginMarketplaceInstaller {
 
   /** What `rollback` would restore, read only when the UI asks. */
   async rollbackVersion(pluginKey: string): Promise<string | null> {
-    return isQualifiedPluginKey(pluginKey)
-      ? readPluginRollbackVersion(join(getUserPluginsDir(this.userDataPath), pluginKey))
-      : null
+    if (!isQualifiedPluginKey(pluginKey)) {
+      return null
+    }
+    const { readPluginRollbackVersion } = await import('../installation/plugin-rollback-candidate')
+    return readPluginRollbackVersion(join(getUserPluginsDir(this.userDataPath), pluginKey))
   }
 
   async rollback(pluginKey: string): Promise<PluginInstallResult> {
+    const { rollbackInstalledPlugin } = await import('../installation/plugin-install')
     return rollbackInstalledPlugin({
       pluginsDir: getUserPluginsDir(this.userDataPath),
       pluginKey,

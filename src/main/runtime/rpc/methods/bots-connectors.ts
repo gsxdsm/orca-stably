@@ -8,7 +8,7 @@ import {
 import { BotConnectors } from '../../../../shared/rpc-contract/bots-look-around-params'
 import { readGhSignIn } from '../../../bots/bot-local-sign-ins'
 import { orcaSignInServer } from '../../../bots/orca-sign-in-server'
-import { getGoogleConnect } from '../../../google/google-connect'
+import { resolveGoogleConnect } from '../../../google/google-connect-slot'
 import { readGoogleDefaultAccount } from '../../../google/google-credential-store'
 import { botOfSession } from '../../../bots/bot-session-tabs'
 import { defineMethod, InvalidArgumentError } from '../core'
@@ -72,6 +72,7 @@ export const BOT_CONNECTORS_METHOD = defineMethod({
                 ? places.message
                 : 'Orca Cloud could not list them.'
         }
+    const googleConnect = await resolveGoogleConnect()
     return {
       bot: bot.name,
       services: botConnectorServices(
@@ -80,9 +81,9 @@ export const BOT_CONNECTORS_METHOD = defineMethod({
           gh,
           server: orcaSignInServer(runtime),
           linear: (await runtime.linearStatus()).connected,
-          google: (await getGoogleConnect()?.accounts()) ?? [],
-          googleApp: Boolean(await getGoogleConnect()?.client()),
-          googleDefault: getGoogleConnect() ? await readGoogleDefaultAccount() : { email: null }
+          google: (await googleConnect?.accounts()) ?? [],
+          googleApp: Boolean(await googleConnect?.client()),
+          googleDefault: googleConnect ? await readGoogleDefaultAccount() : { email: null }
         },
         sources
       ),

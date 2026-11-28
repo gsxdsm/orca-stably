@@ -16,6 +16,7 @@ export type PRFilterChange = {
   assignee?: string | null
   reviewer?: { kind: 'requested' | 'reviewed-by'; login: string } | null
   labels?: string[]
+  selection?: { qualifier: 'authors' | 'labels'; value: string; selected: boolean }
   state?: 'open' | 'closed' | 'merged' | 'all'
   draft?: boolean
 }
@@ -50,23 +51,14 @@ function UserOptionRow({ option }: { option: PickerOption }): React.JSX.Element 
   )
 }
 
-export function SectionMenu({
-  parsed,
-  kind,
-  reviewerActive,
-  reviewerKind,
-  onPick,
-  onClearAll
-}: {
-  parsed: ParsedTaskQuery
-  kind: 'prs' | 'issues'
-  reviewerActive: string | null
-  reviewerKind: 'requested' | 'reviewed-by'
-  onPick: (s: SectionKey) => void
-  onClearAll: (() => void) | null
-}): React.JSX.Element {
-  const t = useTranslate()
-  const rows: { key: SectionKey; label: string; value: string | null }[] = [
+export function buildSectionRows(
+  parsed: ParsedTaskQuery,
+  kind: 'prs' | 'issues',
+  reviewerActive: string | null,
+  reviewerKind: 'requested' | 'reviewed-by',
+  t: Translate
+): { key: SectionKey; label: string; value: string | null }[] {
+  return [
     {
       key: 'author',
       label: t('auto.components.github.PRFilterSections.24754c44ad', 'Author'),
@@ -95,6 +87,25 @@ export function SectionMenu({
       value: parsed.assignee
     }
   ]
+}
+
+export function SectionMenu({
+  parsed,
+  kind,
+  reviewerActive,
+  reviewerKind,
+  onPick,
+  onClearAll
+}: {
+  parsed: ParsedTaskQuery
+  kind: 'prs' | 'issues'
+  reviewerActive: string | null
+  reviewerKind: 'requested' | 'reviewed-by'
+  onPick: (s: SectionKey) => void
+  onClearAll: (() => void) | null
+}): React.JSX.Element {
+  const t = useTranslate()
+  const rows = buildSectionRows(parsed, kind, reviewerActive, reviewerKind, t)
   return (
     <div className="py-1 text-xs">
       <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -185,7 +196,11 @@ export function SectionDetail({
           emptyText={t('auto.components.github.PRFilterSections.458ea3602b', 'No authors')}
           allowCustomValue
           renderOption={(opt) => <UserOptionRow option={opt} />}
-          onChange={(next) => onSelect({ authors: next })}
+          onChange={(next, selection) =>
+            onSelect(
+              selection ? { selection: { qualifier: 'authors', ...selection } } : { authors: next }
+            )
+          }
         />
       ) : null}
       {section === 'assignee' ? (
@@ -215,7 +230,11 @@ export function SectionDetail({
             'Filter labels...'
           )}
           emptyText={t('auto.components.github.PRFilterSections.de26e2eb06', 'No labels')}
-          onChange={(next) => onSelect({ labels: next })}
+          onChange={(next, selection) =>
+            onSelect(
+              selection ? { selection: { qualifier: 'labels', ...selection } } : { labels: next }
+            )
+          }
         />
       ) : null}
       {section === 'reviewer' ? (

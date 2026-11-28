@@ -9,11 +9,11 @@ import type {
 import type { AgentSessionMcpPanelState } from '../../../../../src/shared/agent-session/view/use-agent-session-mcp-panel'
 import {
   agentSessionMcpRowFailure,
+  agentSessionMcpShownStatus,
   agentSessionMcpServerDisplayName,
   groupAgentSessionMcpServers,
   ORCA_MCP_SOURCE
 } from '../../../../../src/shared/agent-session/view/agent-session-mcp-server-presentation'
-import { MobilePendingButton } from '../../../components/controls/MobilePendingButton'
 import { MobileSwitch } from '../../../components/controls/MobileSwitch'
 import { TextField } from '../../../components/composer-input/TextField'
 import type { Translate } from '../../../i18n/mobile-i18n'
@@ -28,8 +28,12 @@ import {
   mobileMcpTraySummary
 } from './mobile-native-chat-mcp-server-copy'
 import { mcpPanelStylesSheet as stylesSheet } from './mobile-native-chat-mcp-panel-styles'
+import { McpStatusMark as StatusMark } from './mobile-native-chat-mcp-status-mark'
+import { McpButton } from './mobile-native-chat-mcp-button'
 import { composerInputStylesSheet } from '../../../components/composer-input/composer-input-styles'
 import { useThemedStyles } from '../../../theme/themed-styles'
+import { useSignInLinkCopy } from '../../../bots/tools/use-sign-in-link-copy'
+import { useHostUpdateNoticeTarget } from '../../../host-update-notice/HostUpdateNotice'
 
 type McpAction = Exclude<AgentSessionMcpOperation, { action: 'status' }>
 
@@ -43,6 +47,8 @@ export type MobileNativeChatMcpPanelProps = AgentSessionMcpPanelState & {
   onManage?: (() => void) | null
   /** The chat's agent, as the header names it. */
   agentLabel: string
+  /** Opens Orca's own sign-in to a server it signs in to itself. */
+  signInWithOrca?: (server: AgentSessionMcpServer) => void
   /** The server list's cap, so the tray and composer stay on screen above the keyboard. */
   listMaxHeight: number
 }
@@ -104,14 +110,7 @@ function McpTrayBody(props: MobileNativeChatMcpPanelProps & { t: Translate }) {
     return null
   }
   if (result.status === 'unsupported') {
-    return (
-      <Notice
-        text={t(
-          'chat.mcp.unsupported',
-          "Update Orca on this chat's host to manage MCP servers here."
-        )}
-      />
-    )
+    return <McpHostUpdateNotice t={t} />
   }
   if (result.status === 'failed') {
     return (
@@ -173,6 +172,23 @@ function McpServerList(props: MobileNativeChatMcpPanelProps & { t: Translate }) 
   )
 }
 
+/** The shared update notice in the tray's own shape: the computer's name and its one action. */
+function McpHostUpdateNotice({ t }: { t: Translate }) {
+  const target = useHostUpdateNoticeTarget()
+  return (
+    <Notice
+      text={t('chat.mcp.needsNewerOrca', 'Update Orca on {{host}} to manage MCP servers here.', {
+        host: target.name
+      })}
+      action={
+        target.action ? (
+          <McpButton label={target.action.label} tone="secondary" onPress={target.action.onPress} />
+        ) : undefined
+      }
+    />
+  )
+}
+
 function Notice({ text, action }: { text: string; action?: React.ReactNode }) {
   const styles = useThemedStyles(stylesSheet)
   return (
@@ -191,27 +207,40 @@ function McpServerRow({
   run,
   dismissSignIn,
   openUrl,
+  result,
+  signInWithOrca,
   t
 }: MobileNativeChatMcpPanelProps & { server: AgentSessionMcpServer; t: Translate }) {
   const styles = useThemedStyles(stylesSheet)
   const mine = pending !== null && pending.server === server.name ? pending : null
   const signingIn = signIn?.server === server.name ? signIn : null
   const busy = pending !== null
+  const withOrca = server.orca?.signsIn ? signInWithOrca : undefined
   const action =
-    signingIn === null && server.canSignIn && server.status === 'needs-auth'
+    signingIn === null && (server.canSignIn || withOrca) && server.status === 'needs-auth'
       ? ({ action: 'signIn', server: server.name } as const)
-      : server.canReconnect && server.status === 'failed'
+      : server.canReconnect && agentSessionMcpShownStatus(server) === 'failed'
         ? ({ action: 'reconnect', server: server.name } as const)
         : null
   // A toggle in flight shows where it is going.
   const enabled = mine?.action === 'toggle' ? mine.enabled : server.status !== 'disabled'
   const refusal = agentSessionMcpRowFailure(server, failure, signingIn)
   const finishExternal = (): void => run({ action: 'reconnect', server: server.name })
+  // This phone's shell can't open a link this long: the page is copied for the browser instead.
+  const linkCopy = useSignInLinkCopy(signingIn?.url ?? null)
+  const copying = signingIn !== null && !linkCopy.opensHere
+  const copyLink = copying ? (
+    <McpButton
+      label={linkCopy.copied ? t('common.copied', 'Copied') : t('chat.mcp.copyLink', 'Copy link')}
+      tone="plain"
+      onPress={linkCopy.copyLink}
+    />
+  ) : null
   return (
     <View>
       <View style={styles.row}>
         <View style={styles.mark}>
-          <StatusMark status={signingIn ? 'pending' : server.status} />
+          <StatusMark status={signingIn ? 'pending' : agentSessionMcpShownStatus(server)} />
         </View>
         <Text style={styles.name} numberOfLines={1}>
           {agentSessionMcpServerDisplayName(server)}
@@ -219,18 +248,23 @@ function McpServerRow({
         <Text
           style={[
             styles.statusLine,
-            !signingIn && server.status === 'failed' && styles.statusLineFailed
+            !signingIn && agentSessionMcpShownStatus(server) === 'failed' && styles.statusLineFailed
           ]}
           numberOfLines={1}
         >
-          {signingIn
-            ? signingIn.finish === 'external'
-              ? t('chat.mcp.status.finishOnPage', 'Finish on the page that opened')
-              : t('chat.mcp.status.waitingForSignIn', 'Waiting for sign-in…')
-            : mobileMcpServerStatusLine(server, t)}
+          {copying
+            ? '' // The phone can't open this link, so nothing here offers to; Copy link does.
+            : signingIn
+              ? signingIn.finish === 'external'
+                ? t('chat.mcp.status.finishOnPage', 'Finish on the page that opened')
+                : t('chat.mcp.status.waitingForSignIn', 'Waiting for sign-in…')
+              : result?.status === 'not-running' && server.status === 'not-started'
+                ? '' // The notice above already says they connect on the next message.
+                : mobileMcpServerStatusLine(server, t)}
         </Text>
         {signingIn ? (
           <>
+            {copyLink}
             {signingIn.finish === 'external' ? (
               <McpButton
                 label={t('common.done', 'Done')}
@@ -239,7 +273,7 @@ function McpServerRow({
                 disabled={busy}
                 onPress={finishExternal}
               />
-            ) : (
+            ) : copying ? null : (
               <McpButton
                 label={t('chat.mcp.openAgain', 'Open again')}
                 tone="plain"
@@ -260,10 +294,12 @@ function McpServerRow({
                 tone={action.action === 'signIn' ? 'primary' : 'secondary'}
                 busy={mine?.action === action.action}
                 disabled={busy}
-                onPress={() => run(action)}
+                onPress={() =>
+                  withOrca && action.action === 'signIn' ? withOrca(server) : run(action)
+                }
               />
             ) : null}
-            {server.canToggle ? (
+            {server.canToggle && server.orcaChange !== 'removed' ? (
               <MobileSwitch
                 value={enabled}
                 disabled={busy}
@@ -278,14 +314,34 @@ function McpServerRow({
           </>
         )}
       </View>
+      {copying && signingIn.finish === 'external' ? (
+        <Text style={styles.rowHint}>
+          {t(
+            'chat.mcp.finishInBrowser',
+            'Open the copied link in your browser, finish there, then tap Done.'
+          )}
+        </Text>
+      ) : null}
+      {linkCopy.copyFailed ? (
+        <Text style={styles.rowFailure} accessibilityLiveRegion="polite">
+          {t('chat.mcp.copyFailed', 'Couldn’t copy the link.')}
+        </Text>
+      ) : null}
       {refusal ? (
         <Text style={styles.rowFailure} accessibilityLiveRegion="polite">
           {refusal.kind === 'signInUnfinished'
-            ? t(
-                'chat.mcp.signInUnfinished',
-                "Sign-in isn't finished yet. Finish it on the page that opened, then tap Done."
-              )
-            : (refusal.message ?? t('chat.mcp.actionFailed', "Couldn't do that. Try again."))}
+            ? copying
+              ? t(
+                  'chat.mcp.signInUnfinishedInBrowser',
+                  "Sign-in isn't finished yet. Finish it in your browser, then tap Done."
+                )
+              : t(
+                  'chat.mcp.signInUnfinished',
+                  "Sign-in isn't finished yet. Finish it on the page that opened, then tap Done."
+                )
+            : refusal.kind === 'stillFailing'
+              ? t('chat.mcp.stillFailing', 'Still failing after reconnecting.')
+              : (refusal.message ?? t('chat.mcp.actionFailed', "Couldn't do that. Try again."))}
         </Text>
       ) : null}
       {signingIn?.finish === 'callback' ? (
@@ -293,24 +349,6 @@ function McpServerRow({
       ) : null}
     </View>
   )
-}
-
-function StatusMark({ status }: { status: AgentSessionMcpServer['status'] }) {
-  const styles = useThemedStyles(stylesSheet)
-  switch (status) {
-    case 'connected':
-      return <View style={[styles.dot, styles.dotConnected]} />
-    case 'needs-auth':
-      return <View style={[styles.dot, styles.dotNeedsAuth]} />
-    case 'failed':
-      return <View style={[styles.dot, styles.dotFailed]} />
-    case 'disabled':
-    case 'not-started':
-    case 'unreported':
-      return <View style={[styles.dot, styles.dotDisabled]} />
-    case 'pending':
-      return <View style={styles.dotPending} />
-  }
 }
 
 // The phone never runs the agent, so a callback sign-in always finishes by pasting the address.
@@ -367,46 +405,5 @@ function McpPasteBox({
         />
       </View>
     </View>
-  )
-}
-
-function McpButton({
-  label,
-  tone,
-  tall = false,
-  busy = false,
-  disabled = false,
-  onPress
-}: {
-  label: string
-  tone: 'primary' | 'secondary' | 'plain'
-  tall?: boolean
-  busy?: boolean
-  disabled?: boolean
-  onPress: () => void
-}) {
-  const styles = useThemedStyles(stylesSheet)
-  const colors = useMobileColors()
-  return (
-    <MobilePendingButton
-      label={label}
-      pending={busy}
-      disabled={disabled}
-      onPress={onPress}
-      hitSlop={tall ? undefined : 6}
-      style={[
-        styles.button,
-        tall && styles.buttonTall,
-        tone === 'primary' && styles.buttonPrimary,
-        tone === 'secondary' && styles.buttonSecondary,
-        tone === 'plain' && styles.buttonPlain
-      ]}
-      labelStyle={[
-        styles.buttonLabel,
-        tone === 'primary' && styles.buttonLabelPrimary,
-        tone === 'plain' && styles.buttonLabelPlain
-      ]}
-      spinnerColor={tone === 'primary' ? colors.bgBase : colors.textPrimary}
-    />
   )
 }

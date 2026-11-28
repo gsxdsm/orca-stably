@@ -9,6 +9,7 @@ import {
   deriveWorkerOutputReferenceFromSavedState,
   releaseCommitFieldsForCapturedArchive
 } from '../../../../../orchestration/workers/archives/worker-output-archive'
+import { structuredWorkerSessionForgotten } from '../../../../../orchestration/terminal-authority/structured-sessions/structured-worker-session-forgotten'
 import { resolveStructuredWorkerForDispatch } from '../../structured-workers/orchestration-structured-worker-lifecycle'
 import type { WorkerReleaseReceipt } from './worker-release-completion'
 import { receiptForUnchangedRelease } from './worker-terminal-resource-presentation'
@@ -19,17 +20,23 @@ export async function settleProvenExitedWorkerTerminal(args: {
   db: OrchestrationDb
   dispatchId: string
   resource: WorkerTerminalResourceRow
+  /** Already decided by the caller for this release attempt. */
+  chatForgotten?: boolean
 }): Promise<WorkerTerminalResourceRow | null> {
   const { runtime, db, dispatchId, resource } = args
   const processIncarnation = resource.process_incarnation
+  const chatForgotten =
+    args.chatForgotten ?? (await structuredWorkerSessionForgotten(processIncarnation))
   if (
     // A former owner's lookup describes custody; it never authorizes releasing the current owner's row.
     resource.owner_dispatch_id !== dispatchId ||
     !processIncarnation ||
-    (await runtime.inspectTerminalProcessIncarnationLiveness(
-      processIncarnation,
-      resource.host_scope
-    )) !== 'exited'
+    // A chat the store forgot has no record left to observe; its absence is the exit proof.
+    (!chatForgotten &&
+      (await runtime.inspectTerminalProcessIncarnationLiveness(
+        processIncarnation,
+        resource.host_scope
+      )) !== 'exited')
   ) {
     return null
   }
@@ -42,7 +49,11 @@ export async function settleProvenExitedWorkerTerminal(args: {
     // The saved session may have moved during the proof; read it from the row being settled.
     output: (current) =>
       releaseCommitFieldsForCapturedArchive(
-        deriveWorkerOutputReferenceFromSavedState({ resource: current, structuredWorker })
+        deriveWorkerOutputReferenceFromSavedState({
+          resource: current,
+          structuredWorker,
+          chatForgotten
+        })
       )
   })
   if (settled.disposition !== 'released') {

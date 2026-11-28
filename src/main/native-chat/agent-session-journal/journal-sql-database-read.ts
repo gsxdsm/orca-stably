@@ -21,6 +21,12 @@ import {
   type JournalLegacyCompare
 } from './database/journal-legacy-compare'
 import { readForgottenJournalChats } from './journal-forgotten-chats'
+import {
+  JOURNAL_LEGACY_SOURCE_RECEIPT,
+  type JournalLegacyAbsorbedSource
+} from './database/journal-legacy-source-receipt'
+import { JOURNAL_LEGACY_REVISIONS_KEPT } from './database/journal-legacy-reconcile'
+import { readMeta } from './database/journal-legacy-reconcile-marks'
 import { readDeletedChats } from './journal-deleted-chats'
 import type { DeletedChat } from '../chat-deletion/deleted-chats'
 import {
@@ -51,10 +57,12 @@ export type JournalSqlDatabaseRead =
   | { kind: 'epoch'; sessionId: string }
   | { kind: 'sessions'; after: string | null }
   | { kind: 'chat-exists'; sessionId: string }
+  | { kind: 'message-chats'; messageId: string }
   | { kind: 'retired-heads'; after: string | null; through: string | null }
   | { kind: 'attachment-claims'; after: number }
   | { kind: 'attachment-sweeps'; after: string | null }
   | { kind: 'legacy-compares'; after: string | null }
+  | { kind: 'legacy-absorbed' }
   | { kind: 'forgotten-chats'; after: string | null }
   | { kind: 'deleted-chats' }
   | { kind: 'connector-replies'; sessionId?: string }
@@ -73,7 +81,9 @@ export type JournalSqlDatabaseReadResult =
   | { kind: 'epoch'; epoch: string | null }
   | { kind: 'sessions'; sessionIds: string[] }
   | { kind: 'chat-exists'; exists: boolean }
+  | { kind: 'message-chats'; sessionIds: string[] }
   | { kind: 'legacy-compares'; compares: JournalLegacyCompare[] }
+  | ({ kind: 'legacy-absorbed' } & JournalLegacyAbsorbedSource)
   | { kind: 'retired-heads'; heads: JournalRetiredHead[]; through: string | null }
   | {
       kind: 'attachment-claims'
@@ -165,6 +175,13 @@ function read(
         kind: 'legacy-compares',
         compares: pendingJournalLegacyCompares(db, operation.after)
       }
+    case 'legacy-absorbed':
+      // The original as the last complete older-Orca reconcile absorbed it.
+      return {
+        kind: 'legacy-absorbed',
+        receipt: readMeta(db, JOURNAL_LEGACY_SOURCE_RECEIPT) ?? null,
+        kept: readMeta(db, JOURNAL_LEGACY_REVISIONS_KEPT) !== undefined
+      }
     case 'sessions': {
       const rows =
         operation.after === null
@@ -241,5 +258,20 @@ function read(
       }
     case 'deleted-chats':
       return { kind: 'deleted-chats', chats: readDeletedChats(db) }
+    case 'message-chats':
+      return { kind: 'message-chats', sessionIds: readMessageChats(db, operation.messageId) }
   }
+}
+
+/** Chats whose current history holds a message by this id, sent or queued. No index leads with it:
+ *  callers read this once per run Orca lost track of, never per message. */
+function readMessageChats(db: Database.Database, messageId: string): string[] {
+  const current = 'JOIN journal_chat_state c ON c.session_id=r.session_id AND c.epoch=r.epoch'
+  return db
+    .prepare(
+      `SELECT r.session_id FROM journal_submission_attempts r ${current} WHERE r.message_id=?1 AND r.current=1
+      UNION SELECT r.session_id FROM journal_queue_cards r ${current} WHERE r.message_id=?1`
+    )
+    .all(messageId)
+    .map((row) => String(row.session_id))
 }

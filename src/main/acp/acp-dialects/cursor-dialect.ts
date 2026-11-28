@@ -15,6 +15,7 @@ import {
   type AcpRequestPresentation,
   type AcpRequestSettlement
 } from './acp-dialect'
+import { acpReplyNoticeFailure } from './acp-reply-notice-failure'
 import { CURSOR_CLI_MODEL_SUFFIX } from '../../../shared/agent-session/options/catalog-providers/agent-session-option-catalog-cursor'
 
 const ASK_QUESTION = 'cursor/ask_question'
@@ -25,6 +26,8 @@ const REPORTS = ['cursor/update_todos', 'cursor/task', 'cursor/generate_image']
 const SKILL_SCOPE_TAG = /\s*\((?:project |user |builtin )?skill\)$/
 // A refused question comes back as a permission request whose answers are all allow_once.
 const QUESTION_FALLBACK_SKIP = '__ask_question_skip__'
+// cursor-agent's exact chunk for a billing refusal; "Upgrade" also means plan-gated models, so not a usage limit.
+const BILLING_NOTICE = /^\n\n(?:Upgrade your plan|Add a payment method) to continue$/
 
 const questionRequestSchema = lazyZodSchema(() =>
   z.object({
@@ -229,6 +232,7 @@ export const CURSOR_ACP_DIALECT: AcpDialect = {
   settleRequest,
   detachedReplies: Object.fromEntries(REPORTS.map((method) => [method, {}])),
   normalizeToolUpdate,
+  notification: (method, params) => acpReplyNoticeFailure(method, params, BILLING_NOTICE),
   skillDescription: ({ description }) => {
     const untagged = description.replace(SKILL_SCOPE_TAG, '')
     return untagged === description ? null : untagged

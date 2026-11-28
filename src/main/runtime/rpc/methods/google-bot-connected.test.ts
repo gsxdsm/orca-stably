@@ -32,8 +32,8 @@ const { host, sends, state } = vi.hoisted(() => {
   return { host, sends, state }
 })
 
-vi.mock('../../../google/google-connect', () => ({
-  getGoogleConnect: () => ({
+vi.mock('../../../google/google-connect-slot', () => ({
+  resolveGoogleConnect: async () => ({
     accounts: async () => [{ email: 'main@example.com' }, { email: 'work@example.com' }],
     defaultAccount: async () => state.defaultAccount
   })

@@ -28,8 +28,8 @@ vi.mock('../../../google/google-credential-store', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   readGoogleDefaultAccount: async () => computerDefault.read
 }))
-vi.mock('../../../google/google-connect', () => ({
-  getGoogleConnect: () => ({
+vi.mock('../../../google/google-connect-slot', () => ({
+  resolveGoogleConnect: async () => ({
     setDefaultAccount,
     disconnect,
     importClient: vi.fn(),

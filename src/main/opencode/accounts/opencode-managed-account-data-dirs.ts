@@ -8,7 +8,7 @@ export function managedOpenCodeAccountDataDirs(): string[] {
       .transcriptEnvironments('opencode')
       .map((environment) => resolveOpenCodeDataDirectory(environment))
   } catch (error) {
-    console.warn('[ai-vault] Could not read OpenCode managed accounts:', error)
+    console.warn('[opencode-accounts] Could not read OpenCode managed accounts:', error)
     return []
   }
 }

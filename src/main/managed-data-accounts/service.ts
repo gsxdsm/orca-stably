@@ -160,7 +160,7 @@ export class ManagedDataAccountService {
     const selected = state.accounts.filter((account) => account.id === state.activeAccountId)
     const others = state.accounts.filter((account) => account.id !== state.activeAccountId)
     return [...selected, ...others].map((account) =>
-      this.environmentForAccount(provider, account.id)
+      this.environmentForAccount(provider, account.id, state)
     )
   }
 
@@ -221,9 +221,10 @@ export class ManagedDataAccountService {
 
   environmentForAccount(
     provider: ManagedDataAccountProvider,
-    accountId: string
+    accountId: string,
+    state = this.list(provider)
   ): Record<string, string> {
-    const { directory } = this.requireAccount(provider, accountId)
+    const { directory } = this.requireAccount(provider, accountId, state)
     return {
       XDG_DATA_HOME: join(directory, 'data'),
       XDG_STATE_HOME: join(directory, 'state'),
@@ -238,11 +239,10 @@ export class ManagedDataAccountService {
 
   private requireAccount(
     provider: ManagedDataAccountProvider,
-    id: string
+    id: string,
+    state = this.list(provider)
   ): { id: string; directory: string } {
-    const account = this.list(provider).accounts.find(
-      (registered) => registered.id.toLowerCase() === id.toLowerCase()
-    )
+    const account = state.accounts.find((entry) => entry.id.toLowerCase() === id.toLowerCase())
     if (!account) {
       throw new Error('Managed account not found.')
     }

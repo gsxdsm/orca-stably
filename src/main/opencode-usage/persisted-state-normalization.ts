@@ -1,12 +1,12 @@
 import type { OpenCodeUsagePersistedState } from './types'
-import { OPENCODE_USAGE_SCHEMA_VERSION } from './opencode-usage-provider'
 import {
   normalizeDailyAggregateCost,
   normalizeOpenCodeUsagePersistedDatabases,
   normalizeSessionCost
 } from './persisted-database-normalization'
 
-const SCHEMA_VERSION = OPENCODE_USAGE_SCHEMA_VERSION
+// Invalidate older caches: merge migrated rows per column, normalize input and preserve cache writes.
+const SCHEMA_VERSION = 7
 
 export function getDefaultState(): OpenCodeUsagePersistedState {
   return {

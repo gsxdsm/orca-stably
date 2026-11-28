@@ -20,37 +20,17 @@ import type {
   AutomationDestination,
   AutomationUpdatePreconditions
 } from '../../../../shared/automations/ownership/automation-owner-precondition'
-import { runAutomationNowFenced } from '../../../automations/dispatch/refused-manual-run'
 import type { EventRunOptions } from '../../../automations/automation-trigger-runs'
 import { paginateAutomationRuns } from '../../../../shared/automations/history/automation-run-cursor'
-import {
-  copyRuntimeAutomationPatchValues,
-  hasRuntimeAutomationUpdateValue
-} from './runtime-automation-update-value'
-import {
-  updateRuntimeAutomations,
-  type RuntimeAutomationBatchUpdate
-} from './runtime-automation-batch-update'
-import {
-  assertAutomationRunContextMatchesTarget,
-  type RuntimeAutomationCreateInput,
-  type RuntimeAutomationUpdateInput
+import type { RuntimeAutomationBatchUpdate } from './runtime-automation-batch-update'
+import type {
+  RuntimeAutomationCreateInput,
+  RuntimeAutomationUpdateInput
 } from './runtime-automation-run-context'
 import type { ConnectorRefResolver } from '../../../connector-cloud/connector-ref-resolution'
-import { assertBotPlacesUnchanged } from '../../../automations/bot-automation-place-refs'
 import type { Bot } from '../../../../shared/bot-types'
 import type { TriggerPeopleSearch } from '../../../automations/bot-trigger-people'
-import { botAutomationCreateRules, patchBotAutomationUpdate } from './runtime-automation-bot-update'
-import {
-  assertAutomationBotAtWrite,
-  botAutomationAgent,
-  botAutomationTarget,
-  requireCreatableAutomationBot,
-  assertThreadReplies,
-  resolveRuntimeAutomationTarget,
-  type BotChatLookup,
-  type RuntimeAutomationTargetResolvers
-} from './runtime-automation-target'
+import type { BotChatLookup, RuntimeAutomationTargetResolvers } from './runtime-automation-target'
 
 export class RuntimeAutomationController {
   private service: AutomationService | null = null
@@ -147,6 +127,22 @@ export class RuntimeAutomationController {
       throw new Error('runtime_unavailable')
     }
     const createAutomation = store.createAutomation.bind(store)
+    const [
+      {
+        assertAutomationBotAtWrite,
+        botAutomationAgent,
+        botAutomationTarget,
+        requireCreatableAutomationBot,
+        assertThreadReplies,
+        resolveRuntimeAutomationTarget
+      },
+      { assertAutomationRunContextMatchesTarget },
+      { botAutomationCreateRules }
+    ] = await Promise.all([
+      import('./runtime-automation-target'),
+      import('./runtime-automation-run-context'),
+      import('./runtime-automation-bot-update')
+    ])
     const bot = requireCreatableAutomationBot(store, input, this.webhooks)
     assertThreadReplies(this.takesThreadReplies, input.bot)
     const target = bot
@@ -208,6 +204,19 @@ export class RuntimeAutomationController {
     }
     const updateAutomation = store.updateAutomation.bind(store)
     const current = this.show(id)
+    const [
+      { copyRuntimeAutomationPatchValues, hasRuntimeAutomationUpdateValue },
+      { assertAutomationBotAtWrite, assertThreadReplies, resolveRuntimeAutomationTarget },
+      { assertAutomationRunContextMatchesTarget },
+      { assertBotPlacesUnchanged },
+      { patchBotAutomationUpdate }
+    ] = await Promise.all([
+      import('./runtime-automation-update-value'),
+      import('./runtime-automation-target'),
+      import('./runtime-automation-run-context'),
+      import('../../../automations/bot-automation-place-refs'),
+      import('./runtime-automation-bot-update')
+    ])
     const patch: AutomationUpdateInput = {}
     copyRuntimeAutomationPatchValues(updates, patch)
     const targetChanged =
@@ -269,7 +278,8 @@ export class RuntimeAutomationController {
   }
 
   /** `update` for many automations with one store write and one flush; moves need `update`. */
-  updateMany(entries: readonly RuntimeAutomationBatchUpdate[]) {
+  async updateMany(entries: readonly RuntimeAutomationBatchUpdate[]) {
+    const { updateRuntimeAutomations } = await import('./runtime-automation-batch-update')
     return updateRuntimeAutomations(this.store, entries)
   }
 
@@ -290,6 +300,8 @@ export class RuntimeAutomationController {
     if (!this.service) {
       throw new Error('runtime_unavailable')
     }
+    const { runAutomationNowFenced } =
+      await import('../../../automations/dispatch/refused-manual-run')
     return await runAutomationNowFenced({
       automationId: id,
       service: this.service,

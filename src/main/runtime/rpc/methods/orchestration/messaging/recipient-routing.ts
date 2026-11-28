@@ -239,15 +239,15 @@ export function resolveBareOrchestrationRecipient(params: {
   db: OrchestrationDb
   handle: string
   senderRunId?: string
+  senderCoordinates?: (runId: string) => boolean
   explicitRunId?: string
   legacyAdoptedMailboxOwner?: LegacyAdoptedMailboxOwner | null
   /** `resolveTerminalAgentRecipient(handle)`, awaited first; omit only where the handle cannot
    *  name a terminal agent. */
   terminalRecipient?: TerminalAgentRecipient
 }): BareRecipientResolution {
-  const { runtime, db } = params
+  const { runtime, db, terminalRecipient: terminal = null } = params
   const sessionStore = readAgentSessionRecordStore()
-  const terminal = params.terminalRecipient ?? null
   const session = readSessionRecipient(params.handle, sessionStore, terminal)
   if (session && 'code' in session) {
     return refused(params.handle, session)
@@ -270,6 +270,7 @@ export function resolveBareOrchestrationRecipient(params: {
           : [],
     dispatches,
     ownerRunIds: () => db.getRunMailboxOwnerIdsForHandle(handle, params.legacyAdoptedMailboxOwner),
+    chatRecipient: session !== null && party.terminalHandle === null,
     fallback: () => {
       if (session) {
         const refusal = refuseUndeliverableSessionRecipient(session, sessionStore, db, terminal)

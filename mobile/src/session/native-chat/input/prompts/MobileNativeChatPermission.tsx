@@ -1,5 +1,5 @@
 import { memo, useState, type ReactNode } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { Pressable, ScrollView, Text, View, type LayoutChangeEvent } from 'react-native'
 import { ChevronDown, ShieldQuestion } from 'lucide-react-native'
 import { approvalDetailPreview } from '../../../../../../src/shared/agent-session/requests/prompts/agent-session-approval-detail-preview'
 import { approvalBlockedPathToShow } from '../../../../../../src/shared/agent-session/requests/prompts/agent-session-approval-blocked-path'
@@ -70,6 +70,7 @@ function MobileNativeChatPermissionImpl({
   // An accepted answer keeps the card locked until the host retires it (the card remounts).
   const { pending, run } = useMobilePendingControl<string>({ holdAccepted: true })
   const submitting = pending !== null
+  const answersFloor = useAnswersHalfCardFloor()
   // Unknown newer-host subjects allow only cancellation; preserve their detail for the reader.
   const newerSubject = isNewerApprovalSubject(permission.subject)
   // A page to open: its option opens it, and the back-out stays quiet.
@@ -84,7 +85,11 @@ function MobileNativeChatPermissionImpl({
           ? t('chat.urlRequest.decline', 'Decline')
           : option.label
   return (
-    <View testID="native-chat-approval-card" style={askStyles.card}>
+    <View
+      testID="native-chat-approval-card"
+      style={askStyles.card}
+      onLayout={answersFloor.onCardLayout}
+    >
       <ScrollView style={askStyles.scroll} nestedScrollEnabled>
         <View style={askStyles.questionRow}>
           <ShieldQuestion
@@ -113,8 +118,9 @@ function MobileNativeChatPermissionImpl({
       {/* Its own scroll, so a request with many choices still reaches the last. */}
       <ScrollView
         testID="native-chat-approval-actions"
-        style={styles.answersScroll}
+        style={[styles.answersScroll, answersFloor.answersStyle]}
         contentContainerStyle={styles.answers}
+        onContentSizeChange={answersFloor.onAnswersSize}
         nestedScrollEnabled
       >
         {notice ? (
@@ -171,6 +177,18 @@ function MobileNativeChatPermissionImpl({
 }
 
 export const MobileNativeChatPermission = memo(MobileNativeChatPermissionImpl)
+
+/** Flex shrinks both scrolls in proportion, so a long plan would squeeze the answers; they keep
+ *  half the card, or all of themselves if shorter. */
+function useAnswersHalfCardFloor() {
+  const [cardHeight, setCardHeight] = useState(0)
+  const [answersHeight, setAnswersHeight] = useState(0)
+  return {
+    answersStyle: { minHeight: Math.min(answersHeight, cardHeight / 2) },
+    onCardLayout: (event: LayoutChangeEvent) => setCardHeight(event.nativeEvent.layout.height),
+    onAnswersSize: (_width: number, height: number) => setAnswersHeight(height)
+  }
+}
 
 function MobileNativeChatPermissionContext({
   permission,

@@ -98,6 +98,17 @@ export function journalLegacySourceReceiptOf(
   }
 }
 
+/** The original a store last absorbed completely, as its saved receipt and revisions-kept mark. */
+export type JournalLegacyAbsorbedSource = { receipt: string | null; kept: boolean }
+
+/** Every chat in the original as it is now is already in the store. */
+export function journalLegacySourceAbsorbed(
+  saved: JournalLegacyAbsorbedSource,
+  current: JournalLegacySourceReceipt
+): boolean {
+  return saved.kept && sameJournalLegacySource(saved.receipt ?? undefined, current)
+}
+
 /**
  * Whether the original is still as a saved receipt recorded it, compared by meaning. A receipt
  * saved before WAL identity was kept records a nonempty WAL by its size alone, so the fields

@@ -16,5 +16,6 @@ export type UsageStoreHost = {
   userDataPath: string
   readCatalog(): Promise<UsageWorktreeCatalog>
   claudeProfileDirs(): Promise<string[]>
+  openCodeAccountDataDirs(): Promise<string[]>
   telemetry: UsageTelemetryHost
 }

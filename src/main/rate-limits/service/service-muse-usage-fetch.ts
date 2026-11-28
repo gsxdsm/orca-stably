@@ -1,5 +1,4 @@
 import type { ProviderRateLimits } from '../../../shared/agent-usage/rate-limits/rate-limit-types'
-import { fetchMuseRateLimits } from '../providers/muse/muse-usage-fetcher'
 import { settleSiblingProviderFetch } from './service-sibling-provider-result'
 
 export function prepareMuseUsageFetch(
@@ -8,6 +7,10 @@ export function prepareMuseUsageFetch(
   previous: ProviderRateLimits
 ) {
   return settleSiblingProviderFetch(
-    enabled ? fetchMuseRateLimits({ signal }) : Promise.resolve(previous)
+    enabled
+      ? import('../providers/muse/muse-usage-fetcher').then(({ fetchMuseRateLimits }) =>
+          fetchMuseRateLimits({ signal })
+        )
+      : Promise.resolve(previous)
   )
 }

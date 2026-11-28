@@ -7,7 +7,7 @@ import {
   botGoogleConnectState,
   type GoogleBotConnectState
 } from '../../shared/google/google-bot-connect-state'
-import { getGoogleConnect } from '../google/google-connect'
+import { resolveGoogleConnect } from '../google/google-connect-slot'
 import { BOT_TOKEN_ENDED, botOfToken } from './bot-of-caller'
 
 /** Null when the bot may use Google; else the one sentence to act on. A non-bot caller is the owner. */
@@ -38,7 +38,7 @@ export const GOOGLE_OWNER_ONLY =
 export async function hostGoogleBotState(
   bot: Pick<Bot, 'google' | 'googleAccounts'>
 ): Promise<GoogleBotConnectState> {
-  const connect = getGoogleConnect()
+  const connect = await resolveGoogleConnect()
   const { allowed, host } = botGoogleConnectState(bot, {
     client: (await connect?.client()) ?? null,
     accounts: (await connect?.accounts()) ?? []

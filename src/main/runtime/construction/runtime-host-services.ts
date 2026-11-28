@@ -30,17 +30,10 @@ import { RuntimeAccountController } from '../agent-session/environment/runtime-a
 import { createLazyMobileSpeechOwners } from '../speech/lazy-mobile-speech-owners'
 import { RuntimeProjectHostSetupController } from '../repositories/runtime-project-host-setup-controller'
 import { RuntimeProjectGroupController } from '../repositories/runtime-project-group-controller'
-import { RuntimeNestedRepoImport } from '../repositories/runtime-nested-repo-import'
-import { RuntimeRepositoryRegistrationController } from '../repositories/runtime-repository-registration-controller'
-import { RuntimeRepositoryCloneController } from '../repositories/runtime-repository-clone-controller'
-import { RuntimeRepositorySettingsController } from '../repositories/runtime-repository-settings-controller'
-import { RuntimeRepositorySparsePresets } from '../repositories/runtime-repository-sparse-presets'
-import { RuntimeRepositoryRefQueries } from '../repositories/runtime-repository-ref-queries'
-import { RuntimeServerEnvironmentCommands } from '../files/server-browse/runtime-server-environment-commands'
 import { RuntimeRepositoryForkBackfill } from '../repositories/runtime-repository-fork-backfill'
 import { RuntimeWorkspaceSessionController } from '../workspaces/session-hosts/runtime-workspace-session-controller'
-import { RuntimeAiVaultCommands } from '../integrations/ai-vault/runtime-ai-vault-commands'
 import { ClaudeAgentTeamsService } from '../terminal/agent-teams/claude-agent-teams-service'
+import * as Lazy from './lazy-runtime-host-controllers'
 import { teardownFolderWorkspacePtys } from '../workspaces/removal/folder-workspace-pty-teardown'
 import { countRepoTerminalsNotKnownExited } from '../workspaces/removal/project-removal-impact'
 
@@ -286,8 +279,7 @@ export abstract class OrcaRuntimeWithPreservedBranchCleanup extends RuntimeAgent
     resolveRepo: (...args) => this.managedWorktreeQueries.resolveRepoForConnection(...args),
     notifyReposChanged: () => this.notifyReposChanged(),
     resolveFolderConnectionId: (workspace) => this.resolveFolderWorkspaceConnectionId(workspace),
-    acquireFileWatcherRemoval: (path, connectionId) =>
-      this.acquireFileWatcherRemoval(path, connectionId),
+    acquireFileWatcherRemoval: (...args) => this.acquireFileWatcherRemoval(...args),
     teardownFolderWorkspacePtys: (...target) =>
       teardownFolderWorkspacePtys(
         {
@@ -297,15 +289,13 @@ export abstract class OrcaRuntimeWithPreservedBranchCleanup extends RuntimeAgent
         },
         ...target
       ),
-    cleanupRemovedFolderWorkspaceState: (worktreeId): void | Promise<void> => {
-      // Retire runs after the awaited store cleanup, so the delete cannot
-      // report before the Codex pretrust purge lands; failures degrade here.
-      const cleanup = this.store && this.removeWorktreeMetadataAndHistory(this.store, worktreeId)
-      return Promise.resolve(cleanup).then(() => {
-        this.dropAgentStatusForRemovedWorktreeFn?.(worktreeId, ALL_EXECUTION_HOSTS_SCOPE)
-      })
+    cleanupRemovedFolderWorkspaceState: async (worktreeId) => {
+      await (this.store && this.removeWorktreeMetadataAndHistory(this.store, worktreeId))
+      this.dropAgentStatusForRemovedWorktreeFn?.(worktreeId, ALL_EXECUTION_HOSTS_SCOPE)
     },
-    emitWorktreeLifecycle: (event) => this.worktreeLifecycleEvents.emit(event)
+    emitWorktreeLifecycle: (event) => this.worktreeLifecycleEvents.emit(event),
+    isBotGroupHome: async (id) =>
+      (await import('../../bots/bot-group-runtime')).isBotGroupHomeFolderWorkspace(this, id)
   })
 
   private readonly repositoryCatalogDeps = {
@@ -315,17 +305,19 @@ export abstract class OrcaRuntimeWithPreservedBranchCleanup extends RuntimeAgent
     notifyReposChanged: () => this.notifyReposChanged()
   }
 
-  protected readonly nestedRepoImport = new RuntimeNestedRepoImport(this.repositoryCatalogDeps)
-
-  protected readonly repositoryRegistrations = new RuntimeRepositoryRegistrationController(
+  protected readonly nestedRepoImport = new Lazy.LazyRuntimeNestedRepoImport(
     this.repositoryCatalogDeps
   )
 
-  protected readonly repositoryClones = new RuntimeRepositoryCloneController(
+  protected readonly repositoryRegistrations = new Lazy.LazyRuntimeRepositoryRegistrationController(
     this.repositoryCatalogDeps
   )
 
-  protected readonly repositorySettings = new RuntimeRepositorySettingsController({
+  protected readonly repositoryClones = new Lazy.LazyRuntimeRepositoryCloneController(
+    this.repositoryCatalogDeps
+  )
+
+  protected readonly repositorySettings = new Lazy.LazyRuntimeRepositorySettingsController({
     ...this.repositoryCatalogDeps,
     resolveRepo: (selector) => this.resolveRepoSelector(selector),
     forgetTerminalTopology: (repoId) => this.terminalTopologyRevisionByRepoId.delete(repoId),
@@ -333,16 +325,16 @@ export abstract class OrcaRuntimeWithPreservedBranchCleanup extends RuntimeAgent
     notifyWorktreesChanged: (repoId, options) => this.notifyWorktreesChanged(repoId, options)
   })
 
-  protected readonly repositorySparsePresets = new RuntimeRepositorySparsePresets({
+  protected readonly repositorySparsePresets = new Lazy.LazyRuntimeRepositorySparsePresets({
     getStore: () => this.store,
     resolveRepo: (selector) => this.resolveRepoSelector(selector)
   })
 
-  protected readonly repositoryRefQueries = new RuntimeRepositoryRefQueries({
+  protected readonly repositoryRefQueries = new Lazy.LazyRuntimeRepositoryRefQueries({
     resolveRepo: (selector) => this.resolveRepoSelector(selector)
   })
 
-  protected readonly serverEnvironment = new RuntimeServerEnvironmentCommands()
+  protected readonly serverEnvironment = new Lazy.LazyRuntimeServerEnvironmentCommands()
 
   readonly repositoryForkBackfill = new RuntimeRepositoryForkBackfill(
     () => this.store,
@@ -357,7 +349,9 @@ export abstract class OrcaRuntimeWithPreservedBranchCleanup extends RuntimeAgent
     getCachedWorktrees: () => this.resolvedWorktrees.peek()?.worktrees ?? null
   })
 
-  protected readonly aiVault = new RuntimeAiVaultCommands(() => this.prepareAiVaultSessionResumeFn)
+  protected readonly aiVault = new Lazy.LazyRuntimeAiVaultCommands(
+    () => this.prepareAiVaultSessionResumeFn
+  )
 
   protected readonly claudeAgentTeams = new ClaudeAgentTeamsService()
 

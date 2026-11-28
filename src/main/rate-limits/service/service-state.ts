@@ -21,6 +21,7 @@ import {
 import type { NormalizedCodexAccountSelectionTarget } from '../../../shared/agent-accounts/codex/codex-selection-lane'
 import type { NormalizedClaudeAccountSelectionTarget } from '../../claude-accounts/selection/runtime-selection'
 import type { InactiveClaudeAccount } from '../providers/claude/claude-managed-account-usage'
+import type { ClaudeRejectedToken } from '../providers/claude/claude-usage-fetch-options'
 import type { NetworkProxySettings } from '../../../shared/network/network-proxy'
 import { readGrokAuthSession } from '../providers/grok/grok-auth'
 
@@ -128,6 +129,7 @@ export abstract class RateLimitServiceState {
   protected inactiveClaudeCache = new Map<string, ProviderRateLimits>()
   protected inactiveCodexCache = new Map<string, ProviderRateLimits>()
   protected inactiveClaudeFetching = new Set<string>()
+  protected inactiveClaudeRejectedTokens = new Map<string, ClaudeRejectedToken>()
   protected inactiveCodexFetching = new Set<string>()
   protected inactiveCodexFetchInFlight = false
   protected lastInactiveClaudeFetchAt = 0

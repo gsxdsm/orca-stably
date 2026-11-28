@@ -16,7 +16,6 @@ import type {
   OpenCodeUsagePersistedState,
   OpenCodeUsageSession
 } from './types'
-import { openCodeUsageProvider } from './opencode-usage-provider'
 import { getDefaultState, normalizePersistedState } from './persisted-state-normalization'
 import {
   filterDailyAggregatesByScopeAndRange,
@@ -29,7 +28,10 @@ import {
   buildOpenCodeUsageSummary
 } from './snapshot-rollups'
 import { UsageProviderStoreLifecycle } from '../usage/provider-lifecycle/usage-provider-store-lifecycle'
-import { splitUsageCacheFileViaWorker } from '../usage/scan-worker/usage-scan-worker-spawn'
+import {
+  scanOpenCodeUsageDatabasesViaWorker,
+  splitUsageCacheFileViaWorker
+} from '../usage/scan-worker/usage-scan-worker-spawn'
 
 export class OpenCodeUsageStore extends UsageProviderStoreLifecycle<
   'processedDatabases',
@@ -48,7 +50,11 @@ export class OpenCodeUsageStore extends UsageProviderStoreLifecycle<
       normalizeState: normalizePersistedState,
       sourceKey: 'processedDatabases',
       dataPresenceKey: 'hasAnyOpenCodeData',
-      scan: openCodeUsageProvider.scan,
+      scan: async (worktrees, sourceCache) => {
+        const accountDataDirs = await host.openCodeAccountDataDirs()
+        host.signal.throwIfAborted()
+        return scanOpenCodeUsageDatabasesViaWorker(worktrees, sourceCache, accountDataDirs)
+      },
       splitCacheFile: splitUsageCacheFileViaWorker
     })
   }
