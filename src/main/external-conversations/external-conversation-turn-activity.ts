@@ -33,7 +33,11 @@ type Told = { turnId: number; said: string; at: number; steps?: ConnectorTurnAct
 function stepsOf(list: NativeChatTaskList | null): ConnectorTurnActivityStep[] | undefined {
   const steps = list?.tasks
     .slice(0, CONNECTOR_TURN_ACTIVITY_LIMITS.maxActivitySteps)
-    .map((task) => ({ title: connectorTurnActivityStepTitle(task.content), status: task.status }))
+    .map((task) => ({
+      title: connectorTurnActivityStepTitle(task.content),
+      // Connectors know no cancelled step; a cancelled task is done with.
+      status: task.status === 'cancelled' ? ('completed' as const) : task.status
+    }))
   return steps?.length ? steps : undefined
 }
 

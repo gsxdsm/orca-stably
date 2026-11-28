@@ -172,7 +172,8 @@ const block = lazyZodSchema(() =>
           )
         })
         .optional(),
-      fullOutputItemId: text
+      fullOutputItemId: text,
+      subagent: z.object({ id: z.string(), state: z.string() }).optional()
     }),
     imageRefBlock,
     subagentGroupBlock,

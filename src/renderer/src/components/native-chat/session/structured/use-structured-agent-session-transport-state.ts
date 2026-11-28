@@ -86,6 +86,7 @@ export function useStructuredAgentSessionTransportState(
     actionablePromptIds,
     hostWork,
     subagentRoster,
+    taskList: enabled ? state.taskList : undefined,
     submissions,
     fence,
     turnId,

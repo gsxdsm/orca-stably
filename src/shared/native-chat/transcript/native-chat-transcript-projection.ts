@@ -9,6 +9,10 @@ import { automationRunCoversWaitEnded } from '../../automations/automation-run-m
 import type { WaitEnding } from '../../automation-once'
 import type { BotAutomationFacts } from '../../bots/bot-automation-rows'
 import { foldToolMessages } from '../tools/native-chat-tool-fold'
+import {
+  linkUnrecordedSubagentSpawns,
+  attachUnrecordedSpawnCards
+} from '../input/native-chat-unlinked-subagent-spawn'
 import { foldSubagentItems } from './subagents/native-chat-subagent-items'
 import {
   nativeChatTurnMembership,
@@ -114,7 +118,9 @@ export type NativeChatTranscriptProjection = {
 const NO_SUBAGENT_ROWS: ReadonlyMap<string, readonly NativeChatSubagentRow[]> = new Map()
 
 function projectRows(messages: readonly NativeChatMessage[]): NativeChatMessage[] {
-  return stripNoiseMessages(foldToolMessages(foldSubagentItems(messages)))
+  return attachUnrecordedSpawnCards(
+    linkUnrecordedSubagentSpawns(stripNoiseMessages(foldToolMessages(foldSubagentItems(messages))))
+  )
 }
 
 /** Whether a row takes part in foldAutomationRunCards; appending or revising one can change another. */

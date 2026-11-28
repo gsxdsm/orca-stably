@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the structured session hook keeps queue, card and catalog wiring in one place. */
 import { useMobileStructuredAsyncQuestions } from './use-mobile-structured-async-questions'
 import { useMobileUnresolvedFailureRows } from '../status/use-mobile-unresolved-failure-rows'
 import { structuredChatTranscriptIdentity } from '../transcript/persistence/mobile-native-chat-transcript-store'
@@ -264,6 +265,7 @@ export function useMobileStructuredAgentSession(
     session: {
       itemNavigation: savedAt === null ? linked.navigation : null,
       messages,
+      taskList: state.taskList,
       status,
       // A stored copy can't answer "is this ask still open?" until a live frame confirms it.
       transcriptLoading: status === 'loading' || savedAt !== null,

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the overlay wires the fork activity bar and upstream composer surfaces together. */
 import type { ChatAccountSignIn } from '../../accounts/sign-in/use-chat-account-sign-in'
 import { slackPeopleOf } from '../../../../src/shared/connectors/slack-mention-tokens'
 import { MobileQueuedMessageComposerContext } from './input/queued-messages/mobile-queued-message-composer-context'
@@ -6,7 +7,6 @@ import { Activity, useCallback, useLayoutEffect, useMemo, useRef, useState } fro
 import { StyleSheet, View } from 'react-native'
 import { MobileNativeChatView, type MobileNativeChatInputLockReason } from './MobileNativeChatView'
 import { useMobileNativeChatProjection } from './transcript/projection/use-mobile-native-chat-projection'
-import { nativeChatDockedTaskList } from '../../../../src/shared/native-chat/input/task-lists/native-chat-task-list-state'
 import type { MobileNativeChatImageAttachments } from './composer/attachments/use-mobile-native-chat-image-attachments'
 import type { MobileNativeChatController } from './mobile-native-chat-controller-contract'
 import { useMobileNativeChatFiles } from './links/use-mobile-native-chat-files'
@@ -146,7 +146,6 @@ function MobileNativeChatOverlayContent({
     ],
     controller.nativeChatShowsCiResultLines
   )
-  const taskList = useMemo(() => nativeChatDockedTaskList(folded), [folded])
   const streaming = controller.nativeChatStreamingText ?? null
   const queued = controller.nativeChatQueued
   const composerTray = useMobileNativeChatComposerTray({
@@ -169,7 +168,6 @@ function MobileNativeChatOverlayContent({
       agentMail: queued.agentMail,
       agentMailEditable: queued.agentMailEditable
     },
-    taskList,
     backgroundTasks: controller.nativeChatBackgroundTasks,
     workerDock: controller.nativeChatWorkerDock,
     workerApprovals: controller.nativeChatWorkerApprovals.open
@@ -289,6 +287,9 @@ function MobileNativeChatOverlayContent({
                       itemNavigation={session.itemNavigation}
                       messages={session.messages}
                       folded={folded}
+                      taskList={session.taskList}
+                      subagentSeed={session.subagentSeed}
+                      readSubagentPage={session.readSubagentPage}
                       status={session.status}
                       error={session.error}
                       readFailedFinally={session.readFailedFinally === true}
@@ -406,6 +407,4 @@ function MobileNativeChatOverlayContent({
   )
 }
 
-const styles = StyleSheet.create({
-  overlay: StyleSheet.absoluteFill
-})
+const styles = StyleSheet.create({ overlay: StyleSheet.absoluteFill })

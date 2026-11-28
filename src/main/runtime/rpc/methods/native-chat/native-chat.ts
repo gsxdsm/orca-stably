@@ -1,76 +1,34 @@
 import type { NativeChatMessage } from '../../../../../shared/native-chat/native-chat-types'
+import {
+  MOBILE_NATIVE_CHAT_DEFAULT_WINDOW,
+  isDatabaseTranscript,
+  pageForClient
+} from './native-chat-rpc-client-page'
 import { NATIVE_CHAT_TERMINAL_QUEUE_METHODS } from './native-chat-terminal-queue'
 import { recordMobileViewOpened } from '../../../../telemetry/mobile-client-telemetry'
-import type {
-  NativeChatTranscriptFrame,
-  NativeChatTranscriptPage
-} from '../../../../../shared/native-chat/transcript/streaming/native-chat-transcript-frames'
+import type { NativeChatTranscriptFrame } from '../../../../../shared/native-chat/transcript/streaming/native-chat-transcript-frames'
 import { resolveNativeChatTranscriptAgent } from '../../../../../shared/native-chat/native-chat-agent-support'
-import { subscribeNativeChatTranscript } from '../../../../native-chat/transcript-watch'
-import { readNativeChatTranscriptTail } from '../../../../native-chat/transcript-tail-reader'
+import {
+  readNativeChatTranscriptTail,
+  subscribeNativeChatTranscript
+} from '../../../../native-chat/transcript-watch'
 import type {
   NativeChatTranscriptSubscription,
   SubscribeNativeChatTranscriptArgs
 } from '../../../../native-chat/transcript-watching/transcript-watch-contract'
 import { nativeChatTranscriptPathOnExecutionHost } from '../../../../native-chat/transcript-filesystem/ssh-transcript-path'
-import { defineMethod, defineStreamingMethod, type RpcContext } from '../../core'
-import { sanitizeNativeChatRpcBlock } from './native-chat-rpc-block-sanitize'
+import { defineMethod, defineStreamingMethod } from '../../core'
 import {
-  boundNativeChatRpcPageByBytes,
-  nativeChatRpcAppendBatches
-} from './native-chat-rpc-page-bounds'
+  publishTranscriptTaskList,
+  scanNativeChatTranscriptTasks
+} from '../../../../native-chat/native-chat-transcript-task-scan'
+import { sanitizeNativeChatRpcMessages } from './native-chat-rpc-block-sanitize'
+import { nativeChatRpcAppendBatches } from './native-chat-rpc-page-bounds'
 import {
-  MOBILE_NATIVE_CHAT_MAX_WINDOW,
   NativeChatSession,
   NativeChatUnsubscribe,
   type NativeChatResumePoint
 } from '../../../../../shared/rpc-contract/native-chat/native-chat-params'
-
-// Default to a small transcript tail for fast paired-client paint; clients page older history, while local IPC stays virtualized.
-const MOBILE_NATIVE_CHAT_DEFAULT_WINDOW = 40
-
-function sanitizeMessage(
-  message: NativeChatMessage,
-  clientKind: RpcContext['clientKind']
-): NativeChatMessage {
-  return {
-    ...message,
-    blocks: message.blocks.map((block) => sanitizeNativeChatRpcBlock(block, clientKind))
-  }
-}
-
-function sanitizeAppendForClient(
-  messages: readonly NativeChatMessage[],
-  clientKind: RpcContext['clientKind']
-): NativeChatMessage[] {
-  return messages.map((message) => sanitizeMessage(message, clientKind))
-}
-
-/** Window every RPC client by message count; apply mobile-only character clipping separately. */
-function windowTranscript(
-  messages: readonly NativeChatMessage[],
-  limit = MOBILE_NATIVE_CHAT_DEFAULT_WINDOW
-): NativeChatMessage[] {
-  const window = Math.min(Math.max(limit, 1), MOBILE_NATIVE_CHAT_MAX_WINDOW)
-  return messages.length > window ? messages.slice(-window) : messages.slice()
-}
-
-function pageForClient(
-  messages: readonly NativeChatMessage[],
-  hasMore: boolean,
-  beforeOffset: number,
-  clientKind: RpcContext['clientKind'],
-  limit = MOBILE_NATIVE_CHAT_DEFAULT_WINDOW,
-  agent?: string
-): NativeChatTranscriptPage {
-  const isOpenCode = resolveNativeChatTranscriptAgent(agent) === 'opencode'
-  const sanitized = (isOpenCode ? messages : windowTranscript(messages, limit)).map((message) =>
-    sanitizeMessage(message, clientKind)
-  )
-  return isOpenCode
-    ? boundNativeChatRpcPageByBytes(sanitized, hasMore, beforeOffset)
-    : { messages: sanitized, hasMore, beforeOffset }
-}
 
 /** Where the first page starts for a client holding `resumeAfter`; its offset and timestamp catch a rewritten file. */
 function resumeIndex(
@@ -98,21 +56,31 @@ export const NATIVE_CHAT_METHODS = [
     params: NativeChatSession,
     handler: async (params, { runtime, clientKind, signal }) => {
       const limit = params.limit ?? MOBILE_NATIVE_CHAT_DEFAULT_WINDOW
+      const transcriptPath = nativeChatTranscriptPathOnExecutionHost(
+        runtime.getAgentProviderSessionRows(),
+        params.sessionId,
+        params.transcriptPath
+      )
       const result = await readNativeChatTranscriptTail(
         {
           agent: params.agent,
           sessionId: params.sessionId,
-          transcriptPath: nativeChatTranscriptPathOnExecutionHost(
-            runtime.getAgentProviderSessionRows(),
-            params.sessionId,
-            params.transcriptPath
-          ),
+          transcriptPath,
           limit,
           beforeOffset: params.beforeOffset,
-          sourceOrder: params.capabilities?.transcriptSourceOrder === 1
+          sourceOrder: params.capabilities?.transcriptSourceOrder === 1,
+          ...(params.subagentId ? { subagentId: params.subagentId } : {})
         },
         signal
       )
+      const taskList =
+        params.subagentId || params.capabilities?.taskList !== 1
+          ? null
+          : await scanNativeChatTranscriptTasks(
+              params.agent,
+              params.sessionId,
+              transcriptPath
+            ).catch(() => null)
       return 'messages' in result
         ? {
             ...pageForClient(
@@ -123,7 +91,8 @@ export const NATIVE_CHAT_METHODS = [
               limit,
               params.agent
             ),
-            ...(result.lifecycle ? { lifecycle: result.lifecycle } : {})
+            ...(result.lifecycle ? { lifecycle: result.lifecycle } : {}),
+            ...(taskList ? { taskList } : {})
           }
         : result
     }
@@ -170,14 +139,34 @@ export const NATIVE_CHAT_METHODS = [
       if (closed) {
         return
       }
+      const transcriptPath = nativeChatTranscriptPathOnExecutionHost(
+        runtime.getAgentProviderSessionRows(),
+        params.sessionId,
+        params.transcriptPath
+      )
+      let taskScan = 0
+      const publishTasks = (): void => {
+        if (params.capabilities?.taskList !== 1) {
+          return
+        }
+        const scan = ++taskScan
+        publishTranscriptTaskList({
+          agent: params.agent,
+          sessionId: params.sessionId,
+          filePath: transcriptPath,
+          stillCurrent: () => !closed && scan === taskScan,
+          emit: (seed) =>
+            emit({
+              type: 'task-list',
+              taskList: seed.taskList,
+              ...(seed.subagents ? { subagents: seed.subagents } : {})
+            })
+        })
+      }
       const subscribeArgs: SubscribeNativeChatTranscriptArgs = {
         agent: params.agent,
         sessionId: params.sessionId,
-        transcriptPath: nativeChatTranscriptPathOnExecutionHost(
-          runtime.getAgentProviderSessionRows(),
-          params.sessionId,
-          params.transcriptPath
-        ),
+        transcriptPath,
         initialLimit: limit,
         sourceOrder: params.capabilities?.transcriptSourceOrder === 1,
         onInitialSnapshot: (messages, hasMore, beforeOffset, error, lifecycle) => {
@@ -201,6 +190,9 @@ export const NATIVE_CHAT_METHODS = [
             ...(error ? { error } : {}),
             ...(lifecycle ? { lifecycle } : {})
           })
+          if (!error) {
+            publishTasks()
+          }
         },
         ...(params.capabilities?.transcriptPending === 1
           ? {
@@ -220,14 +212,15 @@ export const NATIVE_CHAT_METHODS = [
             ...pageForClient(messages, hasMore, beforeOffset, clientKind, limit, params.agent),
             ...(lifecycle ? { lifecycle } : {})
           })
+          publishTasks()
         },
         onAppend: (messages, lifecycle) => {
           if (closed) {
             return
           }
-          const sanitized = sanitizeAppendForClient(messages, clientKind)
+          const sanitized = sanitizeNativeChatRpcMessages(messages, clientKind)
           const batches =
-            sanitized.length > 0 && resolveNativeChatTranscriptAgent(params.agent) === 'opencode'
+            sanitized.length > 0 && isDatabaseTranscript(params.agent)
               ? nativeChatRpcAppendBatches(sanitized)
               : [sanitized]
           for (const batch of batches) {

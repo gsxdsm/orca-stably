@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Text, View } from 'react-native'
+import { Pressable, Text, View } from 'react-native'
 import { Bot } from 'lucide-react-native'
 import {
   formatSubagentTokens,
@@ -27,6 +27,7 @@ import { themedStyleSheet, useThemedStyles } from '../../../../theme/themed-styl
 import { useMobileColors } from '../../../../theme/use-mobile-color-scheme'
 import { MobileNativeChatEventName, MobileNativeChatEventRow } from './MobileNativeChatEventRow'
 import { scaledType } from './mobile-native-chat-message-styles'
+import { useMobileNativeChatOpenSubagent } from '../../input/mobile-native-chat-open-subagent'
 
 /** What it is doing or said, then its role, where it runs and its tokens; null when it has none. */
 function subagentDetails(
@@ -127,6 +128,8 @@ export function MobileNativeChatSubagentGroup({
 }): React.JSX.Element | null {
   const colors = useMobileColors()
   const styles = useThemedStyles(stylesSheet)
+  const onOpenSubagent = useMobileNativeChatOpenSubagent()
+  // `t` changes identity with the reader's language, so the words follow it.
   const t = useMobileTranslation()
   const header = useMemo(
     () => nativeChatSubagentGroupHeader(block.agents, mobileNativeChatSubagentGroupSay(t)),
@@ -137,9 +140,25 @@ export function MobileNativeChatSubagentGroup({
   }
   const rows = (
     <View testID="subagent-group" style={styles.group}>
-      {block.agents.map((agent) => (
-        <SubagentRow key={agent.id} agent={agent} groupId={block.groupId} fontScale={fontScale} />
-      ))}
+      {block.agents.map((agent) =>
+        onOpenSubagent ? (
+          <Pressable
+            key={agent.id}
+            testID="native-chat-open-subagent"
+            accessibilityRole="button"
+            accessibilityLabel={t('chat.activity.openSubagent', 'Open {{name}}', {
+              name: agent.label
+            })}
+            hitSlop={6}
+            style={({ pressed }) => pressed && styles.pressed}
+            onPress={() => onOpenSubagent(agent.id)}
+          >
+            <SubagentRow agent={agent} groupId={block.groupId} fontScale={fontScale} />
+          </Pressable>
+        ) : (
+          <SubagentRow key={agent.id} agent={agent} groupId={block.groupId} fontScale={fontScale} />
+        )
+      )}
     </View>
   )
   if (header.total === 1) {
@@ -175,6 +194,7 @@ export function MobileNativeChatSubagentGroup({
 
 const stylesSheet = themedStyleSheet((colors) => ({
   group: { gap: spacing.xs },
+  pressed: { opacity: 0.6 },
   text: { color: colors.textPrimary },
   facts: { color: colors.textMuted }
 }))

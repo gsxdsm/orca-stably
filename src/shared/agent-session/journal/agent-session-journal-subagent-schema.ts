@@ -14,6 +14,7 @@ export const SubagentEntry = lazyZodSchema(() =>
     model: z.string().optional(),
     effort: z.string().optional(),
     operation: z.object({ toolName: z.string(), input: z.string().optional() }).optional(),
-    lastMessage: z.string().optional()
+    lastMessage: z.string().optional(),
+    activity: z.string().optional()
   })
 )

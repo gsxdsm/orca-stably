@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the agent-session wire types stay in one file so host and phone share one contract. */
 import type { AgentSessionForkNaming } from './conversation-naming/agent-session-fork-name'
 import type { AgentSessionUnavailable } from './failures/agent-session-availability'
 import type { AgentSessionFrameFields } from './view/live-read/agent-session-frame-fields'
@@ -29,6 +30,7 @@ import type { AgentTurnOutcome } from '../agent-status/lifecycle/agent-turn-outc
 import type { AgentSessionRecord } from './lifecycle/agent-session-record'
 import type { AgentProviderSessionMetadata } from './lifecycle/agent-session-resume'
 import type { NativeChatSubagentEntry } from '../native-chat/native-chat-types'
+import type { NativeChatTaskSeedList } from '../native-chat/input/native-chat-claude-task-updates'
 import type { AgentSessionStatusPermissionFields } from './options/permissions/agent-session-status-permission-fields'
 import type { StructuredAgentSessionProjectedStatus } from './view/structured-agent-session-projection'
 
@@ -117,6 +119,8 @@ export type AgentSessionHistoryPage = {
   subagentRoster?: AgentSessionSubagentRosterEntry[]
   /** As of the page's read; a client applies it only from a page that replaces its state. */
   latestTurn?: AgentSessionLatestTurn | null
+  /** Tasks from the whole journal. Absent on older hosts and when the session has none. */
+  taskList?: NativeChatTaskSeedList
 } & AgentSessionCurrentWorkFields
 
 export type AgentSessionHistoryResult =

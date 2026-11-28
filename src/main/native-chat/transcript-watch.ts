@@ -22,6 +22,8 @@ import {
 } from './transcript-filesystem/wsl-transcript-fs-error'
 import { observeRunningWslDistros } from './transcript-filesystem/wsl-transcript-running-observer'
 
+export { readNativeChatTranscriptTail } from './transcript-live-tail'
+
 /** Unresolved files retry; native watch failure still permits reconciliation-only mode. */
 async function attemptInstall(
   args: SubscribeNativeChatTranscriptArgs,

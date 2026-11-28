@@ -21566,6 +21566,8 @@
         "showAll": "Full task list",
         "progress_one": "{{completed}} of {{count}} task completed",
         "progress_other": "{{completed}} of {{count}} tasks completed",
+        "cancelled": "Cancelled",
+        "cancelledTask": "Cancelled {{task}}",
         "progress": "{{completed}} of {{total}} tasks completed"
       },
       "turnDiff": {
@@ -23235,6 +23237,9 @@
         "sampleCall": "Sample call",
         "sampleNote": "Starts a real run",
         "send": "Send"
+      },
+      "activity": {
+        "openSubagent": "Open {{name}}"
       }
     },
     "tab": {
