@@ -106,8 +106,10 @@ export function RailBotItemsSheet({
     opened: visible
   })
 
-  const openChat = (item: BotItem): void =>
-    openers.openChat(ownerOf.get(item.uid), item.chat.id, item.chat.kind === 'home')
+  const openChat = (item: BotItem): void => {
+    const target = rememberedRailTarget(item.uid, ownerOf, targets, targetKeyByUid.current)
+    openers.openChat(target ?? undefined, item.chat.id, item.chat.kind === 'home')
+  }
 
   const showOwners = targets.length > 1
   const askTargets = new Map(asks.map(({ ask, target }) => [ask.key, target]))
@@ -176,10 +178,17 @@ export function RailBotItemsSheet({
               : undefined
           }
           onPress={() => {
-            if (owner) {
-              targetKeyByUid.current.set(item.uid, owner.key)
+            const section = botItemWalkOf(groups, groups.closed.length, item.uid)
+            // Next can land on a neighbor a refresh has already dropped from the loaded page.
+            if (section) {
+              for (const uid of section.uids) {
+                const walkOwner = ownerOf.get(uid)
+                if (walkOwner) {
+                  targetKeyByUid.current.set(uid, walkOwner.key)
+                }
+              }
             }
-            walk.open(item, botItemWalkOf(groups, groups.closed.length, item.uid))
+            walk.open(item, section)
           }}
           onLongPress={() => setSheet({ kind: 'row', item })}
         />
@@ -339,7 +348,9 @@ export function RailBotItemsSheet({
         showToast={showToast}
         onBack={pager.close}
         setSheet={setSheet}
-        onOpenChat={openChat}
+        onOpenChat={(chatItem) =>
+          openers.openChat(itemTarget, chatItem.chat.id, chatItem.chat.kind === 'home')
+        }
         onClose={onClose}
         onCommentBoxHeight={setBoxHeight}
         onOpenWorker={(worker) => {
