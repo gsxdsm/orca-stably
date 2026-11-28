@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { toast } from 'sonner'
+import { createSharedChunkLoad } from '@/app-shell/startup/shared-chunk-load'
 import {
   localNativeChatRestartStore,
   useLocalRestartOffersEnabled,
@@ -8,7 +9,6 @@ import {
 } from '../offers/native-chat-resume-on-restart-store'
 import type { NativeChatRestartStore } from '../offers/native-chat-restart-runtime-store'
 import { useNativeChatRestartRuntimes } from '../offers/native-chat-restart-runtimes'
-import { createSharedChunkLoad } from './shared-chunk-load'
 
 // Why load before issuing: the toaster sizes a toast from its first render, and a Suspense fallback
 // measures 0px, which drops the hovered card below its anchor and makes it jump.
