@@ -25,7 +25,8 @@ export type NativeChatTextSettings = {
   lineSpacing: NativeChatLineSpacing
 }
 
-export const NATIVE_CHAT_TEXT_SIZE_MIN = 11
+// Half the chat's base size, so a pinch can shrink it as far as the terminal's smallest scale.
+export const NATIVE_CHAT_TEXT_SIZE_MIN = 7
 export const NATIVE_CHAT_TEXT_SIZE_MAX = 24
 const BASE_TEXT_SIZE = 14
 const DEFAULT_FONT: NativeChatFont = 'system'

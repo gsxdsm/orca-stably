@@ -95,7 +95,8 @@ export function useNativeChatSurface({
   const active = isVisible && isFocusedGroup
   const keybindings = useAppStore((state) => state.keybindings)
   const appearance = useNativeChatStoreAppearanceStyle()
-  useNativeChatFontSize(conversationShown && active, rootRef)
+  // A trackpad pinch resizes the chat under the pointer even when its group is not focused.
+  useNativeChatFontSize(isFocusedGroup, rootRef, conversationShown, isVisible)
   const find = useNativeChatFind(active, rootRef, composerRef, transcriptRef)
   const { onLinkClick, linkActionRequest, requestLinkActions, closeLinkActions } =
     useNativeChatLinkActions(fileLinkContext, rootRef, { sessionId, isVisible })
