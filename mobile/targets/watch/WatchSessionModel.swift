@@ -18,6 +18,7 @@ final class WatchSessionModel: ObservableObject {
   let screenshot: Bool
 
   private let cache: WatchSnapshotCache
+  private let writesCache: Bool
   private let send: (WatchCommand) async -> WatchReply
   private let nextId: () -> String
   private var phone: PhoneWatchTransport?
@@ -36,6 +37,7 @@ final class WatchSessionModel: ObservableObject {
     self.phase = launch.phase
     self.outcome = launch.outcome
     self.cache = cache
+    self.writesCache = !launch.screenshot && !launch.useMock
     self.send = send
     self.nextId = nextId
     self.selectedKey = snapshot?.sessions.first { $0.pendingPromptId != nil }?.key
@@ -48,8 +50,7 @@ final class WatchSessionModel: ObservableObject {
       self.now = Date()
     }
     if let snapshot {
-      cache.write(snapshot)
-      WidgetCenter.shared.reloadTimelines(ofKind: "OrcaNeedsInput")
+      persist(snapshot)
     }
   }
 
@@ -136,8 +137,14 @@ final class WatchSessionModel: ObservableObject {
     if !screenshot {
       now = Date()
     }
-    cache.write(snapshot)
-    WidgetCenter.shared.reloadTimelines(ofKind: "OrcaNeedsInput")
+    persist(snapshot)
+  }
+
+  private func persist(_ snapshot: WatchSnapshot) {
+    guard writesCache else { return }
+    for kind in cache.write(snapshot) {
+      WidgetCenter.shared.reloadTimelines(ofKind: kind)
+    }
   }
 
   func refresh() {
@@ -230,8 +237,7 @@ final class WatchSessionModel: ObservableObject {
     } else if let current = snapshot {
       let next = WatchActions.apply(snapshot: current, reply: reply, command: command)
       snapshot = next
-      cache.write(next)
-      WidgetCenter.shared.reloadTimelines(ofKind: "OrcaNeedsInput")
+      persist(next)
     }
     if command.type == "send" {
       draft = ""

@@ -1,15 +1,24 @@
+import { chatPaneKey } from '../../../src/shared/agent-session/view/structured-agent-session-projection'
 import type {
+  WatchBot,
   WatchFeedItem,
   WatchHost,
+  WatchNeed,
   WatchPrompt,
   WatchSession,
-  WatchSnapshot
+  WatchSnapshot,
+  WatchUsage
 } from './watch-contract'
+
+import { buildWatchNeeds } from './watch-needs'
 
 export const WATCH_SNAPSHOT_BYTE_LIMIT = 60 * 1024
 const LATEST_LIMIT = 280
 const DETAIL_LIMIT = 300
 const FEED_LIMIT = 20
+const BOTS_LIMIT = 40
+const NEEDS_LIMIT = 80
+const USAGE_LIMIT = 32
 
 const STATUS_RANK: Record<WatchSession['status'], number> = {
   'needs-input': 0,
@@ -58,6 +67,9 @@ export type WatchSnapshotInput = {
   terminals: ReadonlyArray<WatchSnapshotTerminal>
   prompts: ReadonlyArray<WatchPrompt>
   feed: ReadonlyArray<WatchFeedItem>
+  bots?: ReadonlyArray<WatchBot>
+  needsYou?: ReadonlyArray<WatchNeed>
+  usage?: ReadonlyArray<WatchUsage>
 }
 
 export function watchSessionKey(hostId: string, kind: 'chat' | 'term', id: string): string {
@@ -84,7 +96,12 @@ function clip(value: string | undefined, limit: number): string | undefined {
   if (!trimmed) {
     return undefined
   }
-  return trimmed.length <= limit ? trimmed : trimmed.slice(0, limit)
+  if (trimmed.length <= limit) {
+    return trimmed
+  }
+  // A UTF-16 slice must not turn a supplementary character into invalid Swift JSON.
+  const last = trimmed.charCodeAt(limit - 1)
+  return trimmed.slice(0, last >= 0xd800 && last <= 0xdbff ? limit - 1 : limit)
 }
 
 function firstText(values: Array<string | undefined>, fallback: string): string {
@@ -104,16 +121,6 @@ function compareSessions(a: WatchSession, b: WatchSession): number {
 
 function jsonBytes(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value)).length
-}
-
-function dropLastStatus(sessions: WatchSession[], status: WatchSession['status']): boolean {
-  for (let index = sessions.length - 1; index >= 0; index -= 1) {
-    if (sessions[index]?.status === status) {
-      sessions.splice(index, 1)
-      return true
-    }
-  }
-  return false
 }
 
 export function buildWatchSnapshot(input: WatchSnapshotInput): WatchSnapshot {
@@ -224,53 +231,80 @@ export function buildWatchSnapshot(input: WatchSnapshotInput): WatchSnapshot {
     }
   })
 
-  const assemble = (): WatchSnapshot => ({
+  const bots = input.bots
+    ?.slice()
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, BOTS_LIMIT)
+    .map((row) => ({ ...row, name: clip(row.name, 100) ?? 'Bot' }))
+  const paneAliases = new Map(
+    input.chats.map(({ hostId, sessionId }) => [
+      watchSessionKey(hostId, 'term', chatPaneKey(sessionId)),
+      watchSessionKey(hostId, 'chat', sessionId)
+    ])
+  )
+  const needsYou =
+    input.needsYou &&
+    buildWatchNeeds(
+      input.needsYou.map((row) => {
+        const alias = row.sessionKey && paneAliases.get(row.sessionKey)
+        return alias ? { ...row, sessionKey: alias } : row
+      }),
+      sessions,
+      visiblePrompts
+    )
+      .slice(0, NEEDS_LIMIT)
+      .map((row) => ({ ...row, title: clip(row.title, 160) ?? 'Needs you' }))
+  const usage = input.usage
+    ?.slice()
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, USAGE_LIMIT)
+  const snapshot: WatchSnapshot = {
     v: 1,
     generatedAt: input.now,
     hosts,
     sessions,
     prompts: visiblePrompts,
-    feed
-  })
-
-  let snapshot = assemble()
-  let guard = 0
-  while (jsonBytes(snapshot) >= WATCH_SNAPSHOT_BYTE_LIMIT && guard < 10_000) {
-    guard += 1
-    if (dropLastStatus(sessions, 'done') || dropLastStatus(sessions, 'idle')) {
-      snapshot = assemble()
-      continue
-    }
-    if (feed.length > 0) {
-      feed.pop()
-      snapshot = assemble()
-      continue
-    }
-    if (dropLastStatus(sessions, 'working') || clearOldestLatest(sessions)) {
-      snapshot = assemble()
-      continue
-    }
-    if (dropLastStatus(sessions, 'needs-input')) {
-      snapshot = assemble()
-      continue
-    }
-    if (visiblePrompts.length > 0) {
-      visiblePrompts.pop()
-      snapshot = assemble()
-      continue
-    }
-    break
+    feed,
+    bots,
+    needsYou,
+    usage
   }
-  return snapshot
-}
-
-function clearOldestLatest(sessions: WatchSession[]): boolean {
-  for (let index = sessions.length - 1; index >= 0; index -= 1) {
+  let bytes = jsonBytes(snapshot)
+  const overBudget = () => bytes >= WATCH_SNAPSHOT_BYTE_LIMIT
+  function trim<T>(rows: T[], keep: (row: T) => boolean = () => false) {
+    while (overBudget() && rows.length > 0) {
+      const row = rows[rows.length - 1]!
+      if (keep(row)) {
+        break
+      }
+      rows.pop()
+      bytes -= jsonBytes(row) + Number(rows.length > 0)
+    }
+  }
+  trim(sessions, (row) => row.status !== 'done' && row.status !== 'idle')
+  trim(feed)
+  trim(sessions, (row) => row.status !== 'working')
+  for (let index = sessions.length - 1; index >= 0 && overBudget(); index -= 1) {
     const session = sessions[index]
     if (session?.latest) {
+      bytes -= jsonBytes(session)
       delete session.latest
-      return true
+      bytes += jsonBytes(session)
     }
   }
-  return false
+  trim(bots ?? [])
+  trim(usage ?? [])
+  trim(needsYou ?? [])
+  trim(sessions)
+  trim(visiblePrompts)
+  trim(hosts)
+  if (needsYou) {
+    const sessionKeys = new Set(sessions.map((row) => row.key))
+    for (const need of needsYou) {
+      if (need.sessionKey && !sessionKeys.has(need.sessionKey)) {
+        delete need.sessionKey
+      }
+    }
+  }
+  return snapshot
 }

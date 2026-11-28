@@ -14,7 +14,7 @@ export const WATCH_PUSH_INTERVAL_MS = 2_000
 
 export type WatchGatewaySources = Pick<
   WatchSnapshotInput,
-  'chats' | 'terminals' | 'prompts' | 'feed'
+  'chats' | 'terminals' | 'prompts' | 'feed' | 'bots' | 'needsYou' | 'usage'
 >
 
 export type WatchSendOutcome = 'accepted' | 'queued' | 'rejected' | 'unavailable' | 'no-fence'
@@ -95,6 +95,9 @@ function commandId(raw: unknown): string {
 }
 
 function needsInputKey(snapshot: WatchSnapshot): string {
+  if (snapshot.needsYou) {
+    return JSON.stringify(snapshot.needsYou.map(({ hostId, key }) => [hostId, key]).sort())
+  }
   return snapshot.sessions
     .filter((session) => session.status === 'needs-input')
     .map((session) => session.key)
@@ -112,10 +115,7 @@ export function createWatchGatewayController(handlers: WatchGatewayHandlers) {
     return buildWatchSnapshot({
       now: handlers.now(),
       hosts: handlers.hosts(),
-      chats: sources.chats,
-      terminals: sources.terminals,
-      prompts: sources.prompts,
-      feed: sources.feed
+      ...sources
     })
   }
 

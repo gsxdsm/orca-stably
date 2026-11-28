@@ -1,6 +1,13 @@
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import { mobileStructuredSessionStatusFeed } from '../session/native-chat/agent-session/mobile-structured-session-status-feed'
-import type { WatchFeedItem, WatchHost, WatchReply, WatchSnapshot } from './watch-contract'
+import type {
+  WatchFeedItem,
+  WatchHost,
+  WatchReply,
+  WatchSnapshot,
+  WatchUsage
+} from './watch-contract'
+import { startWatchHostActivity, type WatchHostActivity } from './watch-host-activity'
 import { agentPromptRespond } from './watch-agent-prompt-operations'
 import { createWatchGatewayController, type WatchGatewayController } from './watch-gateway'
 import {
@@ -43,11 +50,19 @@ export function startWatchGateway(options: {
   const rows = new Map<string, WatchWorktreeRow[]>()
   const prompts = new Map<string, WatchStoredPrompt[]>()
   const feed: WatchFeedItem[] = []
+  const activity = new Map<string, WatchHostActivity>()
+  const usage = new Map<string, WatchUsage[]>()
   const stops = new Map<string, () => void>()
   let controller: WatchGatewayController
 
   function sources() {
-    return assembleWatchSources({ hosts: hosts.values(), rows, prompts, feed })
+    const entries = [...activity.values()]
+    return {
+      ...assembleWatchSources({ hosts: hosts.values(), rows, prompts, feed }),
+      bots: entries.flatMap((entry) => entry.bots),
+      needsYou: entries.flatMap((entry) => entry.needsYou),
+      usage: [...usage.values()].flat()
+    }
   }
 
   controller = createWatchGatewayController({
@@ -151,10 +166,24 @@ export function startWatchGateway(options: {
       }
     )
     const poll = setInterval(pump, 5_000)
+    const stopActivity = startWatchHostActivity({
+      client: host.client,
+      hostId: host.hostId,
+      now,
+      onActivity: (next) => {
+        activity.set(host.hostId, next)
+        controller.publish()
+      },
+      onUsage: (next) => {
+        usage.set(host.hostId, next)
+        controller.publish()
+      }
+    })
     pump()
     return () => {
       stopped = true
       clearInterval(poll)
+      stopActivity()
       stopStatus()
       stopNotes()
     }
@@ -184,6 +213,8 @@ export function startWatchGateway(options: {
           stops.get(host.hostId)?.()
           rows.delete(host.hostId)
           prompts.delete(host.hostId)
+          activity.delete(host.hostId)
+          usage.delete(host.hostId)
           stops.set(host.hostId, watchHost(host))
         } else if (previous.connection !== host.connection || previous.name !== host.name) {
           controller.publish()
@@ -196,6 +227,8 @@ export function startWatchGateway(options: {
           hosts.delete(hostId)
           rows.delete(hostId)
           prompts.delete(hostId)
+          activity.delete(hostId)
+          usage.delete(hostId)
         }
       }
       controller.publish()

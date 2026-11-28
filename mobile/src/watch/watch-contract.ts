@@ -62,13 +62,45 @@ export const watchFeedItemSchema = z.strictObject({
   kind: watchFeedKind
 })
 
+const watchTimestamp = z.int().nonnegative()
+
+export const watchBotSchema = z.strictObject({
+  hostId: watchId,
+  botId: watchId,
+  name: watchId,
+  status: watchId,
+  updatedAt: watchTimestamp
+})
+
+export const watchNeedSchema = z.strictObject({
+  hostId: watchId,
+  key: watchId,
+  title: watchId,
+  botId: watchId.optional(),
+  sessionKey: watchId.optional(),
+  promptId: watchId.optional(),
+  updatedAt: watchTimestamp
+})
+
+export const watchUsageSchema = z.strictObject({
+  hostId: watchId,
+  provider: watchId,
+  window: watchId,
+  usedPercent: z.number().min(0).max(100),
+  updatedAt: watchTimestamp,
+  resetsAt: watchTimestamp.optional()
+})
+
 export const watchSnapshotSchema = z.strictObject({
   v: z.literal(1),
   generatedAt: z.number(),
   hosts: z.array(watchHostSchema),
   sessions: z.array(watchSessionSchema),
   prompts: z.array(watchPromptSchema),
-  feed: z.array(watchFeedItemSchema)
+  feed: z.array(watchFeedItemSchema),
+  bots: z.array(watchBotSchema).optional(),
+  needsYou: z.array(watchNeedSchema).optional(),
+  usage: z.array(watchUsageSchema).optional()
 })
 
 const watchCommandBase = { v: z.literal(1), id: watchId }
@@ -115,6 +147,9 @@ export type WatchHost = z.infer<typeof watchHostSchema>
 export type WatchSession = z.infer<typeof watchSessionSchema>
 export type WatchPrompt = z.infer<typeof watchPromptSchema>
 export type WatchFeedItem = z.infer<typeof watchFeedItemSchema>
+export type WatchBot = z.infer<typeof watchBotSchema>
+export type WatchNeed = z.infer<typeof watchNeedSchema>
+export type WatchUsage = z.infer<typeof watchUsageSchema>
 export type WatchSnapshot = z.infer<typeof watchSnapshotSchema>
 export type WatchCommand = z.infer<typeof watchCommandSchema>
 export type WatchReply = z.infer<typeof watchReplySchema>
