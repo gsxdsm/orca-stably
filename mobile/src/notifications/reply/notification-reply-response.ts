@@ -147,6 +147,9 @@ async function deliver(
   const key = PREFIX + id
   // A duplicate delivery after process death must never submit the terminal text twice.
   if (await notificationReplyRecords.getItem(key)) {
+    await Notifications.dismissNotificationAsync(response.notification.request.identifier).catch(
+      () => {}
+    )
     return true
   }
   await notificationReplyRecords.setItem(
@@ -166,6 +169,10 @@ async function deliver(
     }
     await notificationReplyRecords.setItem(key, JSON.stringify(failed))
     await finishReplyFailure(key, id, failed)
+    // Dismiss the replied notification so Android RemoteInput stops spinning while the failure notice is shown.
+    await Notifications.dismissNotificationAsync(response.notification.request.identifier).catch(
+      () => {}
+    )
     return true
   }
   await notificationReplyRecords.setItem(key, JSON.stringify({ state: 'sent', at: Date.now() }))
