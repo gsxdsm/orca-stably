@@ -5,6 +5,7 @@ import {
   MESSAGE_TEXT_INSET
 } from '../components/composer-input/composer-input-styles'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
+import { useKeyboardPersistingTaps } from '../platform/keyboard/keyboard-persisting-taps'
 import { radii, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
 import { useMobileColors } from '../theme/use-mobile-color-scheme'
@@ -29,7 +30,7 @@ import {
 } from './composer-usage-meter-readout'
 import { useComposerUsagePosition } from './composer-usage-position-preference'
 import { useComposerUsageWindow } from './composer-usage-window-preference'
-import { ComposerUsageSheet } from './ComposerUsageSheet'
+import { useComposerUsageSheetOpener } from './ComposerUsageSheetHost'
 import { composerUsageWideMeterLayout } from './composer-usage-wide-meter'
 import { ComposerUsageTrack, TRACK_MIN_WIDTH } from './ComposerUsageTrack'
 import {
@@ -37,10 +38,11 @@ import {
   ComposerUsageWideMeasure,
   ComposerUsageWideMeter
 } from './ComposerUsageWideMeter'
-import { usagePaceColor } from './usage-pace-color'
+import { usageWindowPaceColor } from './usage-pace-color'
+import { useUsagePaceColorThresholds } from './usage-pace-color-preference'
 import { usageResetLabel } from './usage-reset-label'
 import { useResetCountdownNow } from './use-reset-countdown-now'
-import { computeUsagePace, usagePaceMarkerPercent } from './usage-window-pace'
+import { usagePaceMarkerPercent } from './usage-window-pace'
 
 type Props = {
   agent: string | null | undefined
@@ -74,6 +76,7 @@ function useComposerUsageReading(agent: string | null | undefined): Reading | nu
   const snapshot = useAccountsSnapshot(usageProviderForAgent(usageAgent) ? client : null)
   const choice = useComposerUsageWindow()
   const display = useComposerUsageDisplay()
+  const thresholds = useUsagePaceColorThresholds()
   const usage = selectAgentUsage(snapshot, usageAgent)
   const now = useResetCountdownNow(usage?.windows.flatMap((e) => e.window.resetsAt ?? []) ?? [])
   // A missing chosen window (no 5-hour limit on the plan) falls back to the one the provider reports.
@@ -90,7 +93,7 @@ function useComposerUsageReading(agent: string | null | undefined): Reading | nu
     usage,
     snapshot,
     readout,
-    color: usagePaceColor(computeUsagePace(entry.window, now), readout.used, colors),
+    color: usageWindowPaceColor(entry.window, now, thresholds, colors),
     paceMarkerPercent: usagePaceMarkerPercent(entry.window, now, display),
     length,
     resetsIn: usageResetLabel(entry.window, now),
@@ -150,8 +153,10 @@ export function ComposerUsageMeter({
 }): React.JSX.Element | null {
   const composerInputStyles = useThemedStyles(composerInputStylesSheet)
   const styles = useThemedStyles(stylesSheet)
+  // Keep focus in the composer field so the idle-collapsible pill does not unmount the bar mid-tap.
+  const keepsFocus = useKeyboardPersistingTaps('always')
   const reading = useComposerUsageReading(agent)
-  const [open, setOpen] = useState(false)
+  const sheet = useComposerUsageSheetOpener(reading?.usage ?? null, reading?.snapshot ?? null)
   // The labels' own widths, measured off the row, so a dropped label still reports its need.
   const [resetWidth, setResetWidth] = useState<number | null>(null)
   const [compactWidth, setCompactWidth] = useState<number | null>(null)
@@ -186,14 +191,15 @@ export function ComposerUsageMeter({
           readout={reading.readout}
           color={reading.color}
           paceMarkerPercent={reading.paceMarkerPercent}
-          onPress={() => setOpen(true)}
+          onPress={sheet.open}
         />
       ) : fit.meter ? (
         <Pressable
+          ref={keepsFocus}
           accessibilityRole="button"
           accessibilityLabel={reading.accessibilityLabel}
           hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-          onPress={() => setOpen(true)}
+          onPress={sheet.open}
           style={({ pressed }) => [styles.meter, pressed && composerInputStyles.pressed]}
           testID="composer-usage-meter"
         >
@@ -242,12 +248,7 @@ export function ComposerUsageMeter({
           onPercentWidth={setWidePercentWidth}
         />
       </View>
-      <ComposerUsageSheet
-        visible={open}
-        onClose={() => setOpen(false)}
-        usage={reading.usage}
-        snapshot={reading.snapshot}
-      />
+      {sheet.inlineSheet}
     </>
   )
 }
@@ -256,19 +257,21 @@ export function ComposerUsageMeter({
 export function ComposerUsageStrip({ agent }: Props): React.JSX.Element | null {
   const composerInputStyles = useThemedStyles(composerInputStylesSheet)
   const styles = useThemedStyles(stylesSheet)
+  const keepsFocus = useKeyboardPersistingTaps('always')
   const position = useComposerUsagePosition()
   const reading = useComposerUsageReading(agent)
-  const [open, setOpen] = useState(false)
+  const sheet = useComposerUsageSheetOpener(reading?.usage ?? null, reading?.snapshot ?? null)
   if (position !== 'above' || !reading) {
     return null
   }
   return (
     <>
       <Pressable
+        ref={keepsFocus}
         accessibilityRole="button"
         accessibilityLabel={reading.accessibilityLabel}
         hitSlop={4}
-        onPress={() => setOpen(true)}
+        onPress={sheet.open}
         style={({ pressed }) => [styles.strip, pressed && composerInputStyles.pressed]}
         testID="composer-usage-strip"
       >
@@ -280,12 +283,7 @@ export function ComposerUsageStrip({ agent }: Props): React.JSX.Element | null {
           {reading.percentLabel}
         </Text>
       </Pressable>
-      <ComposerUsageSheet
-        visible={open}
-        onClose={() => setOpen(false)}
-        usage={reading.usage}
-        snapshot={reading.snapshot}
-      />
+      {sheet.inlineSheet}
     </>
   )
 }

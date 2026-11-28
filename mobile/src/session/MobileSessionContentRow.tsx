@@ -16,6 +16,7 @@ import {
   ComposerUsageClientContext,
   ComposerUsageTabAgentContext
 } from '../composer-usage/composer-usage-client-context'
+import { ComposerUsageSheetHost } from '../composer-usage/ComposerUsageSheetHost'
 import { getMobileTerminalTabHostAgentIdentity } from './tabs/mobile-terminal-tab-agent'
 import {
   sideStripMargin,
@@ -85,13 +86,15 @@ export function MobileSessionContentRow({ controller }: { controller: MobileSess
         ) : null}
         <ComposerUsageClientContext.Provider value={connState === 'connected' ? client : null}>
           <ComposerUsageTabAgentContext.Provider value={tabAgent}>
-            <MobileDictationLiveContext.Provider value={dictationLive}>
-              <MobileSessionActiveContent controller={controller} />
-              {/* Why: translate instead of resize so keyboard toggles don't trigger a server-side PTY viewport change. */}
-              <View style={sideStripMargin(strip.main)}>
-                <MobileSessionCommandDock controller={controller} />
-              </View>
-            </MobileDictationLiveContext.Provider>
+            <ComposerUsageSheetHost>
+              <MobileDictationLiveContext.Provider value={dictationLive}>
+                <MobileSessionActiveContent controller={controller} />
+                {/* Why: translate instead of resize so keyboard toggles don't trigger a server-side PTY viewport change. */}
+                <View style={sideStripMargin(strip.main)}>
+                  <MobileSessionCommandDock controller={controller} />
+                </View>
+              </MobileDictationLiveContext.Provider>
+            </ComposerUsageSheetHost>
           </ComposerUsageTabAgentContext.Provider>
         </ComposerUsageClientContext.Provider>
       </View>

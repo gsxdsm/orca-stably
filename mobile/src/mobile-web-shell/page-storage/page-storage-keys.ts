@@ -35,7 +35,9 @@ export const TERMINAL_SETTINGS_STORAGE_KEYS = [
   /** Composer & rail usage meter window, display and position, so open chats follow Settings and the rail sheet. */
   'orca:composerUsageWindow',
   'orca:composerUsageDisplay',
-  'orca:composerUsagePosition'
+  'orca:composerUsagePosition',
+  /** Pace-based color thresholds for composer meters and the usage sheet. */
+  'orca:usagePaceColorThresholds'
 ] as const
 
 // Native Settings writes Chat UI after the page primes; a later refresh must copy it.
@@ -98,7 +100,9 @@ export const PAGE_STORAGE_EXACT_KEYS = [
   /** The New Tab sheet's Chat or CLI pick. */
   'orca:newAgentSurface',
   /** Whether usage bars show the percentage used or remaining. */
-  'orca:usagePercentageDisplay'
+  'orca:usagePercentageDisplay',
+  /** Green and yellow over-pace color thresholds for usage meters and rings. */
+  'orca:usagePaceColorThresholds'
 ] as const
 
 /**
@@ -117,7 +121,8 @@ export const NEGOTIATED_PAGE_STORAGE_KEYS = [
   'orca:nativeChatText',
   'orca:chatHardwareEnterToSend',
   'orca:newAgentSurface',
-  'orca:usagePercentageDisplay'
+  'orca:usagePercentageDisplay',
+  'orca:usagePaceColorThresholds'
 ] as const
 
 /** Whether a page that declared `storageKeys` (null: declared nothing) reads this key in `init`. */

@@ -1,42 +1,18 @@
 import { View, Text, ActivityIndicator, type StyleProp, type ViewStyle } from 'react-native'
-import { getMobilePalette, spacing, typography, type MobilePalette } from '../../theme/mobile-theme'
+import { spacing, typography } from '../../theme/mobile-theme'
 import { themedStyleSheet, useThemedStyles } from '../../theme/themed-styles'
 import { useMobileColors } from '../../theme/use-mobile-color-scheme'
 
-import {
-  clampUsedPercent,
-  getDisplayedUsagePercentage,
-  type UsagePercentageDisplay
-} from '../../../../src/shared/agent-usage/display/usage-percentage-display'
+import type { UsagePercentageDisplay } from '../../../../src/shared/agent-usage/display/usage-percentage-display'
+import { usageBandColor, usageBarFill } from './usage-band-color'
 import { useUsagePercentageDisplay } from './usage-percentage-display-preference'
 import type { Translate } from '../../i18n/mobile-i18n'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
 import { UsagePaceTick } from './UsagePaceTick'
 
-/** A meter's fill: the shown percent (used or left) and its consumption colour, shared by every usage meter. */
-export function usageBarFill(
-  usedPercent: number | null,
-  unavailable: boolean,
-  display: UsagePercentageDisplay,
-  colors: MobilePalette
-): { shown: number | null; color: string } {
-  // Why: round then clamp so bar width, color, and label share one value (desktop parity).
-  const used = usedPercent == null ? null : clampUsedPercent(usedPercent)
-  // Why: same consumption bands as desktop barColor (green <60, amber <80, red ≥80).
-  const color =
-    unavailable || used == null
-      ? colors.textMuted
-      : used >= 80
-        ? colors.statusRed
-        : used >= 60
-          ? colors.statusAmber
-          : colors.statusGreen
-  // Colour follows consumption either way, so a nearly empty remainder stays red (desktop parity).
-  return {
-    shown: usedPercent == null ? null : getDisplayedUsagePercentage(usedPercent, display),
-    color
-  }
-}
+import './usage-selectors'
+
+export { usageBandColor, usageBarFill }
 
 /** "34%" when counting used, "66% left" when counting what remains, so a bare number stays unambiguous. */
 export function formatUsageBarValue(
@@ -50,17 +26,6 @@ export function formatUsageBarValue(
   return display === 'remaining'
     ? t('accounts.usage.percentLeft', '{{value}}% left', { value: shown })
     : `${shown}%`
-}
-
-// Fork meters (composer, server resources) color a percent without drawing a bar.
-export function usageBandColor(
-  usedPercent: number | null,
-  colors: MobilePalette = getMobilePalette()
-): string {
-  if (usedPercent == null || !Number.isFinite(usedPercent)) {
-    return colors.textMuted
-  }
-  return usageBarFill(usedPercent, false, 'used', colors).color
 }
 
 // Match desktop/harness consumption meters: fresh empty/green, depleted full/red.
