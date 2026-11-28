@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native'
 import type { UsageHistorySample } from '../../../src/shared/agent-usage/rate-limits/usage-window-history'
 import { formatResetDuration } from '../../../src/shared/agent-usage/rate-limits/rate-limit-reset-format'
-import { usageBandColor, UsageBar } from '../accounts/usage/UsageBar'
+import { UsageBar } from '../accounts/usage/UsageBar'
 import type { Translate } from '../i18n/mobile-i18n'
 import { getUiIntlLocale } from '../i18n/ui-intl-locale'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
@@ -10,6 +10,7 @@ import { themedStyleSheet } from '../theme/themed-styles'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { formatUsageWindowLength, type UsageWindowEntry } from './agent-usage-provider'
 import { useComposerUsageDisplay } from './composer-usage-display-preference'
+import { usagePaceColor } from './usage-pace-color'
 import { computeUsagePace, usagePaceMarkerPercent, type UsagePace } from './usage-window-pace'
 import { buildUsageChartModel, computeUsageWindowStats } from './usage-window-stats'
 import { UsageHistoryChart } from './UsageHistoryChart'
@@ -37,16 +38,16 @@ function paceCopy(pace: UsagePace, t: Translate): { text: string; color: string 
     case 'exhausted':
       return {
         text: t('composerUsage.pace.exhausted', 'Limit reached for this window'),
-        color: colors.statusRed
+        color: usagePaceColor(pace, null)
       }
     case 'on-pace':
-      return { text: t('composerUsage.pace.onPace', 'On pace'), color: colors.textSecondary }
+      return { text: t('composerUsage.pace.onPace', 'On pace'), color: usagePaceColor(pace, null) }
     case 'under':
       return {
         text: t('composerUsage.pace.under', '{{percent}}% under pace', {
           percent: pace.deltaPercent
         }),
-        color: colors.statusGreen
+        color: usagePaceColor(pace, null)
       }
     case 'ahead':
       return {
@@ -63,7 +64,7 @@ function paceCopy(pace: UsagePace, t: Translate): { text: string; color: string 
                   duration: formatResetDuration(pace.runOutBeforeResetMs)
                 }
               ),
-        color: pace.runOutBeforeResetMs === null ? colors.statusAmber : colors.statusRed
+        color: usagePaceColor(pace, null)
       }
   }
 }
@@ -89,15 +90,24 @@ function paceStatus(pace: UsagePace, t: Translate): { text: string; color: strin
     case 'unknown':
       return null
     case 'exhausted':
-      return { text: t('composerUsage.status.exhausted', 'limit reached'), color: colors.statusRed }
+      return {
+        text: t('composerUsage.status.exhausted', 'limit reached'),
+        color: usagePaceColor(pace, null)
+      }
     case 'on-pace':
-      return { text: t('composerUsage.status.onPace', 'on pace'), color: colors.textSecondary }
+      return {
+        text: t('composerUsage.status.onPace', 'on pace'),
+        color: usagePaceColor(pace, null)
+      }
     case 'under':
-      return { text: t('composerUsage.status.under', 'under pace'), color: colors.statusGreen }
+      return {
+        text: t('composerUsage.status.under', 'under pace'),
+        color: usagePaceColor(pace, null)
+      }
     case 'ahead':
       return {
         text: t('composerUsage.status.ahead', 'ahead of pace'),
-        color: pace.runOutBeforeResetMs === null ? colors.statusAmber : colors.statusRed
+        color: usagePaceColor(pace, null)
       }
   }
 }
@@ -166,6 +176,7 @@ export function ComposerUsageWindowDetail({
   const stats = computeUsageWindowStats(entry.window, samples, now)
   const chart = buildUsageChartModel(entry.window, samples, now, display)
   const paceColor = status?.color ?? colors.textPrimary
+  const fill = usagePaceColor(pace, used)
   // Remaining counts the other way: under pace leaves more than an even burn would.
   const paceDelta =
     stats.paceDeltaPoints === null
@@ -210,6 +221,7 @@ export function ComposerUsageWindowDetail({
         unavailable={false}
         display={display}
         paceMarkerPercent={usagePaceMarkerPercent(entry.window, now, display)}
+        fillColor={fill}
       />
       {runOut ? <Text style={[styles.meta, { color: runOut.color }]}>{runOut.text}</Text> : null}
       <View style={styles.tiles}>
@@ -250,7 +262,7 @@ export function ComposerUsageWindowDetail({
         <View style={styles.chart}>
           <UsageHistoryChart
             model={chart}
-            color={usageBandColor(entry.window.usedPercent)}
+            color={fill}
             accessibilityLabel={t(
               'composerUsage.chart.label',
               '{{window}} usage over time, with a dashed line for an even pace',

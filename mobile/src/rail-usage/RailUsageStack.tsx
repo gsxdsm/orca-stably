@@ -3,8 +3,7 @@ import { ScrollView, View, useWindowDimensions } from 'react-native'
 import type { AccountsSnapshot } from '../accounts/accounts-snapshot'
 import { BottomDrawerModalHost } from '../components/bottom-drawer/bottom-drawer-modal-host'
 import { MobileEdgeFade } from '../components/list/MobileEdgeFade'
-import { MobileSegmentedControl } from '../components/controls/MobileSegmentedControl'
-import { USAGE_PROVIDER_NAMES, type UsageProviderKey } from '../composer-usage/agent-usage-provider'
+import type { UsageProviderKey } from '../composer-usage/agent-usage-provider'
 import { useAccountsSnapshot } from '../composer-usage/accounts-snapshot-store'
 import { ComposerUsageSheet } from '../composer-usage/ComposerUsageSheet'
 import { useResetCountdownNow } from '../composer-usage/use-reset-countdown-now'
@@ -16,7 +15,7 @@ import { useReservedRegions } from '../layout/reserved-regions'
 import { useSideRailStrip } from '../layout/side-rail'
 import type { SideRailStrip } from '../layout/side-rail-strip'
 import { listRailUsage, railRingCenter } from './rail-usage-model'
-import { RailUsageRing, usageProviderTabLogo } from './RailUsageRing'
+import { RailUsageRing } from './RailUsageRing'
 import { RailBandAtStripTopContext } from './RailUsageSpan'
 import { railRingStackFit } from './rail-ring-stack-fit'
 
@@ -146,30 +145,7 @@ export function RailUsageStack({
           visible={selected !== null}
           onClose={() => setSelected(null)}
           usage={sheetUsage}
-          spanSideStrip
-          header={
-            usages.length > 1 ? (
-              <MobileSegmentedControl
-                segments={usages.map((usage) => {
-                  const logo = usageProviderTabLogo(usage.provider)
-                  const name = USAGE_PROVIDER_NAMES[usage.provider]
-                  return {
-                    value: usage.provider,
-                    label: logo ? '' : name,
-                    icon: logo,
-                    accessibilityLabel: name
-                  }
-                })}
-                selected={sheetUsage.provider}
-                onSelect={setShown}
-                scrollWhenCrowded
-                onSheet
-                tabs
-                testIDPrefix="rail-usage-tab-"
-                style={styles.tabs}
-              />
-            ) : null
-          }
+          snapshot={snapshot}
         />
       </BottomDrawerModalHost>
     </>
@@ -194,8 +170,5 @@ const styles = themedStyleSheet(() => ({
     left: 0,
     right: 0,
     height: CUT_FADE
-  },
-  tabs: {
-    marginBottom: spacing.md
   }
 }))

@@ -298,7 +298,7 @@ export function MobileNativeChatComposer({
             onLayout={collapse.onContentLayout}
           >
             {collapsed ? null : <MobileNativeChatContextLimitLine {...modes.context} />}
-            {editSession || collapsed ? null : <ComposerUsageStrip agent={agent} spanSideStrip />}
+            {editSession || collapsed ? null : <ComposerUsageStrip agent={agent} />}
             <MobileNativeChatComposerAttachments
               images={attachments}
               files={files}
