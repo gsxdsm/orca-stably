@@ -1,4 +1,9 @@
 import { EAGER_CORE_RPC_METHODS, EAGER_SERVICE_RPC_METHODS } from './eager-rpc-method-registry'
+import { DESKTOP_WINDOW_METHODS } from './host-management/desktop-window'
+import { AGENT_HOOK_METHODS } from './agent-hooks/agent-hooks'
+import { HOST_CAPABILITY_METHODS } from './host-management/host-capabilities'
+import { RUNTIME_CLIENT_CAPABILITY_METHODS } from './client-events/runtime-client-capabilities'
+import { SIDEBAR_REPO_ICON_METHODS } from './sidebar-inputs/sidebar-repo-icons'
 import { REPO_METHODS } from './projects/repo'
 import { WORKTREE_METHODS } from './workspaces/worktree'
 import { SESSION_TAB_METHODS } from './session-tabs/session-tabs'
@@ -89,6 +94,8 @@ import { NATIVE_CHAT_METHODS } from './native-chat/native-chat'
 
 const CORE_RPC_METHODS = [
   ...EAGER_CORE_RPC_METHODS,
+  ...DESKTOP_WINDOW_METHODS,
+  ...AGENT_HOOK_METHODS,
   ...REPO_METHODS,
   ...WORKTREE_METHODS,
   ...ARTIFACT_METHODS,
@@ -118,6 +125,9 @@ const CORE_RPC_METHODS = [
 
 const SERVICE_RPC_METHODS = [
   ...EAGER_SERVICE_RPC_METHODS,
+  ...HOST_CAPABILITY_METHODS,
+  ...RUNTIME_CLIENT_CAPABILITY_METHODS,
+  ...SIDEBAR_REPO_ICON_METHODS,
   ...SESSION_TAB_METHODS,
   ...GOOGLE_METHODS,
   ...GOOGLE_READ_METHODS,

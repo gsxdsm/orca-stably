@@ -4,10 +4,12 @@ import { AGENT_SESSION_AGENTS_METHOD } from '../../../../shared/agent-session/ag
 import { AGENT_SESSION_AVAILABILITY_METHOD } from '../../../../shared/agent-session/agent-discovery/agent-session-agent-availability'
 import { prefixRpcMethodGroup, type LazyRpcMethodGroup } from '../lazy-rpc-method-group'
 import { LAZY_BROWSER_RPC_METHOD_GROUPS } from './lazy-browser-rpc-method-groups'
+import { LAZY_HOST_RPC_METHOD_GROUPS } from './lazy-host-rpc-method-groups'
 import { LAZY_INTEGRATION_RPC_METHOD_GROUPS } from './lazy-integration-rpc-method-groups'
 
 export const DEFAULT_LAZY_RPC_METHOD_GROUPS: readonly LazyRpcMethodGroup[] = [
   ...LAZY_INTEGRATION_RPC_METHOD_GROUPS,
+  ...LAZY_HOST_RPC_METHOD_GROUPS,
   prefixRpcMethodGroup(['ssh.'], async () => (await import('./ssh/ssh')).SSH_METHODS),
   prefixRpcMethodGroup(['plugins.'], async () => {
     const [
