@@ -2974,7 +2974,9 @@
       "messageModeLabel": "Mode message : écrivez, puis envoyez. Passer en mode touches",
       "moreKeys": "Plus de touches et d’actions",
       "showKeyboard": "Afficher le clavier",
-      "pasteFromClipboard": "Coller depuis le presse-papiers"
+      "pasteFromClipboard": "Coller depuis le presse-papiers",
+      "keysMode": "Touches",
+      "messageMode": "Message"
     },
     "activeContent": {
       "creatingTab": "Création…",
@@ -3088,7 +3090,11 @@
     },
     "commandDock": {
       "liveInputHint": "Le texte saisi est envoyé directement au terminal actif.",
-      "liveInputLabel": "Saisie en direct dans le terminal"
+      "liveInputLabel": "Saisie en direct dans le terminal",
+      "sendCommand": "Envoyer la commande",
+      "messageAgentPlaceholder": "Message à {{agent}}",
+      "theAgent": "l'agent",
+      "writeCommandPlaceholder": "Écrivez une commande, puis envoyez-la"
     },
     "contentRow": {
       "dismissCreationWarning": "Ignorer l'avertissement de création de l'espace de travail"

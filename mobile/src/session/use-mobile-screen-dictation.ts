@@ -8,6 +8,7 @@ import {
   useSyncExternalStore
 } from 'react'
 import { useFocusEffect, useNavigation } from 'expo-router'
+import { insertDictationText } from '../dictation/mobile-dictation-text-insertion'
 import { useMobileSessionDictationSetup } from './use-mobile-session-dictation-setup'
 import { triggerError } from '../platform/haptics/haptics'
 import { useClipboardWriter } from '../platform/clipboard/clipboard'
@@ -50,7 +51,9 @@ export function useMobileScreenDictation(
     flushPendingLiveInputBeforeExternalSend,
     canSend,
     showToast,
-    router
+    router,
+    terminalMessageMode,
+    setTerminalDraft
   } = scope
   const { showNativeChat, showNativeChatRef } = nativeChatController
   const host = useMobileDictationHost()
@@ -117,6 +120,12 @@ export function useMobileScreenDictation(
       } else {
         keepUndeliveredDictation(text)
       }
+      return true
+    }
+    const messageHandle = destination.messageHandle()
+    if (messageHandle) {
+      dictationRouteContextRef.current = null
+      setTerminalDraft(messageHandle, (current) => insertDictationText(current, text, null).text)
       return true
     }
     const routeContext = dictationRouteContextRef.current
@@ -224,7 +233,7 @@ export function useMobileScreenDictation(
     }
     const routeContext = activeHandle ? { handle: activeHandle } : null
     dictationRouteContextRef.current = routeContext
-    const target = destination.captureDestination(showNativeChat, activeHandle)
+    const target = destination.captureDestination(showNativeChat, activeHandle, terminalMessageMode)
     // A refused start comes back through this screen's reportFailure while it is shown, or the host's toast.
     void startHost({
       instance,
@@ -235,7 +244,10 @@ export function useMobileScreenDictation(
           ? target.scope === null
             ? null
             : { field: 'chat', scope: target.scope }
-          : target,
+          : target?.field === 'message'
+            ? // A terminal's message draft lives on its screen; away, the words fall back to the clipboard.
+              null
+            : target,
       title: route.title,
       paneKey: route.paneKey,
       href: route.href,
@@ -267,6 +279,7 @@ export function useMobileScreenDictation(
     sessionKey,
     setShowDictationSetup,
     showNativeChat,
+    terminalMessageMode,
     worktreeId
   ])
 

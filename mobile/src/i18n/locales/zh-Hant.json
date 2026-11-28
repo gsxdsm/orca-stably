@@ -2875,7 +2875,9 @@
       "messageModeLabel": "訊息模式：輸入後再傳送。切換至按鍵模式",
       "moreKeys": "更多按鍵與操作",
       "showKeyboard": "顯示鍵盤",
-      "pasteFromClipboard": "從剪貼簿貼上"
+      "pasteFromClipboard": "從剪貼簿貼上",
+      "keysMode": "按鍵",
+      "messageMode": "訊息"
     },
     "activeContent": {
       "creatingTab": "建立中…",
@@ -2973,7 +2975,11 @@
     },
     "commandDock": {
       "liveInputHint": "輸入的文字會直接傳送至目前使用中的終端機",
-      "liveInputLabel": "終端機即時輸入"
+      "liveInputLabel": "終端機即時輸入",
+      "sendCommand": "傳送命令",
+      "messageAgentPlaceholder": "傳送訊息給 {{agent}}",
+      "theAgent": "代理程式",
+      "writeCommandPlaceholder": "輸入指令後傳送"
     },
     "contentRow": {
       "dismissCreationWarning": "關閉工作區建立警告"

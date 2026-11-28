@@ -2884,7 +2884,9 @@
       "messageModeLabel": "메시지 모드: 작성한 뒤 전송합니다. 키 모드로 전환",
       "moreKeys": "더 많은 키와 작업",
       "showKeyboard": "키보드 표시",
-      "pasteFromClipboard": "클립보드에서 붙여넣기"
+      "pasteFromClipboard": "클립보드에서 붙여넣기",
+      "keysMode": "키",
+      "messageMode": "메시지"
     },
     "activeContent": {
       "creatingTab": "만드는 중…",
@@ -2982,7 +2984,11 @@
     },
     "commandDock": {
       "liveInputHint": "입력한 텍스트가 활성 터미널로 바로 전송됩니다.",
-      "liveInputLabel": "실시간 터미널 입력"
+      "liveInputLabel": "실시간 터미널 입력",
+      "sendCommand": "명령 보내기",
+      "messageAgentPlaceholder": "{{agent}}에게 메시지 보내기",
+      "theAgent": "에이전트",
+      "writeCommandPlaceholder": "명령을 작성한 후 전송"
     },
     "contentRow": {
       "dismissCreationWarning": "워크스페이스 생성 경고 닫기"

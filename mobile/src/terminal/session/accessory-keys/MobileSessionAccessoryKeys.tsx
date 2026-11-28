@@ -7,7 +7,7 @@ import {
   type GestureResponderEvent,
   type ScrollViewInstance
 } from 'react-native'
-import { ClipboardPaste, Ellipsis } from 'lucide-react-native'
+import { ClipboardPaste, Ellipsis, Keyboard as KeyboardIcon, PenLine } from 'lucide-react-native'
 import { triggerMediumImpact } from '../../../platform/haptics/haptics'
 import { createTerminalLiveAccessoryInput } from '../../live-input/terminal-live-accessory-input'
 import { TERMINAL_ACCESSORY_REPEAT_DELAY_MS } from '../../key-input/terminal-accessory-repeat'
@@ -64,6 +64,9 @@ export function MobileSessionAccessoryKeys({
     cancelAccessoryRepeat,
     prepareAccessoryPress,
     handlePaste,
+    canCompose,
+    terminalMessageMode,
+    toggleInputMode,
     dockKeys,
     activeSessionTab,
     terminals,
@@ -180,6 +183,39 @@ export function MobileSessionAccessoryKeys({
   )
   return (
     <View ref={keepsKeyboard} style={styles.keyRow} {...touch.rowTouchHandlers}>
+      <Pressable
+        style={({ pressed }) => [
+          styles.modeKey,
+          pressed && styles.keyPressed,
+          !canCompose && styles.disabled
+        ]}
+        disabled={!canCompose}
+        hitSlop={TERMINAL_KEY_HIT_SLOP}
+        onPress={toggleInputMode}
+        accessibilityRole="button"
+        accessibilityLabel={
+          terminalMessageMode
+            ? t(
+                'session.accessoryKeys.messageModeLabel',
+                'Message mode: write, then send. Switch to Keys mode'
+              )
+            : t(
+                'session.accessoryKeys.keysModeLabel',
+                'Keys mode: typing goes straight to the terminal. Switch to Message mode'
+              )
+        }
+      >
+        {terminalMessageMode ? (
+          <PenLine size={15} color={colors.textPrimary} strokeWidth={2} />
+        ) : (
+          <KeyboardIcon size={15} color={colors.textPrimary} strokeWidth={2} />
+        )}
+        <Text style={styles.modeKeyText}>
+          {terminalMessageMode
+            ? t('session.accessoryKeys.messageMode', 'Message')
+            : t('session.accessoryKeys.keysMode', 'Keys')}
+        </Text>
+      </Pressable>
       {/* Why: default tap handling makes the first key tap dismiss the keyboard and get swallowed (#5106). */}
       <ScrollView
         ref={scrollRef}

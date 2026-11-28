@@ -19,6 +19,8 @@ export type MobileScreenDictationScope = Pick<
   | 'dictationMode'
   | 'setDictationMode'
   | 'setDictationEnabled'
+  | 'terminalMessageMode'
+  | 'setTerminalDraft'
 >
 
 // The screen the dictation belongs to: the key its copies share, its stack route, and the title and link the pill reopens.

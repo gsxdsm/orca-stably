@@ -3137,6 +3137,8 @@
       "moreKeys": "Другие клавиши и действия",
       "showKeyboard": "Показать клавиатуру",
       "pasteFromClipboard": "Вставить из буфера обмена",
+      "keysMode": "Клавиши",
+      "messageMode": "Сообщение",
       "control": "Control",
       "alt": "Alt",
       "shift": "Shift"
@@ -3269,7 +3271,11 @@
     },
     "commandDock": {
       "liveInputHint": "Вводимый текст отправляется прямо в активный терминал",
-      "liveInputLabel": "Прямой ввод в терминал"
+      "liveInputLabel": "Прямой ввод в терминал",
+      "sendCommand": "Отправить команду",
+      "messageAgentPlaceholder": "Сообщение для {{agent}}",
+      "theAgent": "агент",
+      "writeCommandPlaceholder": "Напишите команду и отправьте её"
     },
     "contentRow": {
       "dismissCreationWarning": "Закрыть предупреждение о создании рабочего пространства"

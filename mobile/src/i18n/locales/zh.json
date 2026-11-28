@@ -3184,7 +3184,9 @@
       "messageModeLabel": "消息模式：输入后发送。切换到按键模式",
       "moreKeys": "更多按键和操作",
       "showKeyboard": "显示键盘",
-      "pasteFromClipboard": "从剪贴板粘贴"
+      "pasteFromClipboard": "从剪贴板粘贴",
+      "keysMode": "按键",
+      "messageMode": "消息"
     },
     "activeContent": {
       "creatingTab": "创建中…",
@@ -3291,7 +3293,11 @@
     "commandDock": {
       "liveInputHint": "输入的文本会直接发送到当前终端",
       "typeIntoTerminal": "在终端中输入",
-      "liveInputLabel": "终端实时输入"
+      "liveInputLabel": "终端实时输入",
+      "sendCommand": "发送命令",
+      "messageAgentPlaceholder": "向 {{agent}} 发送消息",
+      "theAgent": "智能体",
+      "writeCommandPlaceholder": "输入命令后发送"
     },
     "contentRow": {
       "dismissCreationWarning": "关闭工作区创建警告"

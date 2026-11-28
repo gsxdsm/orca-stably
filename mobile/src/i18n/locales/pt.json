@@ -2978,6 +2978,8 @@
       "moreKeys": "Mais teclas e ações",
       "showKeyboard": "Mostrar teclado",
       "pasteFromClipboard": "Colar da área de transferência",
+      "keysMode": "Teclas",
+      "messageMode": "Mensagem",
       "control": "Ctrl",
       "alt": "Alt",
       "shift": "Shift"
@@ -3094,7 +3096,11 @@
     },
     "commandDock": {
       "liveInputHint": "O texto digitado é enviado diretamente ao terminal ativo.",
-      "liveInputLabel": "Entrada em tempo real no terminal"
+      "liveInputLabel": "Entrada em tempo real no terminal",
+      "sendCommand": "Enviar comando",
+      "messageAgentPlaceholder": "Mensagem para {{agent}}",
+      "theAgent": "o agente",
+      "writeCommandPlaceholder": "Escreva um comando e envie"
     },
     "contentRow": {
       "dismissCreationWarning": "Dispensar aviso de criação do espaço de trabalho"

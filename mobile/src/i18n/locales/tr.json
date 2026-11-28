@@ -3086,6 +3086,8 @@
       "moreKeys": "Diğer tuşlar ve işlemler",
       "showKeyboard": "Klavyeyi göster",
       "pasteFromClipboard": "Panodan yapıştır",
+      "keysMode": "Tuşlar",
+      "messageMode": "Mesaj",
       "control": "Control",
       "alt": "Alt",
       "shift": "Shift"
@@ -3189,7 +3191,11 @@
     "commandDock": {
       "liveInputHint": "Yazılan metin doğrudan etkin terminale gönderilir",
       "liveInputLabel": "Canlı terminal girişi",
-      "typeIntoTerminal": "Terminale yaz"
+      "typeIntoTerminal": "Terminale yaz",
+      "sendCommand": "Komut gönder",
+      "messageAgentPlaceholder": "{{agent}} için mesaj",
+      "theAgent": "ajan",
+      "writeCommandPlaceholder": "Bir komut yazın ve gönderin"
     },
     "contentRow": {
       "dismissCreationWarning": "Çalışma alanı oluşturma uyarısını kapat"

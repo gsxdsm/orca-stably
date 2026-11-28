@@ -2875,7 +2875,9 @@
       "messageModeLabel": "メッセージモード：入力してから送信します。キーモードに切り替える",
       "moreKeys": "その他のキーと操作",
       "showKeyboard": "キーボードを表示",
-      "pasteFromClipboard": "クリップボードから貼り付け"
+      "pasteFromClipboard": "クリップボードから貼り付け",
+      "keysMode": "キー",
+      "messageMode": "メッセージ"
     },
     "activeContent": {
       "creatingTab": "作成中…",
@@ -2973,7 +2975,11 @@
     },
     "commandDock": {
       "liveInputHint": "入力したテキストは、選択中のターミナルに直接送信されます。",
-      "liveInputLabel": "ターミナルへのリアルタイム入力"
+      "liveInputLabel": "ターミナルへのリアルタイム入力",
+      "sendCommand": "コマンドを送信",
+      "messageAgentPlaceholder": "{{agent}}にメッセージ",
+      "theAgent": "Agent",
+      "writeCommandPlaceholder": "コマンドを入力して送信"
     },
     "contentRow": {
       "dismissCreationWarning": "ワークスペース作成の警告を閉じる"

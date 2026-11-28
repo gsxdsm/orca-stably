@@ -2601,7 +2601,9 @@
       "messageModeLabel": "Message mode: write, then send. Switch to Keys mode",
       "moreKeys": "More keys and actions",
       "showKeyboard": "Show keyboard",
-      "pasteFromClipboard": "Paste from clipboard"
+      "pasteFromClipboard": "Paste from clipboard",
+      "keysMode": "Keys",
+      "messageMode": "Message"
     },
     "activeContent": {
       "creatingTab": "Creating...",
@@ -2614,7 +2616,11 @@
     "commandDock": {
       "liveInputLabel": "Live terminal input",
       "liveInputHint": "Typed text is sent directly to the active terminal",
-      "typeIntoTerminal": "Type into terminal"
+      "typeIntoTerminal": "Type into terminal",
+      "sendCommand": "Send command",
+      "messageAgentPlaceholder": "Message {{agent}}",
+      "theAgent": "the agent",
+      "writeCommandPlaceholder": "Write a command, then send"
     },
     "contentRow": {
       "dismissCreationWarning": "Dismiss workspace creation warning"

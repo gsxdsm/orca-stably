@@ -2883,7 +2883,9 @@
       "messageModeLabel": "Nachrichtenmodus: Schreiben, dann senden. Zum Tastenmodus wechseln",
       "moreKeys": "Weitere Tasten und Aktionen",
       "showKeyboard": "Tastatur anzeigen",
-      "pasteFromClipboard": "Aus der Zwischenablage einfügen"
+      "pasteFromClipboard": "Aus der Zwischenablage einfügen",
+      "keysMode": "Tasten",
+      "messageMode": "Nachricht"
     },
     "activeContent": {
       "creatingTab": "Wird erstellt…",
@@ -2981,7 +2983,11 @@
     },
     "commandDock": {
       "liveInputHint": "Eingegebener Text wird direkt an das aktive Terminal gesendet",
-      "liveInputLabel": "Live-Eingabe im Terminal"
+      "liveInputLabel": "Live-Eingabe im Terminal",
+      "sendCommand": "Befehl senden",
+      "messageAgentPlaceholder": "Nachricht an {{agent}}",
+      "theAgent": "dem Agenten",
+      "writeCommandPlaceholder": "Befehl schreiben und dann senden"
     },
     "contentRow": {
       "dismissCreationWarning": "Warnung zur Erstellung des Arbeitsbereichs ausblenden"
