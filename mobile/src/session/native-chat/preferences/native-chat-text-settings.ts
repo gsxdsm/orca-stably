@@ -76,6 +76,7 @@ function parseSettings(raw: string | null): StoredSettings | null {
     return null
   }
   const size = 'size' in parsed ? parsed.size : undefined
+  // Honor saved System from pre-#49443 native apps (which omit `v: 2`) instead of forcing serif.
   const font = 'font' in parsed && isNativeChatFont(parsed.font) ? parsed.font : null
   const lineSpacing = 'lineSpacing' in parsed ? parsed.lineSpacing : undefined
   const fallback = defaultNativeChatTextSettings()
