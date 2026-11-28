@@ -13,7 +13,7 @@ import { computeUsagePace, usagePaceMarkerPercent } from '../composer-usage/usag
 import { usagePaceColor } from '../composer-usage/usage-pace-color'
 import { usageResetLabel } from '../composer-usage/usage-reset-label'
 import { MiniMaxIcon, OpenCodeGoIcon } from '../components/icons/AgentIcons'
-import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
+import { hasMobileAgentIcon, MobileAgentIcon } from '../components/icons/MobileAgentIcon'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { DUO_STATUS_RING_DIAMETER } from '../layout/duo-status-row'
 import { colors, feedback } from '../theme/mobile-theme'
@@ -37,6 +37,19 @@ const TICK_INNER = RADIUS - STROKE / 2 - 1
 const TICK_OUTER = RADIUS + STROKE / 2
 // The ring's inner chord at the reset label's lower edge (8pt below centre), ~30pt.
 const RESET_LABEL_ROOM = 2 * Math.sqrt((RADIUS - STROKE / 2) ** 2 - 8 ** 2)
+
+const USAGE_TAB_LOGO_SIZE = 18
+
+/** A provider's logo for a tab, or undefined where it has none and the tab keeps its name. */
+export function usageProviderTabLogo(provider: UsageProviderKey): React.JSX.Element | undefined {
+  const drawn =
+    provider === 'opencodeGo' ||
+    provider === 'minimax' ||
+    hasMobileAgentIcon(RAIL_USAGE_PROVIDER_AGENT[provider])
+  return drawn ? (
+    <RailUsageProviderGlyph provider={provider} size={USAGE_TAB_LOGO_SIZE} />
+  ) : undefined
+}
 
 export function RailUsageProviderGlyph({
   provider,

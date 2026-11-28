@@ -8,6 +8,7 @@ import { useNow } from '../hooks/use-now'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
+import { usageProviderTabLogo } from '../rail-usage/RailUsageRing'
 import {
   listProviderUsages,
   pickComposerUsageWindow,
@@ -28,7 +29,7 @@ type Props = {
   visible: boolean
   onClose: () => void
   usage: AgentUsage
-  /** Omitted by the Duo rail, which brings its own provider tabs in `header`. */
+  /** Absent (e.g. the Duo rail, which brings its own provider tabs in `header`): only `usage`'s provider, with no history graph. */
   snapshot?: AccountsSnapshot | null
   spanSideStrip: boolean
   /** Above the title, e.g. the Duo rail's provider tabs. */
@@ -83,10 +84,13 @@ export function ComposerUsageSheet({
               segments={providers.map((provider) => {
                 const shown = pickComposerUsageWindow(provider.windows, choice)
                 const name = USAGE_PROVIDER_NAMES[provider.provider]
+                const logo = usageProviderTabLogo(provider.provider)
+                const used = shown ? percent(shown.window.usedPercent) : ''
                 return {
                   value: provider.provider,
-                  label: shown ? `${name} ${percent(shown.window.usedPercent)}` : name,
-                  accessibilityLabel: name
+                  label: logo ? used : `${name} ${used}`.trim(),
+                  icon: logo,
+                  accessibilityLabel: shown ? `${name} ${used}` : name
                 }
               })}
               selected={active.provider}

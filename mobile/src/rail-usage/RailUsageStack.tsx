@@ -16,7 +16,7 @@ import { useReservedRegions } from '../layout/reserved-regions'
 import { useSideRailStrip } from '../layout/side-rail'
 import type { SideRailStrip } from '../layout/side-rail-strip'
 import { listRailUsage, railRingCenter } from './rail-usage-model'
-import { RailUsageRing } from './RailUsageRing'
+import { RailUsageRing, usageProviderTabLogo } from './RailUsageRing'
 import { RailBandAtStripTopContext } from './RailUsageSpan'
 import { railRingStackFit } from './rail-ring-stack-fit'
 
@@ -150,10 +150,16 @@ export function RailUsageStack({
           header={
             usages.length > 1 ? (
               <MobileSegmentedControl
-                segments={usages.map((usage) => ({
-                  value: usage.provider,
-                  label: USAGE_PROVIDER_NAMES[usage.provider]
-                }))}
+                segments={usages.map((usage) => {
+                  const logo = usageProviderTabLogo(usage.provider)
+                  const name = USAGE_PROVIDER_NAMES[usage.provider]
+                  return {
+                    value: usage.provider,
+                    label: logo ? '' : name,
+                    icon: logo,
+                    accessibilityLabel: name
+                  }
+                })}
                 selected={sheetUsage.provider}
                 onSelect={setShown}
                 scrollWhenCrowded
