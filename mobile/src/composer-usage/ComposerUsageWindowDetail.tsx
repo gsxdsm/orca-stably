@@ -280,18 +280,26 @@ export function ComposerUsageWindowDetail({
                 ? t('composerUsage.chart.legendLeft', '{{window}} left', { window: title })
                 : t('composerUsage.chart.legendUsed', '{{window}} used', { window: title })
             }
-            accessibilityLabel={t(
-              'composerUsage.chart.labelFullWindow',
-              '{{window}} usage from the last reset to the next, recorded since {{first}}, with a dashed line for an even pace',
-              {
-                window: title,
-                first: new Date(chart.firstAt).toLocaleString(getUiIntlLocale(), {
-                  weekday: 'short',
-                  hour: 'numeric',
-                  minute: '2-digit'
-                })
-              }
-            )}
+            accessibilityLabel={
+              chart.firstAt !== null
+                ? t(
+                    'composerUsage.chart.labelFullWindow',
+                    '{{window}} usage from the last reset to the next, recorded since {{first}}, with a dashed line for an even pace',
+                    {
+                      window: title,
+                      first: new Date(chart.firstAt).toLocaleString(getUiIntlLocale(), {
+                        weekday: 'short',
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      })
+                    }
+                  )
+                : t(
+                    'composerUsage.chart.labelExtrapolatedWindow',
+                    '{{window}} usage from the last reset to the next, extrapolated to now, with a dashed line for an even pace',
+                    { window: title }
+                  )
+            }
           />
         </View>
       ) : (

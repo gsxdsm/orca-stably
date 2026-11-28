@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { Platform, Text, View } from 'react-native'
-import Svg, { Circle, Defs, Line, Path, Pattern, Rect, Text as SvgText } from 'react-native-svg'
+import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg'
 import { formatResetDuration } from '../../../src/shared/agent-usage/rate-limits/rate-limit-reset-format'
 import { getUiIntlLocale } from '../i18n/ui-intl-locale'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
 import { useMobileColors } from '../theme/use-mobile-color-scheme'
-import type { UsageChartModel } from './usage-window-stats'
+import type { UsageChartModel, UsageChartPoint } from './usage-window-stats'
 
 const PLOT_HEIGHT = 112
 const TOP = 16
@@ -39,9 +39,10 @@ function axisTimeFormat(startsAt: number, endsAt: number): (at: number) => strin
   return (at) => format.format(new Date(at))
 }
 
-/** Used (or left) percent across the whole window, from its last reset to its next. Before the first
- *  reading and wherever the desktop was not reading usage the plot is hatched as no data, so an
- *  empty stretch never reads as zero; the even-burn line is dashed and now is a labelled tick. */
+/** Used (or left) percent across the whole window, from its last reset to its next. Observed
+ *  readings draw as a solid line; stretches without recorded readings (from reset to the first
+ *  reading, across recording gaps, or from reset to now with no history yet) extrapolate linearly
+ *  as a dashed line in the series color. The even-burn reference is dashed gray and now is marked. */
 export function UsageHistoryChart({
   model,
   color,
@@ -62,32 +63,43 @@ export function UsageHistoryChart({
   const x = (at: number): number => AXIS_GUTTER + ((at - model.startsAt) / span) * plotWidth
   const y = (value: number): number => TOP + (1 - value / 100) * PLOT_HEIGHT
   const formatTime = axisTimeFormat(model.startsAt, model.endsAt)
-  const last = model.runs.at(-1)?.at(-1)
-  const noData: { from: number; to: number }[] = [{ from: model.startsAt, to: model.firstAt }]
-  model.runs.forEach((run, index) => {
-    const next = model.runs[index + 1]?.[0]
-    const end = run.at(-1)
-    if (next && end) {
-      noData.push({ from: end.at, to: next.at })
-    }
-  })
-  const leading = noData[0]
-  const leadingWide = leading ? x(leading.to) - x(leading.from) >= 64 : false
   const nowX = x(model.now)
   const nowAnchor =
     nowX - AXIS_GUTTER < 24 ? 'start' : x(model.endsAt) - nowX < 24 ? 'end' : 'middle'
-  const historyMs = (last?.at ?? model.firstAt) - model.firstAt
-  const caption = t('composerUsage.chart.historySince', 'History since {{when}} · {{duration}}', {
-    when: new Date(model.firstAt).toLocaleString(getUiIntlLocale(), {
-      weekday: 'short',
-      hour: 'numeric',
-      minute: '2-digit'
-    }),
-    duration:
-      historyMs < 60_000
-        ? t('composerUsage.chart.oneReading', 'one reading')
-        : formatResetDuration(historyMs)
-  })
+  const caption =
+    model.firstAt !== null
+      ? (() => {
+          const historyMs = (model.lastRecordedAt ?? model.firstAt) - model.firstAt
+          return t('composerUsage.chart.historySince', 'History since {{when}} · {{duration}}', {
+            when: new Date(model.firstAt).toLocaleString(getUiIntlLocale(), {
+              weekday: 'short',
+              hour: 'numeric',
+              minute: '2-digit'
+            }),
+            duration:
+              historyMs < 60_000
+                ? t('composerUsage.chart.oneReading', 'one reading')
+                : formatResetDuration(historyMs)
+          })
+        })()
+      : t('composerUsage.chart.extrapolatedOnly', 'No readings yet · extrapolated from reset')
+  const hasExtrapolated =
+    width > 0
+      ? model.extrapolated.some((segment) => x(segment.to.at) - x(segment.from.at) >= 1)
+      : model.extrapolated.length > 0
+  const dotMap = new Map<number, UsageChartPoint>()
+  for (const run of model.runs) {
+    const start = run[0]
+    const end = run.at(-1)
+    if (start) {
+      dotMap.set(start.at, start)
+    }
+    if (end) {
+      dotMap.set(end.at, end)
+    }
+  }
+  dotMap.set(model.current.at, model.current)
+  const dots = [...dotMap.values()]
   return (
     <View style={styles.wrap}>
       <Text style={styles.caption} testID="composer-usage-chart-history">
@@ -103,40 +115,6 @@ export function UsageHistoryChart({
       >
         {width > 0 ? (
           <Svg width={width} height={HEIGHT}>
-            <Defs>
-              <Pattern id="usage-no-data" patternUnits="userSpaceOnUse" width={6} height={6}>
-                <Path
-                  d="M-1,1 l2,-2 M0,6 l6,-6 M5,7 l2,-2"
-                  stroke={colors.textMuted}
-                  strokeOpacity={0.35}
-                  strokeWidth={1}
-                />
-              </Pattern>
-            </Defs>
-            {noData.map((range) =>
-              x(range.to) - x(range.from) >= 1 ? (
-                <Rect
-                  key={`gap-${range.from}`}
-                  x={x(range.from)}
-                  y={y(100)}
-                  width={x(range.to) - x(range.from)}
-                  height={PLOT_HEIGHT}
-                  fill="url(#usage-no-data)"
-                />
-              ) : null
-            )}
-            {leading && leadingWide ? (
-              <SvgText
-                x={(x(leading.from) + x(leading.to)) / 2}
-                y={y(50) + LABEL_SIZE / 3}
-                fontSize={LABEL_SIZE}
-                fontFamily={LABEL_FONT}
-                fill={colors.textSecondary}
-                textAnchor="middle"
-              >
-                {t('composerUsage.chart.noData', 'No data')}
-              </SvgText>
-            ) : null}
             {[0, 50, 100].map((value) => (
               <Line
                 key={`grid-${value}`}
@@ -175,6 +153,14 @@ export function UsageHistoryChart({
                 strokeDasharray="4 4"
               />
             ) : null}
+            {model.extrapolated.map((segment) => (
+              <Path
+                key={`extrapolated-area-${segment.from.at}-${segment.to.at}`}
+                d={`M${x(segment.from.at)},${y(segment.from.value)} L${x(segment.to.at)},${y(segment.to.value)} L${x(segment.to.at)},${y(0)} L${x(segment.from.at)},${y(0)} Z`}
+                fill={color}
+                fillOpacity={0.07}
+              />
+            ))}
             {model.runs.map((run) => {
               const start = run[0]
               const end = run.at(-1)
@@ -193,6 +179,19 @@ export function UsageHistoryChart({
                 />
               )
             })}
+            {model.extrapolated.map((segment) => (
+              <Line
+                key={`extrapolated-line-${segment.from.at}-${segment.to.at}`}
+                x1={x(segment.from.at)}
+                y1={y(segment.from.value)}
+                x2={x(segment.to.at)}
+                y2={y(segment.to.value)}
+                stroke={color}
+                strokeOpacity={0.85}
+                strokeWidth={2}
+                strokeDasharray="5 4"
+              />
+            ))}
             {model.runs.map((run) => {
               const start = run[0]
               if (!start || run.length < 2) {
@@ -229,22 +228,17 @@ export function UsageHistoryChart({
             >
               {t('composerUsage.chart.now', 'Now')}
             </SvgText>
-            {model.runs.flatMap((run) => {
-              const start = run[0]
-              const end = run.at(-1)
-              const ends = start && end && end !== start ? [start, end] : start ? [start] : []
-              return ends.map((point) => (
-                <Circle
-                  key={`dot-${point.at}`}
-                  cx={x(point.at)}
-                  cy={y(point.value)}
-                  r={point.at === model.firstAt ? 4 : 3}
-                  fill={color}
-                  stroke={colors.sheetSurface}
-                  strokeWidth={1.5}
-                />
-              ))
-            })}
+            {dots.map((point) => (
+              <Circle
+                key={`dot-${point.at}`}
+                cx={x(point.at)}
+                cy={y(point.value)}
+                r={point.at === model.firstAt ? 4 : 3}
+                fill={color}
+                stroke={colors.sheetSurface}
+                strokeWidth={1.5}
+              />
+            ))}
             <SvgText
               x={x(model.startsAt)}
               y={HEIGHT - 3}
@@ -285,6 +279,25 @@ export function UsageHistoryChart({
           <View style={[styles.swatchLine, { backgroundColor: color }]} />
           <Text style={styles.legendText}>{seriesLabel}</Text>
         </View>
+        {hasExtrapolated ? (
+          <View style={styles.legendItem}>
+            <Svg width={14} height={4}>
+              <Line
+                x1={0}
+                y1={2}
+                x2={14}
+                y2={2}
+                stroke={color}
+                strokeOpacity={0.85}
+                strokeWidth={2}
+                strokeDasharray="3 2"
+              />
+            </Svg>
+            <Text style={styles.legendText}>
+              {t('composerUsage.chart.legendExtrapolated', 'Extrapolated')}
+            </Text>
+          </View>
+        ) : null}
         {model.pace ? (
           <View style={styles.legendItem}>
             <View style={styles.swatchDashed} />
@@ -293,35 +306,14 @@ export function UsageHistoryChart({
             </Text>
           </View>
         ) : null}
-        <View style={styles.legendItem}>
-          <View style={[styles.swatchDot, { backgroundColor: color }]} />
-          <Text style={styles.legendText}>
-            {t('composerUsage.chart.legendFirst', 'First reading')}
-          </Text>
-        </View>
-        <View style={styles.legendItem}>
-          <Svg width={12} height={10}>
-            <Rect
-              x={0.5}
-              y={0.5}
-              width={11}
-              height={9}
-              stroke={colors.textMuted}
-              strokeOpacity={0.5}
-              strokeWidth={1}
-              fill="none"
-            />
-            <Path
-              d="M0,6 l6,-6 M3,10 l8,-8 M9,10 l3,-3"
-              stroke={colors.textMuted}
-              strokeOpacity={0.6}
-              strokeWidth={1}
-            />
-          </Svg>
-          <Text style={styles.legendText}>
-            {t('composerUsage.chart.legendNoData', 'No data (Orca not reading usage)')}
-          </Text>
-        </View>
+        {model.firstAt !== null ? (
+          <View style={styles.legendItem}>
+            <View style={[styles.swatchDot, { backgroundColor: color }]} />
+            <Text style={styles.legendText}>
+              {t('composerUsage.chart.legendFirst', 'First reading')}
+            </Text>
+          </View>
+        ) : null}
       </View>
     </View>
   )

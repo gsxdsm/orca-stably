@@ -8741,13 +8741,14 @@
       "legendLeft": "{{window}} left",
       "legendUsed": "{{window}} used",
       "labelFullWindow": "{{window}} usage from the last reset to the next, recorded since {{first}}, with a dashed line for an even pace",
+      "labelExtrapolatedWindow": "{{window}} usage from the last reset to the next, extrapolated to now, with a dashed line for an even pace",
       "historySince": "History since {{when}} · {{duration}}",
+      "extrapolatedOnly": "No readings yet · extrapolated from reset",
       "oneReading": "one reading",
-      "noData": "No data",
       "now": "Now",
+      "legendExtrapolated": "Extrapolated",
       "legendPace": "Even pace to reset",
-      "legendFirst": "First reading",
-      "legendNoData": "No data (Orca not reading usage)"
+      "legendFirst": "First reading"
     },
     "paceColors": {
       "summary": "Green ≤ +{{green}}% · Yellow ≤ +{{yellow}}% · Red > +{{yellow}}% over pace",
