@@ -13,8 +13,6 @@ import type { Translate } from '../../i18n/mobile-i18n'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
 import { UsagePaceTick } from './UsagePaceTick'
 
-import './usage-selectors'
-
 /** A meter's fill: the shown percent (used or left) and its consumption colour, shared by every usage meter. */
 export function usageBarFill(
   usedPercent: number | null,
@@ -187,7 +185,8 @@ const stylesSheet = themedStyleSheet((colors) => ({
   usageTrack: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.bgRaised,
+    // Not bgRaised: in dark that is the grouped list's own fill, which would hide the track.
+    backgroundColor: colors.translucentFill,
     overflow: 'hidden'
   },
   usageFill: {

@@ -412,7 +412,6 @@ export function MobileNativeChatView({
               </MobileBotCardSendContext.Provider>
             </MobileNativeChatDisclosureContext.Provider>
             <MobileNativeChatJumpControls
-              canvasFades
               showJumpToTail={tail.showJumpToTail}
               onJumpToTail={jumpToTail}
               showPreviousMessage={tail.showPreviousMessage}

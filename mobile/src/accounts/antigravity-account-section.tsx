@@ -1,253 +1,243 @@
-import { useEffect, useState } from 'react'
-import { ActivityIndicator, Pressable, Text, View } from 'react-native'
-import { Check } from 'lucide-react-native'
-import { ANTIGRAVITY_ACCOUNTS_RUNTIME_CAPABILITY } from '../../../src/shared/remote-runtime/protocol/account-runtime-capabilities'
+import { useEffect, useRef, useState } from 'react'
+import { ActivityIndicator, Text, View } from 'react-native'
 import {
-  collectProviderUsageMeters,
-  hasRenderableProviderUsage,
-  providerUsagePlaceholder,
-  type AccountsSnapshot
-} from './usage/usage-selectors'
+  ANTIGRAVITY_ACCOUNTS_RUNTIME_CAPABILITY,
+  PHONE_PROVIDER_ACCOUNT_SWITCH_RUNTIME_CAPABILITY
+} from '../../../src/shared/remote-runtime/protocol/account-runtime-capabilities'
+import { TUI_AGENT_DISPLAY_NAMES } from '../../../src/shared/agent-launch/catalog/tui-agent-display-names'
 import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
+import { ListGroup, ListRow, SectionHeader } from '../components/list/ListGroup'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { useThemedStyles } from '../theme/themed-styles'
 import { useMobileColors } from '../theme/use-mobile-color-scheme'
 import type { RpcClient } from '../transport/rpc/rpc-client-contract'
 import { startRuntimeCapabilityProbe } from '../transport/connection/runtime-capability-probe'
 import {
-  decodeAntigravityAccountState,
+  ANTIGRAVITY_HOST_TARGET,
+  listAntigravityAccounts,
   type AntigravityAccountState
-} from './antigravity-account-state'
+} from './provider-account-operations'
+import { useThemedStyles } from '../theme/themed-styles'
 import { stylesSheet } from './mobile-accounts-screen-styles'
-import { UsageMeterList } from './provider-usage-section'
+import { hasRenderableProviderUsage, type AccountsSnapshot } from './usage/usage-selectors'
+import { ProviderUsageWindows } from './ProviderUsageWindows'
+import { UsageStatusNote } from './usage/UsageStatusNote'
 import {
   AntigravityUsageSourcePicker,
   useHostAntigravityUsageSource
 } from './AntigravityUsageSourcePicker'
 
-const HOST_TARGET = { runtime: 'host' as const }
+export type ProviderAccountSwitch = {
+  /** The host takes a phone's OpenCode, Devin and Antigravity switches. */
+  supported: boolean
+  /** Saved agy accounts on the host, or null where the phone can't switch them. */
+  antigravity: AntigravityAccountState | null
+  replaceAntigravity: (state: AntigravityAccountState) => void
+}
 
-// Saved agy accounts are a separate RPC. Probe the capability first so older hosts are left alone.
-export function AntigravityAccountSection({
-  snapshot,
-  now,
-  client,
-  connected,
-  reloadKey,
-  busyAccountId,
-  disabled,
-  onNotice,
-  onChanged
-}: {
-  snapshot: AccountsSnapshot
-  now: number
-  client: RpcClient | null
-  connected: boolean
+export function useProviderAccountSwitch(
+  client: RpcClient | null,
+  live: boolean,
   reloadKey: number
-  busyAccountId: string | null
-  disabled: boolean
-  onNotice: (notice: { title: string; message: string }) => void
-  onChanged: () => Promise<void>
-}) {
-  const colors = useMobileColors()
-  const styles = useThemedStyles(stylesSheet)
-  const t = useMobileTranslation()
+): ProviderAccountSwitch {
   const [supported, setSupported] = useState(false)
-  const [accounts, setAccounts] = useState<AntigravityAccountState | null>(null)
-  const [selectingId, setSelectingId] = useState<string | null>(null)
-
+  const [antigravity, setAntigravity] = useState<AntigravityAccountState | null>(null)
+  // A select replaces the list. A list that started earlier must not write back over it.
+  const generation = useRef(0)
+  const replaceAntigravity = (next: AntigravityAccountState): void => {
+    generation.current += 1
+    setAntigravity(next)
+  }
   useEffect(() => {
-    setSupported(false)
-    setAccounts(null)
-    setSelectingId(null)
-  }, [client, connected])
-
-  useEffect(() => {
-    if (!client || !connected) {
+    if (!client || !live) {
       return
     }
     let cancelled = false
+    // Older hosts list these accounts but refuse a phone's switch, so they get no section.
     const stop = startRuntimeCapabilityProbe(client, (capabilities) => {
       if (cancelled) {
         return
       }
-      const enabled = capabilities.includes(ANTIGRAVITY_ACCOUNTS_RUNTIME_CAPABILITY)
-      setSupported(enabled)
-      if (!enabled) {
-        setAccounts(null)
+      const switchable = capabilities.includes(PHONE_PROVIDER_ACCOUNT_SWITCH_RUNTIME_CAPABILITY)
+      setSupported(switchable)
+      if (!switchable || !capabilities.includes(ANTIGRAVITY_ACCOUNTS_RUNTIME_CAPABILITY)) {
+        setAntigravity(null)
         return
       }
-      // A disconnect or an older host that advertised the capability must not reject over the screen.
-      void client
-        .sendRequest('accounts.antigravityList', HOST_TARGET)
+      const listedAt = generation.current
+      void listAntigravityAccounts
+        .request(client, ANTIGRAVITY_HOST_TARGET)
         .then((response) => {
-          if (cancelled || !response.ok) {
-            return
+          if (!cancelled && generation.current === listedAt) {
+            setAntigravity(listAntigravityAccounts.interpret(response))
           }
-          setAccounts(decodeAntigravityAccountState(response.result))
         })
+        // A failed read keeps the last list.
         .catch(() => {})
     })
     return () => {
       cancelled = true
       stop()
     }
-  }, [client, connected, reloadKey])
+  }, [client, live, reloadKey])
+  return { supported, antigravity, replaceAntigravity }
+}
 
-  const usageSource = useHostAntigravityUsageSource({ client, connected, reloadKey })
-  const limits = snapshot.rateLimits.antigravity ?? null
-  const showUsage = hasRenderableProviderUsage(snapshot, 'antigravity')
-  const saved = accounts?.accounts ?? []
-  const currentEmail = accounts?.currentAccount?.email?.trim() || null
-  const showCurrent = saved.length === 0 && currentEmail != null
-  const showSourcePicker = usageSource.source !== null
-  if (!showUsage && saved.length === 0 && !showCurrent && !showSourcePicker) {
+export function antigravityBusyId(accountId: string): string {
+  return `antigravity:${accountId}`
+}
+
+/** What each saved row says, as desktop Settings words it. */
+function antigravityRowNotes(state: AntigravityAccountState) {
+  // Until the host reads agy's login it can't tell which account holds it, so nothing changed yet.
+  const unread = state.currentAccount?.unread === true
+  const moved =
+    !unread && state.selectedAccountId !== null && state.activeAccountId !== state.selectedAccountId
+  // A running agy on another saved account wrote its login back; the next launch restores the selection.
+  const launchesUse =
+    moved &&
+    state.restoresSelectionAtLaunch === true &&
+    state.activeAccountId !== null &&
+    state.accounts.some((account) => account.id === state.selectedAccountId)
+      ? state.selectedAccountId
+      : null
+  // Desktop warns only where agy is signed out or on a login Orca hasn't saved.
+  const changed = moved && (!state.currentAccount || state.activeAccountId === null)
+  return { launchesUse, changed }
+}
+
+export function AntigravityAccountSection({
+  state,
+  busyAccountId,
+  switchBlocked,
+  onSelect
+}: {
+  state: AntigravityAccountState | null
+  busyAccountId: string | null
+  switchBlocked: boolean
+  onSelect: (accountId: string) => void
+}) {
+  const t = useMobileTranslation()
+  const colors = useMobileColors()
+  const styles = useThemedStyles(stylesSheet)
+  if (!state || state.accounts.length === 0) {
     return null
   }
-  const collected = showUsage ? collectProviderUsageMeters('antigravity', limits) : []
-  const meters =
-    showUsage && collected.length === 0
-      ? [providerUsagePlaceholder('antigravity', limits)]
-      : collected
-  const changed =
-    accounts?.selectedAccountId != null && accounts.activeAccountId !== accounts.selectedAccountId
-
-  const selectAccount = (accountId: string) => {
-    if (!client || selectingId) {
-      return
-    }
-    setSelectingId(accountId)
-    void (async () => {
-      const title = t('accounts.screen.switchFailed', 'Could not switch account')
-      try {
-        const response = await client.sendRequest('accounts.antigravitySelect', {
-          target: HOST_TARGET,
-          accountId
-        })
-        if (!response.ok) {
-          onNotice({ title, message: response.error.message })
-          return
-        }
-        setAccounts(decodeAntigravityAccountState(response.result) ?? accounts)
-        await onChanged()
-      } catch (error) {
-        onNotice({ title, message: error instanceof Error ? error.message : String(error) })
-      } finally {
-        setSelectingId(null)
-      }
-    })()
-  }
-
+  const { launchesUse, changed } = antigravityRowNotes(state)
   return (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <MobileAgentIcon agentId="antigravity" size={14} />
-        <Text style={styles.sectionHeading}>{t('accounts.screen.antigravity', 'Antigravity')}</Text>
-      </View>
-      <View style={styles.card}>
-        {showUsage ? (
-          <View style={styles.row}>
-            <View style={styles.rowMain}>
-              <UsageMeterList meters={meters} now={now} />
-              {limits?.error ? (
-                <Text style={styles.errorText} numberOfLines={3}>
-                  {limits.error}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-        ) : null}
-        {changed ? (
-          <Text style={[styles.errorText, styles.row]}>
-            {t(
-              'accounts.screen.antigravityChanged',
-              'The native account changed. Select a saved account again before launching.'
-            )}
-          </Text>
-        ) : null}
-        {showCurrent ? (
-          <>
-            {showUsage || changed ? <View style={styles.separator} /> : null}
-            <View style={styles.row}>
-              <View style={styles.rowMain}>
-                <Text style={styles.rowTitle} numberOfLines={1}>
-                  {currentEmail}
-                </Text>
-                <Text style={styles.rowSubtitle}>
-                  {t('accounts.screen.signedIn', 'Signed in on this host')}
-                </Text>
-              </View>
-            </View>
-          </>
-        ) : null}
-        {saved.map((account, index) => {
-          const selected =
-            accounts?.selectedAccountId === account.id && accounts.activeAccountId === account.id
-          const showSeparator = showUsage || changed || index > 0
+    <View>
+      <SectionHeader
+        title={TUI_AGENT_DISPLAY_NAMES.antigravity}
+        icon={<MobileAgentIcon agentId="antigravity" size={14} />}
+      />
+      <ListGroup>
+        {state.accounts.map((account) => {
+          const active = state.activeAccountId === account.id
+          // agy on a saved login other than the selection can still be picked, which selects it.
+          const current =
+            active && (state.selectedAccountId === null || state.selectedAccountId === account.id)
           return (
-            <View key={account.id}>
-              {showSeparator ? <View style={styles.separator} /> : null}
-              <Pressable
-                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-                onPress={() => selectAccount(account.id)}
-                disabled={
-                  disabled ||
-                  !supported ||
-                  selected ||
-                  busyAccountId !== null ||
-                  selectingId !== null
-                }
-              >
-                <View style={styles.rowMain}>
-                  <Text style={styles.rowTitle} numberOfLines={1}>
-                    {account.email ?? t('accounts.screen.antigravitySaved', 'Saved Google account')}
-                  </Text>
-                  {accounts?.activeAccountId === account.id &&
-                  accounts.selectedAccountId !== account.id ? (
-                    <Text style={styles.rowSubtitle}>
-                      {t('accounts.screen.antigravityNative', 'Native account')}
-                    </Text>
-                  ) : null}
-                </View>
-                <View style={styles.rowTrailing}>
-                  {selected ? (
-                    <Check size={16} color={colors.accentBlue} />
-                  ) : selectingId === account.id ? (
-                    <ActivityIndicator size="small" color={colors.textSecondary} />
-                  ) : null}
-                </View>
-              </Pressable>
-            </View>
+            <ListRow
+              key={account.id}
+              title={account.email ?? t('accounts.screen.antigravitySaved', 'Saved Google account')}
+              subtitle={
+                account.id === launchesUse
+                  ? t('accounts.screen.antigravityLaunchesUse', 'New agy launches use this account')
+                  : launchesUse && active
+                    ? t('accounts.screen.antigravityLoginNow', "agy's login right now")
+                    : undefined
+              }
+              accessory={
+                busyAccountId === antigravityBusyId(account.id) ? (
+                  <ActivityIndicator size="small" color={colors.textSecondary} />
+                ) : undefined
+              }
+              selected={active}
+              onPress={switchBlocked || current ? undefined : () => onSelect(account.id)}
+            />
           )
         })}
-        {showSourcePicker ? (
-          <>
-            {showUsage || changed || showCurrent || saved.length > 0 ? (
-              <View style={styles.separator} />
-            ) : null}
-            <AntigravityUsageSourcePicker
-              source={usageSource.source}
-              saving={usageSource.saving}
-              disabled={disabled}
-              onSelect={(next) => {
-                void usageSource.select(next).then((errorMessage) => {
-                  if (errorMessage) {
-                    onNotice({
-                      title: t(
-                        'accounts.antigravity.usageSource.updateFailed',
-                        'Could not update Antigravity usage source'
-                      ),
-                      message: errorMessage
-                    })
-                    return
-                  }
-                  void onChanged()
-                })
-              }}
-            />
-          </>
+      </ListGroup>
+      {changed ? (
+        <Text style={styles.groupNote}>
+          {t(
+            'accounts.screen.antigravityChanged',
+            'The native account changed. Select a saved account again before launching agy.'
+          )}
+        </Text>
+      ) : null}
+    </View>
+  )
+}
+
+export function AntigravityUsageSection({
+  snapshot,
+  now,
+  client,
+  live,
+  reloadKey,
+  switchBlocked,
+  onNotice,
+  onSwitched
+}: {
+  snapshot: AccountsSnapshot
+  now: number
+  client: RpcClient | null
+  live: boolean
+  reloadKey: number
+  switchBlocked: boolean
+  onNotice: (notice: { title: string; message: string }) => void
+  onSwitched: () => Promise<void>
+}) {
+  const t = useMobileTranslation()
+  const usageSource = useHostAntigravityUsageSource({ client, connected: live, reloadKey })
+  const limits = snapshot.rateLimits.antigravity ?? null
+  const showUsage = hasRenderableProviderUsage(snapshot, 'antigravity') && limits !== null
+  const showSourcePicker = usageSource.source !== null
+  if (!showUsage && !showSourcePicker) {
+    return null
+  }
+  return (
+    <View>
+      <SectionHeader
+        title={TUI_AGENT_DISPLAY_NAMES.antigravity}
+        icon={<MobileAgentIcon agentId="antigravity" size={14} />}
+      />
+      <ListGroup>
+        {showUsage ? (
+          <ListRow
+            title={TUI_AGENT_DISPLAY_NAMES.antigravity}
+            leading={<MobileAgentIcon agentId="antigravity" size={16} />}
+            detail={
+              <>
+                <ProviderUsageWindows limits={limits} now={now} />
+                <UsageStatusNote limits={limits} />
+              </>
+            }
+          />
         ) : null}
-      </View>
+        {showSourcePicker ? (
+          <AntigravityUsageSourcePicker
+            source={usageSource.source}
+            saving={usageSource.saving}
+            disabled={switchBlocked}
+            onSelect={(next) => {
+              void usageSource.select(next).then((errorMessage) => {
+                if (errorMessage) {
+                  onNotice({
+                    title: t(
+                      'accounts.antigravity.usageSource.updateFailed',
+                      'Could not update Antigravity usage source'
+                    ),
+                    message: errorMessage
+                  })
+                  return
+                }
+                void onSwitched()
+              })
+            }}
+          />
+        ) : null}
+      </ListGroup>
     </View>
   )
 }

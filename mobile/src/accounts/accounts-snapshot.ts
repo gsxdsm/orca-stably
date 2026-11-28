@@ -116,7 +116,9 @@ const ClaudeAccountSummarySchema = z
     organizationName: z.string().nullable().optional(),
     createdAt: TimestampSchema.optional(),
     updatedAt: TimestampSchema.optional(),
-    lastAuthenticatedAt: TimestampSchema.optional()
+    lastAuthenticatedAt: TimestampSchema.optional(),
+    // Its folder holds no login yet: Accounts offers Sign in.
+    needsSignIn: z.literal(true).optional()
   })
   .passthrough()
 
@@ -182,7 +184,6 @@ const OPTIONAL_RATE_LIMIT_IDENTITIES = [
   ['cursor', 'cursor', 'Cursor'],
   ['zcode', 'zcode', 'Zcode']
 ] as const
-
 export const AccountsSnapshotSchema = z
   .object({
     // Older hosts omit managed OpenCode and Devin profiles.

@@ -136,7 +136,6 @@
 16 src/main/browser/cookies/staging/browser-session-cookie-staging.ts
 3 src/main/browser/extensions/api-runtime/browser-extension-worker-shim-source.ts
 3 src/main/browser/extensions/browser-extension-management.ts
-1 src/main/browser/extensions/browser-extension-startup.ts
 6 src/main/browser/extensions/installation/browser-extension-load-directory.ts
 2 src/main/browser/extensions/installation/browser-extension-webstore-install.ts
 1 src/main/browser/extensions/native-messaging/browser-extension-native-host-process.ts
@@ -396,13 +395,13 @@
 1 src/main/daemon/executable-host/macos/macos-daemon-bundle.ts
 3 src/main/daemon/executable-host/macos/macos-daemon-launchd.ts
 5 src/main/daemon/executable-host/macos/macos-retired-daemon-recovery.ts
-11 src/main/daemon/executable-host/windows/daemon-host-build-inventory.ts
+5 src/main/daemon/executable-host/windows/daemon-host-build-inventory.ts # down from 11; sync getRelocatedDaemonHost path keeps inventoryRoots
 2 src/main/daemon/executable-host/windows/daemon-host-file-hash-cache.ts
-1 src/main/daemon/executable-host/windows/daemon-host-reclaim.ts
+1 src/main/daemon/executable-host/windows/daemon-host-pinned-versions.ts # moved unchanged from daemon-host-relocation.ts, whose row shrank by more; once per daemon provider init
 18 src/main/daemon/executable-host/windows/daemon-host-relocation.ts
 4 src/main/daemon/health/daemon-health.ts
 3 src/main/daemon/health/daemon-liveness-report.ts
-5 src/main/daemon/history/restoration/history-reader.ts
+6 src/main/daemon/history/restoration/history-reader.ts # +1: openDirectorySync replaces its own opendirSync (sync-fs count dropped by 1); one-shot restore listing
 16 src/main/daemon/history/storage/history-manager.ts
 3 src/main/daemon/history/storage/terminal-history-file-reader.ts
 6 src/main/daemon/history/storage/terminal-history-metadata.ts
@@ -417,7 +416,7 @@
 3 src/main/daemon/launch/daemon-launch-paths.ts
 1 src/main/daemon/launch/daemon-launched-child-spawn.ts
 8 src/main/daemon/launch/daemon-launched-child.ts
-20 src/main/daemon/launch/daemon-out-of-process-launcher.ts
+19 src/main/daemon/launch/daemon-out-of-process-launcher.ts
 5 src/main/daemon/launch/daemon-protocol-cleanup.ts
 13 src/main/daemon/launch/daemon-replacement-preflight.ts
 6 src/main/daemon/launch/daemon-spawner.ts
@@ -433,7 +432,7 @@
 1 src/main/daemon/providers/adapter/daemon-pty-runtime-state.ts
 1 src/main/daemon/providers/adapter/daemon-pty-session-control.ts
 5 src/main/daemon/providers/adapter/daemon-pty-session-spawn.ts
-17 src/main/daemon/providers/lifecycle/daemon-provider-init.ts
+16 src/main/daemon/providers/lifecycle/daemon-provider-init.ts
 7 src/main/daemon/providers/lifecycle/daemon-provider-restart.ts
 5 src/main/daemon/providers/lifecycle/daemon-provider-state.ts
 4 src/main/daemon/providers/lifecycle/daemon-severed-restart.ts
@@ -546,7 +545,7 @@
 17 src/main/grok/hook-service.ts
 1 src/main/hang-watchdog/hang-detection-marker.ts
 1 src/main/hang-watchdog/main-thread-hang-watchdog.ts
-6 src/main/hang-watchdog/previous-hang-detection.ts
+5 src/main/hang-watchdog/previous-hang-detection.ts
 4 src/main/hang-watchdog/renderer-hang-records.ts
 4 src/main/hermes/hermes-acp-launch-spec.ts
 4 src/main/hermes/hermes-default-home.ts
@@ -1144,7 +1143,7 @@
 1 src/main/runtime/mobile-cloud-relay/desktop-relay-service.ts
 2 src/main/runtime/mobile-cloud-relay/pairing/relay-revoke-outbox.ts
 4 src/main/runtime/mobile-cloud-relay/region-selection/relay-region-preference.ts
-4 src/main/runtime/orca-runtime-bots.ts
+3 src/main/runtime/orca-runtime-bots.ts
 2 src/main/runtime/orca-runtime.ts
 16 src/main/runtime/orchestration/db/attach-orchestration-db-methods.ts
 1 src/main/runtime/orchestration/db/database-file-permissions.ts
@@ -1229,8 +1228,6 @@
 1 src/main/runtime/rpc/methods/host-management/managed-runtime-install.ts
 3 src/main/runtime/rpc/methods/mcp-servers-sign-in.ts # the host MCP list reuses the bot tools file and its synchronous credential store, read per user action as bots-tools.ts does
 3 src/main/runtime/rpc/methods/mcp-servers.ts # the host MCP list reuses the bot tools file and its synchronous credential store, read per user action as bots-tools.ts does
-1 src/main/runtime/rpc/methods/mobile-delivery/bundled-mobile-web-bundle.ts
-8 src/main/runtime/rpc/methods/mobile-delivery/mobile-web-bundle.ts
 1 src/main/runtime/rpc/methods/orcad/orcad-migration.ts
 1 src/main/runtime/rpc/methods/orchestration/messaging/bot-request-outcome.ts # one savepoint per dropped question, around orchestration DB writes that were already synchronous, so the read and its take commit together
 2 src/main/runtime/rpc/methods/orchestration/messaging/bot-request-sender-notice.ts # one savepoint around orchestration DB writes that were already synchronous, so an answer or notice and its mail commit together
@@ -1356,8 +1353,8 @@
 1 src/main/startup/main-process-ipc-bootstrap.ts
 2 src/main/startup/main-process-observers.ts
 1 src/main/startup/main-process-preflight-failure.ts
-25 src/main/startup/main-process-preflight.ts
-15 src/main/startup/main-process-ready-foundation.ts
+23 src/main/startup/main-process-preflight.ts
+13 src/main/startup/main-process-ready-foundation.ts
 2 src/main/startup/main-process-ready-runtime.ts
 4 src/main/startup/main-process-ready.ts
 1 src/main/startup/main-window/main-process-i18n-menu.ts
@@ -1373,7 +1370,8 @@
 2 src/main/startup/profile-startup/single-instance-lock.ts
 12 src/main/startup/pty-startup/main-process-pty-startup.ts
 1 src/main/startup/quit/main-process-quit.ts # superseded-session unlink on a rare memory-only sign-in or rotation stays ordered with the sync saves, sign-out and quit flush (#44285)
-15 src/main/startup/runtime-startup/main-process-runtime-launch.ts
+6 src/main/startup/runtime-startup/launch-serve-mode.ts # one-shot headless serve startup split out of main-process-runtime-launch.ts for lazy desktop boot (net -1)
+8 src/main/startup/runtime-startup/main-process-runtime-launch.ts
 3 src/main/startup/runtime-startup/main-process-runtime-service.ts
 1 src/main/startup/serve-launch/headless-serve-ssh-registration.ts
 3 src/main/startup/serve-launch/main-process-serve.ts
@@ -1530,6 +1528,7 @@
 2 src/shared/agent-hook-listener/providers/muse/muse-session-log.ts
 2 src/shared/agent-hook-listener/transcript-lines.ts
 2 src/shared/agent-hook-listener/transcript-reader.ts
+1 src/shared/agent-hook-listener/transport/agent-hook-endpoint-temp-cleanup.ts # openDirectorySync replaces its own opendirSync (sync-fs count dropped by 1); same bounded sweep per endpoint publication
 4 src/shared/agent-hook-listener/transport/agent-hook-spool.ts
 1 src/shared/agent-hook-listener/transport/endpoint-publication.ts
 1 src/shared/agent-launch/installation/local-agent-install-dir-detection.ts

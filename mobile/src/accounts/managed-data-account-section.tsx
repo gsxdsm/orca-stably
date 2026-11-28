@@ -1,97 +1,76 @@
-import { ActivityIndicator, Pressable, Text, View } from 'react-native'
-import { Check } from 'lucide-react-native'
+import { ActivityIndicator, View } from 'react-native'
 import type { AccountsSnapshot } from './accounts-snapshot'
 import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
+import { ListGroup, ListRow, SectionHeader } from '../components/list/ListGroup'
+import { TUI_AGENT_DISPLAY_NAMES } from '../../../src/shared/agent-launch/catalog/tui-agent-display-names'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { colors } from '../theme/mobile-theme'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
-import { styles } from './mobile-accounts-screen-styles'
+import { useMobileColors } from '../theme/use-mobile-color-scheme'
 
 export type ManagedDataProvider = 'opencode' | 'devin'
-
-const COPY = {
-  opencode: { agentId: 'opencode', headingKey: 'accounts.screen.opencode', heading: 'OpenCode' },
-  devin: { agentId: 'devin', headingKey: 'accounts.screen.devin', heading: 'Devin' }
-} as const
 
 export function managedDataBusyId(provider: ManagedDataProvider, accountId: string | null): string {
   return `data:${provider}:${accountId ?? 'default'}`
 }
 
-// Read-only aside from selection. Adding or removing profiles stays on the desktop host.
+// Selection only; profiles are added and removed on desktop.
 export function ManagedDataAccountSection({
   provider,
   snapshot,
   busyAccountId,
-  disabled,
+  switchBlocked,
   onSelect
 }: {
   provider: ManagedDataProvider
   snapshot: AccountsSnapshot
   busyAccountId: string | null
-  disabled: boolean
+  switchBlocked: boolean
   onSelect: (provider: ManagedDataProvider, accountId: string | null) => void
 }) {
-  useMobileColorScheme()
   const t = useMobileTranslation()
+  const colors = useMobileColors()
   const state = snapshot[provider]
   if (!state || state.accounts.length === 0) {
     return null
   }
-  const copy = COPY[provider]
   const rows = [
     {
-      id: null as string | null,
+      id: null,
       title: t('accounts.screen.default', 'System default'),
       subtitle: t('accounts.screen.agentLogin', "Use the agent's own login")
     },
     ...state.accounts.map((account) => ({
       id: account.id,
       title: account.label,
-      subtitle: account.integrations.filter((integration) => integration.trim() !== '').join(', ')
+      subtitle:
+        account.integrations.filter((integration) => integration.trim() !== '').join(', ') ||
+        undefined
     }))
   ]
-
   return (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <MobileAgentIcon agentId={copy.agentId} size={14} />
-        <Text style={styles.sectionHeading}>{t(copy.headingKey, copy.heading)}</Text>
-      </View>
-      <View style={styles.card}>
-        {rows.map((row, index) => {
-          const busyId = managedDataBusyId(provider, row.id)
-          const active = state.activeAccountId === row.id
+    <View>
+      <SectionHeader
+        title={TUI_AGENT_DISPLAY_NAMES[provider]}
+        icon={<MobileAgentIcon agentId={provider} size={14} />}
+      />
+      <ListGroup>
+        {rows.map((row) => {
+          const selected = state.activeAccountId === row.id
           return (
-            <View key={row.id ?? 'default'}>
-              {index > 0 ? <View style={styles.separator} /> : null}
-              <Pressable
-                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-                onPress={() => onSelect(provider, row.id)}
-                disabled={disabled || active || busyAccountId !== null}
-              >
-                <View style={styles.rowMain}>
-                  <Text style={styles.rowTitle} numberOfLines={1}>
-                    {row.title}
-                  </Text>
-                  {row.subtitle ? (
-                    <Text style={styles.rowSubtitle} numberOfLines={2}>
-                      {row.subtitle}
-                    </Text>
-                  ) : null}
-                </View>
-                <View style={styles.rowTrailing}>
-                  {active ? (
-                    <Check size={16} color={colors.accentBlue} />
-                  ) : busyAccountId === busyId ? (
-                    <ActivityIndicator size="small" color={colors.textSecondary} />
-                  ) : null}
-                </View>
-              </Pressable>
-            </View>
+            <ListRow
+              key={row.id ?? 'default'}
+              title={row.title}
+              subtitle={row.subtitle}
+              accessory={
+                busyAccountId === managedDataBusyId(provider, row.id) ? (
+                  <ActivityIndicator size="small" color={colors.textSecondary} />
+                ) : undefined
+              }
+              selected={selected}
+              onPress={switchBlocked || selected ? undefined : () => onSelect(provider, row.id)}
+            />
           )
         })}
-      </View>
+      </ListGroup>
     </View>
   )
 }

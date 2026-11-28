@@ -1,4 +1,3 @@
-import { closeEnvironmentStore } from '../../../shared/remote-runtime/host-store/runtime-environment-store-worker-client'
 import { app, type Event } from 'electron'
 import { disposeDesktopBrowserBridge } from '../../ipc/browser/desktop-browser-bridge-wiring'
 import { browserManager } from '../../browser/guest-lifecycle/manager/browser-manager'
@@ -10,19 +9,13 @@ import {
 } from './quit-teardown-deadline'
 import { quitTeardownStartGate } from './quit-teardown-start-gate'
 import { destroySystemTray } from '../../tray/system-tray'
-import { shutdownTelemetry } from '../../telemetry/client'
-import { shutdownObservability } from '../../observability/index'
 import { applyTeamPolicyBeforeQuit, isQuittingForUpdate } from '../../updater/updater-service-slot'
-import { swapCompactedOrchestrationDbAtQuit } from '../../runtime/orchestration/db/maintenance/orchestration-db-compaction-quit'
 import { recordUpdaterLifecycle } from '../../updater/updater-lifecycle-diagnostics'
 import { stopTccPromptNotice } from '../../macos-permissions/macos-tcc-prompt-notice'
 import { installWindowAllClosedHandler } from './window-all-closed-quit-handler'
 import { mainProcessState as state } from '../main-process-state'
 import { isDevParentShutdownRequested } from '../configure-process'
-import {
-  beginDesktopCoreShutdown,
-  fenceDesktopCore
-} from '../../core-desktop/desktop-core-shutdown'
+import { fenceDesktopCore } from '../../core-desktop/desktop-core-quit-fence'
 
 // First will-quit pass awaits teardown; the re-fired pass must exit without starting writes again.
 let daemonDisconnectDone = false
@@ -108,89 +101,106 @@ function installWillQuitHandler(): void {
       .then(({ abortPluginGitForShutdown }) => abortPluginGitForShutdown())
       .catch(() => {})
     const updateQuitInProgress = isQuittingForUpdate()
-    const coreTeardowns = beginDesktopCoreShutdown(
-      state.core,
-      {
-        store: state.store,
-        releaseAdmission: () => {
-          state.profileStateAdmission?.release()
-          state.profileStateAdmission = undefined
-        }
-      },
-      updateQuitInProgress ? 'update' : 'quit',
-      {
-        afterPushStopped: () => stopNativeObserversAndTray(updateQuitInProgress),
-        retireBrowsers,
-        stopUsageBackend: () => state.backend?.stop(),
-        retireBrowserClientHosts: () => {
-          disposeDesktopBrowserBridge()
-          return [
-            {
-              name: 'browser-client-hosts',
-              promise:
-                import('../../browser/client-hosts/lifecycle/paired-runtime-browser-client-host-runtime').then(
-                  ({ shutdownPairedRuntimeBrowserClientHosts }) =>
-                    shutdownPairedRuntimeBrowserClientHosts()
-                )
+    void (async () => {
+      try {
+        const { beginDesktopCoreShutdown } =
+          await import('../../core-desktop/desktop-core-shutdown')
+        const coreTeardowns = beginDesktopCoreShutdown(
+          state.core,
+          {
+            store: state.store,
+            releaseAdmission: () => {
+              state.profileStateAdmission?.release()
+              state.profileStateAdmission = undefined
+            }
+          },
+          updateQuitInProgress ? 'update' : 'quit',
+          {
+            afterPushStopped: () => stopNativeObserversAndTray(updateQuitInProgress),
+            retireBrowsers,
+            stopUsageBackend: () => state.backend?.stop(),
+            retireBrowserClientHosts: () => {
+              disposeDesktopBrowserBridge()
+              return [
+                {
+                  name: 'browser-client-hosts',
+                  promise:
+                    import('../../browser/client-hosts/lifecycle/paired-runtime-browser-client-host-runtime').then(
+                      ({ shutdownPairedRuntimeBrowserClientHosts }) =>
+                        shutdownPairedRuntimeBrowserClientHosts()
+                    )
+                },
+                {
+                  name: 'paired-port-forwards',
+                  promise: import('../../ports/paired-forwards/paired-port-forwards').then(
+                    ({ closeAllPairedPortForwards }) => closeAllPairedPortForwards()
+                  )
+                }
+              ]
             },
+            isDevParentShutdown: isDevParentShutdownRequested
+          }
+        )
+        // Bound unsettled transports so quit cannot hang (#9447); atomic swaps preserve old files if a debounce is lost.
+        const { teardownsFulfilled } = await finishQuitTeardown({
+          teardowns: [
+            ...coreTeardowns,
             {
-              name: 'paired-port-forwards',
-              promise: import('../../ports/paired-forwards/paired-port-forwards').then(
-                ({ closeAllPairedPortForwards }) => closeAllPairedPortForwards()
+              name: 'install-park',
+              promise: import('../../updater/lifecycle/serve-supervisor-install-park').then(
+                ({ pendingServeSupervisorQuitCommit }) => pendingServeSupervisorQuitCommit()
               )
             }
-          ]
-        },
-        isDevParentShutdown: isDevParentShutdownRequested
-      }
-    )
-    // Bound unsettled transports so quit cannot hang (#9447); atomic swaps preserve old files if a debounce is lost.
-    void finishQuitTeardown({
-      teardowns: [
-        ...coreTeardowns,
-        {
-          name: 'install-park',
-          promise: import('../../updater/lifecycle/serve-supervisor-install-park').then(
-            ({ pendingServeSupervisorQuitCommit }) => pendingServeSupervisorQuitCommit()
-          )
+          ],
+          deadlineMs: quitTeardownDeadlineMs(updateQuitInProgress),
+          // After the teardown, so they save every write it accepted; each never rejects.
+          closeDataStores: async () => {
+            const [
+              { closeBrowserExtensionProfileDocumentStores },
+              { closeBrowserExtensionProfileStateStore }
+            ] = await Promise.all([
+              import('../../browser/extensions/profile-storage/browser-extension-profile-document-store'),
+              import('../../browser/extensions/profile-storage/browser-extension-profile-state-store')
+            ])
+            await Promise.all([
+              closeBrowserExtensionProfileDocumentStores(),
+              closeBrowserExtensionProfileStateStore()
+            ])
+          },
+          closeWorkerStores: async () => {
+            const { closeEnvironmentStore } =
+              await import('../../../shared/remote-runtime/host-store/runtime-environment-store-worker-client')
+            await closeEnvironmentStore()
+          },
+          workerStoreDeadlineMs: quitWorkerStoreDeadlineMs(updateQuitInProgress),
+          shutdownDiagnostics: async () => {
+            const [{ shutdownTelemetry }, { shutdownObservability }] = await Promise.all([
+              import('../../telemetry/client'),
+              import('../../observability/index')
+            ])
+            await shutdownTelemetry()
+            await shutdownObservability()
+          }
+        })
+        // Last: nothing can reach the orchestration database again. Renames only, capped. Desktop quits
+        // whose teardowns all fulfilled; not Windows updates, whose exit watchdog leaves no room for it.
+        if (
+          teardownsFulfilled &&
+          !state.isServeMode &&
+          !isDevParentShutdownRequested() &&
+          !(updateQuitInProgress && process.platform === 'win32')
+        ) {
+          const { swapCompactedOrchestrationDbAtQuit } =
+            await import('../../runtime/orchestration/db/maintenance/orchestration-db-compaction-quit')
+          await swapCompactedOrchestrationDbAtQuit(state.core.runtime)
         }
-      ],
-      deadlineMs: quitTeardownDeadlineMs(updateQuitInProgress),
-      // After the teardown, so they save every write it accepted; each never rejects.
-      closeDataStores: async () => {
-        const [
-          { closeBrowserExtensionProfileDocumentStores },
-          { closeBrowserExtensionProfileStateStore }
-        ] = await Promise.all([
-          import('../../browser/extensions/profile-storage/browser-extension-profile-document-store'),
-          import('../../browser/extensions/profile-storage/browser-extension-profile-state-store')
-        ])
-        await Promise.all([
-          closeBrowserExtensionProfileDocumentStores(),
-          closeBrowserExtensionProfileStateStore()
-        ])
-      },
-      closeWorkerStores: closeEnvironmentStore,
-      workerStoreDeadlineMs: quitWorkerStoreDeadlineMs(updateQuitInProgress),
-      shutdownDiagnostics: async () => {
-        await shutdownTelemetry()
-        await shutdownObservability()
-      }
-    })
-      // Last: nothing can reach the orchestration database again. Renames only, capped. Desktop quits
-      // whose teardowns all fulfilled; not Windows updates, whose exit watchdog leaves no room for it.
-      .then(({ teardownsFulfilled }) =>
-        teardownsFulfilled &&
-        !state.isServeMode &&
-        !isDevParentShutdownRequested() &&
-        !(updateQuitInProgress && process.platform === 'win32')
-          ? swapCompactedOrchestrationDbAtQuit(state.core.runtime)
-          : undefined
-      )
-      .then(() => {
+      } catch (error) {
+        console.error('[quit] Desktop core shutdown failed:', error)
+      } finally {
         daemonDisconnectDone = true
         app.quit()
-      })
+      }
+    })()
   })
 }
 

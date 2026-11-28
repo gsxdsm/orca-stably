@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
-import { View, Text, ScrollView, ActivityIndicator } from 'react-native'
+import { View, ScrollView, ActivityIndicator } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect, useLocalSearchParams } from 'expo-router'
-import { ChevronLeft, RefreshCw, User } from 'lucide-react-native'
+import { ChevronLeft, RefreshCw } from 'lucide-react-native'
 import { loadHosts, peekHosts } from '../host-catalog/host-store'
 import { useForceReconnect, useHostClient } from '../transport/connection/host-client-hooks'
 import { useHostConnectionInputs } from '../transport/connection/client-context-connection-metrics'
@@ -18,22 +18,33 @@ import { useMobileColors } from '../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { stylesSheet } from './mobile-accounts-screen-styles'
 import { useNow } from '../hooks/use-now'
-import type { ProviderKey } from './usage/usage-selectors'
-import { useCodexResetCreditAction } from './usage/use-codex-reset-credit-action'
-import { ConfirmModal } from '../components/sheets/ConfirmModal'
-import { NavBar } from '../components/nav-bar/NavBar'
-import { NavBarButton } from '../components/nav-bar/NavBarButton'
-import { useRouteHandoff } from '../navigation/route-handoff'
-import { MobileAccountsExtraProviders } from './MobileAccountsExtraProviders'
+import { ClaudeIcon, OpenAIIcon } from '../components/icons/AgentIcons'
 import {
+  type ProviderKey,
   getActiveProviderRateLimits,
   getInactiveProviderUsage,
   getSystemDefaultProviderUsage,
   hasActiveProviderUsage
 } from './usage/usage-selectors'
+import { getProviderDisplayName } from '../../../src/shared/agent-usage/display/usage-provider-windows'
 import { ProviderUsageWindows } from './ProviderUsageWindows'
+import {
+  getActiveCodexAccountIdForRateLimitTarget,
+  getCodexResetCreditSummary
+} from './usage/codex-reset-credit'
+import { CodexResetCreditAction } from './usage/CodexResetCreditAction'
+import { UsageStatusNote } from './usage/UsageStatusNote'
+import { useCodexResetCreditAction } from './usage/use-codex-reset-credit-action'
+import { ConfirmModal } from '../components/sheets/ConfirmModal'
+import { TransientToast, useTransientToast } from '../components/feedback/TransientToast'
+import { NavBar } from '../components/nav-bar/NavBar'
+import { NavBarButton, NavBarButtonOnSheetContext } from '../components/nav-bar/NavBarButton'
 import { ListGroup, SectionHeader, ListRow } from '../components/list/ListGroup'
+import { useRouteHandoff } from '../navigation/route-handoff'
 import { useMobileAccountsSnapshot } from './use-mobile-accounts-snapshot'
+import { ProviderAccountSections } from './provider-account-sections'
+import { AntigravityUsageSection } from './antigravity-account-section'
+import { DedicatedProviderUsageSections, withoutDedicatedUsage } from './provider-usage-section'
 import {
   getManagedAccountInlineLabel,
   getManagedAccountPrimaryLabel
@@ -43,13 +54,7 @@ import {
   getCodexAccountDisplayLabel
 } from '../../../src/shared/agent-accounts/codex-account-display-label'
 import { useThemedStyles } from '../theme/themed-styles'
-import { ClaudeIcon, OpenAIIcon } from '../components/icons/AgentIcons'
-import {
-  getActiveCodexAccountIdForRateLimitTarget,
-  getCodexResetCreditSummary
-} from './usage/codex-reset-credit'
-import { CodexResetCreditAction } from './usage/CodexResetCreditAction'
-import { UsageStatusNote } from './usage/UsageStatusNote'
+import { ManageOnDesktopHint, useAccountsScreenSignIn } from './sign-in/use-accounts-screen-sign-in'
 
 type AccountsNotice = { title: string; message: string }
 
@@ -72,7 +77,7 @@ export function MobileAccountsScreen() {
   const [busyAccountId, setBusyAccountId] = useState<string | null>(null)
   const [clockEnabled, setClockEnabled] = useState(false)
   const [notice, setNotice] = useState<AccountsNotice | null>(null)
-  const [providerAccountReload, setProviderAccountReload] = useState(0)
+  const { message: toastMessage, showToast } = useTransientToast()
 
   useEffect(() => {
     setHostError(null)
@@ -88,8 +93,9 @@ export function MobileAccountsScreen() {
     lastConnectedAt: connectionInputs.lastConnectedAt
   })
   const { snapshot, live, refreshing, acceptSnapshot } = accounts
+  const [providerAccountsReload, setProviderAccountsReload] = useState(0)
   const refresh = useCallback(async () => {
-    setProviderAccountReload((value) => value + 1)
+    setProviderAccountsReload((value) => value + 1)
     await accounts.refresh()
   }, [accounts.refresh])
   const error = accounts.error ?? hostError
@@ -106,18 +112,18 @@ export function MobileAccountsScreen() {
     hasData: showsAccounts,
     asOf: accounts.readAt
   })
+  // Accounts are added and signed in again on the computer, whose login the phone relays.
+  const signIn = useAccountsScreenSignIn({
+    client,
+    connected: connState === 'connected',
+    hostName,
+    bottomInset: insets.bottom,
+    live,
+    onSignedIn: () => void refresh()
+  })
   // Stored accounts wait on the stream's first answer for their usage.
   const showRefreshLine = useRefreshHint(showsAccounts && !live && offlineBanner === null)
-  const {
-    supported: codexResetSupported,
-    resetting: resettingCodex,
-    resetScope,
-    scopeLabel: resetScopeLabel,
-    confirmReset: confirmCodexReset,
-    confirmation: codexResetConfirmation,
-    acceptReset: acceptCodexReset,
-    cancelReset: cancelCodexReset
-  } = useCodexResetCreditAction({
+  const codexReset = useCodexResetCreditAction({
     client,
     connected: connState === 'connected',
     snapshot,
@@ -125,6 +131,7 @@ export function MobileAccountsScreen() {
     onSnapshot: acceptSnapshot,
     onNotice: setNotice
   })
+  const switchBlocked = busyAccountId !== null || codexReset.resetting || !live
 
   useFocusEffect(
     useCallback(() => {
@@ -158,25 +165,22 @@ export function MobileAccountsScreen() {
 
   const selectAccount = useCallback(
     async (provider: ProviderKey, accountId: string | null) => {
-      if (!client) {
-        return
-      }
       const codexTarget = provider === 'codex' ? snapshot?.rateLimits.codexTarget : null
-      if (provider === 'codex' && !codexTarget) {
+      if (!client || (provider === 'codex' && !codexTarget)) {
         return
       }
       setBusyAccountId(accountId ?? `${provider}:default`)
+      const isWslCodex = codexTarget?.runtime === 'wsl'
       const method =
         provider === 'claude'
           ? 'accounts.selectClaude'
-          : codexTarget?.runtime === 'wsl'
+          : isWslCodex
             ? 'accounts.selectCodexForTarget'
             : 'accounts.selectCodex'
       const title = t('accounts.screen.switchFailed', 'Could not switch account')
       try {
         // Use distinct WSL-targeted RPC: older hosts silently strip unknown fields, so version skew must fail before mutation.
-        const params =
-          codexTarget?.runtime === 'wsl' ? { accountId, target: codexTarget } : { accountId }
+        const params = isWslCodex ? { accountId, target: codexTarget } : { accountId }
         const res = await client.sendRequest(method, params)
         if (!res.ok) {
           setNotice({ title, message: res.error.message })
@@ -207,8 +211,6 @@ export function MobileAccountsScreen() {
     const resetCredit =
       provider === 'codex' ? getCodexResetCreditSummary(activeUsage, now, t) : null
     const Icon = provider === 'claude' ? ClaudeIcon : OpenAIIcon
-    // Stored rows may name a selection or Codex target the desktop has since changed.
-    const switchBlocked = busyAccountId !== null || resettingCodex || !live
     const spinner = <ActivityIndicator size="small" color={colors.textSecondary} />
     return (
       <View>
@@ -217,7 +219,7 @@ export function MobileAccountsScreen() {
           icon={<Icon size={14} />}
           first={provider === 'claude'}
         />
-        <ListGroup style={styles.group}>
+        <ListGroup>
           {/* A blocked row drops its press instead of dimming, so the picked one keeps full contrast. */}
           <ListRow
             key="default"
@@ -250,49 +252,61 @@ export function MobileAccountsScreen() {
             // Codex logins can share an email across workspaces; desktop tells them apart the same way.
             const detail =
               provider === 'codex' ? getCodexAccountDisplayDetail(account, state.accounts) : null
+            const signedOutRow = signIn.rowFor(provider, account, activeAccountId, snapshot)
+            const { signedOut, offerSignIn } = signedOutRow
             return (
               <ListRow
                 key={account.id}
                 title={title}
                 subtitle={
-                  [title === account.email ? null : account.email, detail]
+                  [title === account.email ? null : account.email, detail, signedOutRow.note]
                     .filter(Boolean)
                     .join(' · ') || undefined
                 }
-                accessibilityLabel={
+                {...signedOutRow.props}
+                accessibilityLabel={signedOutRow.label(
                   provider === 'codex'
                     ? getCodexAccountDisplayLabel(account, state.accounts)
                     : getManagedAccountInlineLabel(account)
-                }
+                )}
+                // A signed-out account has no usage to show until it signs in again.
                 detail={
-                  <>
-                    <ProviderUsageWindows
-                      limits={usage}
-                      now={now}
-                      isFetching={isFetching}
-                      showEmptyWindows
-                    />
-                    {usage ? <UsageStatusNote limits={usage} /> : null}
-                  </>
+                  signedOut ? undefined : (
+                    <>
+                      <ProviderUsageWindows
+                        limits={usage}
+                        now={now}
+                        isFetching={isFetching}
+                        showEmptyWindows
+                      />
+                      {usage ? <UsageStatusNote limits={usage} /> : null}
+                    </>
+                  )
                 }
                 accessory={busyAccountId === account.id ? spinner : undefined}
                 selected={isActive}
                 onPress={
-                  switchBlocked || isActive
-                    ? undefined
-                    : () => void selectAccount(provider, account.id)
+                  offerSignIn
+                    ? () => signIn.start({ provider, accountId: account.id })
+                    : switchBlocked || isActive || signedOut
+                      ? undefined
+                      : () => void selectAccount(provider, account.id)
                 }
               />
             )
           })}
-          {resetCredit && codexResetSupported && resetScope && connState === 'connected' ? (
+          {signIn.addRow(provider, state.accounts)}
+          {resetCredit &&
+          codexReset.supported &&
+          codexReset.resetScope &&
+          connState === 'connected' ? (
             <CodexResetCreditAction
               key="codex-reset"
               summary={resetCredit}
-              scopeLabel={resetScopeLabel}
-              busy={resettingCodex}
-              disabled={resettingCodex || busyAccountId !== null || connState !== 'connected'}
-              onPress={confirmCodexReset}
+              scopeLabel={codexReset.scopeLabel}
+              busy={codexReset.resetting}
+              disabled={codexReset.resetting || busyAccountId !== null || connState !== 'connected'}
+              onPress={codexReset.confirmReset}
             />
           ) : null}
         </ListGroup>
@@ -300,28 +314,43 @@ export function MobileAccountsScreen() {
     )
   }
 
+  const providerProps = {
+    client,
+    live,
+    snapshot,
+    now,
+    reloadKey: providerAccountsReload,
+    switchBlocked,
+    onSwitched: refresh,
+    onNotice: setNotice
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <NavBar
-        leading={
-          <NavBarButton
-            icon={ChevronLeft}
-            onPress={() => router.back()}
-            accessibilityLabel={t('common.back', 'Back')}
-          />
-        }
-        title={t('accounts.screen.title', 'Accounts')}
-        subtitle={hostName || undefined}
-        refreshing={showRefreshLine}
-        trailing={
-          <NavBarButton
-            icon={refreshing ? RefreshingIcon : RefreshCw}
-            onPress={() => void refresh()}
-            disabled={!client || refreshing || connState !== 'connected'}
-            accessibilityLabel={t('accounts.screen.refreshAccounts', 'Refresh accounts')}
-          />
-        }
-      />
+      {/* The bar takes the grouped page's grey, so its buttons need the fill that reads on it. */}
+      <NavBarButtonOnSheetContext.Provider value>
+        <NavBar
+          style={styles.bar}
+          leading={
+            <NavBarButton
+              icon={ChevronLeft}
+              onPress={() => router.back()}
+              accessibilityLabel={t('common.back', 'Back')}
+            />
+          }
+          title={t('accounts.screen.title', 'Accounts')}
+          subtitle={hostName || undefined}
+          refreshing={showRefreshLine}
+          trailing={
+            <NavBarButton
+              icon={refreshing ? RefreshingIcon : RefreshCw}
+              onPress={() => void refresh()}
+              disabled={!client || refreshing || connState !== 'connected'}
+              accessibilityLabel={t('accounts.screen.refreshAccounts', 'Refresh accounts')}
+            />
+          }
+        />
+      </NavBarButtonOnSheetContext.Provider>
 
       <ScrollView
         contentContainerStyle={[
@@ -351,38 +380,29 @@ export function MobileAccountsScreen() {
             ) : null}
             {renderProviderSection('claude')}
             {renderProviderSection('codex')}
-            <MobileAccountsExtraProviders
-              snapshot={snapshot}
-              now={now}
-              client={client}
-              live={live}
-              reloadKey={providerAccountReload}
+            <ProviderAccountSections
+              {...providerProps}
+              snapshot={withoutDedicatedUsage(snapshot)}
               busyAccountId={busyAccountId}
-              disabled={busyAccountId !== null || resettingCodex || connState !== 'connected'}
-              setBusyAccountId={setBusyAccountId}
-              onNotice={setNotice}
-              onRefresh={refresh}
+              onBusyAccountId={setBusyAccountId}
+              onToast={showToast}
             />
-            <View style={styles.footerHint}>
-              <User size={14} color={colors.textMuted} />
-              <Text style={styles.footerHintText}>
-                {t(
-                  'accounts.screen.manageAccountsHint',
-                  'Add or re-authenticate accounts from desktop Settings → Accounts.'
-                )}
-              </Text>
-            </View>
+            <AntigravityUsageSection {...providerProps} snapshot={snapshot} />
+            <DedicatedProviderUsageSections snapshot={snapshot} now={now} />
+            {signIn.supported ? null : <ManageOnDesktopHint />}
           </>
         )}
       </ScrollView>
+      {signIn.overlay}
       <ConfirmModal
-        visible={codexResetConfirmation !== null}
-        title={codexResetConfirmation?.title ?? ''}
-        message={codexResetConfirmation?.message}
+        visible={codexReset.confirmation !== null}
+        title={codexReset.confirmation?.title ?? ''}
+        message={codexReset.confirmation?.message}
         confirmLabel={t('accounts.screen.useReset', 'Use reset')}
-        onConfirm={acceptCodexReset}
-        onCancel={cancelCodexReset}
+        onConfirm={codexReset.acceptReset}
+        onCancel={codexReset.cancelReset}
       />
+      <TransientToast message={toastMessage} bottomInset={insets.bottom} />
       <ConfirmModal
         visible={notice !== null}
         title={notice?.title ?? ''}
@@ -395,6 +415,6 @@ export function MobileAccountsScreen() {
   )
 }
 
-function RefreshingIcon({ color }: { color?: string }) {
-  return <ActivityIndicator size="small" color={color} />
-}
+const RefreshingIcon = ({ color }: { color?: string }) => (
+  <ActivityIndicator size="small" color={color} />
+)

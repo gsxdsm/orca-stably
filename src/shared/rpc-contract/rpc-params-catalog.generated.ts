@@ -104,11 +104,13 @@ import {
 import { PrepareCodexForWslPaneParams } from './accounts/agent-hooks-params'
 import {
   AntigravityAccountMutationParams,
+  AntigravityAccountSelectParams,
   AntigravityAccountTargetParams,
   AntigravityChatApiKeySaveParams,
   AntigravityChatSignInCompleteParams,
   AntigravityChatSignInFlowParams,
-  AntigravityChatSignInStartParams
+  AntigravityChatSignInStartParams,
+  AntigravityUnheldTerminalsParams
 } from './accounts/antigravity-accounts-params'
 import {
   UsageCredentialApiKeyParams,
@@ -359,6 +361,7 @@ import {
   PRBotAuthorOverrideUpdate,
   SettingsUpdate
 } from './client-ui/client-settings-params'
+import { UiSetWorkspaceNotificationMuted } from './client-ui/client-ui-notification-mute-params'
 import { FeatureInteractionIdParam, UiUpdate } from './client-ui/client-ui-params'
 import { ClientWorkspaceViewParams } from './client-ui/client-workspace-view-params'
 import { SidebarSessionBeginParams } from './client-ui/sidebar-session-params'
@@ -870,6 +873,7 @@ import {
 } from './skills/skills-params'
 import { BitbucketConnectParams } from './source-control/bitbucket-params'
 import {
+  GitAbortOperation,
   GitBlame,
   GitBranchCompare,
   GitBranchDiff,
@@ -1164,9 +1168,10 @@ export const RPC_PARAMS_BY_METHOD = {
   'accounts.antigravityChatSignInStart': AntigravityChatSignInStartParams,
   'accounts.antigravityChatSignInSubscribe': null,
   'accounts.antigravityList': AntigravityAccountTargetParams,
+  'accounts.antigravityMoveUnheldTerminals': AntigravityUnheldTerminalsParams,
   'accounts.antigravityReadCurrent': AntigravityAccountTargetParams,
   'accounts.antigravityRemove': AntigravityAccountMutationParams,
-  'accounts.antigravitySelect': AntigravityAccountMutationParams,
+  'accounts.antigravitySelect': AntigravityAccountSelectParams,
   'accounts.beginClaudeSignIn': BeginClaudeSignInParams,
   'accounts.cancelClaudeSignIn': FinishClaudeSignInParams,
   'accounts.consumeCodexResetCredit': ConsumeCodexResetCreditParams,
@@ -1678,8 +1683,8 @@ export const RPC_PARAMS_BY_METHOD = {
   'folderWorkspace.getPathStatus': FolderWorkspacePathStatus,
   'folderWorkspace.list': null,
   'folderWorkspace.update': FolderWorkspaceUpdate,
-  'git.abortMerge': WorktreeSelectorOfGitCoreParams,
-  'git.abortRebase': WorktreeSelectorOfGitCoreParams,
+  'git.abortMerge': GitAbortOperation,
+  'git.abortRebase': GitAbortOperation,
   'git.atRiskLocalFiles': WorktreeSelectorOfGitCoreParams,
   'git.blame': GitBlame,
   'git.branchCompare': GitBranchCompare,
@@ -2308,6 +2313,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'ui.set': UiUpdate,
   'ui.setCollapsed': SetCollapsedParams,
   'ui.setJiraQuickFilters': JiraQuickFilterStateParam,
+  'ui.setWorkspaceNotificationMuted': UiSetWorkspaceNotificationMuted,
   'updater.check': UpdaterCheckParams,
   'updater.download': null,
   'updater.getStatus': null,

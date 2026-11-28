@@ -14,8 +14,26 @@ import { UsageBar } from './usage/UsageBar'
 import { MiniMaxIcon, OpenCodeGoIcon } from '../components/icons/AgentIcons'
 import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
-import { styles } from './mobile-accounts-screen-styles'
+import { useThemedStyles } from '../theme/themed-styles'
+import { stylesSheet } from './mobile-accounts-screen-styles'
+
+export const DEDICATED_USAGE_PROVIDERS = [
+  'gemini',
+  'opencodeGo',
+  'minimax',
+  'grok',
+  'cursor',
+  'zcode'
+] as const satisfies readonly Exclude<MobileUsageProviderId, 'antigravity'>[]
+
+/** Strip providers rendered by dedicated sections so ProviderAccountSections doesn't duplicate them under Other agents. */
+export function withoutDedicatedUsage(snapshot: AccountsSnapshot): AccountsSnapshot {
+  const rateLimits = { ...snapshot.rateLimits }
+  for (const provider of DEDICATED_USAGE_PROVIDERS) {
+    delete rateLimits[provider]
+  }
+  return { ...snapshot, rateLimits }
+}
 
 const PROVIDER_COPY = {
   gemini: { headingKey: 'accounts.screen.gemini', heading: 'Gemini' },
@@ -26,6 +44,22 @@ const PROVIDER_COPY = {
   zcode: { headingKey: 'accounts.screen.zcodePlan', heading: 'GLM Coding Plan' }
 } as const
 
+export function DedicatedProviderUsageSections({
+  snapshot,
+  now
+}: {
+  snapshot: AccountsSnapshot
+  now: number
+}) {
+  return (
+    <>
+      {DEDICATED_USAGE_PROVIDERS.map((provider) => (
+        <ProviderUsageSection key={provider} provider={provider} snapshot={snapshot} now={now} />
+      ))}
+    </>
+  )
+}
+
 export function ProviderUsageSection({
   provider,
   snapshot,
@@ -35,7 +69,7 @@ export function ProviderUsageSection({
   snapshot: AccountsSnapshot
   now: number
 }) {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   if (!hasRenderableProviderUsage(snapshot, provider)) {
     return null
@@ -91,7 +125,7 @@ export function ProviderUsageSection({
 }
 
 export function UsageMeterList({ meters, now }: { meters: UsageMeter[]; now: number }) {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   return (
     <View style={styles.usageStack}>

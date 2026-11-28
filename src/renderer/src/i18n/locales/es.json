@@ -1122,7 +1122,7 @@
           "urlPlaceholder": "https://example.com/mcp",
           "transport": "Streamable HTTP · localhost se refiere al equipo de este bot.",
           "headers": "Encabezados",
-          "authHint": "Si el servidor requiere iniciar sesión en el navegador, aparecerá Conectar después de su comprobación nativa.",
+          "authHint": "Si el servidor requiere iniciar sesión en el navegador, aparecerá «Iniciar sesión» después de su comprobación nativa.",
           "executable": "Ejecutable",
           "commandPlaceholder": "npx",
           "args": "Argumentos",
@@ -5450,9 +5450,8 @@
             "84c3b15dca": "Límites de uso de agentes",
             "d663430cf9": "Configurar seguimiento de uso",
             "remoteLabel": "Sin uso en {{host}}",
-            "remoteTitle": "Uso en {{host}}",
-            "remoteBody": "Este espacio de trabajo se ejecuta en {{host}}, por lo que la barra muestra el uso de ese host. Inicia sesión en un agente allí o enfoca un espacio de trabajo local para ver el uso de este equipo.",
-            "remoteOpenAccounts": "Abrir cuentas de {{host}}"
+            "remoteNoUsageYet": "Aún no hay uso. Inicia sesión allí.",
+            "remoteAccounts": "Cuentas"
           },
           "UpdateStatusSegment": {
             "5cd13105a3": "La actualización falló. Haz clic para expandir.",
@@ -15264,7 +15263,10 @@
             "operationResolve": "Resolver",
             "operationResolveLabel": "Resolver conflictos con IA",
             "operationMoreActions": "Más acciones",
-            "operationAbortConfirm": "Vuelve a seleccionar para abortar"
+            "operationAbortConfirm": "Vuelve a seleccionar para abortar",
+            "operationRunChangedTitle": "No se abortó nada",
+            "operationRunChangedDescription": "La operación cambió después de elegir Abortar. Revisa su estado actual e inténtalo de nuevo.",
+            "operationRunUnknown": "No se puede saber qué ejecución está en pausa, así que Abortar no está disponible aquí. Actualiza el control de código fuente o abórtala en una terminal."
           },
           "SourceControlAgentActionDialog": {
             "8e856842d1": "No se pudo iniciar el agente seleccionado.",
@@ -16415,14 +16417,18 @@
           "resetDone": "Icono y color restablecidos",
           "undo": "Deshacer",
           "styleLetters": "Letras",
-          "stylePicture": "Imagen",
-          "resetAppearance": "Restablecer icono y color",
+          "styleImage": "Imagen",
           "faviconPlaceholder": "Sitio web para el favicon",
           "lettersInput": "Hasta 2 letras",
           "lettersPlaceholder": "1–2 letras",
           "useLetters": "Usar «{{value0}}»",
-          "usingGitHubAvatar": "Usando el avatar de GitHub",
-          "openSettings": "Abrir Ajustes"
+          "openSettings": "Abrir Ajustes",
+          "noIconFound": "No se encontró ningún icono",
+          "githubAvatar": "Avatar de GitHub",
+          "websiteIcon": "Icono del sitio web",
+          "fetchIcon": "Obtener",
+          "uploadTooLarge": "Más de 256 KB",
+          "options": "Opciones"
         }
       },
       "pet": {
@@ -19439,7 +19445,7 @@
           "runStatusDispatchFailed": "Fallida"
         },
         "runContent": {
-          "noOutput": "No hay contenido de salida disponible."
+          "noOutput": "Sin salida."
         },
         "runViewState": {
           "viewRun": "Ver ejecución",
@@ -22463,10 +22469,7 @@
         "refused": "Google rechazó las credenciales de este chat.",
         "usageLimit": "Este inicio de sesión alcanzó su límite de uso.",
         "signInGoogle": "Iniciar sesión con Google",
-        "yourAgy": "Tu agy",
         "yourAgyVersion": "Tu agy · v{{version}}",
-        "orcasAgy": "El agy de Orca",
-        "orcasAgyVersion": "El agy de Orca · v{{version}}",
         "runsOn": "Se ejecuta en: {{program}}",
         "keepsOwnLogin": "Este chat conserva el inicio de sesión de Google propio de agy. Los chats nuevos usan {{method}}.",
         "apiKeyEnvironment": "Desde tu entorno",
@@ -23434,6 +23437,9 @@
           "always": "Siempre",
           "never": "Nunca"
         }
+      },
+      "advanced": {
+        "localOnlyNotice": "Ajustes de compatibilidad de bajo nivel para solucionar problemas. Estos ajustes se guardan en este equipo, no en {{host}}."
       },
       "repositoryHooks": {
         "availableEnvVars": "Variables de entorno disponibles"
@@ -25194,7 +25200,6 @@
       "saveShort": "Guardar",
       "readAt": "Consultado {{time}}",
       "active": "Activa",
-      "runtime": "Runtime",
       "chatTitle": "Chat de Antigravity",
       "terminalTitle": "agy en el terminal",
       "terminalDescription": "Usa las cuentas guardadas propias de agy. El cambio se aplica a las sesiones nuevas de agy.",
@@ -29468,8 +29473,6 @@
         "automationEnded": "Finalizada"
       },
       "menu": {
-        "cancel": "Cancelar",
-        "done": "Marcar como hecho",
         "waiting": "En espera…"
       },
       "pill": {
@@ -29480,6 +29483,7 @@
         "moveCount_many": "Mover {{count}} elementos a"
       },
       "row": {
+        "cancel": "Cancelar",
         "done": "Marcar como hecho",
         "more": "Más",
         "select": "Seleccionar {{title}}"
@@ -30424,7 +30428,7 @@
       "newThreadTab": "Nuevo hilo",
       "items": {
         "orNames": "{{names}} o {{last}}",
-        "emptyBotsNeedsYou": "Ningún elemento de {{names}} requiere tu atención",
+        "emptyBotsNeedsYou": "Nada de {{names}} requiere tu atención",
         "emptyBots": "No hay elementos de {{names}}",
         "emptyTitle": "Aún no hay elementos de este grupo",
         "filterNamed": "Filtrar elementos, filtrados por {{filter}}",

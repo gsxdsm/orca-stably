@@ -30,6 +30,7 @@ import { workerDockSourceOfSession } from '../../orchestration/dock/worker-dock-
 import type { OrchestrationDb } from '../../orchestration/db/orchestration-db'
 import type { OrcaRuntimeService } from '../../orca-runtime'
 import type { RuntimeStore } from '../../construction/runtime-store-contract'
+import { hostAntigravityChatCanSwitchAccount } from '../../../antigravity/antigravity-chat-can-switch-account'
 import type { StructuredAgentSessionStatusSink } from '../../../native-chat/agent-session-wire/observations/structured-agent-session-status-ownership'
 
 type StructuredHostDeps = Exclude<
@@ -93,6 +94,7 @@ export type RuntimeStructuredAgentSessionHostBootstrapContext = {
   >
   onStructuredRequestFailureForErrorMail: NonNullable<StructuredHostDeps['onRequestFailure']>
   onStructuredIdleProviderDeathForMail: NonNullable<StructuredHostDeps['onIdleProviderDeath']>
+  onStructuredUserClosedProviderForMail: NonNullable<StructuredHostDeps['onUserClosedProvider']>
   notifyCrewChanges: (change: ReturnType<typeof crewChatStatusChange>) => void
   onStructuredSessionStatusForMail: (
     summary: Parameters<NonNullable<StructuredHostDeps['onSessionStatusChanged']>>[0]
@@ -157,10 +159,16 @@ export async function ensureRuntimeStructuredAgentSessionHost(
       ...structuredAgentSettingGates(() => context.requireStore().getSettings()),
       launchAccountHome: (record, purpose) =>
         context.resolveStructuredAgentLaunchAccountHome(record, purpose),
+      canSwitchAntigravityAccount: (record) =>
+        hostAntigravityChatCanSwitchAccount(
+          record,
+          context.requireStore().getSettings().antigravityChatAuth
+        ),
       prepareLaunchAccountHome: (record, launchDirectory) =>
         context.prepareStructuredAgentLaunchAccountHome(record, launchDirectory),
       onRequestFailure: (failure) => context.onStructuredRequestFailureForErrorMail(failure),
       onIdleProviderDeath: (death) => context.onStructuredIdleProviderDeathForMail(death),
+      onUserClosedProvider: (closed) => context.onStructuredUserClosedProviderForMail(closed),
       readWorkerDockPresence: (sessionId) =>
         context.readWorkerDockSource(workerDockSourceOfSession(sessionId)),
       // Structured chat has no CLI hooks; this projection drives first-work renaming.

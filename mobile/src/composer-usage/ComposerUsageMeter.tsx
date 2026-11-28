@@ -1,13 +1,13 @@
 import { useContext, useEffect, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import {
-  composerInputStyles,
+  composerInputStylesSheet,
   MESSAGE_TEXT_INSET
 } from '../components/composer-input/composer-input-styles'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { colors, radii, spacing, typography } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { radii, spacing, typography } from '../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
+import { useMobileColors } from '../theme/use-mobile-color-scheme'
 import type { AccountsSnapshot } from '../accounts/accounts-snapshot'
 import { useAccountsSnapshot } from './accounts-snapshot-store'
 import {
@@ -64,6 +64,7 @@ type Reading = {
 }
 
 function useComposerUsageReading(agent: string | null | undefined): Reading | null {
+  const colors = useMobileColors()
   const t = useMobileTranslation()
   const client = useContext(ComposerUsageClientContext)
   // Before a hook status names the agent, the host's own identification of the tab still does.
@@ -89,7 +90,7 @@ function useComposerUsageReading(agent: string | null | undefined): Reading | nu
     usage,
     snapshot,
     readout,
-    color: usagePaceColor(computeUsagePace(entry.window, now), readout.used),
+    color: usagePaceColor(computeUsagePace(entry.window, now), readout.used, colors),
     paceMarkerPercent: usagePaceMarkerPercent(entry.window, now, display),
     length,
     resetsIn: usageResetLabel(entry.window, now),
@@ -114,6 +115,8 @@ function useComposerUsageReading(agent: string | null | undefined): Reading | nu
 
 /** The composer action row's flexible gap, with the compact usage meter centered in it unless it sits above. */
 export function ComposerUsageSlot({ agent }: Props): React.JSX.Element {
+  const styles = useThemedStyles(stylesSheet)
+  const composerInputStyles = useThemedStyles(composerInputStylesSheet)
   const position = useComposerUsagePosition()
   const [room, setRoom] = useState<number | null>(null)
   // The full meter's width, whatever part of it shows, so the row never re-splits as parts drop.
@@ -145,7 +148,8 @@ export function ComposerUsageMeter({
   room?: number | null
   onFullWidth?: (width: number | null) => void
 }): React.JSX.Element | null {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
+  const composerInputStyles = useThemedStyles(composerInputStylesSheet)
   const reading = useComposerUsageReading(agent)
   const [open, setOpen] = useState(false)
   // The labels' own widths, measured off the row, so a dropped label still reports its need.
@@ -250,7 +254,8 @@ export function ComposerUsageMeter({
 
 /** The meter as one full-width line over the composer text, when the owner moves it out of the controls row. */
 export function ComposerUsageStrip({ agent }: Props): React.JSX.Element | null {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
+  const composerInputStyles = useThemedStyles(composerInputStylesSheet)
   const position = useComposerUsagePosition()
   const reading = useComposerUsageReading(agent)
   const [open, setOpen] = useState(false)
@@ -309,7 +314,7 @@ function composerUsageMeterFit(
   }
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   // Basis is the meter's width, not 0, so the model pill gives way first and the meter keeps its labels.
   slot: {
     flexGrow: 1,

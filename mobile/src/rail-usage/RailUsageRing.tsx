@@ -16,9 +16,9 @@ import { MiniMaxIcon, OpenCodeGoIcon } from '../components/icons/AgentIcons'
 import { hasMobileAgentIcon, MobileAgentIcon } from '../components/icons/MobileAgentIcon'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { DUO_STATUS_RING_DIAMETER } from '../layout/duo-status-row'
-import { colors, feedback } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { feedback } from '../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
+import { useMobileColors } from '../theme/use-mobile-color-scheme'
 import {
   pickRailUsageWindow,
   RAIL_USAGE_PROVIDER_AGENT,
@@ -109,7 +109,8 @@ export function RailUsageRing({
   const stroke = scaled?.stroke ?? STROKE
   const center = scaled?.center ?? CENTER
   const radius = scaled?.radius ?? RADIUS
-  useMobileColorScheme()
+  const colors = useMobileColors()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const display = useComposerUsageDisplay()
   // "3d 2h" when it fits inside the ring, else its largest unit ("3d", "5h", "40m").
@@ -119,7 +120,7 @@ export function RailUsageRing({
     return null
   }
   const readout = composerUsageMeterReadout(entry.window.usedPercent, display)
-  const fill = usagePaceColor(computeUsagePace(entry.window, now), readout.used)
+  const fill = usagePaceColor(computeUsagePace(entry.window, now), readout.used, colors)
   const marker = usagePaceMarkerPercent(entry.window, now, display)
   const provider = USAGE_PROVIDER_NAMES[usage.provider]
   const vars = {
@@ -211,7 +212,7 @@ export function RailUsageRing({
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   ring: {
     width: SIZE,
     height: SIZE,

@@ -6,9 +6,8 @@ import { BottomDrawer } from '../components/bottom-drawer/BottomDrawer'
 import { MobileSegmentedControl } from '../components/controls/MobileSegmentedControl'
 import { useNow } from '../hooks/use-now'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { colors, spacing, typography } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { spacing, typography } from '../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
 import { listRailUsage } from '../rail-usage/rail-usage-model'
 import { usageProviderTabLogo } from '../rail-usage/RailUsageRing'
 import {
@@ -38,7 +37,7 @@ type Props = {
 /** The one usage pop-up, opened from the composer usage bar and from the Duo rail's usage rings. */
 
 export function ComposerUsageSheet({ visible, onClose, usage, snapshot }: Props) {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const now = useNow(30_000, visible)
   const display = useComposerUsageDisplay()
@@ -131,7 +130,7 @@ export function ComposerUsageSheet({ visible, onClose, usage, snapshot }: Props)
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   heading: {
     color: colors.textPrimary,
     fontSize: typography.bodySize,
