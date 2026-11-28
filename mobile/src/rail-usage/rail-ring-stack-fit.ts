@@ -75,25 +75,31 @@ export function railRingStackFit(args: {
     height,
     pitch: item + clear
   })
+  // A lone ring has no gap to share unless a leading control adds one. It can still shrink to minRing.
   const gapCount = hasLeading ? count : count - 1
-  if (room === null || count <= 0 || gapCount <= 0) {
+  if (room === null || count <= 0) {
     return layout(paddingTop, gap, paddingBottom, null)
   }
   const items = leadingHeight + count * item
-  if (paddingTop + items + gapCount * gap + paddingBottom <= room) {
+  const gaps = Math.max(gapCount, 0) * gap
+  if (paddingTop + items + gaps + paddingBottom <= room) {
     return layout(paddingTop, gap, paddingBottom, null)
   }
   const tightBottom = Math.min(paddingBottom, 2)
-  const tightGap = tightenTop
-    ? Math.floor((room - items - tightBottom) / (gapCount + 1))
-    : Math.floor((room - paddingTop - items - tightBottom) / gapCount)
-  if (tightGap >= minGap) {
-    const clear = Math.min(gap, tightGap)
-    return layout(tightenTop ? Math.min(paddingTop, clear) : paddingTop, clear, tightBottom, null)
-  }
   const effectiveTop = tightenTop ? Math.min(paddingTop, minGap) : paddingTop
+  if (gapCount > 0) {
+    const tightGap = tightenTop
+      ? Math.floor((room - items - tightBottom) / (gapCount + 1))
+      : Math.floor((room - paddingTop - items - tightBottom) / gapCount)
+    if (tightGap >= minGap) {
+      const clear = Math.min(gap, tightGap)
+      return layout(tightenTop ? Math.min(paddingTop, clear) : paddingTop, clear, tightBottom, null)
+    }
+  } else if (effectiveTop + items + tightBottom <= room) {
+    return layout(effectiveTop, gap, tightBottom, null)
+  }
   const diameter = Math.floor(
-    (room - effectiveTop - leadingHeight - gapCount * minGap - tightBottom) /
+    (room - effectiveTop - leadingHeight - Math.max(gapCount, 0) * minGap - tightBottom) /
       (count * (1 + overhang / ring))
   )
   if (diameter >= minRing && diameter < ring) {
@@ -115,10 +121,11 @@ export function railRingStackFit(args: {
     1,
     Math.floor((scrollRoom - peek - scrollPaddingTop - item - 1) / pitch) + 1
   )
+  // The fade covers `peek` at the bottom; the last label has to finish above it once the stack is scrolled to the end.
   return layout(
     effectiveTop,
     minGap,
-    tightBottom,
+    peek,
     scrollPaddingTop + (shown - 1) * pitch + item + 1 + peek
   )
 }

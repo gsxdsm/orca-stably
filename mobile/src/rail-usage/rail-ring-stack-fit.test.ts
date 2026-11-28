@@ -64,7 +64,7 @@ describe('railRingStackFit', () => {
       paddingTop: 12,
       clearGap: 8,
       gap: 13,
-      paddingBottom: 7,
+      paddingBottom: 17,
       height: 179,
       pitch: 54
     })
@@ -74,6 +74,9 @@ describe('railRingStackFit', () => {
     // The fade starts below the third label and above the fourth ring's top.
     expect(fit.height! - base.peek).toBeGreaterThanOrEqual(laid[2].labelBottom)
     expect(fit.height! - base.peek).toBeLessThanOrEqual(laid[3].top)
+    // Scrolled to the end, the last percent finishes at or above the fade.
+    const contentEnd = laid[4].labelBottom + fit.paddingBottom - base.overhang
+    expect(laid[4].labelBottom).toBeLessThanOrEqual(contentEnd - base.peek)
   })
 
   it('keeps even clear gaps with a leading Items button and tightens before scrolling', () => {
@@ -105,11 +108,20 @@ describe('railRingStackFit', () => {
       paddingTop: 12,
       clearGap: 8,
       gap: 13,
-      paddingBottom: 7,
+      paddingBottom: 17,
       height: 113,
       pitch: 54
     })
     expect(12 + 41 + cut.clearGap + cut.height!).toBeLessThanOrEqual(200)
+
+    // One ring has no gap. Room 50 cannot hold the 74pt natural stack, so the ring scales to minRing.
+    const one = railRingStackFit({ ...base, count: 1, room: 50, minRing: 31 })
+    expect(one.diameter).toBe(32)
+    expect(one.height).toBeNull()
+    const oneOverhang = base.overhang * ((one.diameter ?? 0) / base.ring)
+    const oneUsed =
+      one.paddingTop + (one.diameter ?? 0) + oneOverhang + (one.paddingBottom - oneOverhang)
+    expect(oneUsed).toBeLessThanOrEqual(50)
   })
 
   it('fits all 5 rings with Back and Items on folded Duo with 0 or 1 jump arrow and on unfolded Duo', () => {
