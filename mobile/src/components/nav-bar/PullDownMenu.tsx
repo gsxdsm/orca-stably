@@ -9,7 +9,6 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
   type HostInstance
 } from 'react-native'
 import { Check } from 'lucide-react-native'
@@ -23,6 +22,7 @@ import type { ActionSheetAction } from '../sheets/ActionSheetModal'
 import { useWindowSafeAreaInsets } from '../../layout/side-safe-area'
 import { placePullDownMenu, type PullDownMenuPlacement } from './pull-down-menu-placement'
 
+type LayerBox = { x: number; y: number; width: number; height: number }
 // About 250 ms to rest with a hint of overshoot, like an iOS menu growing out of its button.
 const OPEN_SPRING = { stiffness: 420, damping: 32, mass: 1 }
 const CLOSE_FADE_MS = 150
@@ -41,10 +41,12 @@ export function PullDownMenu({ visible, anchorRef, groups, onClose }: PullDownMe
   const colors = useMobileColors()
   const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
-  const window = useWindowDimensions()
   const insets = useWindowSafeAreaInsets()
   const reducedMotion = useReducedMotionEnabled()
   const [placement, setPlacement] = useState<PullDownMenuPlacement | null>(null)
+  // The modal layer's own box: the page's window size can lag its WebView (Duo fold, stack motion).
+  const layerRef = useRef<HostInstance>(null)
+  const [layer, setLayer] = useState<LayerBox | null>(null)
   // The Modal outlives `visible` by the exit fade, so the menu fades out instead of vanishing.
   const [presented, setPresented] = useState(visible)
   if (visible && !presented) {
@@ -53,14 +55,36 @@ export function PullDownMenu({ visible, anchorRef, groups, onClose }: PullDownMe
   const pendingRef = useRef<(() => void) | null>(null)
   const appear = useRef(new Animated.Value(0)).current
 
+  const { top, right, bottom, left } = insets
   useLayoutEffect(() => {
-    if (!visible) {
+    if (!visible || layer === null) {
       return
     }
     anchorRef.current?.measureInWindow((x, y, width, height) => {
-      setPlacement(placePullDownMenu({ anchor: { x, y, width, height }, window, insets }))
+      setPlacement(
+        placePullDownMenu({
+          anchor: { x: x - layer.x, y: y - layer.y, width, height },
+          layer,
+          insets: { top, right, bottom, left }
+        })
+      )
     })
-  }, [anchorRef, visible, window.width, window.height, insets])
+  }, [anchorRef, visible, layer, top, right, bottom, left])
+
+  const measureLayer = () => {
+    layerRef.current?.measureInWindow((x, y, width, height) => {
+      if (width > 0 && height > 0) {
+        setLayer((current) =>
+          current?.x === x &&
+          current.y === y &&
+          current.width === width &&
+          current.height === height
+            ? current
+            : { x, y, width, height }
+        )
+      }
+    })
+  }
 
   // Keyed on being placed, so a re-placement (rotation, an inset change) moves without re-popping.
   const placed = placement !== null
@@ -99,6 +123,7 @@ export function PullDownMenu({ visible, anchorRef, groups, onClose }: PullDownMe
       if (finished) {
         setPresented(false)
         setPlacement(null)
+        setLayer(null)
       }
     })
     return () => close.stop()
@@ -139,6 +164,12 @@ export function PullDownMenu({ visible, anchorRef, groups, onClose }: PullDownMe
   const shown = groups.map((group) => group.filter(Boolean)).filter((group) => group.length > 0)
   return (
     <Modal visible={presented} transparent animationType="none" onRequestClose={onClose}>
+      <View
+        ref={layerRef}
+        style={StyleSheet.absoluteFill}
+        onLayout={measureLayer}
+        pointerEvents="none"
+      />
       <Pressable
         style={StyleSheet.absoluteFill}
         onPress={onClose}
@@ -149,7 +180,10 @@ export function PullDownMenu({ visible, anchorRef, groups, onClose }: PullDownMe
         <Animated.View
           style={[
             styles.menu,
-            placement,
+            'top' in placement
+              ? { top: placement.top, left: placement.left, width: placement.width }
+              : { bottom: placement.bottom, left: placement.left, width: placement.width },
+            { maxHeight: placement.maxHeight },
             {
               opacity: appear.interpolate({
                 inputRange: [0, 1],
@@ -157,7 +191,7 @@ export function PullDownMenu({ visible, anchorRef, groups, onClose }: PullDownMe
                 extrapolate: 'clamp'
               }),
               // Grows out of the button it hangs from rather than from its own middle.
-              transformOrigin: 'top' in placement ? 'top right' : 'bottom right',
+              transformOrigin: `${placement.origin} right`,
               transform: [
                 {
                   scale: appear.interpolate({

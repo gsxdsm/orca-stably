@@ -1,36 +1,44 @@
 import type { EdgeInsets } from 'react-native-safe-area-context'
 
-const MENU_WIDTH = 252
+export const PULL_DOWN_MENU_WIDTH = 252
 const ANCHOR_GAP = 6
 const EDGE_INSET = 8
 
-type AnchorBox = { x: number; y: number; width: number; height: number }
+type Box = { x: number; y: number; width: number; height: number }
 
 /** Below the button, or above it when the button sits in the lower half. */
-export type PullDownMenuPlacement = { left: number; width: number; maxHeight: number } & (
-  | { top: number }
-  | { bottom: number }
-)
+export type PullDownMenuPlacement = {
+  left: number
+  width: number
+  maxHeight: number
+  /** Which corner it grows from: under the button, or above it when the button sits low. */
+  origin: 'top' | 'bottom'
+} & ({ top: number } | { bottom: number })
 
-/** Right-aligned to the button, then kept inside the window's safe area. */
+/**
+ * Where the menu sits inside the layer it is drawn in. `anchor` is relative to that layer, so a
+ * stale window size or an offset layer cannot push it off-screen; it stays inside the safe area.
+ */
 export function placePullDownMenu(args: {
-  anchor: AnchorBox
-  window: { width: number; height: number }
+  anchor: Box
+  layer: { width: number; height: number }
   insets: EdgeInsets
 }): PullDownMenuPlacement {
-  const { anchor, window, insets } = args
+  const { anchor, layer, insets } = args
   const minLeft = insets.left + EDGE_INSET
-  const maxRight = window.width - insets.right - EDGE_INSET
-  const width = Math.max(0, Math.min(MENU_WIDTH, maxRight - minLeft))
+  const maxRight = layer.width - insets.right - EDGE_INSET
+  const width = Math.max(0, Math.min(PULL_DOWN_MENU_WIDTH, maxRight - minLeft))
+  // Right-aligned to the button, then pulled back inside the safe area.
   const left = Math.max(minLeft, Math.min(anchor.x + anchor.width - width, maxRight - width))
   // Long menus scroll instead of running off a short (landscape) screen.
-  if (anchor.y + anchor.height / 2 > window.height / 2) {
-    const bottom = window.height - anchor.y + ANCHOR_GAP
+  if (anchor.y + anchor.height / 2 > layer.height / 2) {
+    const bottom = layer.height - anchor.y + ANCHOR_GAP
     return {
       left,
       width,
       bottom,
-      maxHeight: Math.max(0, window.height - bottom - insets.top - EDGE_INSET)
+      maxHeight: Math.max(0, layer.height - bottom - insets.top - EDGE_INSET),
+      origin: 'bottom'
     }
   }
   const top = anchor.y + anchor.height + ANCHOR_GAP
@@ -38,6 +46,7 @@ export function placePullDownMenu(args: {
     left,
     width,
     top,
-    maxHeight: Math.max(0, window.height - top - insets.bottom - EDGE_INSET)
+    maxHeight: Math.max(0, layer.height - top - insets.bottom - EDGE_INSET),
+    origin: 'top'
   }
 }

@@ -9,40 +9,56 @@ describe('placePullDownMenu', () => {
   it('drops below a header button, scrolling before it reaches the home indicator', () => {
     const placement = placePullDownMenu({
       anchor: { x: 332, y: 26, width: 36, height: 36 },
-      window: DUO_FOLDED,
+      layer: DUO_FOLDED,
       insets: DUO_INSETS
     })
-    expect(placement).toEqual({ left: 116, width: 252, top: 68, maxHeight: 790 })
+    expect(placement).toEqual({ left: 116, width: 252, top: 68, maxHeight: 790, origin: 'top' })
   })
 
   it('opens upward from a low button, scrolling before it reaches the status bar', () => {
     const placement = placePullDownMenu({
       anchor: { x: 332, y: 800, width: 36, height: 36 },
-      window: DUO_FOLDED,
+      layer: DUO_FOLDED,
       insets: DUO_INSETS
     })
-    expect(placement).toEqual({ left: 116, width: 252, bottom: 106, maxHeight: 739 })
+    expect(placement).toEqual({
+      left: 116,
+      width: 252,
+      bottom: 106,
+      maxHeight: 739,
+      origin: 'bottom'
+    })
   })
 
   it('stays on screen beside the left edge and the status column', () => {
     const nearLeft = placePullDownMenu({
       anchor: { x: 180, y: 26, width: 36, height: 36 },
-      window: DUO_FOLDED,
+      layer: DUO_FOLDED,
       insets: DUO_INSETS
     })
     expect(nearLeft).toMatchObject({ left: 8, width: 252 })
     const inColumn = placePullDownMenu({
       anchor: { x: 420, y: 26, width: 36, height: 36 },
-      window: DUO_FOLDED,
+      layer: DUO_FOLDED,
       insets: DUO_INSETS
     })
     expect(inColumn.left + inColumn.width).toBe(374)
   })
 
+  it('keeps the menu on screen when the anchor is measured far left of where it is drawn', () => {
+    // The owner's report: anchor read 139pt (30% of the window) left of the visible button.
+    const placement = placePullDownMenu({
+      anchor: { x: 193, y: 26, width: 36, height: 36 },
+      layer: DUO_FOLDED,
+      insets: DUO_INSETS
+    })
+    expect(placement.left).toBe(8)
+  })
+
   it('narrows to a window thinner than the menu', () => {
     const placement = placePullDownMenu({
       anchor: { x: 180, y: 26, width: 36, height: 36 },
-      window: { width: 220, height: 600 },
+      layer: { width: 220, height: 600 },
       insets: NO_INSETS
     })
     expect(placement).toMatchObject({ left: 8, width: 204 })
