@@ -30,17 +30,12 @@ import { RuntimeAccountController } from '../agent-session/environment/runtime-a
 import { createLazyMobileSpeechOwners } from '../speech/lazy-mobile-speech-owners'
 import { RuntimeProjectHostSetupController } from '../repositories/runtime-project-host-setup-controller'
 import { RuntimeProjectGroupController } from '../repositories/runtime-project-group-controller'
-import { RuntimeNestedRepoImport } from '../repositories/runtime-nested-repo-import'
 import { RuntimeRepositoryRegistrationController } from '../repositories/runtime-repository-registration-controller'
-import { RuntimeRepositoryCloneController } from '../repositories/runtime-repository-clone-controller'
 import { RuntimeRepositorySettingsController } from '../repositories/runtime-repository-settings-controller'
-import { RuntimeRepositorySparsePresets } from '../repositories/runtime-repository-sparse-presets'
-import { RuntimeRepositoryRefQueries } from '../repositories/runtime-repository-ref-queries'
-import { RuntimeServerEnvironmentCommands } from '../files/server-browse/runtime-server-environment-commands'
 import { RuntimeRepositoryForkBackfill } from '../repositories/runtime-repository-fork-backfill'
 import { RuntimeWorkspaceSessionController } from '../workspaces/session-hosts/runtime-workspace-session-controller'
-import { RuntimeAiVaultCommands } from '../integrations/ai-vault/runtime-ai-vault-commands'
 import { ClaudeAgentTeamsService } from '../terminal/agent-teams/claude-agent-teams-service'
+import * as Lazy from './lazy-runtime-host-controllers'
 import { teardownFolderWorkspacePtys } from '../workspaces/removal/folder-workspace-pty-teardown'
 import { countRepoTerminalsNotKnownExited } from '../workspaces/removal/project-removal-impact'
 
@@ -312,13 +307,15 @@ export abstract class OrcaRuntimeWithPreservedBranchCleanup extends RuntimeAgent
     notifyReposChanged: () => this.notifyReposChanged()
   }
 
-  protected readonly nestedRepoImport = new RuntimeNestedRepoImport(this.repositoryCatalogDeps)
+  protected readonly nestedRepoImport = new Lazy.LazyRuntimeNestedRepoImport(
+    this.repositoryCatalogDeps
+  )
 
   protected readonly repositoryRegistrations = new RuntimeRepositoryRegistrationController(
     this.repositoryCatalogDeps
   )
 
-  protected readonly repositoryClones = new RuntimeRepositoryCloneController(
+  protected readonly repositoryClones = new Lazy.LazyRuntimeRepositoryCloneController(
     this.repositoryCatalogDeps
   )
 
@@ -330,16 +327,16 @@ export abstract class OrcaRuntimeWithPreservedBranchCleanup extends RuntimeAgent
     notifyWorktreesChanged: (repoId, options) => this.notifyWorktreesChanged(repoId, options)
   })
 
-  protected readonly repositorySparsePresets = new RuntimeRepositorySparsePresets({
+  protected readonly repositorySparsePresets = new Lazy.LazyRuntimeRepositorySparsePresets({
     getStore: () => this.store,
     resolveRepo: (selector) => this.resolveRepoSelector(selector)
   })
 
-  protected readonly repositoryRefQueries = new RuntimeRepositoryRefQueries({
+  protected readonly repositoryRefQueries = new Lazy.LazyRuntimeRepositoryRefQueries({
     resolveRepo: (selector) => this.resolveRepoSelector(selector)
   })
 
-  protected readonly serverEnvironment = new RuntimeServerEnvironmentCommands()
+  protected readonly serverEnvironment = new Lazy.LazyRuntimeServerEnvironmentCommands()
 
   readonly repositoryForkBackfill = new RuntimeRepositoryForkBackfill(
     () => this.store,
@@ -354,7 +351,9 @@ export abstract class OrcaRuntimeWithPreservedBranchCleanup extends RuntimeAgent
     getCachedWorktrees: () => this.resolvedWorktrees.peek()?.worktrees ?? null
   })
 
-  protected readonly aiVault = new RuntimeAiVaultCommands(() => this.prepareAiVaultSessionResumeFn)
+  protected readonly aiVault = new Lazy.LazyRuntimeAiVaultCommands(
+    () => this.prepareAiVaultSessionResumeFn
+  )
 
   protected readonly claudeAgentTeams = new ClaudeAgentTeamsService()
 
