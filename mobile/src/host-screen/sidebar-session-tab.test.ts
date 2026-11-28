@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { makePaneKey } from '../../../src/shared/workspace-layout/stable-pane-id'
-import {
-  structuredAgentSessionPaneKey,
-  structuredAgentSessionTabId
-} from '../../../src/shared/agent-session/view/structured-agent-session-projection'
+import { chatPaneKey } from '../../../src/shared/agent-session/view/structured-agent-session-projection'
 import { sidebarSessionTabForPane, sidebarSessionTabs } from './sidebar-session-tab'
 
 const LEAF = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
@@ -51,7 +48,7 @@ describe('sidebarSessionTabForPane', () => {
 
   it('matches an agent session by its structured pane, and ignores a child that is not a tab', () => {
     const sessionId = 'claude_1'
-    const paneKey = structuredAgentSessionPaneKey(structuredAgentSessionTabId(sessionId), sessionId)
+    const paneKey = chatPaneKey(sessionId)
     const tabs = sidebarSessionTabs({
       tabs: [{ type: 'agent-session', id: 'chat-tab', sessionId }]
     })

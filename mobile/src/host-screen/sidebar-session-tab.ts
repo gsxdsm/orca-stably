@@ -1,8 +1,5 @@
 import { parsePaneKey } from '../../../src/shared/workspace-layout/stable-pane-id'
-import {
-  structuredAgentSessionPaneKey,
-  structuredAgentSessionTabId
-} from '../../../src/shared/agent-session/view/structured-agent-session-projection'
+import { chatPaneKey } from '../../../src/shared/agent-session/view/structured-agent-session-projection'
 
 export type SidebarSessionTab = {
   id: string
@@ -35,7 +32,8 @@ export function sidebarSessionTabs(snapshot: unknown): SidebarSessionTab[] | nul
       id: entry.id,
       type: entry.type,
       parentTabId: optionalString(entry, 'parentTabId'),
-      leafId: optionalString(entry, 'leafId')
+      leafId: optionalString(entry, 'leafId'),
+      sessionId: optionalString(entry, 'sessionId')
     })
   }
   return tabs
@@ -60,10 +58,6 @@ export function sidebarSessionTabForPane(
     if (tab.id === pane.tabId) {
       return true
     }
-    return (
-      tab.sessionId !== undefined &&
-      structuredAgentSessionPaneKey(structuredAgentSessionTabId(tab.sessionId), tab.sessionId) ===
-        paneKey
-    )
+    return tab.sessionId !== undefined && chatPaneKey(tab.sessionId) === paneKey
   })
 }
