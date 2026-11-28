@@ -1,4 +1,4 @@
-const { writeInfoPlist } = require('../../plugins/watch-target-plist')
+const { writeInfoPlistOnPrebuild } = require('../../plugins/watch-target-plist')
 
 /** @type {import('@bacons/apple-targets/app.plugin').ConfigFunction} */
 module.exports = (config) => {
@@ -7,7 +7,7 @@ module.exports = (config) => {
     throw new Error('watch target requires ios.bundleIdentifier')
   }
   const teamId = config.ios?.appleTeamId
-  writeInfoPlist(__dirname, [
+  writeInfoPlistOnPrebuild(config, __dirname, [
     ['OrcaAppGroup', `group.${bundleId}`],
     ['WKCompanionAppBundleIdentifier', bundleId],
     ['WKRunsIndependentlyOfCompanionApp', false]
