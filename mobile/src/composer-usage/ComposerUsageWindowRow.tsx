@@ -4,9 +4,9 @@ import { UsageBar } from '../accounts/usage/UsageBar'
 import type { Translate } from '../i18n/mobile-i18n'
 import { getUiIntlLocale } from '../i18n/ui-intl-locale'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { colors, spacing, typography } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { spacing, typography, type MobilePalette } from '../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
+import { useMobileColors } from '../theme/use-mobile-color-scheme'
 import { formatUsageWindowLength, type UsageWindowEntry } from './agent-usage-provider'
 import { useComposerUsageDisplay } from './composer-usage-display-preference'
 import { computeUsagePace, usagePaceMarkerPercent, type UsagePace } from './usage-window-pace'
@@ -27,7 +27,11 @@ function windowTitle(entry: UsageWindowEntry, t: Translate): string {
   }
 }
 
-function paceCopy(pace: UsagePace, t: Translate): { text: string; color: string } | null {
+function paceCopy(
+  pace: UsagePace,
+  t: Translate,
+  colors: MobilePalette
+): { text: string; color: string } | null {
   switch (pace.kind) {
     case 'unknown':
       return null
@@ -82,11 +86,12 @@ function resetCopy(entry: UsageWindowEntry, now: number, t: Translate): string |
 }
 
 export function ComposerUsageWindowRow({ entry, now }: { entry: UsageWindowEntry; now: number }) {
-  useMobileColorScheme()
+  const colors = useMobileColors()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const display = useComposerUsageDisplay()
   const used = Math.round(Math.max(0, Math.min(100, entry.window.usedPercent)))
-  const pace = paceCopy(computeUsagePace(entry.window, now), t)
+  const pace = paceCopy(computeUsagePace(entry.window, now), t, colors)
   const reset = resetCopy(entry, now, t)
   return (
     <View style={styles.row} testID={`composer-usage-window-${entry.id}`}>
@@ -114,7 +119,7 @@ export function ComposerUsageWindowRow({ entry, now }: { entry: UsageWindowEntry
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   row: {
     gap: spacing.xs,
     paddingVertical: spacing.md,

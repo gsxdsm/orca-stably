@@ -2,9 +2,8 @@ import { Text, View } from 'react-native'
 import { BottomDrawer } from '../components/bottom-drawer/BottomDrawer'
 import { useNow } from '../hooks/use-now'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { colors, spacing, typography } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { spacing, typography } from '../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
 import { USAGE_PROVIDER_NAMES, type AgentUsage } from './agent-usage-provider'
 import { ComposerUsageDisplayPicker } from './ComposerUsageDisplayPicker'
 import { ComposerUsagePositionPicker } from './ComposerUsagePositionPicker'
@@ -14,7 +13,7 @@ import { ComposerUsageWindowRow } from './ComposerUsageWindowRow'
 type Props = { visible: boolean; onClose: () => void; usage: AgentUsage; spanSideStrip: boolean }
 
 export function ComposerUsageSheet({ visible, onClose, usage, spanSideStrip }: Props) {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const now = useNow(30_000, visible)
   return (
@@ -42,7 +41,7 @@ export function ComposerUsageSheet({ visible, onClose, usage, spanSideStrip }: P
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   heading: {
     color: colors.textPrimary,
     fontSize: typography.bodySize,
