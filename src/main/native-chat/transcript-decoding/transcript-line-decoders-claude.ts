@@ -107,6 +107,13 @@ export function decodeClaudeTranscriptLine(
   if (!parsed) {
     return null
   }
+  return decodeClaudeTranscriptRecord(parsed, fallbackId)
+}
+
+function decodeClaudeTranscriptRecord(
+  parsed: Record<string, unknown>,
+  fallbackId: string
+): NativeChatMessage | null {
   const notification = claudeTaskNotificationMessage(parsed, fallbackId)
   if (notification) {
     return notification
@@ -316,6 +323,10 @@ export function mayBeClaudeConversationRecord(line: string): boolean {
   } catch {
     return true
   }
+  return mayBeClaudeConversationEntry(record)
+}
+
+function mayBeClaudeConversationEntry(record: unknown): boolean {
   if (!record || typeof record !== 'object' || Array.isArray(record)) {
     return true
   }

@@ -1,3 +1,4 @@
+import { NotificationReplyFailure } from './notification-reply-failure'
 import { loadHosts } from '../../host-catalog/host-store'
 import { openHostLogicalClient } from '../../transport/connection/host-logical-client'
 import { resolveHostIdForFingerprint } from '../payload-identity/push-host-fingerprint'
@@ -8,7 +9,15 @@ import { buildNativeChatPasteBytes } from '../../../../src/shared/native-chat/in
 import { scopeRpcClientToExecutionHost } from '../../worktree/execution-hosts/execution-host-scoped-rpc-client'
 import { parseExecutionHostId } from '../../../../src/shared/execution-host/execution-host'
 import { itemComment } from '../../bots/items/bot-item-operations'
-import { nativeChatTerminalDraftRead } from '../../terminal/session/mobile-session-terminal-operations'
+import { decodeHostStatusReply, sendHostStatusRead } from '../../query/host-status-query'
+import {
+  assertNotificationReplyTerminalSupport,
+  notificationReplyTerminalClient
+} from './notification-reply-terminal-input'
+import { groupRead, groupSend } from '../../bots/bot-group-operations'
+import type { AgentSessionHistoryResult } from '../../../../src/shared/agent-session/agent-session-wire'
+import { callAgentSession } from '../../session/native-chat/agent-session/mobile-structured-agent-session-rpc'
+import { randomV4Uuid } from '../../platform/random-v4-uuid'
 
 export async function sendNotificationReply(
   data: unknown,
@@ -41,8 +50,24 @@ export async function sendNotificationReply(
       : pairedClient
   const deadline = Date.now() + 20_000
   try {
-    let reason = 'Host refused the reply'
     const target = payload.replyTarget
+    if (target.type === 'group') {
+      const group = groupRead.interpret(
+        await groupRead.request(
+          client,
+          { groupId: target.groupId },
+          { timeoutMs: deadline - Date.now(), budgetSpansConnect: true }
+        )
+      ).group
+      groupSend.interpret(
+        await groupSend.request(
+          client,
+          { groupId: target.groupId, revision: group.revision, messageId: randomV4Uuid(), text },
+          { timeoutMs: deadline - Date.now(), budgetSpansConnect: true }
+        )
+      )
+      return
+    }
     if (target.type === 'bot-item') {
       itemComment.interpret(
         await itemComment.request(
@@ -54,54 +79,61 @@ export async function sendNotificationReply(
       return
     }
     if (target.type === 'terminal') {
-      const read = nativeChatTerminalDraftRead.interpret(
-        await nativeChatTerminalDraftRead.request(
-          client,
-          {
-            terminal: target.terminal,
-            expectedIncarnationId: target.expectedIncarnationId,
-            screen: true,
-            limit: 1
-          },
-          { timeoutMs: deadline - Date.now(), budgetSpansConnect: true }
+      for (const hop of client === pairedClient ? [client] : [pairedClient, client]) {
+        const status = decodeHostStatusReply(
+          await sendHostStatusRead(hop, {
+            timeoutMs: deadline - Date.now(),
+            budgetSpansConnect: true
+          })
         )
-      )
-      if (
-        !read.accepted ||
-        read.value.terminal?.draft === undefined ||
-        read.value.terminal.draft.trim()
-      ) {
-        throw new Error('The chat has an existing draft or its input could not be checked')
+        assertNotificationReplyTerminalSupport(status?.status?.capabilities)
       }
+    }
+    let fence = 1
+    if (target.type === 'chat') {
+      const history = await callAgentSession<AgentSessionHistoryResult>(
+        client,
+        'agentSession.history',
+        { sessionId: target.sessionId, direction: 'tail', limit: 1 },
+        deadline - Date.now()
+      )
+      const current = history.page.fence
+      if (!Number.isSafeInteger(current) || current === undefined || current <= 0) {
+        throw new Error('The chat runtime could not be checked')
+      }
+      fence = current
     }
     const outcome =
       target.type === 'chat'
         ? await sendMobileStructuredAgentSessionMessage({
             client,
             sessionId: target.sessionId,
-            expectedRuntimeFence: 0,
+            expectedRuntimeFence: fence,
             text,
             attachments: [],
             clientMessageId: operationId,
             deadline,
             onError: (message) => {
-              reason = message
+              console.warn('[notification-reply] host refused the reply', message)
             }
           })
         : await sendMobileNativeChatMessageWithOutcome({
             client,
             terminal: target.terminal,
             text: buildNativeChatPasteBytes(text),
+            enter: true,
+            requireEmptyDraft: true,
+            requireAgentStatus: 'sendable',
             expectedIncarnationId: target.expectedIncarnationId,
-            mobileClient: { id: host.deviceToken, type: 'mobile' },
+            inputClient: notificationReplyTerminalClient(),
             deadline,
             requireWriteSettlement: true
           })
     if (outcome === 'unknown') {
-      throw new Error('Delivery unconfirmed; check the chat before sending again')
+      throw new NotificationReplyFailure('unconfirmed')
     }
     if (outcome !== 'accepted' && outcome !== 'queued') {
-      throw new Error(reason)
+      throw new NotificationReplyFailure('refused')
     }
   } finally {
     pairedClient.close()

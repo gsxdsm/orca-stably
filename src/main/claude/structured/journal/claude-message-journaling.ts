@@ -47,6 +47,7 @@ import type { ClaudeOpenTurn } from '../turns/claude-open-turn'
 import type { ClaudeAssistantFailures } from './claude-assistant-failures'
 import type { ClaudeUsageLimits } from './claude-usage-limits'
 import type { ClaudeThreadGoal } from './claude-thread-goal'
+import { journalClaudeCompaction } from './claude-journal-compactions'
 
 export type ClaudeMessageJournalContext = {
   sink: StructuredAgentSessionEventSink
@@ -93,6 +94,9 @@ export function journalClaudeMessage(
   requestedAt?: number,
   clientMessageId?: string
 ): boolean {
+  if (journalClaudeCompaction(ctx, message, observedAt)) {
+    return true
+  }
   const envelope = readClaudeMessageEnvelope(message)
   if (!envelope) {
     return false

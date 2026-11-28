@@ -5,6 +5,11 @@ import { isTerminalPhoneDisplayMode } from '../../terminal/session/pane-layout/t
 import { useMobileAllowAutoCloseActions } from './mobile-worker-auto-close'
 import { mobileSessionTabMenuHeader } from './MobileSessionTabMark'
 import type { MobileSessionController } from '../use-mobile-session-controller'
+import {
+  getMobileTerminalChatContinuationActions,
+  resolveMobileTerminalChatContinuation
+} from '../native-chat/history/mobile-terminal-chat-continuation-actions'
+import { continueMobileTerminalInChat } from '../mobile-terminal-chat-continuation'
 import { HERMES_TRANSCRIPT_RUNTIME_CAPABILITY } from '../../../../src/shared/native-chat/native-chat-hermes-capability'
 import { useMobileStructuredChatLaunch } from '../use-mobile-structured-chat-launch'
 
@@ -25,14 +30,23 @@ export function MobileTerminalTabActionSheet({
     controller.hostCapabilities
   )
   const terminalTabs = sessionTabs.filter((tab) => tab.type === 'terminal')
+  const targetTab = actionTarget && terminalTabs.find((tab) => tab.terminal === actionTarget.handle)
+  const chatContinuationActions = getMobileTerminalChatContinuationActions({
+    continuation: resolveMobileTerminalChatContinuation({
+      tab: targetTab,
+      hostCapabilities: controller.hostCapabilities
+    }),
+    onDismiss: () => setActionTarget(null),
+    onContinue: (continuation) => void continueMobileTerminalInChat(controller, continuation),
+    t
+  }).map((action) => ({
+    ...action,
+    disabled: controller.createTabBusy || controller.connState !== 'connected'
+  }))
   return (
     <ActionSheetModal
       visible={actionTarget != null}
-      {...mobileSessionTabMenuHeader(
-        actionTarget && terminalTabs.find((tab) => tab.terminal === actionTarget.handle),
-        controller.terminals,
-        t
-      )}
+      {...mobileSessionTabMenuHeader(targetTab, controller.terminals, t)}
       groupDestructive
       title={actionTarget?.title || t('session.sheets.terminal', 'Terminal')}
       actions={getMobileTerminalActionSheetActions({
@@ -47,7 +61,9 @@ export function MobileTerminalTabActionSheet({
           (terminal) => terminal.handle === actionTarget?.handle
         )?.agentIdentity,
         onDismiss: () => setActionTarget(null),
+        onActivateSessionTab: controller.switchSessionTab,
         onToggleChat: controller.toggleTabChatView,
+        chatContinuationActions,
         isPhoneMode: (handle) => isTerminalPhoneDisplayMode(handle, controller.terminalModes),
         onToggleDisplayMode: (handle) => void controller.toggleDisplayMode(handle),
         onRename: controller.setRenameTarget,

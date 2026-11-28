@@ -3,7 +3,10 @@ import { resolveNativeChatTranscriptAgent } from '../../../shared/native-chat/na
 import type { NotificationReplyTarget } from '../../../shared/notifications/notification-reply'
 import type { OrcaRuntimeService } from '../orca-runtime'
 import type { MobileNotificationEvent } from './notifications/runtime-mobile-notification-controller'
-import { botItemUidOfPaneKey } from '../../../shared/bots/bot-notification-pane-keys'
+import {
+  botItemUidOfPaneKey,
+  botGroupIdOfRoomPaneKey
+} from '../../../shared/bots/bot-notification-pane-keys'
 
 export function notificationReplyTarget(
   runtime: OrcaRuntimeService,
@@ -14,6 +17,10 @@ export function notificationReplyTarget(
   }
   const sessionId = structuredSessionIdFromNotificationPane(event.paneKey)
   const itemUid = botItemUidOfPaneKey(event.paneKey)
+  const groupId = botGroupIdOfRoomPaneKey(event.paneKey)
+  if (groupId) {
+    return { type: 'group', groupId }
+  }
   if (itemUid) {
     return { type: 'bot-item', itemUid }
   }
@@ -32,6 +39,21 @@ export function notificationReplyTarget(
           terminal: terminal.handle,
           expectedIncarnationId: terminal.incarnationId
         }
+      : null
+  } catch {
+    return null
+  }
+}
+
+export function captureNotificationReplyTarget(
+  event: MobileNotificationEvent,
+  resolve: ((event: MobileNotificationEvent) => NotificationReplyTarget | null) | undefined,
+  expected?: NotificationReplyTarget | null
+): NotificationReplyTarget | null {
+  try {
+    const target = resolve?.(event) ?? null
+    return expected === undefined || JSON.stringify(target) === JSON.stringify(expected)
+      ? target
       : null
   } catch {
     return null

@@ -14,11 +14,33 @@ export const NotificationReplyTargetSchema = lazyZodSchema(() =>
       })
       .strict(),
     z.object({ type: z.literal('chat'), sessionId: z.string().min(1).max(256) }).strict(),
-    z.object({ type: z.literal('bot-item'), itemUid: z.string().min(1).max(256) }).strict()
+    z.object({ type: z.literal('bot-item'), itemUid: z.string().min(1).max(256) }).strict(),
+    z.object({ type: z.literal('group'), groupId: z.string().min(1).max(256) }).strict()
   ])
 )
 
 export type NotificationReplyTarget = z.infer<typeof NotificationReplyTargetSchema>
+
+export function notificationReplyFields(
+  notification: Record<string, unknown> & { category?: string },
+  replyTarget: NotificationReplyTarget | null | undefined
+): { category?: typeof NOTIFICATION_REPLY_CATEGORY; replyTarget?: NotificationReplyTarget } {
+  if (!replyTarget) {
+    return {}
+  }
+  const fields: {
+    replyTarget: NotificationReplyTarget
+    category?: typeof NOTIFICATION_REPLY_CATEGORY
+  } = {
+    replyTarget,
+    ...(notification.category ? {} : { category: NOTIFICATION_REPLY_CATEGORY })
+  }
+  return new TextEncoder().encode(
+    JSON.stringify({ ...notification, ...fields, sound: notification.sound ?? false })
+  ).byteLength <= 3000
+    ? fields
+    : {}
+}
 
 export function readNotificationReplyTarget(value: unknown): NotificationReplyTarget | null {
   try {

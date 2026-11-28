@@ -17,6 +17,7 @@ type StructuredChatController = Pick<
   | 'retainHistory'
   | 'trimHistory'
   | 'readCurrent'
+  | 'contextClear'
   | 'taskList'
 >
 
@@ -59,6 +60,7 @@ export function useStructuredChatLiveSession(
             ? 'error'
             : 'ready',
       readCurrent: controller.readCurrent,
+      conversationKey: controller.contextClear.conversationKey,
       taskList: controller.taskList
     }),
     [controller, historyPhase, agent, sessionId, hostReachable]
