@@ -10,6 +10,9 @@ final class WatchContractTests: XCTestCase {
     XCTAssertEqual(snapshot?.hosts.count, 2)
     XCTAssertEqual(snapshot?.prompts.count, 1)
     XCTAssertEqual(snapshot?.feed.count, 3)
+    XCTAssertNil(snapshot?.bots)
+    XCTAssertNil(snapshot?.needsYou)
+    XCTAssertNil(snapshot?.usage)
     XCTAssertLessThan(data.count, 60000)
     XCTAssertEqual(snapshot?.hosts.first { $0.hostId == "host-a" }?.connection, .connected)
     XCTAssertEqual(snapshot?.hosts.first { $0.hostId == "host-b" }?.connection, .offline)
@@ -48,17 +51,35 @@ final class WatchContractTests: XCTestCase {
   }
 
   func testCacheWritesNeedsInputCount() throws {
-    let snapshot = try FixtureFiles.snapshot()
-    let suite = "orca.watch.tests.cache"
+    var snapshot = try FixtureFiles.snapshot()
+    let suite = "orca.watch.tests.cache.\(UUID().uuidString)"
     let defaults = UserDefaults(suiteName: suite)!
-    defaults.removePersistentDomain(forName: suite)
+    defer { defaults.removePersistentDomain(forName: suite) }
     let cache = WatchSnapshotCache(defaults: defaults)
-    cache.write(snapshot)
+    _ = cache.write(snapshot)
     XCTAssertEqual(defaults.integer(forKey: "needsInputCount"), 2)
     XCTAssertNotNil(defaults.data(forKey: "snapshot"))
     XCTAssertEqual(cache.read()?.sessions.count, 5)
     XCTAssertEqual(cache.read()?.feed.count, 3)
-    defaults.removePersistentDomain(forName: suite)
+    snapshot.generatedAt = 1762272005000
+    XCTAssertEqual(cache.write(snapshot), [])
+
+    let json = #"""
+      {"v":1,"generatedAt":1762272010000,"hosts":[],"sessions":[],"prompts":[],"feed":[],
+      "bots":[{"hostId":"studio","botId":"bot-1","name":"Triage","status":"needs-you","updatedAt":1762272000000}],
+      "needsYou":[{"hostId":"studio","key":"item:1","title":"Choose a release date","botId":"bot-1","updatedAt":1762272000000}],
+      "usage":[{"hostId":"studio","provider":"codex","window":"5h","usedPercent":0.5,"updatedAt":1762272000000,"resetsAt":1762290000000}]}
+      """#
+    let activity = try XCTUnwrap(WatchSnapshot.decode(Data(json.utf8)))
+    XCTAssertEqual(cache.write(activity), ["OrcaNeedsInput", "OrcaUsage"])
+    XCTAssertEqual(cache.read(), activity)
+    XCTAssertEqual(defaults.integer(forKey: "needsInputCount"), 1)
+    let summary = try XCTUnwrap(defaults.data(forKey: "orcaWatchGlanceV1"))
+    let glance = try XCTUnwrap(JSONSerialization.jsonObject(with: summary) as? [String: Any])
+    XCTAssertEqual(glance["v"] as? Int, 1)
+    XCTAssertEqual(glance["generatedAt"] as? Int64, 1762272010000)
+    XCTAssertEqual(glance["needsYouCount"] as? Int, 1)
+    XCTAssertEqual((glance["usage"] as? [[String: Any]])?.first?["usedPercent"] as? Double, 0.5)
   }
 
   func testContextSnapshotAndTransportFailure() throws {

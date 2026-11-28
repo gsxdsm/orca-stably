@@ -185,4 +185,93 @@ describe('buildWatchSnapshot', () => {
       250
     )
   })
+
+  it('deduplicates a session and its bot ask against the correct host prompt', () => {
+    const sessionA = 'host-1|chat|chat-1'
+    const sessionB = 'host-2|chat|chat-1'
+    const snapshot = buildWatchSnapshot({
+      now: 100,
+      hosts: [HOST, { ...HOST, hostId: 'host-2' }],
+      chats: [chat(), chat({ hostId: 'host-2' })],
+      terminals: [],
+      prompts: [prompt(sessionA), { ...prompt(sessionB), hostId: 'host-2' }],
+      feed: [],
+      needsYou: [
+        {
+          hostId: 'host-1',
+          key: 'chat:1',
+          title: 'Review',
+          botId: 'one',
+          sessionKey: sessionA,
+          updatedAt: 1
+        },
+        {
+          hostId: 'host-2',
+          key: 'chat:1',
+          title: 'Review',
+          botId: 'two',
+          sessionKey: sessionB,
+          updatedAt: 1
+        }
+      ]
+    })
+    expect(
+      snapshot.needsYou?.map(({ hostId, promptId, botId }) => [hostId, promptId, botId])
+    ).toEqual([
+      ['host-1', 'prompt-1', 'one'],
+      ['host-2', 'prompt-1', 'two']
+    ])
+    expect(watchSnapshotSchema.parse(JSON.parse(JSON.stringify(snapshot)))).toEqual({
+      v: 1,
+      generatedAt: 100,
+      hosts: snapshot.hosts,
+      sessions: snapshot.sessions,
+      prompts: snapshot.prompts,
+      feed: [],
+      needsYou: snapshot.needsYou
+    })
+  })
+
+  it('fits optional UTF-8 rows after preserving pending prompts', () => {
+    const snapshot = buildWatchSnapshot({
+      now: 100,
+      hosts: [HOST],
+      chats: [chat()],
+      terminals: [],
+      prompts: [
+        {
+          ...prompt('host-1|chat|chat-1'),
+          detail: 'é'.repeat(90),
+          options: [{ optionId: 'yes', label: '界'.repeat(19_800), role: 'approve' }]
+        }
+      ],
+      feed: [],
+      bots: Array.from({ length: 100 }, (_, i) => ({
+        hostId: HOST.hostId,
+        botId: `bot-${i}`,
+        name: '猫'.repeat(170),
+        status: 'idle',
+        updatedAt: i
+      })),
+      needsYou: Array.from({ length: 100 }, (_, i) => ({
+        hostId: HOST.hostId,
+        key: `item:${i}`,
+        title: '猫'.repeat(159) + '🐈',
+        updatedAt: i
+      })),
+      usage: Array.from({ length: 100 }, (_, i) => ({
+        hostId: HOST.hostId,
+        provider: 'codex',
+        window: `window-${i}`,
+        usedPercent: 0,
+        updatedAt: i
+      }))
+    })
+    expect(bytes(snapshot)).toBeLessThan(60 * 1024)
+    expect(snapshot.prompts[0]?.options[0]?.label).toHaveLength(19_800)
+    expect(snapshot.bots).toEqual([])
+    expect(snapshot.usage).toEqual([])
+    expect(snapshot.needsYou?.[0]?.promptId).toBe('prompt-1')
+    expect(JSON.stringify(snapshot)).not.toContain('\\ud83d')
+  })
 })

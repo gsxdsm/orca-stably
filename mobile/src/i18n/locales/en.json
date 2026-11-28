@@ -8696,5 +8696,10 @@
     "workspacesAllButCount": "All but {{count}}",
     "headerMissing": "Fill in {{header}} to add this server.",
     "servers": "Servers"
+  },
+  "watch": {
+    "needs": {
+      "connectorAccess": "Access request from {{name}}"
+    }
   }
 }
