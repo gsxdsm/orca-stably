@@ -829,6 +829,7 @@
       "updatedAgo": "Updated {{time}} ago",
       "active": "Active",
       "openAccountsHint": "Opens this desktop’s accounts",
+      "openDetailHint": "Opens detailed usage and history",
       "emptyTitle": "No usage yet"
     },
     "activeAgents": {

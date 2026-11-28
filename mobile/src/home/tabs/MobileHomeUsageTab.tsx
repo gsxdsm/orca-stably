@@ -15,7 +15,11 @@ import {
   type ProviderKey
 } from '../../accounts/usage/usage-selectors'
 import type { AccountsSnapshot } from '../../accounts/accounts-snapshot'
+import { BottomDrawerModalHost } from '../../components/bottom-drawer/bottom-drawer-modal-host'
 import { ClaudeIcon, OpenAIIcon } from '../../components/icons/AgentIcons'
+import type { UsageProviderKey } from '../../composer-usage/agent-usage-provider'
+import { ComposerUsageSheet } from '../../composer-usage/ComposerUsageSheet'
+import { listRailUsage } from '../../rail-usage/rail-usage-model'
 import { useNow } from '../../hooks/use-now'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
 import { useResponsiveLayout } from '../../layout/responsive-layout'
@@ -141,6 +145,18 @@ function HostUsage(props: {
   const now = useNow(60_000, props.connected)
   // The tab's first desktop appears in place; only a switch to another one fades in.
   const [initialHostId] = useState(props.host.id)
+  const [selectedProvider, setSelectedProvider] = useState<UsageProviderKey | null>(null)
+  // Kept after close so the sheet slides out still showing what it showed.
+  const [shownProvider, setShownProvider] = useState<UsageProviderKey | null>(null)
+  const usages = listRailUsage(props.snapshot)
+  const sheetUsage =
+    (shownProvider ? usages.find((usage) => usage.provider === shownProvider) : null) ??
+    usages[0] ??
+    null
+  const openDetail = (provider: UsageProviderKey): void => {
+    setShownProvider(provider)
+    setSelectedProvider(provider)
+  }
 
   if (!props.connected) {
     return (
@@ -167,41 +183,61 @@ function HostUsage(props: {
     )
   }
   return (
-    <Animated.View
-      key={props.host.id}
-      entering={reducedMotion || props.host.id === initialHostId ? undefined : FadeIn.duration(180)}
-    >
-      {sections.map((section, index) => (
-        <View key={section.provider}>
-          <MobileHomeSectionHeading
-            title={PROVIDER_TITLES[section.provider]}
-            first={props.first && index === 0}
-            aside={
-              section.updatedAt == null
-                ? undefined
-                : now - section.updatedAt < 60_000
-                  ? t('home.usage.updatedJustNow', 'Updated just now')
-                  : t('home.usage.updatedAgo', 'Updated {{time}} ago', {
-                      time: formatTimeAgo(section.updatedAt, now)
-                    })
-            }
-          />
-          <View style={homeListStyles.group}>
-            {section.cards.map((card, cardIndex) => (
-              <UsageCard
-                key={card.accountId ?? 'default'}
-                provider={section.provider}
-                card={card}
-                separated={cardIndex > 0}
-                now={now}
-                reducedMotion={reducedMotion}
-                onPress={() => props.onOpenAccounts(props.host.id)}
+    <>
+      <Animated.View
+        key={props.host.id}
+        entering={
+          reducedMotion || props.host.id === initialHostId ? undefined : FadeIn.duration(180)
+        }
+      >
+        {sections.map((section, index) => {
+          const hasDetail = usages.some((usage) => usage.provider === section.provider)
+          return (
+            <View key={section.provider}>
+              <MobileHomeSectionHeading
+                title={PROVIDER_TITLES[section.provider]}
+                first={props.first && index === 0}
+                aside={
+                  section.updatedAt == null
+                    ? undefined
+                    : now - section.updatedAt < 60_000
+                      ? t('home.usage.updatedJustNow', 'Updated just now')
+                      : t('home.usage.updatedAgo', 'Updated {{time}} ago', {
+                          time: formatTimeAgo(section.updatedAt, now)
+                        })
+                }
               />
-            ))}
-          </View>
-        </View>
-      ))}
-    </Animated.View>
+              <View style={homeListStyles.group}>
+                {section.cards.map((card, cardIndex) => (
+                  <UsageCard
+                    key={card.accountId ?? 'default'}
+                    provider={section.provider}
+                    card={card}
+                    separated={cardIndex > 0}
+                    now={now}
+                    reducedMotion={reducedMotion}
+                    hasDetail={hasDetail}
+                    onPress={() =>
+                      hasDetail ? openDetail(section.provider) : props.onOpenAccounts(props.host.id)
+                    }
+                  />
+                ))}
+              </View>
+            </View>
+          )
+        })}
+      </Animated.View>
+      {sheetUsage ? (
+        <BottomDrawerModalHost>
+          <ComposerUsageSheet
+            visible={selectedProvider !== null}
+            onClose={() => setSelectedProvider(null)}
+            usage={sheetUsage}
+            snapshot={props.snapshot}
+          />
+        </BottomDrawerModalHost>
+      ) : null}
+    </>
   )
 }
 
@@ -211,6 +247,7 @@ function UsageCard(props: {
   separated: boolean
   now: number
   reducedMotion: boolean
+  hasDetail: boolean
   onPress: () => void
 }) {
   const t = useMobileTranslation()
@@ -234,11 +271,16 @@ function UsageCard(props: {
   ]
   return (
     <Pressable
+      testID={`home-usage-card-${props.provider}-${card.accountId ?? 'default'}`}
       accessibilityRole="button"
       accessibilityLabel={[title, subtitle, card.active ? t('home.usage.active', 'Active') : null]
         .filter(Boolean)
         .join(', ')}
-      accessibilityHint={t('home.usage.openAccountsHint', 'Opens this desktop’s accounts')}
+      accessibilityHint={
+        props.hasDetail
+          ? t('home.usage.openDetailHint', 'Opens detailed usage and history')
+          : t('home.usage.openAccountsHint', 'Opens this desktop’s accounts')
+      }
       onPressIn={() => setPressed(true)}
       onPressOut={() => setPressed(false)}
       onPress={props.onPress}
