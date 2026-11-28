@@ -122,6 +122,14 @@ const Question = z.object({
   skippable: z.literal(true).optional()
 })
 
+const OptionalText = z.string().optional()
+const ToolResultImageRef = z.object({ path: OptionalText, url: OptionalText, alt: OptionalText })
+
+const ResolvedByDevice = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('current') }),
+  z.object({ kind: z.literal('named'), name: z.string() })
+])
+
 const Resolution = z.object({
   state: z.string().min(1),
   selectedOptionId: z.string().nullable(),
@@ -135,12 +143,7 @@ const Resolution = z.object({
     )
     .optional(),
   resolvedBy: z.string().nullable(),
-  resolvedByDevice: z
-    .discriminatedUnion('kind', [
-      z.object({ kind: z.literal('current') }),
-      z.object({ kind: z.literal('named'), name: z.string() })
-    ])
-    .optional(),
+  resolvedByDevice: ResolvedByDevice.optional(),
   resolvedAt: z.number().nullable()
 })
 
@@ -202,7 +205,8 @@ const KnownItemBody = z.discriminatedUnion('kind', [
     state: z.string().min(1),
     // Open like `state`: an ending a newer build writes reads as the `state` beside it.
     endedAs: z.string().min(1).optional(),
-    output: BoundedPayload.optional()
+    output: BoundedPayload.optional(),
+    images: z.array(ToolResultImageRef).optional()
   }),
   z.object({
     kind: z.literal('diff'),

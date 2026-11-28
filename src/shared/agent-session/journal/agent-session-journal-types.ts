@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the fork's additions sit beside upstream's in this owner after the upstream merge. */
 import type { AgentJournalBotMessageFields } from './agent-journal-bot-message-fields'
 import type { AgentJournalTypedBy } from './agent-journal-typed-by'
 import type { AgentSessionForkedFromMark } from '../conversation-naming/agent-session-fork-name'
@@ -113,6 +114,8 @@ export type AgentJournalToolCallItem = NativeChatToolMetadata & {
    *  both through `agentJournalToolCallLifecycle`. */
   endedAs?: AgentJournalToolCallEnding
   output?: AgentJournalBoundedPayload
+  /** Screenshots a tool showed. Paths and URLs only, so a snapshot stays small. */
+  images?: { path?: string; url?: string; alt?: string }[]
 }
 
 export type AgentJournalDiffItem = {

@@ -17,6 +17,7 @@ import type { AcpBackgroundTaskUpdate, AcpDialect } from '../acp-dialects/acp-di
 import type { ToolCallUpdate } from '../generated/acp-protocol.generated'
 import { nativeChatToolImageReadPath } from '../../../shared/native-chat/tools/native-chat-tool-viewed-images'
 import { acpToolImagePaths } from './acp-tool-images'
+import { acpToolImageRefs } from '../../native-chat/tool-result-images'
 
 const rawStreamsSchema = z.object({ stdout: z.string().optional(), stderr: z.string().optional() })
 const rawExitCodeSchema = z.looseObject({ exitCode: z.number().int().safe() })
@@ -197,6 +198,15 @@ export class AcpToolTimeline {
     } else {
       this.whole.delete(update.toolCallId)
     }
+    const discovered = update.content == null ? null : acpToolImageRefs(update)
+    const images =
+      discovered && discovered.length > 0
+        ? discovered.map((image) => ({
+            ...(image.path ? { path: image.path } : {}),
+            ...(image.url ? { url: image.url } : {}),
+            ...(image.alt ? { alt: image.alt } : {})
+          }))
+        : previous?.body.images
     const body: AgentJournalToolCallItem = {
       kind: 'tool-call',
       callId: update.toolCallId,
@@ -226,7 +236,8 @@ export class AcpToolTimeline {
               state === 'running' && suppliedOutput === undefined && previous?.body.output
                 ? previous.body.output
                 : journalToolPayload(output, state === 'running')
-          })
+          }),
+      ...(images && images.length > 0 ? { images } : {})
     }
     // Content replaces the call's snapshot; an update without it keeps the images it had.
     // A read's file already previews by its path.

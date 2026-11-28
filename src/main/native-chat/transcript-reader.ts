@@ -16,6 +16,7 @@ import { decodeCodexTranscriptLine } from './transcript-decoding/transcript-line
 import { decodeGrokTranscriptLine } from './transcript-decoding/transcript-line-decoders-grok'
 import { decodeOmpTranscriptLine } from './transcript-decoding/transcript-line-decoders-omp'
 import { decodeTranscriptStream } from './transcript-streaming/transcript-stream-lines'
+import { attachResolvedToolImages } from './tool-result-images'
 
 export type ReadTranscriptResult =
   | {
@@ -112,5 +113,5 @@ async function readTranscript(
     Infinity,
     sourceOrder
   )
-  return messages
+  return attachResolvedToolImages(messages)
 }
