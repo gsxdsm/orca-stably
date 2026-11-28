@@ -29,6 +29,7 @@ type MobileNativeChatSendArgs = {
   client: RpcClient
   terminal: string
   expectedIncarnationId?: string
+  requireAgentStatus?: 'sendable'
   text: string
   enter?: boolean
   resolvedLaunchDraft?: { text: string; createdAt: number }
@@ -134,6 +135,7 @@ export async function sendMobileNativeChatMessageWithOutcome(
         ...(args.expectedIncarnationId
           ? { expectedIncarnationId: args.expectedIncarnationId }
           : {}),
+        ...(args.requireAgentStatus ? { requireAgentStatus: args.requireAgentStatus } : {}),
         text: args.text,
         enter: args.enter ?? true,
         ...(args.requireWriteSettlement ? { requireWriteSettlement: true as const } : {}),

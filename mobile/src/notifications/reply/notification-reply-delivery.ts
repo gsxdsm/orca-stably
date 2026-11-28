@@ -9,6 +9,9 @@ import { scopeRpcClientToExecutionHost } from '../../worktree/execution-hosts/ex
 import { parseExecutionHostId } from '../../../../src/shared/execution-host/execution-host'
 import { itemComment } from '../../bots/items/bot-item-operations'
 import { nativeChatTerminalDraftRead } from '../../terminal/session/mobile-session-terminal-operations'
+import { notificationReplyInputIsEmpty } from './notification-reply-terminal-input'
+import { groupRead, groupSend } from '../../bots/bot-group-operations'
+import { randomV4Uuid } from '../../platform/random-v4-uuid'
 
 export async function sendNotificationReply(
   data: unknown,
@@ -43,6 +46,23 @@ export async function sendNotificationReply(
   try {
     let reason = 'Host refused the reply'
     const target = payload.replyTarget
+    if (target.type === 'group') {
+      const group = groupRead.interpret(
+        await groupRead.request(
+          client,
+          { groupId: target.groupId },
+          { timeoutMs: deadline - Date.now(), budgetSpansConnect: true }
+        )
+      ).group
+      groupSend.interpret(
+        await groupSend.request(
+          client,
+          { groupId: target.groupId, revision: group.revision, messageId: randomV4Uuid(), text },
+          { timeoutMs: deadline - Date.now(), budgetSpansConnect: true }
+        )
+      )
+      return
+    }
     if (target.type === 'bot-item') {
       itemComment.interpret(
         await itemComment.request(
@@ -66,11 +86,7 @@ export async function sendNotificationReply(
           { timeoutMs: deadline - Date.now(), budgetSpansConnect: true }
         )
       )
-      if (
-        !read.accepted ||
-        read.value.terminal?.draft === undefined ||
-        read.value.terminal.draft.trim()
-      ) {
+      if (!read.accepted || !notificationReplyInputIsEmpty(read.value.terminal)) {
         throw new Error('The chat has an existing draft or its input could not be checked')
       }
     }
@@ -92,6 +108,8 @@ export async function sendNotificationReply(
             client,
             terminal: target.terminal,
             text: buildNativeChatPasteBytes(text),
+            enter: false,
+            requireAgentStatus: 'sendable',
             expectedIncarnationId: target.expectedIncarnationId,
             mobileClient: { id: host.deviceToken, type: 'mobile' },
             deadline,
@@ -102,6 +120,26 @@ export async function sendNotificationReply(
     }
     if (outcome !== 'accepted' && outcome !== 'queued') {
       throw new Error(reason)
+    }
+    if (target.type === 'terminal') {
+      const submitted = await sendMobileNativeChatMessageWithOutcome({
+        client,
+        terminal: target.terminal,
+        text: '',
+        enter: true,
+        expectedIncarnationId: target.expectedIncarnationId,
+        requireAgentStatus: 'sendable',
+        mobileClient: { id: host.deviceToken, type: 'mobile' },
+        deadline,
+        requireWriteSettlement: true
+      })
+      if (submitted !== 'accepted') {
+        throw new Error(
+          submitted === 'unknown'
+            ? 'Delivery unconfirmed; check the chat before sending again'
+            : 'The agent could not accept the reply'
+        )
+      }
     }
   } finally {
     pairedClient.close()

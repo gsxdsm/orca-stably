@@ -1,6 +1,9 @@
 import * as TaskManager from 'expo-task-manager'
 import * as Notifications from 'expo-notifications'
-import { handleNotificationReply } from './notification-reply-response'
+import {
+  handleNotificationReply,
+  recoverInterruptedNotificationReplies
+} from './notification-reply-response'
 import { ensureNotificationReplyCategory } from './notification-reply-category'
 import { pendingNativeReplies } from './notification-reply-native'
 
@@ -20,6 +23,7 @@ Notifications.addNotificationResponseReceivedListener((response) => {
 })
 export async function registerNotificationReplyTask(): Promise<void> {
   await ensureNotificationReplyCategory()
+  await recoverInterruptedNotificationReplies()
   for (const response of await pendingNativeReplies()) {
     await handleNotificationReply(response)
   }

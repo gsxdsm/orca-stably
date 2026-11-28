@@ -25,7 +25,7 @@ import {
 import type { MobilePushDeliveryMode } from './mobile-push-delivery-policy'
 import type { PushReplyCategoryGate } from './push-reply-category-gate'
 import {
-  NOTIFICATION_REPLY_CATEGORY,
+  notificationReplyFields,
   type NotificationReplyTarget
 } from '../../../shared/notifications/notification-reply'
 
@@ -249,13 +249,7 @@ export class PushDispatcher {
     const replyTarget = this.replyCategory?.allows() ? this.replyFor?.(event) : null
     return {
       targets,
-      notification: replyTarget
-        ? {
-            ...withPrompt,
-            replyTarget,
-            category: withPrompt.category ?? NOTIFICATION_REPLY_CATEGORY
-          }
-        : withPrompt
+      notification: { ...withPrompt, ...notificationReplyFields(withPrompt, replyTarget) }
     }
   }
 

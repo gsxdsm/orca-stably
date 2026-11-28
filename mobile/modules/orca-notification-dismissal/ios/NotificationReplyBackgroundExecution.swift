@@ -11,7 +11,7 @@ final class NotificationReplyBackgroundExecution: NSObject, NotificationDelegate
     guard response.actionIdentifier == "orca.reply.send",
       let reply = response as? UNTextInputNotificationResponse else { return false }
     let request = response.notification.request
-    DispatchQueue.main.async {
+    let retainResponse = {
       let id = request.identifier
       self.finish(id)
       self.pending[id] = [
@@ -25,6 +25,11 @@ final class NotificationReplyBackgroundExecution: NSObject, NotificationDelegate
       self.tasks[id] = UIApplication.shared.beginBackgroundTask(withName: "Orca notification reply") {
         self.finish(id)
       }
+    }
+    if Thread.isMainThread {
+      retainResponse()
+    } else {
+      DispatchQueue.main.sync(execute: retainResponse)
     }
     // Expo owns the notification completion; the background assertion covers the paired send.
     return false

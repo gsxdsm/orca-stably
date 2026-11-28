@@ -57,7 +57,8 @@ export const PushNotificationSchema = z
     replyTarget: z.discriminatedUnion('type', [
       z.object({ type: z.literal('terminal'), terminal: z.string().min(1).max(2048), expectedIncarnationId: z.string().min(1).max(2048) }).strict(),
       z.object({ type: z.literal('chat'), sessionId: z.string().min(1).max(256) }).strict(),
-      z.object({ type: z.literal('bot-item'), itemUid: z.string().min(1).max(256) }).strict()
+        z.object({ type: z.literal('bot-item'), itemUid: z.string().min(1).max(256) }).strict(),
+        z.object({ type: z.literal('group'), groupId: z.string().min(1).max(256) }).strict()
     ]).optional(),
     prompt: PushPromptSchema.optional()
   })
