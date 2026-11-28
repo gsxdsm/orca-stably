@@ -49,9 +49,7 @@ import type {
 } from '../terminal/records/runtime-terminal-state-records'
 import { MailPointerRepointScheduler } from '../orchestration/mailbox/notifications/mail-pointer-repoint-scheduler'
 import { RuntimeTerminalWaiterRegistry } from '../terminal/wait/terminal-waiter-registry'
-import { RuntimeTerminalWriter } from '../terminal/input/runtime-terminal-writer'
 import { writeRefused } from '../../../shared/terminal/pty/lifecycle/pty-write-settlement'
-import { RuntimeTerminalIdlePolls } from '../terminal/wait/terminal-idle-polls'
 import { TerminalIntentionalStops } from '../terminal/stop/terminal-intentional-stops'
 import {
   TerminalRunFactsRegister,
@@ -63,7 +61,7 @@ import {
   TUI_IDLE_POLL_INTERVAL_MS,
   TUI_IDLE_QUIESCENCE_MS
 } from '../terminal/wait/terminal-idle-policy'
-import { RuntimeTerminalWait as RuntimeTerminalWaitController } from '../terminal/wait/terminal-wait'
+import { LazyRuntimeTerminalWait, LazyRuntimeTerminalWriter } from './lazy-runtime-terminal-io'
 import type { PtyLivenessVerdict } from '../../../shared/terminal/pty/lifecycle/pty-liveness-verdict'
 import type { HostScopedWorktreeKey } from '../../../shared/worktree/host-qualified-identity'
 import type { TerminalHandleAccess } from '../agent-senders/runtime-agent-sender-associations'
@@ -319,7 +317,7 @@ export abstract class OrcaRuntimeWithRuntimeId extends RuntimeBotConstructionHoo
 
   protected readonly terminalWaiters = new RuntimeTerminalWaiterRegistry()
 
-  protected readonly terminalWriter = new RuntimeTerminalWriter(
+  protected readonly terminalWriter = new LazyRuntimeTerminalWriter([
     (ptyId, data, inputKind) => this.ptyController?.write(ptyId, data, inputKind) ?? false,
     (ptyId) => this.getPtyWriteHostPlatform(ptyId),
     (ptyId) => this.getPtyAgent(ptyId),
@@ -327,7 +325,7 @@ export abstract class OrcaRuntimeWithRuntimeId extends RuntimeBotConstructionHoo
       this.ptyController?.writeWithSettlement?.(ptyId, data, inputKind) ??
       writeRefused('provider_cannot_settle'),
     (ptyId) => this.claimIdleShellPromptForPty(ptyId)
-  )
+  ])
 
   // Every tui-idle site must rank the same pane evidence identically.
   protected readonly tuiIdleEvidenceSource: TuiIdleEvidenceSource = {
@@ -346,24 +344,7 @@ export abstract class OrcaRuntimeWithRuntimeId extends RuntimeBotConstructionHoo
     readScreenClearingBlockedTail: (ptyId) => this.readScreenClearingBlockedTailForPty(ptyId)
   }
 
-  protected readonly terminalIdlePolls = new RuntimeTerminalIdlePolls({
-    ...this.tuiIdleEvidenceSource,
-    intervalMs: TUI_IDLE_POLL_INTERVAL_MS,
-    getForegroundProcess: (ptyId) => this.ptyController?.getForegroundProcess(ptyId) ?? null,
-    hasCommandPainted: (ptyId) => hasTerminalCommandPainted(this.ptysById.get(ptyId) ?? {}),
-    // Runtime emulator reads avoid a provider round trip on every poll.
-    readVisibleScreen: (ptyId) =>
-      this.headlessTerminals.has(ptyId)
-        ? this.readHeadlessVisibleTerminalState(ptyId).then(
-            (screen) => screen?.lines.join('\n') ?? null
-          )
-        : null,
-    resolve: (waiter, result) => this.terminalWaiters.resolve(waiter, result),
-    requestReattachedRepaint: (ptyId) => this.requestReattachedRepaint(ptyId),
-    confirmRestTitle: (ptyId, agent) => this.confirmReattachedRestTitle(ptyId, agent)
-  })
-
-  protected readonly terminalWait = new RuntimeTerminalWaitController(
+  protected readonly terminalWait = new LazyRuntimeTerminalWait(
     {
       ...this.tuiIdleEvidenceSource,
       getTerminalPty: (handle, condition) =>
@@ -377,7 +358,22 @@ export abstract class OrcaRuntimeWithRuntimeId extends RuntimeBotConstructionHoo
         this.startTuiIdleVisibleReadProbe(waiter, waiterTimeoutMs, agent)
     },
     this.terminalWaiters,
-    this.terminalIdlePolls
+    {
+      ...this.tuiIdleEvidenceSource,
+      intervalMs: TUI_IDLE_POLL_INTERVAL_MS,
+      getForegroundProcess: (ptyId) => this.ptyController?.getForegroundProcess(ptyId) ?? null,
+      hasCommandPainted: (ptyId) => hasTerminalCommandPainted(this.ptysById.get(ptyId) ?? {}),
+      // Runtime emulator reads avoid a provider round trip on every poll.
+      readVisibleScreen: (ptyId) =>
+        this.headlessTerminals.has(ptyId)
+          ? this.readHeadlessVisibleTerminalState(ptyId).then(
+              (screen) => screen?.lines.join('\n') ?? null
+            )
+          : null,
+      resolve: (waiter, result) => this.terminalWaiters.resolve(waiter, result),
+      requestReattachedRepaint: (ptyId) => this.requestReattachedRepaint(ptyId),
+      confirmRestTitle: (ptyId, agent) => this.confirmReattachedRestTitle(ptyId, agent)
+    }
   )
 
   protected ptyControllerGeneration = 0
