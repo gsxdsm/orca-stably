@@ -24,6 +24,7 @@ import type { InactiveClaudeAccount } from '../providers/claude/claude-managed-a
 import type { ClaudeRejectedToken } from '../providers/claude/claude-usage-fetch-options'
 import type { NetworkProxySettings } from '../../../shared/network/network-proxy'
 import { readGrokAuthSession } from '../providers/grok/grok-auth'
+import type { UsageHistoryRecorder } from '../usage-history/usage-history-recorder'
 
 export abstract class RateLimitServiceState {
   protected state: InternalRateLimitState = {
@@ -126,6 +127,7 @@ export abstract class RateLimitServiceState {
   protected inactiveClaudeAccountsResolver: (() => InactiveClaudeAccount[]) | null = null
   protected inactiveCodexAccountsResolver: (() => InactiveCodexAccountInfo[]) | null = null
   protected networkProxySettingsResolver: (() => NetworkProxySettings) | null = null
+  protected usageHistory: UsageHistoryRecorder | null = null
   protected inactiveClaudeCache = new Map<string, ProviderRateLimits>()
   protected inactiveCodexCache = new Map<string, ProviderRateLimits>()
   protected inactiveClaudeFetching = new Set<string>()
@@ -198,6 +200,7 @@ export abstract class RateLimitServiceState {
 
   protected updateState(next: InternalRateLimitState): void {
     this.state = next
+    this.usageHistory?.record(next)
     this.pushToRenderer()
   }
 

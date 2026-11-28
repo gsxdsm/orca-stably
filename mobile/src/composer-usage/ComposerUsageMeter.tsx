@@ -7,6 +7,7 @@ import {
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { radii, spacing, typography } from '../theme/mobile-theme'
 import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
+import type { AccountsSnapshot } from '../accounts/accounts-snapshot'
 import { useAccountsSnapshot } from './accounts-snapshot-store'
 import {
   formatUsageWindowLength,
@@ -41,6 +42,7 @@ type Props = {
 
 type Reading = {
   usage: AgentUsage
+  snapshot: AccountsSnapshot
   readout: ComposerUsageMeterReadout
   /** The bar's fill, by pace like the rail rings and the pop-up. */
   color: string
@@ -67,7 +69,7 @@ function useComposerUsageReading(agent: string | null | undefined): Reading | nu
   const now = useResetCountdownNow(usage?.windows.flatMap((e) => e.window.resetsAt ?? []) ?? [])
   // A missing chosen window (no 5-hour limit on the plan) falls back to the one the provider reports.
   const entry = usage ? pickComposerUsageWindow(usage.windows, choice) : null
-  if (!usage || !entry) {
+  if (!snapshot || !usage || !entry) {
     return null
   }
   const readout = composerUsageMeterReadout(entry.window.usedPercent, display)
@@ -77,6 +79,7 @@ function useComposerUsageReading(agent: string | null | undefined): Reading | nu
   const remaining = display === 'remaining'
   return {
     usage,
+    snapshot,
     readout,
     color: usagePaceColor(computeUsagePace(entry.window, now), readout.used),
     length,
@@ -212,6 +215,7 @@ export function ComposerUsageMeter({
         visible={open}
         onClose={() => setOpen(false)}
         usage={reading.usage}
+        snapshot={reading.snapshot}
         spanSideStrip={spanSideStrip}
       />
     </>
@@ -253,6 +257,7 @@ export function ComposerUsageStrip({
         visible={open}
         onClose={() => setOpen(false)}
         usage={reading.usage}
+        snapshot={reading.snapshot}
         spanSideStrip={spanSideStrip}
       />
     </>
