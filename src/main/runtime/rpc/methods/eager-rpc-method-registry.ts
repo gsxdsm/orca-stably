@@ -4,6 +4,7 @@ import { SIDEBAR_INPUT_METHODS } from './sidebar-inputs/sidebar-inputs'
 import { SIDEBAR_REPO_ICON_METHODS } from './sidebar-inputs/sidebar-repo-icons'
 import { CLIENT_EVENT_METHODS } from './client-events/client-events'
 import { HOST_CAPABILITY_METHODS } from './host-management/host-capabilities'
+import { HOST_RESOURCES_METHODS } from './host-management/host-resources'
 import { RUNTIME_CLIENT_CAPABILITY_METHODS } from './client-events/runtime-client-capabilities'
 import { AGENT_HOOK_METHODS } from './agent-hooks/agent-hooks'
 import {
@@ -28,6 +29,7 @@ export const EAGER_SERVICE_RPC_METHODS = [
   // Switch point: a window-owned build registers no layout command.
   ...(ORCA_LAYOUT_OWNER_IS_MAIN ? [...LAYOUT_APPLY_METHODS, ...LAYOUT_VIEW_REPORT_METHODS] : []),
   ...HOST_CAPABILITY_METHODS,
+  ...HOST_RESOURCES_METHODS,
   ...RUNTIME_CLIENT_CAPABILITY_METHODS,
   ...CLIENT_EVENT_METHODS,
   // Switch point: a window-fed build publishes no sidebar input.
