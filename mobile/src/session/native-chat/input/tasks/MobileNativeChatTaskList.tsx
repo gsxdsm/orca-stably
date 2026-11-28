@@ -10,14 +10,15 @@ import {
 } from '../../../../../../src/shared/native-chat/input/task-lists/native-chat-task-list'
 import { nativeChatTaskListCopy } from './native-chat-task-list-copy'
 import { useMobileTranslation } from '../../../../i18n/use-mobile-translation'
-import { colors, pressedStyle, spacing } from '../../../../theme/mobile-theme'
+import { pressedStyle, spacing } from '../../../../theme/mobile-theme'
 import { useMobileNativeChatOpenedDetail } from '../../visual/mobile-native-chat-opened-detail'
 import {
-  toolStyles as styles,
+  toolStylesSheet,
   toolType
 } from '../../transcript/tool-results/mobile-native-chat-tool-styles'
 import { useMobileNativeChatDisclosure } from '../../transcript/viewport/mobile-native-chat-disclosure-store'
-import { useMobileColorScheme } from '../../../../theme/use-mobile-color-scheme'
+import { useMobileColors } from '../../../../theme/use-mobile-color-scheme'
+import { useThemedStyles } from '../../../../theme/themed-styles'
 import { ListGroup } from '../../../../components/list/ListGroup'
 
 const groupedTaskRow = {
@@ -47,7 +48,8 @@ function TaskRow({
   fontScale: number
   grouped?: boolean
 }): React.JSX.Element {
-  useMobileColorScheme()
+  const styles = useThemedStyles(toolStylesSheet)
+  const colors = useMobileColors()
   const t = useMobileTranslation()
   const copy = nativeChatTaskListCopy(t)
   const statusWord: Record<NativeChatTask['status'], string> = {
@@ -101,7 +103,7 @@ export function MobileNativeChatChecklist({
   list: TaskList
   fontScale: number
 }): React.JSX.Element {
-  useMobileColorScheme()
+  const styles = useThemedStyles(toolStylesSheet)
   const t = useMobileTranslation()
   return list.tasks.length === 0 ? (
     <Text style={[styles.lineMeta, toolType(fontScale).meta]}>
@@ -125,7 +127,8 @@ function FullList({
   fontScale: number
   disclosureKey?: string
 }) {
-  useMobileColorScheme()
+  const styles = useThemedStyles(toolStylesSheet)
+  const colors = useMobileColors()
   const t = useMobileTranslation()
   const [open, setOpen] = useMobileNativeChatDisclosure(disclosureKey, false)
   return (
@@ -171,7 +174,8 @@ export function MobileNativeChatTaskList({
   /** `sheet` is the current list inside the tasks drawer. `card` is the inline transcript diff. */
   variant?: 'card' | 'sheet'
 }): React.JSX.Element {
-  useMobileColorScheme()
+  const styles = useThemedStyles(toolStylesSheet)
+  const colors = useMobileColors()
   const t = useMobileTranslation()
   const completed = nativeChatCompletedTaskCount(list)
   const copy = nativeChatTaskListCopy(t, { completed, total: list.tasks.length })

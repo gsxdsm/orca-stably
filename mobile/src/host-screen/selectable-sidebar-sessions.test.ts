@@ -26,7 +26,7 @@ async function mount(pref: PreferenceModule): Promise<{
   const { act, create } = await import('react-test-renderer')
   const held: { value: boolean } = { value: false }
   function Probe(): null {
-    held.value = pref.useSelectableSidebarSessions()
+    held.value = pref.useSelectableSidebarSessionsPreference()
     return null
   }
   const apply = async (body?: () => void): Promise<void> => {

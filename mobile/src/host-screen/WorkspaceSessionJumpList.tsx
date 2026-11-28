@@ -3,11 +3,11 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import type { RuntimeWorktreeAgentRow } from '../../../src/shared/worktree/catalog/runtime-worktree-contracts'
 import { AgentStateDot } from '../agents/presentation/AgentStateDot'
 import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
-import { colors, radii, spacing, typography } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
-import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { radii, spacing, typography } from '../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { sidebarSessionJumps } from './sidebar-session-jumps'
+import { FORK_SIDEBAR_SESSIONS_ENABLED } from '../../../src/shared/fork-sidebar-sessions-flag'
 
 const INDENT_PER_DEPTH = 14
 const LIST_MAX_HEIGHT = 240
@@ -18,9 +18,16 @@ type Props = {
   onJump: (paneKey: string) => void
 }
 
-export function WorkspaceSessionJumpList({ agents, now, onJump }: Props) {
+export function WorkspaceSessionJumpList(props: Props) {
+  if (!FORK_SIDEBAR_SESSIONS_ENABLED) {
+    return null
+  }
+  return <WorkspaceSessionJumpListContent {...props} />
+}
+
+function WorkspaceSessionJumpListContent({ agents, now, onJump }: Props) {
   const t = useMobileTranslation()
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
   const jumps = useMemo(() => sidebarSessionJumps(agents, now), [agents, now])
   if (jumps.length === 0) {
     return null
@@ -57,7 +64,7 @@ export function WorkspaceSessionJumpList({ agents, now, onJump }: Props) {
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   section: {
     marginBottom: spacing.md
   },

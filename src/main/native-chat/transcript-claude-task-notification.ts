@@ -1,7 +1,11 @@
+import { nativeChatSubagentStateFromStatus } from '../../shared/native-chat/input/native-chat-tool-subagents'
+import { extractString } from '../../shared/text/trimmed-string'
+import { asRecord } from '../ai-vault/parsing/session-record-fields'
 import { isAgentChildWorkKind } from '../../shared/agent-status/child-work/agent-status-child-work-liveness'
 import { classifyClaudeBackgroundTaskKind } from '../../shared/agent-hook-listener/providers/claude/background-tasks/claude-background-task-kind'
 import { nativeChatRosterActivityLine } from '../../shared/native-chat/input/native-chat-roster-activity-line'
 import type {
+  NativeChatBlock,
   NativeChatMessage,
   NativeChatSubagentState
 } from '../../shared/native-chat/native-chat-types'
@@ -86,4 +90,24 @@ export function claudeTaskNotificationMessage(
       }
     ]
   }
+}
+
+export function stampClaudeSyncSubagent(
+  blocks: NativeChatBlock[],
+  record: Record<string, unknown>
+): NativeChatBlock[] {
+  const result = asRecord(record.toolUseResult)
+  const id = extractString(result?.agentId)
+  if (!id) {
+    return blocks
+  }
+  const state = nativeChatSubagentStateFromStatus(extractString(result?.status) ?? '') ?? 'working'
+  let attached = false
+  return blocks.map((block) => {
+    if (attached || block.type !== 'tool-result') {
+      return block
+    }
+    attached = true
+    return { ...block, subagent: { id, state } }
+  })
 }

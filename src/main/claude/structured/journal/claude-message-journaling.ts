@@ -29,7 +29,10 @@ import {
   appendUnmodeledContent,
   type ClaudeProviderFrameFallback
 } from '../launch/claude-structured-provider-fallback'
-import type { createClaudeStreamedBlockRegistry } from './claude-streamed-block-identity'
+import {
+  CLAUDE_RELAY_CONTINUATION_KEY,
+  type createClaudeStreamedBlockRegistry
+} from './claude-streamed-block-identity'
 import type { createClaudeStreamedTextCheckpoints } from './claude-streamed-text-checkpoints'
 import type { ClaudeStreamedThinking } from './claude-streamed-thinking'
 import type { ClaudeProvisionalRowCorrections } from '../../subagents/claude-provisional-row-corrections'
@@ -44,6 +47,7 @@ import type { ClaudeOpenTurn } from '../turns/claude-open-turn'
 import type { ClaudeAssistantFailures } from './claude-assistant-failures'
 import type { ClaudeUsageLimits } from './claude-usage-limits'
 import type { ClaudeThreadGoal } from './claude-thread-goal'
+import { journalClaudeCompaction } from './claude-journal-compactions'
 
 export type ClaudeMessageJournalContext = {
   sink: StructuredAgentSessionEventSink
@@ -68,6 +72,7 @@ export function journalClaudeStream(
   message: Record<string, unknown>,
   observedAt: number
 ): boolean {
+  const placed = ctx.streamedBlocks.placeAt(message)
   const delta = ctx.streamedBlocks.observe(message, observedAt)
   const thinking = ctx.streamedThinking.observe(message, observedAt)
   // Prefer message_start; use the first content delta for older streams that omit it.
@@ -77,7 +82,7 @@ export function journalClaudeStream(
   if (delta) {
     ctx.streamedText.append(delta.identity, delta.text, delta.parentToolUseId)
   }
-  return delta !== null || thinking
+  return placed || delta !== null || thinking
 }
 
 export function journalClaudeMessage(
@@ -89,6 +94,9 @@ export function journalClaudeMessage(
   requestedAt?: number,
   clientMessageId?: string
 ): boolean {
+  if (journalClaudeCompaction(ctx, message, observedAt)) {
+    return true
+  }
   const envelope = readClaudeMessageEnvelope(message)
   if (!envelope) {
     return false
@@ -135,18 +143,25 @@ export function journalClaudeMessage(
   }
   const usageLimit = ctx.usageLimits.assistant(message, ctx.turn)
   const body =
-    ctx.assistantFailures.assistant(message) ??
+    ctx.assistantFailures.assistant(message, ctx.turn.id) ??
     usageLimit ??
     ctx.threadGoal.report(message, claudeMessageIdentity(envelope), observedAt) ??
     messageBody ??
     ordinaryFailure
   const terminalIdentity = terminal && ctx.turn.identity && usageLimit ? ctx.turn.identity : null
-  const identity =
-    (body && envelope.role === 'assistant'
-      ? ctx.streamedBlocks.reconcile(envelope)?.identity
-      : null) ?? claudeMessageIdentity(envelope)
+  const streamed =
+    body && envelope.role === 'assistant' ? ctx.streamedBlocks.reconcile(envelope) : null
+  const identity = streamed?.identity ?? claudeMessageIdentity(envelope)
   ctx.streamedText.forget(agentJournalItemKey(identity))
-  const thinking = ctx.streamedThinking.finalize(outputEnvelope, observedAt)
+  if (streamed?.retired) {
+    ctx.streamedText.forget(agentJournalItemKey(streamed.retired))
+    ctx.sink.appendTombstone(streamed.retired, { lifecycle: true })
+  }
+  const thinking = ctx.streamedThinking.finalize(
+    outputEnvelope,
+    observedAt,
+    message[CLAUDE_RELAY_CONTINUATION_KEY] !== undefined
+  )
   if (body) {
     // Open before appending so backward scans include the turn's first output.
     ctx.turn.ensureOpen(message, source, observedAt)
@@ -154,6 +169,12 @@ export function journalClaudeMessage(
       writeClaudeTerminalFailure(ctx.sink, terminalIdentity, body)
     } else {
       ctx.sink.appendItem(identity, body, { ...stamp(identity, body), lifecycle: true })
+      if (!streamed && envelope.messageId && message[CLAUDE_RELAY_CONTINUATION_KEY]) {
+        ctx.streamedBlocks.holdUnplaced({ ...envelope, messageId: envelope.messageId }, (row) => {
+          ctx.sink.appendItem(row, body, { ...stamp(row, body), lifecycle: true })
+          ctx.sink.appendTombstone(identity, { lifecycle: true })
+        })
+      }
     }
     changed = true
   }

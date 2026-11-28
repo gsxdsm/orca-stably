@@ -1,6 +1,6 @@
 import { MessageSquare, SquareTerminal } from 'lucide-react-native'
 import type { ActionSheetAction } from '../../../components/sheets/ActionSheetModal'
-import { translate } from '../../../i18n/mobile-i18n'
+import type { Translate } from '../../../i18n/mobile-i18n'
 import { formatAgentTypeLabel } from '../../../../../src/shared/agent-status/presentation/agent-type-label'
 import { isNativeChatSupportedAgent } from '../../../../../src/shared/native-chat/native-chat-agent-support'
 import { resolveMobileNativeChat, type MobileNativeChatTab } from './mobile-native-chat-eligibility'
@@ -21,6 +21,7 @@ export function getMobileNativeChatToggleActions(args: {
   hostAgentIdentity?: string | null
   onClose: () => void
   onToggle: (tabId: string) => void
+  t: Translate
 }): ActionSheetAction[] {
   const { terminalHandle, tabs, isTabChatView, onClose, onToggle } = args
   const tab = terminalHandle
@@ -42,15 +43,15 @@ export function getMobileNativeChatToggleActions(args: {
     ) {
       return []
     }
-    return structuredChatTerminalExplanation(tab, args.structuredAgents ?? [])
+    return structuredChatTerminalExplanation(tab, args.structuredAgents ?? [], args.t)
   }
   const isChat = isTabChatView(tab.id)
   return [
     {
       id: 'toggleChatView',
       label: isChat
-        ? translate('session.nativeChatToggleAction.switchToTerminalView', 'Switch to terminal')
-        : translate('session.nativeChatToggleAction.switchToChatView', 'Switch to chat'),
+        ? args.t('session.nativeChatToggleAction.switchToTerminalView', 'Switch to terminal')
+        : args.t('session.nativeChatToggleAction.switchToChatView', 'Switch to chat'),
       icon: isChat ? SquareTerminal : MessageSquare,
       onPress: () => {
         onClose()
@@ -67,7 +68,8 @@ function terminalLaunchAgent(tab: MobileNativeChatTab): string | null {
 // A structured chat is a new session. The running terminal has no transcript this view can adopt.
 function structuredChatTerminalExplanation(
   tab: MobileNativeChatTab,
-  structuredAgents: readonly string[]
+  structuredAgents: readonly string[],
+  t: Translate
 ): ActionSheetAction[] {
   const agent = terminalLaunchAgent(tab)
   if (!agent || isNativeChatSupportedAgent(agent) || !structuredAgents.includes(agent)) {
@@ -76,12 +78,12 @@ function structuredChatTerminalExplanation(
   return [
     {
       id: 'structuredChatUnavailable',
-      label: translate(
+      label: t(
         'session.nativeChatToggleAction.terminalCannotSwitchToChat',
         "Can't switch this {{agent}} terminal to Chat",
         { agent: formatAgentTypeLabel(agent) }
       ),
-      hint: translate(
+      hint: t(
         'session.nativeChatToggleAction.startNewChatSession',
         'Start a new session with Chat UI on'
       ),
