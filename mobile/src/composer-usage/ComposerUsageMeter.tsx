@@ -1,6 +1,5 @@
 import { useContext, useEffect, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
-import { usageBandColor } from '../accounts/usage/UsageBar'
 import {
   composerInputStylesSheet,
   MESSAGE_TEXT_INSET
@@ -29,8 +28,10 @@ import {
 import { useComposerUsagePosition } from './composer-usage-position-preference'
 import { useComposerUsageWindow } from './composer-usage-window-preference'
 import { ComposerUsageSheet } from './ComposerUsageSheet'
+import { usagePaceColor } from './usage-pace-color'
 import { usageResetLabel } from './usage-reset-label'
 import { useResetCountdownNow } from './use-reset-countdown-now'
+import { computeUsagePace } from './usage-window-pace'
 
 type Props = {
   agent: string | null | undefined
@@ -41,6 +42,8 @@ type Props = {
 type Reading = {
   usage: AgentUsage
   readout: ComposerUsageMeterReadout
+  /** The bar's fill, by pace like the rail rings and the pop-up. */
+  color: string
   length: string
   /** Time left until reset ("3d 2h"), and its largest unit alone ("3d") for a tight row. */
   resetsIn: string
@@ -75,6 +78,7 @@ function useComposerUsageReading(agent: string | null | undefined): Reading | nu
   return {
     usage,
     readout,
+    color: usagePaceColor(computeUsagePace(entry.window, now), readout.used),
     length,
     resetsIn: usageResetLabel(entry.window, now),
     resetsInCompact: usageResetLabel(entry.window, now, 'compact'),
@@ -174,7 +178,7 @@ export function ComposerUsageMeter({
                 {fit.label === 'full' ? reading.resetsIn : reading.resetsInCompact}
               </Text>
             ) : null}
-            <ComposerUsageTrack readout={reading.readout} />
+            <ComposerUsageTrack readout={reading.readout} color={reading.color} />
           </View>
         </Pressable>
       ) : null}
@@ -240,7 +244,7 @@ export function ComposerUsageStrip({
         <Text style={[styles.text, styles.window]} numberOfLines={1}>
           {`${reading.provider} · ${reading.resetsIn}`}
         </Text>
-        <ComposerUsageTrack readout={reading.readout} />
+        <ComposerUsageTrack readout={reading.readout} color={reading.color} />
         <Text style={styles.text} numberOfLines={1}>
           {reading.percentLabel}
         </Text>
@@ -256,19 +260,16 @@ export function ComposerUsageStrip({
 }
 
 function ComposerUsageTrack({
-  readout
+  readout,
+  color
 }: {
   readout: ComposerUsageMeterReadout
+  color: string
 }): React.JSX.Element {
   const styles = useThemedStyles(stylesSheet)
   return (
     <View style={styles.track}>
-      <View
-        style={[
-          styles.fill,
-          { width: `${readout.shown}%`, backgroundColor: usageBandColor(readout.used) }
-        ]}
-      />
+      <View style={[styles.fill, { width: `${readout.shown}%`, backgroundColor: color }]} />
     </View>
   )
 }

@@ -61,6 +61,10 @@ import {
 } from './page-geometry/page-safe-area-insets'
 import { usePageFoldDivision, usePublishedFoldDivision } from './page-geometry/page-fold-division'
 import { usePublishedShellKeyRail, useShellKeyRail } from './terminal-controls/use-shell-key-rail'
+import { useShellUsageRail } from '../rail-usage/use-shell-usage-rail'
+import { pageSideStripRoom } from '../rail-usage/side-strip-holder'
+import { useRailRingsDuringChats } from '../rail-usage/rail-rings-during-chats-preference'
+import type { BridgeSideStripFree } from './bridge/page-geometry/bridge-side-strip-cover'
 import { hostProfileUnreadableLine, pageFaultLine } from './diagnostics/shell-lifecycle-log'
 import { recordShellLifecycleLine } from './diagnostics/shell-lifecycle-line-recorder'
 
@@ -173,6 +177,34 @@ export function MobileWebShellScreen({
       strip !== null &&
       !overlay &&
       routeGrants.includes(BRIDGE_TERMINAL_KEY_RAIL_GRANT)
+  )
+  // What this document last reported about itself; a new document starts unknown.
+  const [pageLocation, setPageLocation] = useState<{ sessionId: string; href: string } | null>(null)
+  const [pageCover, setPageCover] = useState<{
+    sessionId: string
+    covered: boolean
+    free: BridgeSideStripFree | null
+  } | null>(null)
+  const currentCover = pageCover?.sessionId === readySessionId ? pageCover : null
+  const stripRoom = pageSideStripRoom({
+    ownsHostArea,
+    routeGrants,
+    covered: currentCover?.covered ?? null,
+    free: currentCover?.free ?? null,
+    location: pageLocation?.sessionId === readySessionId ? pageLocation.href : null,
+    keyRailClaimed: keyRail.keys.length > 0
+  })
+  // A chat that leaves part of the column empty shares it with the rings only when the user wants them there.
+  const ringsDuringChats = useRailRingsDuringChats()
+  useShellUsageRail(
+    hostId,
+    shellFocused && !overlay && state.kind === 'ready'
+      ? stripRoom.kind === 'whole'
+        ? 'whole'
+        : stripRoom.kind === 'span' && ringsDuringChats
+          ? { top: stripRoom.top, bottom: stripRoom.bottom }
+          : null
+      : null
   )
   const {
     snapshot,
@@ -303,12 +335,20 @@ export function MobileWebShellScreen({
     // A caller that tracks the location takes it; pages from #34484 desktops report it only for a fold to reopen.
     onPageLocation: (href) => {
       openTarget.recordLocation(href)
+      if (readySessionId !== null) {
+        setPageLocation({ sessionId: readySessionId, href })
+      }
       return onPageLocation === undefined
         ? holdPageLocation(href, ownsHostArea)
         : onPageLocation(href)
     },
     // A newer build swaps in only on a resume where the page has nothing to lose (no draft, upload or open sheet).
     onPageSwapSafe: reportSwapSafe,
+    onSideStripCover: (covered, free) => {
+      if (readySessionId !== null) {
+        setPageCover({ sessionId: readySessionId, covered, free })
+      }
+    },
     onTerminalKeyRailClaim: keyRail.reportClaim,
     onRouteParamClear: openTarget.onRouteParamClear,
     onRouteRefused: (issue) => {

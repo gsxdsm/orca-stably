@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Text, View } from 'react-native'
 import { BottomDrawer } from '../components/bottom-drawer/BottomDrawer'
 import { useNow } from '../hooks/use-now'
@@ -10,15 +11,23 @@ import { ComposerUsagePositionPicker } from './ComposerUsagePositionPicker'
 import { ComposerUsageWindowPicker } from './ComposerUsageWindowPicker'
 import { ComposerUsageWindowRow } from './ComposerUsageWindowRow'
 
-type Props = { visible: boolean; onClose: () => void; usage: AgentUsage; spanSideStrip: boolean }
+type Props = {
+  visible: boolean
+  onClose: () => void
+  usage: AgentUsage
+  spanSideStrip: boolean
+  /** Above the title, e.g. the Duo rail's provider tabs. */
+  header?: ReactNode
+}
 
-export function ComposerUsageSheet({ visible, onClose, usage, spanSideStrip }: Props) {
+export function ComposerUsageSheet({ visible, onClose, usage, spanSideStrip, header }: Props) {
   const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const now = useNow(30_000, visible)
   return (
     <BottomDrawer visible={visible} onClose={onClose} spanReleasedSide={spanSideStrip}>
       <View testID="composer-usage-sheet">
+        {header}
         <Text style={styles.heading}>
           {t('composerUsage.sheet.title', '{{provider}} usage', {
             provider: USAGE_PROVIDER_NAMES[usage.provider]
