@@ -1,7 +1,8 @@
 import { Pressable, Text } from 'react-native'
-import { composerInputStyles } from '../components/composer-input/composer-input-styles'
-import { colors, radii, spacing, typography } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
+import { composerInputStylesSheet } from '../components/composer-input/composer-input-styles'
+import { useKeyboardPersistingTaps } from '../platform/keyboard/keyboard-persisting-taps'
+import { radii, spacing, typography } from '../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
 import type { ComposerUsageMeterReadout } from './composer-usage-meter-readout'
 import { ComposerUsageTrack } from './ComposerUsageTrack'
 
@@ -17,6 +18,7 @@ export function ComposerUsageWideMeter({
   percentLabel,
   readout,
   color,
+  paceMarkerPercent,
   onPress
 }: {
   layout: { width: number; label: 'full' | 'compact' }
@@ -26,10 +28,16 @@ export function ComposerUsageWideMeter({
   percentLabel: string
   readout: ComposerUsageMeterReadout
   color: string
+  paceMarkerPercent: number | null
   onPress: () => void
 }): React.JSX.Element {
+  const styles = useThemedStyles(stylesSheet)
+  const composerInputStyles = useThemedStyles(composerInputStylesSheet)
+  // Keep focus in the composer field so the idle-collapsible pill does not unmount the bar mid-tap.
+  const keepsFocus = useKeyboardPersistingTaps('always')
   return (
     <Pressable
+      ref={keepsFocus}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
@@ -44,7 +52,12 @@ export function ComposerUsageWideMeter({
       <Text style={[styles.text, styles.label]} numberOfLines={1}>
         {layout.label === 'full' ? resetsIn : resetsInCompact}
       </Text>
-      <ComposerUsageTrack readout={readout} color={color} wide />
+      <ComposerUsageTrack
+        readout={readout}
+        color={color}
+        wide
+        paceMarkerPercent={paceMarkerPercent}
+      />
       <Text style={[styles.text, styles.percent]} numberOfLines={1}>
         {percentLabel}
       </Text>
@@ -64,6 +77,7 @@ export function ComposerUsageWideMeasure({
   onResetWidth: (width: number) => void
   onPercentWidth: (width: number) => void
 }): React.JSX.Element {
+  const styles = useThemedStyles(stylesSheet)
   return (
     <>
       <Text
@@ -82,7 +96,7 @@ export function ComposerUsageWideMeasure({
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   meter: {
     flexDirection: 'row',
     alignItems: 'center',

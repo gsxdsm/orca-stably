@@ -16,6 +16,7 @@ import {
 import { useUsagePercentageDisplay } from './usage-percentage-display-preference'
 import type { Translate } from '../../i18n/mobile-i18n'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
+import { UsagePaceTick } from './UsagePaceTick'
 
 /** A meter's fill: the shown percent (used or left) and its consumption colour, shared by every usage meter. */
 export function usageBarFill(
@@ -132,16 +133,7 @@ export function UsageBar({
                 ]}
               />
             </View>
-            {paceMarkerPercent != null ? (
-              <View
-                pointerEvents="none"
-                testID="usage-bar-pace-marker"
-                style={[
-                  styles.usagePaceMarker,
-                  { left: `${Math.max(0, Math.min(100, paceMarkerPercent))}%` }
-                ]}
-              />
-            ) : null}
+            {paceMarkerPercent != null ? <UsagePaceTick percent={paceMarkerPercent} /> : null}
           </View>
           {loading ? (
             <ActivityIndicator
@@ -201,16 +193,6 @@ const stylesSheet = themedStyleSheet((colors) => ({
     // Not bgRaised: in dark that is the grouped list's own fill, which would hide the track.
     backgroundColor: colors.translucentFill,
     overflow: 'hidden'
-  },
-  // Taller than the track so it reads over any fill colour; centred on its position.
-  usagePaceMarker: {
-    position: 'absolute',
-    top: -3,
-    bottom: -3,
-    width: 2,
-    marginLeft: -1,
-    borderRadius: 1,
-    backgroundColor: colors.textPrimary
   },
   usageFill: {
     height: '100%',
