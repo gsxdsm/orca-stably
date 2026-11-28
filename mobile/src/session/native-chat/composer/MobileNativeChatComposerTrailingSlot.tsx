@@ -24,7 +24,7 @@ export function MobileNativeChatComposerTrailingSlot({
       {collapsed ? null : (
         <MobileNativeChatActionGap
           agent={editSession ? null : sendSlotProps.agent}
-          toggle={widthToggle}
+          toggle={widthToggle ?? null}
         />
       )}
       {editSession ? (
