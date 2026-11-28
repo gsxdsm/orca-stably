@@ -5,4 +5,3 @@
 3 mobile/src/composer-usage/ComposerUsageWindowDetail.tsx # fork-only (gsxdsm/orca), not for upstream
 2 mobile/src/composer-usage/UsageHistoryChart.tsx # fork-only (gsxdsm/orca), not for upstream
 1 mobile/src/rail-usage/RailUsageRing.tsx # fork-only (gsxdsm/orca), not for upstream
-5 mobile/src/resources/resource-meters.tsx # fork-only (gsxdsm/orca), not for upstream
