@@ -136,10 +136,10 @@ struct UsageWidgetView: View {
               Text("\(Int(usage.usedPercent.rounded()))%")
             }.gaugeStyle(.accessoryCircular)
             VStack(alignment: .leading) {
-              Text(usage.provider).font(.caption.weight(.semibold))
-              Text("\(usage.hostId) · \(usage.window)").font(.caption2).lineLimit(1)
-              Text(entry.usageStale ? "Last known · stale" : "Updated \(Date(timeIntervalSince1970: Double(usage.updatedAt) / 1000), style: .relative) ago").font(.caption2)
-            }
+              Text("\(usage.provider) · \(usage.window)").font(.caption.weight(.semibold)).lineLimit(1)
+              Text(usage.hostId).font(.caption2).lineLimit(1)
+              Text(entry.usageStale ? "Stale" : "\(Date(timeIntervalSince1970: Double(usage.updatedAt) / 1000), style: .relative) ago").font(.caption2)
+            }.accessibilityElement(children: .combine)
           }.frame(maxWidth: .infinity, alignment: .leading)
         }
       } else {
