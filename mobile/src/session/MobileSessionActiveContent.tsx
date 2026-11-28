@@ -375,6 +375,7 @@ export function MobileSessionActiveContent({
                     onOpenAccounts={chatAccounts.openAccounts}
                     accountSignIn={chatAccounts.accountSignIn}
                     crew={{ client, tab: controller.activeSessionTab }}
+                    onToast={controller.showToast}
                   />
                 </MobileSessionBotIdentity>
               </MobileBotCardHostProvider>

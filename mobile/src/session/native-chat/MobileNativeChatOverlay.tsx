@@ -31,6 +31,7 @@ import {
   MobileNativeChatNoticeContext,
   mobileNativeChatNoticeView
 } from './transcript/notices/mobile-native-chat-notice-context'
+import { useMobileAntigravityChatAccountSheet } from './transcript/notices/MobileAntigravityChatAccountSheet'
 import type { MobileNativeChatImageSource } from './visual/mobile-native-chat-image-preview'
 import { crewComposerTray } from './input/MobileSessionCrewActivity'
 import type { MobileSessionTab } from '../tabs/mobile-session-tabs'
@@ -72,6 +73,7 @@ type Props = {
   onOpenAccounts?: () => void
   /** Signs the chat's managed account in again on its host; absent where the phone can't. */
   accountSignIn?: ChatAccountSignIn
+  onToast?: (message: string, durationMs?: number) => void
   /** Opens tapped links in Orca's browser; absent where the host can't open a browser tab. */
   onOpenUrlInOrca?: (url: string) => void
   linkOpenMode: MobileLinkOpenMode
@@ -131,7 +133,8 @@ function MobileNativeChatOverlayContent({
   hostOutage = null,
   onOpenAccounts,
   crew = null,
-  accountSignIn
+  accountSignIn,
+  onToast
 }: Props): React.JSX.Element {
   const session = controller.nativeChatSession
   const agent = controller.nativeChatAgent ?? ''
@@ -234,9 +237,13 @@ function MobileNativeChatOverlayContent({
   const runInTerminal = useCallback((command: string) => runInTerminalRef.current(command), [])
   const t = useMobileTranslation()
   const continuation = controller.nativeChatInterruptedContinue
+  const agySheet = useMobileAntigravityChatAccountSheet(
+    controller.nativeChatUsageLimit?.antigravityAccounts,
+    onToast
+  )
   const noticeView = useMemo(
-    () =>
-      mobileNativeChatNoticeView({
+    () => ({
+      ...mobileNativeChatNoticeView({
         hostName,
         agentName: agent ? (tuiAgentDisplayName(agent) ?? agent) : undefined,
         onRunInTerminal: runInTerminal,
@@ -247,6 +254,8 @@ function MobileNativeChatOverlayContent({
         continuation,
         onClearSendError
       }),
+      ...(agySheet.open ? { openAntigravityAccounts: agySheet.open } : {})
+    }),
     [
       hostName,
       agent,
@@ -256,7 +265,8 @@ function MobileNativeChatOverlayContent({
       controller.nativeChatUsageLimit,
       controller.nativeChatUnresolvedFailureRows,
       onOpenAccounts,
-      accountSignIn
+      accountSignIn,
+      agySheet.open
     ]
   )
   const continueFailed = sendErrorMessage === null && continuation?.failed === true
@@ -391,6 +401,7 @@ function MobileNativeChatOverlayContent({
   return (
     <MobileMarkdownSlackPeopleContext.Provider value={slackPeople}>
       {chat}
+      {agySheet.sheet}
     </MobileMarkdownSlackPeopleContext.Provider>
   )
 }
