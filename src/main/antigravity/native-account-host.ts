@@ -8,8 +8,10 @@ import { createAntigravityWslCredentialBackend } from './native-wsl-credentials'
 import { resolveWslDefaultDistro } from '../wsl/discovery/wsl-default-distro'
 import {
   AntigravityAccountService,
-  type AntigravityCredentialBackend
+  type AntigravityCredentialBackend,
+  type AntigravityLaunchRestore
 } from './native-account-service'
+import { antigravitySignInHoldsNativeLogin } from './antigravity-chat-sign-in'
 import { isSameAntigravityLogin } from './native-account-usage-reading'
 import type { RateLimitRuntimeTarget } from '../../shared/agent-usage/rate-limits/rate-limit-types'
 import { ANTIGRAVITY_USAGE_HOST_TARGET } from '../rate-limits/providers/antigravity/antigravity-account-usage'
@@ -59,7 +61,8 @@ export function getAntigravityAccountVaultPath(wslDistro?: string): string {
 function createService(
   backend: AntigravityCredentialBackend,
   vaultPath: string,
-  target: RateLimitRuntimeTarget = ANTIGRAVITY_USAGE_HOST_TARGET
+  target: RateLimitRuntimeTarget = ANTIGRAVITY_USAGE_HOST_TARGET,
+  launchRestore?: AntigravityLaunchRestore
 ) {
   const reporting = reportingCredentialChanges(backend)
   return new AntigravityAccountService(
@@ -67,6 +70,7 @@ function createService(
     reporting,
     undefined,
     undefined,
+    launchRestore,
     target
   )
 }
@@ -104,7 +108,12 @@ export async function getAntigravityAccountService(
   }
   service ??= createService(
     createAntigravityHostCredentialBackend(getAppEnvironment().getPath('home')),
-    getAntigravityAccountVaultPath()
+    getAntigravityAccountVaultPath(),
+    ANTIGRAVITY_USAGE_HOST_TARGET,
+    // Windows launches aren't gated (native-account-launch.ts), so nothing restores there.
+    process.platform === 'win32'
+      ? undefined
+      : { signInHoldsLogin: antigravitySignInHoldsNativeLogin }
   )
   return service
 }

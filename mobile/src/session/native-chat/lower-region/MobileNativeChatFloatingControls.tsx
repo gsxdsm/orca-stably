@@ -3,14 +3,16 @@ import { Animated, Easing, Platform, Pressable, View, StyleSheet } from 'react-n
 import { ArrowDown, ArrowUp } from 'lucide-react-native'
 import { SHEET_CURVE } from '../../../components/motion/sheet-motion-values'
 import { useReducedMotionEnabled } from '../../../platform/accessibility/use-reduced-motion'
-import { colors, feedback, radii } from '../../../theme/mobile-theme'
-import { useMobileColorScheme } from '../../../theme/use-mobile-color-scheme'
+import { feedback, radii } from '../../../theme/mobile-theme'
+import { useMobileColors } from '../../../theme/use-mobile-color-scheme'
 import {
-  styles,
   NATIVE_CHAT_FAB_GAP,
-  NATIVE_CHAT_FAB_SIZE
+  NATIVE_CHAT_FAB_SIZE,
+  stylesSheet
 } from '../mobile-native-chat-view-styles'
+import { MobileEdgeFade } from '../../../components/list/MobileEdgeFade'
 import { useMobileTranslation } from '../../../i18n/use-mobile-translation'
+import { useThemedStyles } from '../../../theme/themed-styles'
 import type { DuoRailControlFrame, DuoRailJumpFrames } from '../../../layout/duo-status-row'
 
 const FAB_LIFT = NATIVE_CHAT_FAB_SIZE + NATIVE_CHAT_FAB_GAP
@@ -23,8 +25,7 @@ function jumpEasing() {
 const railButton = {
   borderRadius: radii.pill,
   alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-  backgroundColor: colors.bgRaised
+  justifyContent: 'center' as const
 }
 
 function useShown(shown: boolean): Animated.Value {
@@ -68,6 +69,8 @@ function ChatJumpButton({
   onPress: () => void
   icon: ReactNode
 }): React.JSX.Element {
+  const styles = useThemedStyles(stylesSheet)
+  const colors = useMobileColors()
   const reducedMotion = useReducedMotionEnabled() === true
   const scale = reducedMotion
     ? 1
@@ -95,7 +98,7 @@ function ChatJumpButton({
           disabled={!shown}
           focusable={shown}
           style={({ pressed }) => [
-            frame ? railButton : styles.fab,
+            frame ? { ...railButton, backgroundColor: colors.bgRaised } : styles.fab,
             frame ? { width: frame.size, height: frame.size } : null,
             pressed && { opacity: feedback.pressedOpacity }
           ]}
@@ -118,20 +121,25 @@ function railFrame(
   return { top, left: slot.left, size: slot.size }
 }
 
+/** What floats over the transcript: its edge fades and the jump to the latest message. */
 export function MobileNativeChatFloatingControls({
   showJumpToTail,
   onJumpToTail,
   showPreviousMessage = false,
   onJumpToPrevious,
+  canvasFades = false,
   rail
 }: {
   showJumpToTail: boolean
   onJumpToTail: () => void
   showPreviousMessage?: boolean
   onJumpToPrevious?: (animated: boolean) => void
+  /** A chat on the chat canvas; bot screens on other grounds draw none. */
+  canvasFades?: boolean
   rail?: DuoRailJumpFrames | null
 }): React.JSX.Element {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
+  const colors = useMobileColors()
   const t = useMobileTranslation()
   const reducedMotion = useReducedMotionEnabled() === true
   const tailShown = useShown(showJumpToTail)
@@ -167,27 +175,35 @@ export function MobileNativeChatFloatingControls({
           outputRange: [rail.latest.top, rail.previous.top]
         })
   return (
-    <View pointerEvents="box-none" style={rail ? StyleSheet.absoluteFill : styles.floatingControls}>
-      <ChatJumpButton
-        shown={showPreviousMessage}
-        shownValue={previousShown}
-        bottom={previousTop === null ? previousBottom : undefined}
-        frame={
-          previousTop === null || rail == null ? undefined : railFrame(previousTop, rail.previous)
-        }
-        label={t('session.nativeChatFloatingControls.previousMessage', 'Previous message')}
-        onPress={() => onJumpToPrevious?.(!reducedMotion)}
-        icon={<ArrowUp size={iconSize} color={colors.textPrimary} strokeWidth={iconStroke} />}
-      />
-      <ChatJumpButton
-        shown={showJumpToTail}
-        shownValue={tailShown}
-        bottom={rail ? undefined : 0}
-        frame={rail ? railFrame(rail.latest.top, rail.latest) : undefined}
-        label={t('session.nativeChatFloatingControls.scrollToLatest', 'Scroll to latest')}
-        onPress={onJumpToTail}
-        icon={<ArrowDown size={iconSize} color={colors.textPrimary} strokeWidth={iconStroke} />}
-      />
-    </View>
+    <>
+      {/* Rows fade into the canvas under the tabs and above the composer, not at a hard edge. */}
+      {canvasFades ? <MobileEdgeFade edge="top" color={colors.chatCanvas} /> : null}
+      {canvasFades ? <MobileEdgeFade edge="bottom" color={colors.chatCanvas} /> : null}
+      <View
+        pointerEvents="box-none"
+        style={rail ? StyleSheet.absoluteFill : styles.floatingControls}
+      >
+        <ChatJumpButton
+          shown={showPreviousMessage}
+          shownValue={previousShown}
+          bottom={previousTop === null ? previousBottom : undefined}
+          frame={
+            previousTop === null || rail == null ? undefined : railFrame(previousTop, rail.previous)
+          }
+          label={t('session.nativeChatFloatingControls.previousMessage', 'Previous message')}
+          onPress={() => onJumpToPrevious?.(!reducedMotion)}
+          icon={<ArrowUp size={iconSize} color={colors.textPrimary} strokeWidth={iconStroke} />}
+        />
+        <ChatJumpButton
+          shown={showJumpToTail}
+          shownValue={tailShown}
+          bottom={rail ? undefined : 0}
+          frame={rail ? railFrame(rail.latest.top, rail.latest) : undefined}
+          label={t('session.nativeChatFloatingControls.scrollToLatest', 'Scroll to latest')}
+          onPress={onJumpToTail}
+          icon={<ArrowDown size={iconSize} color={colors.textPrimary} strokeWidth={iconStroke} />}
+        />
+      </View>
+    </>
   )
 }

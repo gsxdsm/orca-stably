@@ -1,9 +1,8 @@
-import { colors, spacing, typography } from '../../../../theme/mobile-theme'
+import { spacing } from '../../../../theme/mobile-theme'
 import { themedStyleSheet } from '../../../../theme/themed-styles'
-import { LIST_ROW_PADDING } from '../../../../components/list/ListGroup'
 import { COMPOSER_CONTROL_SIZE } from '../../../../components/composer-input/composer-input-styles'
 
-export const sessionOptionPickerStyles = themedStyleSheet(() => ({
+export const sessionOptionPickerStylesSheet = themedStyleSheet(() => ({
   // Far above the usage meter's 1, so a long label truncates before the meter gives way.
   pillSlot: {
     flexShrink: 100,
@@ -16,30 +15,14 @@ export const sessionOptionPickerStyles = themedStyleSheet(() => ({
   sheet: {
     paddingBottom: spacing.xs
   },
+  sheetFill: {
+    flex: 1,
+    minHeight: 0
+  },
   header: {
     marginTop: -spacing.xs
   },
   pageTop: {
     height: spacing.sm
-  },
-  lockNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: LIST_ROW_PADDING,
-    paddingVertical: spacing.sm
-  },
-  lockNoticeBody: {
-    flex: 1,
-    gap: 2
-  },
-  lockNoticeTitle: {
-    color: colors.textPrimary,
-    fontSize: typography.bodySize,
-    fontWeight: '600'
-  },
-  lockNoticeDescription: {
-    color: colors.textSecondary,
-    fontSize: typography.metaSize
   }
 }))
