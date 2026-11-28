@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the session sheets keep every sheet mount in one place. */
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { getRepoIdFromWorktreeId } from '../../../src/shared/worktree/id'
 import { useClipboardWriter } from '../platform/clipboard/clipboard'

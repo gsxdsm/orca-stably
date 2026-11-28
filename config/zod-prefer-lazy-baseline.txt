@@ -12,11 +12,16 @@
 4 src/main/orcad/browser-providers/electron/electron-serve-browser-process.ts
 2 src/main/plugins/catalog/plugin-marketplace-store.ts
 1 src/main/plugins/workers/host-api/plugin-host-method-bindings.ts
+1 src/main/rate-limits/usage-history/usage-history-file.ts
+2 src/main/rate-limits/usage-last-good/usage-last-good-store.ts
 1 src/main/runtime/rpc/methods/orchestration/worker/stop/worker-stop-remote-receipt.ts
-30 src/shared/agent-session/journal/agent-session-journal-schemas.ts
+33 src/shared/agent-session/journal/agent-session-journal-schemas.ts
+1 src/shared/agent-usage/rate-limits/usage-window-history.ts
 1 src/shared/attachment-text/attachment-text-source.ts
 2 src/shared/bots/bot-chat-tree-schema.ts
 1 src/shared/bots/bot-proposal.ts
+6 src/shared/host-resources.ts
+2 src/shared/native-chat/native-chat-terminal-queue.ts
 5 src/shared/plugins/artifacts/plugin-theme-artifact.ts
 1 src/shared/plugins/capabilities/plugin-capabilities.ts
 1 src/shared/plugins/catalog/plugin-catalog-release.ts
@@ -43,6 +48,7 @@
 1 src/shared/remote-runtime/host-status/runtime-host-descriptor.ts
 1 src/shared/remote-runtime/host-store/runtime-environment-sidecar.ts
 1 src/shared/remote-runtime/orcad-distribution/orcad-profile-preflight.ts
+8 src/shared/rpc-contract/agent-prompt-params.ts
 2 src/shared/rpc-contract/artifacts/artifacts-params.ts
 1 src/shared/rpc-contract/bots-tools-params.ts
 1 src/shared/rpc-contract/browser/browser-observation-params.ts

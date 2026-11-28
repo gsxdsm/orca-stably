@@ -10,6 +10,7 @@
 1 src/main/acp/launch/acp-structured-launch-resolution.ts
 1 src/main/acp/process/acp-agent-connection.ts
 1 src/main/acp/text-task/acp-text-task.ts
+1 src/main/acp/timeline/acp-tool-timeline.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/agent-hooks/first-work/first-work-generation-target.ts
 1 src/main/agent-hooks/installation/bare-shell-plugin-agent-presence.ts
 2 src/main/agent-hooks/installation/configuration/hooks-json-read.ts
@@ -63,6 +64,7 @@
 1 src/main/antigravity/native-file-credentials.ts
 12 src/main/antigravity/native-windows-credentials.ts
 1 src/main/antigravity/native-wsl-credentials.ts
+7 src/main/antigravity/statusline/antigravity-statusline-install.ts # fork-only (gsxdsm/orca), not for upstream
 6 src/main/artifacts/artifact-cloud-auth-context.ts
 7 src/main/artifacts/artifact-cloud-service.ts
 2 src/main/artifacts/artifact-create-intent-store.ts # sign-out clear (bestEffortFsyncDirectorySync) plus writeArtifactFileWhileCurrent, whose only sync step is the fenced renameSync; was 8
@@ -205,6 +207,8 @@
 1 src/main/claude/hooks/statusline-install.ts
 3 src/main/claude/hooks/windows-hook-files.ts
 2 src/main/claude/structured/claude-structured-session-adapter.ts
+1 src/main/claude/structured/journal/claude-message-journaling.ts # fork-only (gsxdsm/orca), not for upstream
+1 src/main/claude/structured/journal/claude-structured-journal-translation.ts # fork-only (gsxdsm/orca), not for upstream
 2 src/main/claude/structured/launch/claude-structured-child-env.ts
 2 src/main/claude/structured/launch/claude-structured-launch-resolution.ts # claudeOwnServerNames: one config-file lookup per launch, only when the host list adds servers
 1 src/main/claude/theme-sync/claude-code-theme-sync-schedule.ts
@@ -769,6 +773,7 @@
 1 src/main/native-chat/agent-model-catalog/agent-model-catalog-refresh.ts
 1 src/main/native-chat/agent-model-catalog/agent-model-catalog-scope.ts
 4 src/main/native-chat/agent-session-attachments/agent-session-attachment-claims.ts
+1 src/main/native-chat/agent-session-attachments/agent-session-attachment-store.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/native-chat/agent-session-journal/context-epochs/journal-context-cursor.ts
 12 src/main/native-chat/agent-session-journal/database/journal-database.ts
 6 src/main/native-chat/agent-session-journal/database/journal-domain-migrations.ts # tail table create at store open (one-shot startup); worker-only: +2 create the retired-epoch pending table in a transaction on the journal SQL worker; +1 creates the operation-window send indexes (IF NOT EXISTS, one-shot) on the journal SQL worker
@@ -793,14 +798,21 @@
 2 src/main/native-chat/conversation-adoption/codex-adoption-preparation.ts
 1 src/main/native-chat/conversation-adoption/structured-agent-cli-conversations.ts
 3 src/main/native-chat/conversation-files/native-chat-media-path.ts
+1 src/main/native-chat/native-chat-transcript-task-scan.ts # fork-only (gsxdsm/orca), not for upstream
 2 src/main/native-chat/session-file-resolver.ts
+5 src/main/native-chat/tool-result-images.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/native-chat/transcript-discovery/transcript-path-admission.ts
 3 src/main/native-chat/transcript-filesystem/process/wsl-transcript-fs-process-dispatch.ts
 1 src/main/native-chat/transcript-filesystem/process/wsl-transcript-fs-process-spawn.ts
 2 src/main/native-chat/transcript-filesystem/wsl-transcript-fs-access.ts
+1 src/main/native-chat/transcript-hermes.ts # fork-only (gsxdsm/orca), not for upstream
 2 src/main/native-chat/transcript-history/codex/codex-rollout-history-source.ts
 3 src/main/native-chat/transcript-history/opencode/transcript-opencode-database.ts
 2 src/main/native-chat/transcript-history/opencode/transcript-opencode.ts
+2 src/main/native-chat/transcript-live-tail.ts # fork-only (gsxdsm/orca), not for upstream
+2 src/main/native-chat/transcript-read-cache.ts # fork-only (gsxdsm/orca), not for upstream
+5 src/main/native-chat/transcript-reader.ts # fork-only (gsxdsm/orca), not for upstream
+1 src/main/native-chat/transcript-tail-reader.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/network/macos-tailscale-dns-diagnostic.ts
 3 src/main/node-runtime/managed-runtime-installation.ts
 1 src/main/node-runtime/managed-runtime-release-install.ts
@@ -857,7 +869,7 @@
 13 src/main/orca-profiles/project-transfer/profile-project-transfer.ts
 2 src/main/orca-profiles/storage/new-profile-state.ts
 3 src/main/orca-profiles/storage/profile-legacy-state-import.ts
-4 src/main/orcad/account-launch/orcad-account-services.ts
+5 src/main/orcad/account-launch/orcad-account-services.ts # fork-only (gsxdsm/orca), not for upstream
 4 src/main/orcad/account-launch/orcad-codex-account-homes.ts
 4 src/main/orcad/account-launch/orcad-host-account-launch-env-store.ts
 2 src/main/orcad/account-launch/orcad-wsl-host-claude-profile-refresh.ts
@@ -1040,6 +1052,7 @@
 1 src/main/provider-process/provider-ownership-journal.ts
 1 src/main/provider-process/provider-process-spawn.ts
 1 src/main/provider-process/supervised-provider-child-location.ts
+2 src/main/providers/accounts/provider-account-services.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/providers/execution-host-provider-dispatch.ts
 2 src/main/providers/foreground/agent-process.ts
 1 src/main/providers/foreground/windows/process-rows.ts
@@ -1202,6 +1215,7 @@
 3 src/main/runtime/orchestration/legacy-remote/remote-dispatch-attachment-create.ts
 1 src/main/runtime/orchestration/mailbox/questions/question-reconcile.ts # one savepoint per agent-question notice, around orchestration DB writes that were already synchronous, so the notice and its record commit together
 2 src/main/runtime/orchestration/workers/lifecycle/context-only-dispatch-release.ts
+1 src/main/runtime/orchestration/workers/transcripts/worker-transcript-local-read.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/runtime/orchestration/workers/turn-stops/worker-presence-report.ts # one savepoint per real worker presence change, around orchestration DB writes that were already synchronous, so the report and its record commit together
 1 src/main/runtime/orchestration/workers/turn-stops/worker-turn-stop-report.ts # one savepoint per real worker presence change, around orchestration DB writes that were already synchronous, so the report and its record commit together
 2 src/main/runtime/push/push-unregister-outbox.ts
@@ -1336,6 +1350,7 @@
 5 src/main/ssh/targets/ssh-target-route-resolution.ts
 1 src/main/startup/agent-accounts/codex-launch-preparation.ts
 1 src/main/startup/agent-accounts/codex-session-resume-launch.ts
+1 src/main/startup/agent-accounts/main-process-account-services.ts # fork-only (gsxdsm/orca), not for upstream
 1 src/main/startup/cloud-startup/main-process-connector-startup.ts
 7 src/main/startup/configure-process.ts
 1 src/main/startup/diagnostics/event-loop-stall-probe.ts
