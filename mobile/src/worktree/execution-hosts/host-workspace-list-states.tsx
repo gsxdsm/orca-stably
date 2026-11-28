@@ -17,6 +17,8 @@ export function HostWorkspaceListStates(
   props: HostWorkspaceListStateInput & {
     search: string
     activeFilterCount: number
+    /** Offered only when nothing is filtered out, so it reads as "this host has no projects yet". */
+    onAddProject?: () => void
     bottomInset: number
     /** A search's paused bots the Bot options hide, when nothing else matched. */
     pausedBotMatches?: number
@@ -100,7 +102,15 @@ export function HostWorkspaceListStates(
     )
   }
   if (state === 'empty') {
+    const unfiltered = !props.search && props.activeFilterCount === 0 && props.onAddProject
     const paused = props.pausedBotMatches ?? 0
+    const addProjectAction =
+      props.onAddProject && unfiltered
+        ? {
+            label: t('worktree.hostWorkspaceListStates.addProject', 'Add a project'),
+            onPress: props.onAddProject
+          }
+        : null
     return props.search ? (
       paused > 0 && props.onShowPausedBots ? (
         <MobileNoMatchState
@@ -134,8 +144,10 @@ export function HostWorkspaceListStates(
                   label: t('hostScreen.hostBottomBar.newWorkspace', 'New workspace'),
                   onPress: props.onNewWorkspace
                 }
-              : null
+              : addProjectAction
         }
+        // MobileStateView shows a secondary only beside a primary, so Add a project leads when New workspace is absent.
+        secondaryAction={props.onNewWorkspace ? addProjectAction : null}
         bottomInset={bottomInset}
       />
     )

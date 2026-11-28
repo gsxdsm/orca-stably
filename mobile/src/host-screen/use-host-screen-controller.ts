@@ -1,4 +1,4 @@
-import { useMemo, useReducer, useState } from 'react'
+import { useMemo, useReducer, useState, useCallback } from 'react'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { useLocalSearchParams, usePathname } from 'expo-router'
 import { useRouteHandoff } from '../navigation/route-handoff'
@@ -132,6 +132,11 @@ export function useHostScreenController({
     state
   })
 
+  // A new project changes the repo catalog as well as the rows, so force both past their throttles.
+  const refreshAfterProjectAdded = useCallback(() => {
+    void catalog.fetchWorktrees({ allowDuringModal: true })
+  }, [catalog])
+
   const hostPlatform = useResolvedHostPlatform(state, hostId)
   const { worktrees: displayWorktrees, hostContextOf } = useHostDisplayWorktrees(
     connState,
@@ -217,6 +222,7 @@ export function useHostScreenController({
     onHideSidebar,
     reconnect,
     reconnectAttempts,
+    refreshAfterProjectAdded,
     relayRecovery,
     routeNotice,
     router,

@@ -26,7 +26,7 @@ export function useNewWorkspaceRepositories(args: {
   hostId?: string
   visible: boolean
   /** Picked once it is listed, in place of the last visited repo. */
-  initialRepo?: { id: string; executionHostId: ExecutionHostId }
+  initialRepo?: { id: string; executionHostId?: ExecutionHostId }
 }): {
   repos: MobileWorkspaceRepo[]
   allRepos: MobileWorkspaceRepo[]
@@ -78,13 +78,18 @@ export function useNewWorkspaceRepositories(args: {
       return
     }
     // Waits for its host's listing: a same-id repo on another host is a different repo.
+    // Without a host (a just-added project) the id is looked up on the focused host's own listing.
     const initial = repos.find(
-      (repo) => repo.id === initialRepoId && getRepoExecutionHostId(repo) === initialRepoHost
+      (repo) =>
+        repo.id === initialRepoId &&
+        (initialRepoHost
+          ? getRepoExecutionHostId(repo) === initialRepoHost
+          : desktopRepos.some((desktop) => desktop.id === repo.id))
     )
     if (initial) {
       setSelectedRepo(initial)
     }
-  }, [initialRepoHost, initialRepoId, repos, selectedRepo, visible])
+  }, [desktopRepos, initialRepoHost, initialRepoId, repos, selectedRepo, visible])
 
   useEffect(() => {
     if (
