@@ -8,7 +8,6 @@ import {
   allowsMobilePushDelivery,
   mobilePushAlertContent
 } from '../../../shared/notifications/mobile-push-alert'
-import { attachMobilePushPrompt } from '../../../shared/mobile-push-prompt'
 import type { MobileNotificationEvent } from './notifications/runtime-mobile-notification-controller'
 import {
   PushBurstSlots,
@@ -17,6 +16,11 @@ import {
 } from './push-burst-slots'
 import type { PushGatewayClient, PushSendNotification } from './push-gateway-client'
 import type { PushPromptCategoryGate } from './push-prompt-category-gate'
+import {
+  capturePushPrompt,
+  notificationForSound,
+  notificationWithAgentPrompt
+} from './push-dispatcher-prompt'
 import { PushOutcomeCounters } from './push-outcome-counters'
 import {
   NOTIFICATION_PUSH_COVERAGE_MAX_DIGESTS,
@@ -86,6 +90,7 @@ export class PushDispatcher {
 
   start(): void {
     this.stopped = false
+    this.promptCategory?.refresh()
   }
 
   stop(): void {
@@ -97,6 +102,8 @@ export class PushDispatcher {
     if (this.stopped || this.deliveryMode === 'disabled') {
       return
     }
+    // Before the coverage wait, so a newer prompt in this pane cannot replace the one that raised the alert.
+    capturePushPrompt(event, { gate: this.promptCategory, promptFor: this.promptFor })
     const executionHost = event.type === 'notification' ? event.executionHost : undefined
     const tokenDigests = this.registry
       .listDevices()
@@ -149,11 +156,7 @@ export class PushDispatcher {
         )
         for (let start = 0; start < targets.length; start += MAX_REGISTRATIONS_PER_SEND) {
           const batch = targets.slice(start, start + MAX_REGISTRATIONS_PER_SEND)
-          const queued = this.deliver(
-            batch,
-            { ...plan.notification, ...(!sound ? { sound: false } : {}) },
-            0
-          )
+          const queued = this.deliver(batch, notificationForSound(plan.notification, sound), 0)
           for (const { slot, registration } of batch) {
             if (slot) {
               this.slots.recordDelivery(
@@ -234,23 +237,10 @@ export class PushDispatcher {
     }
     return {
       targets,
-      notification:
-        content.agentState === 'needs-input' ? this.withPrompt(event, notification) : notification
-    }
-  }
-
-  /** A lookup failure must still deliver the alert the host already built. */
-  private withPrompt(
-    event: MobileNotificationEvent,
-    notification: PushSendNotification
-  ): PushSendNotification {
-    try {
-      this.promptCategory?.refresh()
-      const prompt = this.promptFor?.(event) ?? null
-      return attachMobilePushPrompt(notification, prompt, this.promptCategory?.allows() === true)
-    } catch (error) {
-      console.warn('[push] prompt fields omitted', error)
-      return notification
+      notification: notificationWithAgentPrompt(notification, event, {
+        gate: this.promptCategory,
+        promptFor: this.promptFor
+      })
     }
   }
 
