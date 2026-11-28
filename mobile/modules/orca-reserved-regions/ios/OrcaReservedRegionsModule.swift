@@ -60,24 +60,22 @@ public class OrcaReservedRegionsModule: Module {
 }
 
 #if canImport(UIKit, _version: 9127.0.85)
-  /// Invisible full-window view: it is laid out on every window resize, safe-area change and keyboard
-  /// move, and UIKit lays it out again when the reserved regions it read change (a fold that keeps the size).
+  /// Invisible full-window view: laid out on resize, safe-area and keyboard moves, and again when
+  /// reserved regions change without a size change. Not keyboardLayoutGuide: constraints on it crash
+  /// UIKit's split keyboard on an unfolded Duo.
   @available(iOS 27.1, *)
   private final class ReservedRegionsProbe: UIView {
     var onChange: (([String: Any]) -> Void)?
     private var reported: ReservedRegionsSnapshot?
-    /// The keyboard's latest end frame in screen coordinates; nil until the keyboard first moves.
+    private var keyboardObservers: [NSObjectProtocol] = []
     private var keyboardFrame: CGRect?
+    private var keyboardObserved = false
 
     override init(frame: CGRect) {
       super.init(frame: frame)
       autoresizingMask = [.flexibleWidth, .flexibleHeight]
       isUserInteractionEnabled = false
       isAccessibilityElement = false
-      // Not keyboardLayoutGuide: constraints on it crash UIKit's split keyboard on an unfolded Duo.
-      NotificationCenter.default.addObserver(
-        self, selector: #selector(keyboardWillChangeFrame(_:)),
-        name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
     }
 
     // A hinge interaction in the window crashes UIKit's split keyboard on an unfolded Duo when a web
@@ -88,7 +86,28 @@ public class OrcaReservedRegionsModule: Module {
       super.willMove(toWindow: newWindow)
       regionsTimer?.invalidate()
       regionsTimer = nil
+      keyboardObservers.forEach { NotificationCenter.default.removeObserver($0) }
+      keyboardObservers = []
+      keyboardFrame = nil
+      keyboardObserved = false
       guard newWindow != nil else { return }
+      for name in [UIResponder.keyboardWillChangeFrameNotification, UIResponder.keyboardDidChangeFrameNotification,
+                   UIResponder.keyboardWillHideNotification, UIResponder.keyboardDidHideNotification] {
+        keyboardObservers.append(NotificationCenter.default.addObserver(
+          forName: name, object: nil, queue: .main
+        ) { [weak self] notification in
+          guard let self, let window = self.window else { return }
+          if let screen = notification.object as? UIScreen, screen !== window.screen { return }
+          if name == UIResponder.keyboardWillHideNotification || name == UIResponder.keyboardDidHideNotification {
+            self.keyboardFrame = nil
+          } else {
+            guard let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+            self.keyboardFrame = frame
+          }
+          self.keyboardObserved = true
+          self.setNeedsLayout()
+        })
+      }
       regionsTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
         guard let self, UIApplication.shared.applicationState == .active else { return }
         self.setNeedsLayout()
@@ -99,11 +118,6 @@ public class OrcaReservedRegionsModule: Module {
       fatalError("init(coder:) is not supported")
     }
 
-    @objc private func keyboardWillChangeFrame(_ notification: Notification) {
-      keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect
-      setNeedsLayout()
-    }
-
     override func safeAreaInsetsDidChange() {
       super.safeAreaInsetsDidChange()
       setNeedsLayout()
@@ -112,11 +126,13 @@ public class OrcaReservedRegionsModule: Module {
     override func layoutSubviews() {
       super.layoutSubviews()
       guard let window else { return }
-      var keyboardInset: CGFloat = 0
+      let keyboardInset: CGFloat?
       if let keyboardFrame {
-        let overlap = window.convert(keyboardFrame, from: window.screen.coordinateSpace)
-          .intersection(window.bounds)
-        keyboardInset = overlap.isNull ? 0 : overlap.height
+        let frame = window.convert(keyboardFrame, from: window.screen.coordinateSpace)
+        let overlap = frame.intersection(window.bounds)
+        keyboardInset = overlap.isNull || frame.maxY < window.bounds.maxY ? 0 : overlap.height
+      } else {
+        keyboardInset = keyboardObserved ? 0 : nil
       }
       // Same top as the root's (OrcaWindowControlsInset), so pages clear iPad window controls too.
       var safeAreaInsets = window.safeAreaInsets
@@ -143,10 +159,10 @@ public class OrcaReservedRegionsModule: Module {
     let occlusions: [CGRect]
     let windowBounds: CGRect
     let windowSafeAreaInsets: UIEdgeInsets
-    let keyboardInset: CGFloat
+    let keyboardInset: CGFloat?
 
     var payload: [String: Any] {
-      [
+      var result: [String: Any] = [
         "divisions": divisions.map(Self.rectPayload),
         "hasFoldDivision": hasFoldDivision,
         "occlusions": occlusions.map(Self.rectPayload),
@@ -159,8 +175,11 @@ public class OrcaReservedRegionsModule: Module {
             "left": Double(windowSafeAreaInsets.left),
           ],
         ],
-        "keyboardInset": Double(keyboardInset),
       ]
+      if let keyboardInset {
+        result["keyboardInset"] = Double(keyboardInset)
+      }
+      return result
     }
 
     private static func rectPayload(_ rect: CGRect) -> [String: Double] {
