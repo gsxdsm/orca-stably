@@ -31,6 +31,7 @@ struct WatchHost: Codable, Equatable, Sendable {
   var hostId: String
   var name: String
   var connection: WatchConnection
+  var fingerprint: String? = nil
 }
 
 struct WatchSession: Codable, Equatable, Sendable {
@@ -45,6 +46,7 @@ struct WatchSession: Codable, Equatable, Sendable {
   var updatedAt: Int64
   var canSend: Bool
   var pendingPromptId: String?
+  var canStop: Bool? = nil
 }
 
 struct WatchPromptOption: Codable, Equatable, Sendable {
@@ -80,6 +82,7 @@ struct WatchBot: Codable, Equatable, Sendable {
   var name: String
   var status: String
   var updatedAt: Int64
+  var threadKeys: [String]? = nil
 }
 
 struct WatchNeed: Codable, Equatable, Sendable {
@@ -99,6 +102,18 @@ struct WatchUsage: Codable, Equatable, Sendable {
   var usedPercent: Double
   var updatedAt: Int64
   var resetsAt: Int64?
+  var windowMinutes: Int? = nil
+  var samples: [WatchUsageSample]? = nil
+}
+
+struct WatchUsageSample: Codable, Equatable, Sendable {
+  var at: Int64
+  var usedPercent: Double
+}
+
+struct WatchUsagePace: Codable, Equatable, Sendable {
+  var greenMaxOverPacePct: Double
+  var yellowMaxOverPacePct: Double
 }
 
 struct WatchSnapshot: Codable, Equatable, Sendable {
@@ -111,6 +126,7 @@ struct WatchSnapshot: Codable, Equatable, Sendable {
   var bots: [WatchBot]? = nil
   var needsYou: [WatchNeed]? = nil
   var usage: [WatchUsage]? = nil
+  var usagePace: WatchUsagePace? = nil
 
   static func decode(_ data: Data) -> WatchSnapshot? {
     guard let snapshot = try? JSONDecoder().decode(WatchSnapshot.self, from: data), snapshot.v == 1 else {
@@ -129,6 +145,7 @@ struct WatchCommand: Equatable, Sendable {
   var optionId: String?
   var sessionKey: String?
   var text: String?
+  var before: String?
 
   static func refresh(id: String) -> WatchCommand {
     WatchCommand(id: id, type: "refresh")
@@ -142,8 +159,20 @@ struct WatchCommand: Equatable, Sendable {
     WatchCommand(id: id, type: "send", sessionKey: sessionKey, text: text)
   }
 
+  static func history(id: String, sessionKey: String, before: String?) -> WatchCommand {
+    WatchCommand(id: id, type: "history", sessionKey: sessionKey, before: before)
+  }
+
+  static func controlAgent(id: String, sessionKey: String, resume: Bool) -> WatchCommand {
+    WatchCommand(id: id, type: resume ? "continue" : "stop", sessionKey: sessionKey)
+  }
+
   static func openOnPhone(id: String, sessionKey: String) -> WatchCommand {
     WatchCommand(id: id, type: "openOnPhone", sessionKey: sessionKey)
+  }
+
+  static func openHost(id: String, hostId: String) -> WatchCommand {
+    WatchCommand(id: id, type: "openHost", hostId: hostId)
   }
 
   func plist() -> [String: Any] {
@@ -163,8 +192,28 @@ struct WatchCommand: Equatable, Sendable {
     if let text {
       values["text"] = text
     }
+    if let before {
+      values["before"] = before
+    }
     return values
   }
+}
+
+struct WatchThreadMessage: Codable, Equatable, Sendable, Identifiable {
+  enum Role: String, Codable, Sendable { case user, agent }
+  var id: String
+  var role: Role
+  var text: String
+  var at: Int64?
+  var shortened: Bool? = nil
+}
+
+struct WatchThreadPage: Codable, Equatable, Sendable {
+  var messages: [WatchThreadMessage]
+  var before: String? = nil
+  var reset: Bool? = nil
+  var generation: String? = nil
+  var canContinue: Bool? = nil
 }
 
 struct WatchReply: Codable, Equatable, Sendable {
@@ -174,6 +223,8 @@ struct WatchReply: Codable, Equatable, Sendable {
   var snapshot: WatchSnapshot?
   var reason: String?
   var detail: String? = nil
+  var history: WatchThreadPage? = nil
+  var messageId: String? = nil
 
   static func decode(_ data: Data) -> WatchReply? {
     guard let reply = try? JSONDecoder().decode(WatchReply.self, from: data), reply.v == 1 else {

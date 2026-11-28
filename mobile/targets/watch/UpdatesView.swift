@@ -6,39 +6,23 @@ struct UpdatesView: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      StatusLine(updated: model.updatedLabel, reachability: model.reachabilityLabel, phase: model.phase)
-        .padding(.horizontal, 8)
-        .padding(.top, 2)
-        .frame(maxWidth: .infinity, alignment: .leading)
+      WatchPageHeader(model: model, title: "Updates", symbol: "bell")
       if model.feed.isEmpty {
-        Text("No updates")
-          .foregroundStyle(palette.mutedForeground)
-          .frame(maxWidth: .infinity, maxHeight: .infinity)
+        WatchEmptyState(title: "No updates", symbol: "bell")
       } else {
         ScrollView {
-          VStack(alignment: .leading, spacing: 6) {
+          LazyVStack(alignment: .leading, spacing: 6) {
             ForEach(model.feed, id: \.id) { item in
-              VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                  Circle()
-                    .fill(color(for: item.kind))
-                    .frame(width: 8, height: 8)
-                  Text(item.title)
-                    .font(.headline)
-                    .foregroundStyle(palette.foreground)
-                    .lineLimit(1)
-                }
-                Text(item.body)
-                  .font(.caption2)
-                  .foregroundStyle(palette.foreground)
-                  .lineLimit(2)
-                Text(WatchAge.relative(from: item.at, now: model.now))
-                  .font(.caption2)
-                  .foregroundStyle(palette.mutedForeground)
+              if let key = item.sessionKey, model.session(key) != nil {
+                NavigationLink(value: key) {
+                  row(item, navigates: true)
+                }.buttonStyle(.plain)
+              } else {
+                NavigationLink {
+                  WatchNoticeView(model: model, hostId: item.hostId, title: item.title, detail: item.body)
+                } label: { row(item, navigates: true) }
+                  .buttonStyle(.plain)
               }
-              .padding(6)
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .background(palette.card, in: RoundedRectangle(cornerRadius: 10))
             }
           }
           .padding(.horizontal, 4)
@@ -46,6 +30,17 @@ struct UpdatesView: View {
       }
     }
     .background(palette.background)
+  }
+
+  private func row(_ item: WatchFeedItem, navigates: Bool) -> some View {
+    WatchRow(symbol: item.kind == .finished ? "checkmark.circle" : "bell",
+             tint: color(for: item.kind), navigates: navigates) {
+      Text(item.title).font(.footnote.weight(.semibold)).lineLimit(2)
+      Text(item.body).font(.caption2).lineLimit(2)
+      Text(WatchAge.relative(from: item.at, now: model.now))
+        .font(.caption2).foregroundStyle(palette.mutedForeground)
+    }
+    .privacySensitive()
   }
 
   private func color(for kind: WatchFeedKind) -> Color {

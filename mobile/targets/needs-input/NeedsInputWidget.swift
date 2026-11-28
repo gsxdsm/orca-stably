@@ -3,6 +3,13 @@ import WidgetKit
 
 private let staleInterval: TimeInterval = 15 * 60
 
+private func glanceAge(_ time: Date?, at date: Date, stale: Bool) -> String {
+  if stale { return "Stale" }
+  guard let time else { return "Age unknown" }
+  let minutes = max(0, Int(date.timeIntervalSince(time) / 60))
+  return minutes == 0 ? "Just now" : "\(minutes)m ago"
+}
+
 private struct GlanceUsage: Decodable {
   let hostId: String
   let provider: String
@@ -48,14 +55,15 @@ struct GlanceProvider: TimelineProvider {
   func getTimeline(in context: Context, completion: @escaping (Timeline<GlanceEntry>) -> Void) {
     let now = Date()
     let entry = read(at: now)
-    let transitions = [entry.generatedAt, entry.usage.map { Date(timeIntervalSince1970: Double($0.updatedAt) / 1000) }]
-      .compactMap { $0?.addingTimeInterval(staleInterval) }
-      .filter { $0 > now }
-      .sorted()
+    let dates = [entry.generatedAt, entry.usage.map { Date(timeIntervalSince1970: Double($0.updatedAt) / 1_000) }]
+      .compactMap { $0 }
+    let transitions = Set(dates.flatMap { date in
+      [1, 5, 10, 15].map { date.addingTimeInterval(Double($0) * 60) }
+    }).filter { $0 > now }.sorted()
     let entries = [entry] + transitions.map {
       GlanceEntry(date: $0, count: entry.count, generatedAt: entry.generatedAt, usage: entry.usage)
     }
-    completion(Timeline(entries: entries, policy: .after(transitions.first ?? now.addingTimeInterval(staleInterval))))
+    completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(5 * 60))))
   }
 
   private func read(at date: Date) -> GlanceEntry {
@@ -91,19 +99,28 @@ struct NeedsInputWidgetView: View {
         Text(entry.count.map { "Needs you \($0)\(entry.stale ? " · Old" : "")" } ?? "Needs you unavailable")
       case .accessoryCircular, .accessoryCorner:
         VStack(spacing: 0) {
-          Text(entry.count.map(String.init) ?? "—").font(.title2.weight(.semibold))
-          if entry.count != nil && entry.stale { Text("OLD").font(.system(size: 8)) }
+          Image(systemName: entry.stale && entry.count != nil ? "clock" : "tray")
+            .font(.caption2.weight(.semibold))
+            .widgetAccentable()
+          Text(entry.count.map(String.init) ?? "—")
+            .font(.title2.weight(.semibold)).monospacedDigit()
         }
+        .accessibilityLabel(entry.count.map { "\($0) need you\(entry.stale ? ", stale" : "")" } ?? "Needs You unavailable")
       default:
-        VStack(alignment: .leading, spacing: 2) {
-          Text("Needs you").font(.caption2)
-          Text(entry.count.map(String.init) ?? "Unavailable").font(.headline)
-          if let time = entry.generatedAt {
-            Text(time, style: .relative).font(.caption2) + Text(entry.stale ? " old" : " ago").font(.caption2)
+        VStack(alignment: .leading, spacing: 3) {
+          Label("Needs You", systemImage: "tray").font(.caption.weight(.semibold)).lineLimit(1)
+            .widgetAccentable()
+          if let count = entry.count {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+              Text(count.formatted()).font(.title3.weight(.semibold)).monospacedDigit()
+              Text(glanceAge(entry.generatedAt, at: entry.date, stale: entry.stale))
+                .font(.caption2).lineLimit(1)
+            }
           } else {
-            Text(entry.count == nil ? "Open Orca" : "Last known · age unknown").font(.caption2)
+            Text("Open Orca").font(.caption2)
           }
         }.frame(maxWidth: .infinity, alignment: .leading)
+          .accessibilityElement(children: .combine)
       }
     }.privacySensitive()
   }
@@ -121,26 +138,34 @@ struct UsageWidgetView: View {
           Text("\(usage.provider) \(usage.window): \(Int(usage.usedPercent.rounded()))% used\(entry.usageStale ? " · Old" : "")")
         case .accessoryCircular, .accessoryCorner:
           Gauge(value: usage.usedPercent, in: 0...100) {
-            Text("\(usage.hostId) · \(usage.provider) · \(usage.window)")
-              .font(.system(size: 7)).lineLimit(1).minimumScaleFactor(0.4)
+            Image(systemName: entry.usageStale ? "clock" : "chart.bar")
+              .font(.caption2.weight(.semibold))
           } currentValueLabel: {
-            VStack(spacing: 0) {
-              Text("\(Int(usage.usedPercent.rounded()))%")
-              if entry.usageStale { Text("OLD").font(.system(size: 7)) }
-            }
+            Text("\(Int(usage.usedPercent.rounded()))%")
+              .font(.system(.headline, design: .rounded).weight(.semibold))
+              .monospacedDigit().lineLimit(1).minimumScaleFactor(0.75)
           }.gaugeStyle(.accessoryCircular)
             .accessibilityLabel("\(usage.hostId), \(usage.provider), \(usage.window), \(Int(usage.usedPercent.rounded())) percent used\(entry.usageStale ? ", stale" : "")")
         default:
-          HStack {
+          HStack(spacing: 7) {
             Gauge(value: usage.usedPercent, in: 0...100) { Text("Used") } currentValueLabel: {
-              Text("\(Int(usage.usedPercent.rounded()))%")
+              Text("\(Int(usage.usedPercent.rounded()))%").monospacedDigit()
             }.gaugeStyle(.accessoryCircular)
-            VStack(alignment: .leading) {
-              Text("\(usage.provider) · \(usage.window)").font(.caption.weight(.semibold)).lineLimit(1)
-              Text(usage.hostId).font(.caption2).lineLimit(1)
-              Text(entry.usageStale ? "Stale" : "\(Date(timeIntervalSince1970: Double(usage.updatedAt) / 1000), style: .relative) ago").font(.caption2)
-            }.accessibilityElement(children: .combine)
-          }.frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 1) {
+              Text(usage.provider).font(.caption.weight(.semibold)).lineLimit(1)
+              Text(usage.window).font(.caption2).lineLimit(1)
+              HStack(spacing: 3) {
+                Text(usage.hostId).lineLimit(1)
+                Text(glanceAge(Date(timeIntervalSince1970: Double(usage.updatedAt) / 1_000),
+                               at: entry.date, stale: entry.usageStale))
+                  .lineLimit(1).layoutPriority(1)
+              }
+              .font(.caption2)
+            }
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .accessibilityElement(children: .ignore)
+          .accessibilityLabel("\(usage.hostId), \(usage.provider), \(usage.window), \(Int(usage.usedPercent.rounded())) percent used. \(glanceAge(Date(timeIntervalSince1970: Double(usage.updatedAt) / 1_000), at: entry.date, stale: entry.usageStale))")
         }
       } else {
         Text(family == .accessoryRectangular ? "Usage unavailable\nOpen Orca to update" : "Usage —")

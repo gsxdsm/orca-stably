@@ -19,7 +19,8 @@ const watchFailureReason = z.enum([
 export const watchHostSchema = z.strictObject({
   hostId: watchId,
   name: z.string().min(1),
-  connection: watchConnection
+  connection: watchConnection,
+  fingerprint: watchId.optional()
 })
 
 export const watchSessionSchema = z.strictObject({
@@ -33,6 +34,7 @@ export const watchSessionSchema = z.strictObject({
   toolName: z.string().min(1).optional(),
   updatedAt: z.number(),
   canSend: z.boolean(),
+  canStop: z.boolean().optional(),
   pendingPromptId: watchId.optional()
 })
 
@@ -57,6 +59,7 @@ export const watchFeedItemSchema = z.strictObject({
   id: watchId,
   hostId: watchId,
   sessionKey: watchId.optional(),
+  workspaceId: watchId.optional(),
   title: z.string(),
   body: z.string(),
   at: z.number(),
@@ -70,7 +73,8 @@ export const watchBotSchema = z.strictObject({
   botId: watchId,
   name: watchId,
   status: watchId,
-  updatedAt: watchTimestamp
+  updatedAt: watchTimestamp,
+  threadKeys: z.array(watchId).max(12).optional()
 })
 
 export const watchNeedSchema = z.strictObject({
@@ -89,8 +93,25 @@ export const watchUsageSchema = z.strictObject({
   window: watchId,
   usedPercent: z.number().min(0).max(100),
   updatedAt: watchTimestamp,
-  resetsAt: watchTimestamp.optional()
+  resetsAt: watchTimestamp.optional(),
+  windowMinutes: watchTimestamp.optional(),
+  samples: z
+    .array(
+      z.strictObject({
+        at: watchTimestamp,
+        usedPercent: z.number().min(0).max(100)
+      })
+    )
+    .max(16)
+    .optional()
 })
+
+export const watchUsagePaceSchema = z
+  .strictObject({
+    greenMaxOverPacePct: z.int().min(0).max(50),
+    yellowMaxOverPacePct: z.int().min(0).max(50)
+  })
+  .refine((pace) => pace.yellowMaxOverPacePct >= pace.greenMaxOverPacePct)
 
 export const watchSnapshotSchema = z.strictObject({
   v: z.literal(1),
@@ -101,13 +122,23 @@ export const watchSnapshotSchema = z.strictObject({
   feed: z.array(watchFeedItemSchema),
   bots: z.array(watchBotSchema).optional(),
   needsYou: z.array(watchNeedSchema).optional(),
-  usage: z.array(watchUsageSchema).optional()
+  usage: z.array(watchUsageSchema).optional(),
+  usagePace: watchUsagePaceSchema.optional()
 })
 
 const watchCommandBase = { v: z.literal(1), id: watchId }
 
 export const watchCommandSchema = z.discriminatedUnion('type', [
   z.strictObject({ ...watchCommandBase, type: z.literal('refresh') }),
+  z.strictObject({ ...watchCommandBase, type: z.literal('openHost'), hostId: watchId }),
+  z.strictObject({ ...watchCommandBase, type: z.literal('stop'), sessionKey: watchId }),
+  z.strictObject({ ...watchCommandBase, type: z.literal('continue'), sessionKey: watchId }),
+  z.strictObject({
+    ...watchCommandBase,
+    type: z.literal('history'),
+    sessionKey: watchId.max(3000),
+    before: watchId.max(1600).optional()
+  }),
   z.strictObject({
     ...watchCommandBase,
     type: z.literal('respond'),
@@ -128,12 +159,30 @@ export const watchCommandSchema = z.discriminatedUnion('type', [
   })
 ])
 
+const watchThreadMessageSchema = z.strictObject({
+  id: watchId,
+  role: z.enum(['user', 'agent']),
+  text: z.string(),
+  at: watchTimestamp.optional(),
+  shortened: z.boolean().optional()
+})
+
+const watchThreadPageSchema = z.strictObject({
+  messages: z.array(watchThreadMessageSchema),
+  before: z.string().optional(),
+  generation: z.string().optional(),
+  canContinue: z.literal(true).optional(),
+  reset: z.literal(true).optional()
+})
+
 export const watchReplySchema = z.discriminatedUnion('ok', [
   z.strictObject({
     v: z.literal(1),
     id: watchId,
     ok: z.literal(true),
-    snapshot: watchSnapshotSchema.optional()
+    snapshot: watchSnapshotSchema.optional(),
+    history: watchThreadPageSchema.optional(),
+    messageId: watchId.optional()
   }),
   z.strictObject({
     v: z.literal(1),
@@ -155,3 +204,5 @@ export type WatchSnapshot = z.infer<typeof watchSnapshotSchema>
 export type WatchCommand = z.infer<typeof watchCommandSchema>
 export type WatchReply = z.infer<typeof watchReplySchema>
 export type WatchFailureReason = z.infer<typeof watchFailureReason>
+export type WatchThreadPage = z.infer<typeof watchThreadPageSchema>
+export type WatchThreadMessage = z.infer<typeof watchThreadMessageSchema>

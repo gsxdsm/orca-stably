@@ -11,6 +11,8 @@ final class WatchSessionModel: ObservableObject {
   @Published var showingPrompt = false
   @Published private var drafts: [String: String] = [:]
   @Published private var replyOutcomes: [String: String] = [:]
+  @Published private(set) var threadReplies: [String: [WatchThreadReply]] = [:]
+  @Published private(set) var agentOutcomes: [String: String] = [:]
   @Published private var confirmation: (prompt: WatchPrompt, optionId: String)?
   @Published var busy = false
   @Published private(set) var now: Date
@@ -42,6 +44,7 @@ final class WatchSessionModel: ObservableObject {
     self.send = send
     self.nextId = nextId
     let selectedKey = snapshot?.sessions.first { $0.pendingPromptId != nil }?.key
+      ?? snapshot?.sessions.first?.key
     self.selectedKey = selectedKey
     if launch.screen == .confirm,
        let prompt = snapshot?.prompts.first(where: { $0.sessionKey == selectedKey }),
@@ -206,19 +209,6 @@ final class WatchSessionModel: ObservableObject {
     return sessionKey.flatMap { replyOutcomes[$0] }
   }
 
-  func sendDraft(session: WatchSession) {
-    let text = drafts[session.key] ?? ""
-    submit(session: session, text: text, clearsDraft: true)
-  }
-
-  func quickReply(session: WatchSession, text: String) {
-    guard !busy else { return }
-    if drafts[session.key, default: ""].isEmpty {
-      drafts[session.key] = text
-    }
-    submit(session: session, text: text, clearsDraft: drafts[session.key] == text)
-  }
-
   func openOnPhone(session: WatchSession) {
     guard !busy, !screenshot else {
       return
@@ -226,12 +216,42 @@ final class WatchSessionModel: ObservableObject {
     perform(.openOnPhone(id: nextId(), sessionKey: session.key))
   }
 
-  func dictate(_ text: String, session: WatchSession) {
-    drafts[session.key] = text
-    sendDraft(session: session)
+  func openHostOnPhone(_ hostId: String) {
+    guard !busy, !screenshot else { return }
+    perform(.openHost(id: nextId(), hostId: hostId))
   }
 
-  private func submit(session: WatchSession, text: String, clearsDraft: Bool) {
+  func controlAgent(session: WatchSession, resume: Bool) {
+    guard !busy, session.canSend, resume || session.canStop == true else { return }
+    agentOutcomes[session.key] = resume ? "Continuing…" : "Stopping…"
+    perform(.controlAgent(id: nextId(), sessionKey: session.key, resume: resume))
+  }
+
+  func loadHistory(sessionKey: String, before: String?) async -> WatchReply {
+    let command = WatchCommand.history(id: nextId(), sessionKey: sessionKey, before: before)
+    return await send(command)
+  }
+
+  func reconcileReplies(sessionKey: String, with messages: [WatchThreadMessage]) {
+    guard let replies = threadReplies[sessionKey] else { return }
+    let unresolved = replies.filter { !$0.echoed(in: messages) }
+    if unresolved.count != replies.count {
+      threadReplies[sessionKey] = unresolved.isEmpty ? nil : unresolved
+    }
+  }
+
+  func sendThreadDraft(session: WatchSession, knownMessages: [WatchThreadMessage]) {
+    submit(session: session, text: drafts[session.key] ?? "", knownMessages: knownMessages)
+  }
+
+  func sendThreadQuickReply(session: WatchSession, text: String, knownMessages: [WatchThreadMessage]) {
+    drafts[session.key] = text
+    sendThreadDraft(session: session, knownMessages: knownMessages)
+  }
+
+  private func submit(
+    session: WatchSession, text: String, knownMessages: [WatchThreadMessage]
+  ) {
     guard !busy else {
       return
     }
@@ -243,7 +263,15 @@ final class WatchSessionModel: ObservableObject {
     case .rejected(let reason):
       replyOutcomes[session.key] = reason
     case .send(let command):
-      perform(command, draftToClear: clearsDraft ? text : nil)
+      threadReplies[session.key, default: []].removeAll {
+        if case .failed = $0.state { return true }
+        return false
+      }
+      threadReplies[session.key, default: []].append(WatchThreadReply(
+        id: command.id, text: text, at: Date(), state: .sending,
+        earlierMessageIds: Set(knownMessages.map(\.id))
+      ))
+      perform(command, draftToClear: text)
     case .needsConfirm:
       break
     }
@@ -270,9 +298,17 @@ final class WatchSessionModel: ObservableObject {
     busy = false
     if command.type == "send", let key = command.sessionKey {
       replyOutcomes[key] = WatchOutcomeCopy.text(for: reply)
+      if let index = threadReplies[key]?.firstIndex(where: { $0.id == command.id }) {
+        threadReplies[key]?[index].state = reply.ok ? .sent : .failed(WatchOutcomeCopy.text(for: reply))
+        threadReplies[key]?[index].messageId = reply.messageId
+      }
       if reply.ok, let draftToClear, drafts[key] == draftToClear {
         drafts.removeValue(forKey: key)
       }
+    } else if (command.type == "stop" || command.type == "continue"), let key = command.sessionKey {
+      agentOutcomes[key] = reply.ok
+        ? (command.type == "stop" ? "Stop requested" : "Continuing")
+        : (reply.reason == "unknown" ? "Action unconfirmed" : WatchOutcomeCopy.text(for: reply))
     } else if command.type == "respond" || !reply.ok {
       outcome = WatchOutcomeCopy.text(for: reply)
     }

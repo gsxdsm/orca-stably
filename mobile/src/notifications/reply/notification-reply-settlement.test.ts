@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { NotificationResponse } from 'expo-notifications'
 import { parseAgentSessionOperationTimestamp } from '../../../../src/shared/agent-session/lifecycle/operations/agent-session-host-authority'
 import { NOTIFICATION_REPLY_ACTION } from '../../../../src/shared/notifications/notification-reply'
 import { deriveHostFingerprint } from '../payload-identity/push-host-fingerprint'
@@ -19,6 +20,10 @@ vi.mock('react-native', () => ({
 vi.mock('expo-notifications', () => ({
   dismissNotificationAsync: dismissNotificationMock,
   scheduleNotificationAsync: scheduleNotificationMock
+}))
+
+vi.mock('expo-modules-core', () => ({
+  requireOptionalNativeModule: () => null
 }))
 
 vi.mock('../../device-store/device-store', () => ({
@@ -73,23 +78,26 @@ const CHAT_PUSH_DATA = {
   }
 }
 
-function makeReplyResponse(identifier: string, userText: string) {
+function makeReplyResponse(identifier: string, userText: string): NotificationResponse {
   return {
     actionIdentifier: NOTIFICATION_REPLY_ACTION,
     userText,
     notification: {
-      date: Date.now(),
+      date: 1_790_000_000_000,
       request: {
         identifier,
         content: {
           title: 'Claude finished',
+          subtitle: null,
           body: 'Done',
+          categoryIdentifier: null,
+          sound: null,
           data: CHAT_PUSH_DATA
         },
         trigger: null
       }
     }
-  } as never
+  }
 }
 
 beforeEach(() => {

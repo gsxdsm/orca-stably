@@ -6,14 +6,25 @@ private enum WatchTab: Hashable {
 
 struct RootView: View {
   @ObservedObject var model: WatchSessionModel
+  @ObservedObject var notifications: WatchNotificationDelegate
   @Environment(\.colorScheme) private var scheme
   @State private var tab: WatchTab = .needsYou
   @State private var linkVersion = 0
+  @State private var updatesPath: [String] = []
+  @State private var waitingNotification: WatchNotificationTarget?
 
   var body: some View {
     content
       .environment(\.orcaPalette, OrcaPalette.current(scheme))
+      .tint(OrcaPalette.current(scheme).primary)
       .background(OrcaPalette.current(scheme).background.ignoresSafeArea())
+      .onReceive(notifications.$target) { target in
+        guard let target else { return }
+        waitingNotification = target
+        tab = .updates
+        openNotification()
+      }
+      .onChange(of: model.snapshot) { openNotification() }
       .onOpenURL { url in
         guard url.scheme == "orca-watch" else { return }
         linkVersion += 1
@@ -33,10 +44,24 @@ struct RootView: View {
         NavigationStack { NeedsYouView(model: model) }.id(linkVersion).tag(WatchTab.needsYou)
         NavigationStack { BotsView(model: model) }.tag(WatchTab.bots)
         NavigationStack { SessionsView(model: model) }.tag(WatchTab.sessions)
-        NavigationStack { UpdatesView(model: model) }.tag(WatchTab.updates)
+        NavigationStack(path: $updatesPath) {
+          UpdatesView(model: model)
+            .navigationDestination(for: String.self) { key in
+              SessionDetailView(model: model, sessionKey: key)
+            }
+        }.tag(WatchTab.updates)
         NavigationStack { UsageView(model: model) }.id(linkVersion).tag(WatchTab.usage)
       }
+      .tabViewStyle(.page)
     }
+  }
+
+  private func openNotification() {
+    guard let waitingNotification, let snapshot = model.snapshot,
+          let sessionKey = waitingNotification.sessionKey(in: snapshot) else { return }
+    self.waitingNotification = nil
+    tab = .updates
+    updatesPath = [sessionKey]
   }
 
   @ViewBuilder private var screenshot: some View {
@@ -46,7 +71,7 @@ struct RootView: View {
     case .bots:
       BotsView(model: model)
     case .usage:
-      UsageView(model: model)
+      NavigationStack { UsageView(model: model) }
     case .sessions:
       SessionsView(model: model)
     case .detail:

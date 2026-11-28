@@ -1,85 +1,53 @@
 import SwiftUI
-import WatchKit
 
 struct ReplyView: View {
   @ObservedObject var model: WatchSessionModel
   var sessionKey: String?
+  var knownMessages: [WatchThreadMessage] = []
+  @Environment(\.dismiss) private var dismiss
   @Environment(\.orcaPalette) private var palette
 
   var body: some View {
     if let session = model.session(sessionKey) {
-      VStack(spacing: 0) {
-        StatusLine(updated: model.updatedLabel, reachability: model.reachabilityLabel, phase: model.phase)
-          .padding(.horizontal, 8)
-          .padding(.top, 2)
-          .frame(maxWidth: .infinity, alignment: .leading)
-        ScrollView {
-          VStack(alignment: .leading, spacing: 6) {
-            Text(session.title)
-              .font(.headline)
-              .foregroundStyle(palette.foreground)
-              .lineLimit(1)
-            if let outcome = model.replyOutcome(for: session.key) {
-              Text(outcome)
-                .font(.headline)
-                .foregroundStyle(outcome == "Sent ✓" ? palette.success : palette.warning)
-            }
-            HStack(spacing: 4) {
-              quick("Continue", session: session)
-              quick("Yes", session: session)
-              quick("Stop", session: session)
-            }
-            TextField("Message", text: model.draft(for: session.key))
-              .onSubmit { model.sendDraft(session: session) }
-            Button("Dictate") { dictate(session) }
-              .buttonStyle(OrcaWideButtonStyle(fill: palette.muted, ink: palette.foreground, minHeight: 32))
-            Button("Send") { model.sendDraft(session: session) }
-              .buttonStyle(OrcaWideButtonStyle(fill: palette.primary, ink: palette.primaryForeground, minHeight: 32))
-              .disabled(model.busy || !session.canSend)
+      let draft = model.draft(for: session.key)
+      ScrollView {
+        VStack(alignment: .leading, spacing: 10) {
+          Text("Reply").font(.headline)
+          TextField(text: draft) {
+            Label("Text or dictation", systemImage: "mic")
           }
-          .padding(.horizontal, 4)
+          .submitLabel(.done)
+          Button {
+            model.sendThreadDraft(session: session, knownMessages: knownMessages)
+            dismiss()
+          } label: {
+            Label("Send", systemImage: "arrow.up")
+              .frame(maxWidth: .infinity)
+          }
+          .buttonStyle(OrcaWideButtonStyle(fill: palette.primary, ink: palette.primaryForeground))
+          .disabled(model.busy || !session.canSend ||
+            draft.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            draft.wrappedValue.utf16.count > 2000)
+
+          if draft.wrappedValue.utf16.count > 2000 {
+            Text("Replies can be up to 2,000 characters.").font(.caption)
+              .foregroundStyle(palette.warning)
+          }
+
+          if model.prompt(for: session) == nil && session.status != .working &&
+              !session.key.contains("|item|") && draft.wrappedValue.isEmpty {
+            Button("Continue") {
+              model.sendThreadQuickReply(session: session, text: "Continue", knownMessages: knownMessages)
+              dismiss()
+            }
+            .frame(maxWidth: .infinity)
+            .disabled(model.busy || !session.canSend)
+          }
         }
+        .padding(.horizontal, 4)
       }
-      .background(palette.background)
     } else {
-      ended(model.replyOutcome(for: sessionKey))
-    }
-  }
-
-  private func ended(_ outcome: String?) -> some View {
-    let text = WatchDetailCopy.missingSession(outcome)
-    return Text(text)
-      .font(.headline)
-      .foregroundStyle(text == "Sent ✓" ? palette.success : (outcome == nil ? palette.foreground : palette.warning))
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
-      .background(palette.background)
-  }
-
-  private func quick(_ text: String, session: WatchSession) -> some View {
-    Button {
-      model.quickReply(session: session, text: text)
-    } label: {
-      Text(text)
-        .font(.caption2)
-        .lineLimit(1)
-        .minimumScaleFactor(0.6)
-        .frame(maxWidth: .infinity, minHeight: 32)
-    }
-    .buttonStyle(.bordered)
-    .disabled(model.busy || !session.canSend)
-  }
-
-  private func dictate(_ session: WatchSession) {
-    WKApplication.shared().visibleInterfaceController?.presentTextInputController(
-      withSuggestions: ["Continue", "Yes", "Stop"],
-      allowedInputMode: .plain
-    ) { results in
-      guard let text = results?.first as? String else {
-        return
-      }
-      Task { @MainActor in
-        model.dictate(text, session: session)
-      }
+      Text("Session ended").font(.headline)
     }
   }
 }

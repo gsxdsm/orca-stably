@@ -10,25 +10,34 @@ private struct InboxRow: Identifiable {
   var updatedAt: Int64
 }
 
-private func hostName(_ id: String, snapshot: WatchSnapshot?) -> String {
+func watchHostName(_ id: String, snapshot: WatchSnapshot?) -> String {
   snapshot?.hosts.first { $0.hostId == id }?.name ?? id
 }
 
-private struct InboxStatus: View {
+struct WatchPageHeader: View {
   @ObservedObject var model: WatchSessionModel
+  let title: String
+  let symbol: String
+  @Environment(\.orcaPalette) private var palette
 
   var body: some View {
-    HStack(alignment: .top, spacing: 4) {
-      VStack(alignment: .leading, spacing: 2) {
-        StatusLine(updated: model.snapshot == nil ? "Waiting for iPhone" : model.updatedLabel,
-                   reachability: model.reachabilityLabel, phase: model.phase)
-        if model.snapshot != nil && !model.reachable {
-          Text("Last known data").font(.caption2)
-        }
+    HStack(spacing: 4) {
+      VStack(alignment: .leading, spacing: 3) {
+        Label(title, systemImage: symbol)
+          .font(.headline)
+          .accessibilityAddTraits(.isHeader)
+        Text(model.phase ?? model.reachabilityLabel ??
+          (model.snapshot == nil ? "Waiting for iPhone" : model.updatedLabel))
+          .font(.caption2)
+          .foregroundStyle(palette.mutedForeground)
       }
+      Spacer(minLength: 0)
       Button { model.refresh() } label: {
         Image(systemName: "arrow.clockwise")
-          .frame(width: 44, height: 44)
+          .font(.footnote.weight(.semibold))
+          .frame(width: 34, height: 34)
+          .background(.thinMaterial, in: Circle())
+          .padding(5)
           .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
@@ -36,7 +45,58 @@ private struct InboxStatus: View {
       .disabled(model.busy)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(.horizontal, 8)
+    .padding(.horizontal, 4)
+    .padding(.bottom, 3)
+  }
+}
+
+struct WatchEmptyState: View {
+  let title: String
+  let symbol: String
+  @Environment(\.orcaPalette) private var palette
+
+  var body: some View {
+    ScrollView {
+      VStack(spacing: 7) {
+        Image(systemName: symbol)
+          .font(.title2)
+          .foregroundStyle(palette.mutedForeground)
+          .accessibilityHidden(true)
+        Text(title).font(.footnote.weight(.medium)).multilineTextAlignment(.center)
+      }
+      .padding(10)
+      .frame(maxWidth: .infinity)
+    }
+  }
+}
+
+struct WatchRow<Content: View>: View {
+  let symbol: String
+  let tint: Color
+  var navigates = false
+  @ViewBuilder var content: Content
+  @Environment(\.orcaPalette) private var palette
+
+  var body: some View {
+    HStack(alignment: .center, spacing: 7) {
+      Image(systemName: symbol)
+        .font(.footnote.weight(.semibold))
+        .foregroundStyle(tint)
+        .frame(width: 22)
+        .accessibilityHidden(true)
+      VStack(alignment: .leading, spacing: 3) { content }
+        .frame(maxWidth: .infinity, alignment: .leading)
+      if navigates {
+        Image(systemName: "chevron.right")
+          .font(.caption2.weight(.semibold))
+          .foregroundStyle(palette.mutedForeground)
+          .accessibilityHidden(true)
+      }
+    }
+    .padding(8)
+    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+    .background(palette.card, in: RoundedRectangle(cornerRadius: 13))
+    .accessibilityElement(children: .combine)
   }
 }
 
@@ -89,25 +149,29 @@ struct NeedsYouView: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      InboxStatus(model: model)
+      WatchPageHeader(model: model, title: "Needs You", symbol: "tray")
       if model.snapshot == nil {
-        empty("Open Orca on iPhone")
+        WatchEmptyState(title: "Open Orca on iPhone", symbol: "iphone")
       } else if model.snapshot?.hosts.isEmpty == true {
-        empty("Connect a computer in Orca on iPhone")
+        WatchEmptyState(title: "Connect a computer in Orca on iPhone", symbol: "desktopcomputer")
       } else if rows.isEmpty {
-        empty("No pending asks")
+        WatchEmptyState(title: "You’re all caught up", symbol: "checkmark.circle")
       } else {
         ScrollView {
-          VStack(alignment: .leading, spacing: 6) {
-            Text("Needs You").font(.headline)
+          LazyVStack(alignment: .leading, spacing: 6) {
             ForEach(rows) { row in
               if let session = session(for: row) {
                 NavigationLink {
                   SessionDetailView(model: model, sessionKey: session.key)
-                } label: { rowView(row) }
+                } label: { rowView(row, navigates: true) }
                 .buttonStyle(.plain)
               } else {
-                rowView(row)
+                NavigationLink {
+                  WatchNoticeView(model: model, hostId: row.hostId, title: row.title)
+                } label: {
+                  rowView(row, navigates: true)
+                }
+                .buttonStyle(.plain)
               }
             }
           }.padding(.horizontal, 4)
@@ -116,21 +180,39 @@ struct NeedsYouView: View {
     }.background(palette.background)
   }
 
-  private func empty(_ text: String) -> some View {
-    Text(text).font(.headline).multilineTextAlignment(.center)
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
-  }
-
-  private func rowView(_ row: InboxRow) -> some View {
-    VStack(alignment: .leading, spacing: 2) {
-      Text(row.title).font(.headline).foregroundStyle(palette.foreground)
-      Text([row.bot, hostName(row.hostId, snapshot: model.snapshot)].compactMap { $0 }.joined(separator: " · "))
-        .font(.caption2).foregroundStyle(palette.mutedForeground)
+  private func rowView(_ row: InboxRow, navigates: Bool) -> some View {
+    WatchRow(symbol: row.promptId == nil ? "bubble.left" : "exclamationmark.circle.fill",
+             tint: palette.warning, navigates: navigates) {
+      Text(row.title).font(.footnote.weight(.semibold)).foregroundStyle(palette.foreground).lineLimit(2)
+      Text([row.bot, watchHostName(row.hostId, snapshot: model.snapshot)].compactMap { $0 }.joined(separator: " · "))
+        .font(.caption2).foregroundStyle(palette.mutedForeground).lineLimit(1)
       Text(WatchAge.relative(from: row.updatedAt, now: model.now))
         .font(.caption2).foregroundStyle(palette.mutedForeground)
     }
-    .frame(maxWidth: .infinity, alignment: .leading).padding(6)
-    .background(palette.card, in: RoundedRectangle(cornerRadius: 10))
+    .privacySensitive()
+  }
+}
+
+struct WatchNoticeView: View {
+  @ObservedObject var model: WatchSessionModel
+  var hostId: String
+  var title: String
+  var detail: String? = nil
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 8) {
+        Text(title).font(.headline)
+        if let detail, !detail.isEmpty { Text(detail).font(.footnote) }
+        Button { model.openHostOnPhone(hostId) } label: {
+          Label("Open on iPhone", systemImage: "iphone")
+        }
+        .disabled(model.busy)
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .padding(.horizontal, 4)
+      .privacySensitive()
+    }
   }
 }
 
@@ -140,32 +222,35 @@ struct BotsView: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      InboxStatus(model: model)
+      WatchPageHeader(model: model, title: "Bots", symbol: "sparkles")
       if let bots = model.snapshot?.bots, !bots.isEmpty {
         ScrollView {
-          VStack(alignment: .leading, spacing: 6) {
-            Text("Bots").font(.headline)
+          LazyVStack(alignment: .leading, spacing: 6) {
             ForEach(bots.sorted { $0.updatedAt > $1.updatedAt }, id: \.hostIdAndBotId) { bot in
-              VStack(alignment: .leading, spacing: 2) {
-                Text(bot.name).font(.headline)
-                Text("\(hostName(bot.hostId, snapshot: model.snapshot)) · \(bot.status)")
-                  .font(.caption2).foregroundStyle(palette.mutedForeground)
-                Text(WatchAge.relative(from: bot.updatedAt, now: model.now))
-                  .font(.caption2).foregroundStyle(palette.mutedForeground)
-              }.frame(maxWidth: .infinity, alignment: .leading).padding(6)
-                .background(palette.card, in: RoundedRectangle(cornerRadius: 10))
+              NavigationLink {
+                botThreads(bot)
+              } label: {
+                WatchRow(symbol: "sparkle", tint: bot.status == "needs-you" ? palette.warning : palette.primary,
+                         navigates: true) {
+                  Text(bot.name).font(.footnote.weight(.semibold)).lineLimit(1)
+                  Text("\(botStatus(bot.status)) · \(watchHostName(bot.hostId, snapshot: model.snapshot))")
+                    .font(.caption2).foregroundStyle(palette.mutedForeground).lineLimit(1)
+                  Text(WatchAge.relative(from: bot.updatedAt, now: model.now))
+                    .font(.caption2).foregroundStyle(palette.mutedForeground)
+                }
+              }
+              .buttonStyle(.plain)
             }
           }.padding(.horizontal, 4)
         }
       } else if model.snapshot?.bots == nil, let sessions = model.snapshot?.sessions, !sessions.isEmpty {
         ScrollView {
           VStack(alignment: .leading) {
-            Text("Bots").font(.headline)
             ForEach(sessions, id: \.key) { session in
               NavigationLink { SessionDetailView(model: model, sessionKey: session.key) } label: {
                 VStack(alignment: .leading) {
                   Text(session.agent)
-                  Text("\(hostName(session.hostId, snapshot: model.snapshot)) · \(WatchAge.relative(from: session.updatedAt, now: model.now))")
+                  Text("\(watchHostName(session.hostId, snapshot: model.snapshot)) · \(WatchAge.relative(from: session.updatedAt, now: model.now))")
                     .font(.caption2).foregroundStyle(palette.mutedForeground)
                 }
               }
@@ -173,43 +258,48 @@ struct BotsView: View {
           }
         }
       } else {
-        Text(model.snapshot == nil ? "Open Orca on iPhone" : "No bots")
-          .multilineTextAlignment(.center).frame(maxWidth: .infinity, maxHeight: .infinity)
+        WatchEmptyState(title: model.snapshot == nil ? "Open Orca on iPhone" : "No bots", symbol: "sparkles")
       }
     }.background(palette.background)
+  }
+
+  private func botStatus(_ status: String) -> String {
+    switch status {
+    case "needs-you": "Needs you"
+    case "working": "Working"
+    case "paused": "Paused"
+    default: "Idle"
+    }
+  }
+
+  @ViewBuilder private func botThreads(_ bot: WatchBot) -> some View {
+    let current = model.snapshot?.bots?.first { $0.hostIdAndBotId == bot.hostIdAndBotId } ?? bot
+    let keys = current.threadKeys ?? model.snapshot?.needsYou?.compactMap {
+      $0.hostId == bot.hostId && $0.botId == bot.botId ? $0.sessionKey : nil
+    } ?? []
+    let sessions = keys.compactMap { model.session($0) }
+    if sessions.isEmpty {
+      WatchEmptyState(title: "No recent threads", symbol: "bubble.left.and.bubble.right")
+        .navigationTitle(bot.name)
+    } else {
+      ScrollView {
+        LazyVStack(spacing: 6) {
+          ForEach(sessions, id: \.key) { session in
+            NavigationLink {
+              SessionDetailView(model: model, sessionKey: session.key)
+            } label: {
+              WatchRow(symbol: "bubble.left", tint: palette.status(session.status), navigates: true) {
+                Text(session.title).font(.footnote.weight(.semibold)).lineLimit(2)
+                Text(WatchSections.title(session.status)).font(.caption2).foregroundStyle(palette.mutedForeground)
+              }
+            }.buttonStyle(.plain)
+          }
+        }.padding(.horizontal, 4)
+      }.navigationTitle(bot.name)
+    }
   }
 }
 
 private extension WatchBot {
   var hostIdAndBotId: String { "\(hostId.count):\(hostId)\(botId)" }
-}
-
-struct UsageView: View {
-  @ObservedObject var model: WatchSessionModel
-  @Environment(\.orcaPalette) private var palette
-
-  var body: some View {
-    VStack(spacing: 0) {
-      InboxStatus(model: model)
-      if let usage = model.snapshot?.usage, !usage.isEmpty {
-        ScrollView {
-          VStack(alignment: .leading, spacing: 6) {
-            Text("Usage").font(.headline)
-            ForEach(Array(usage.enumerated()), id: \.offset) { _, item in
-              VStack(alignment: .leading, spacing: 2) {
-                Text("\(item.provider) · \(item.window)").font(.headline)
-                Text("\(item.usedPercent, specifier: "%.0f")% used")
-                Text(hostName(item.hostId, snapshot: model.snapshot)).font(.caption2)
-                Text(WatchAge.relative(from: item.updatedAt, now: model.now)).font(.caption2)
-              }.frame(maxWidth: .infinity, alignment: .leading).padding(6)
-                .background(palette.card, in: RoundedRectangle(cornerRadius: 10))
-            }
-          }.padding(.horizontal, 4)
-        }
-      } else {
-        Text(model.snapshot == nil ? "Open Orca on iPhone" : "Usage unavailable")
-          .multilineTextAlignment(.center).frame(maxWidth: .infinity, maxHeight: .infinity)
-      }
-    }.background(palette.background)
-  }
 }

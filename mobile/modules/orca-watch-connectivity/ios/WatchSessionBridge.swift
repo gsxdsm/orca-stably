@@ -88,7 +88,8 @@ final class WatchSessionBridge: NSObject, WCSessionDelegate {
       decision.emitter(decision.payload)
     }
     queue.asyncAfter(deadline: .now() + replyDeadline) { [weak self] in
-      let reason = commandType == "send" || commandType == "respond" ? "unknown" : "phone_unavailable"
+      let reason = commandType.map { ["send", "respond", "stop", "continue"].contains($0) } == true
+        ? "unknown" : "phone_unavailable"
       self?.finish(token: decision.token, body: failure(commandId, reason: reason))
     }
   }
