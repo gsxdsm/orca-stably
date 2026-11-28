@@ -56,10 +56,6 @@ vi.mock('./notification-reply-record-store', () => ({
   }
 }))
 
-vi.mock('./android-reply-presentation', () => ({
-  showAndroidReplySent: async () => {}
-}))
-
 vi.mock('./notification-reply-native', () => ({
   completeNativeReply: async () => {},
   pendingNativeReplies: async () => []
