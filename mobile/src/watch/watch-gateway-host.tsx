@@ -9,7 +9,6 @@ import { useOpenNotificationRoute } from '../notifications/navigation/use-open-n
 import type { WatchHost } from './watch-contract'
 import { watchGatewayEnabled } from './watch-gateway-availability'
 import { startWatchGateway, type WatchLiveHost } from './watch-gateway-live'
-import { setWatchPromptResponseHandler } from './watch-prompt-actions'
 
 function watchConnection(state: ConnectionState): WatchHost['connection'] {
   if (state === 'connected') {
@@ -121,11 +120,7 @@ export function WatchGatewayHost() {
     })
     gatewayRef.current = gateway
     gateway.setHosts(linkedHosts())
-    const stopActions = setWatchPromptResponseHandler((response) => {
-      gateway.handleNotification(response)
-    })
     return () => {
-      stopActions()
       gateway.stop()
       gatewayRef.current = null
     }

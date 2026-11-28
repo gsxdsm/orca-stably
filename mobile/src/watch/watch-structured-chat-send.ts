@@ -22,6 +22,7 @@ import { subscribeTranscriptAfterHold } from '../session/native-chat/agent-sessi
 import { structuredSessionOperationId } from '../session/native-chat/agent-session/structured-session-operation-id'
 import { watchStructuredChatDelivery } from './watch-structured-chat-delivery'
 import { watchSendOutcomeFromHost, type WatchSendOutcome } from './watch-gateway'
+import { openMobileNativeChatSendBudget } from '../session/native-chat/composer/delivery/mobile-native-chat-send'
 
 const JOURNAL_WAIT_MS = 2_500
 
@@ -40,7 +41,11 @@ function watchReplyDetail(text: string | undefined): string | undefined {
 
 async function readHostCapabilities(client: RpcClient): Promise<readonly string[]> {
   try {
-    return readProbedHostCapabilities(await hostStatusProbe.request(client)) ?? []
+    return (
+      readProbedHostCapabilities(
+        await hostStatusProbe.request(client, {}, { timeoutMs: 3_000, budgetSpansConnect: true })
+      ) ?? []
+    )
   } catch {
     return []
   }
@@ -103,6 +108,7 @@ export async function sendWatchStructuredChat(input: {
   sessionId: string
   text: string
 }): Promise<WatchChatSendResult> {
+  const deadline = openMobileNativeChatSendBudget()
   const holderId = structuredAgentSessionHolderId('mobile-chat')
   const held = callAgentSession(input.client, 'agentSession.hold', {
     sessionId: input.sessionId,
@@ -128,6 +134,7 @@ export async function sendWatchStructuredChat(input: {
       attachments: [],
       ...watchStructuredChatDelivery(state, { queueCapable, queueFollowUps }),
       clientMessageId: structuredSessionOperationId(),
+      deadline,
       onError: (message) => {
         detail = message
       }

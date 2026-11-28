@@ -19,7 +19,7 @@ struct ReplyView: View {
               .font(.headline)
               .foregroundStyle(palette.foreground)
               .lineLimit(1)
-            if let outcome = model.outcome {
+            if let outcome = model.replyOutcome(for: session.key) {
               Text(outcome)
                 .font(.headline)
                 .foregroundStyle(outcome == "Sent ✓" ? palette.success : palette.warning)
@@ -29,7 +29,7 @@ struct ReplyView: View {
               quick("Yes", session: session)
               quick("Stop", session: session)
             }
-            TextField("Message", text: $model.draft)
+            TextField("Message", text: model.draft(for: session.key))
               .onSubmit { model.sendDraft(session: session) }
             Button("Dictate") { dictate(session) }
               .buttonStyle(OrcaWideButtonStyle(fill: palette.muted, ink: palette.foreground, minHeight: 32))
@@ -42,7 +42,7 @@ struct ReplyView: View {
       }
       .background(palette.background)
     } else {
-      ended(model.outcome)
+      ended(model.replyOutcome(for: sessionKey))
     }
   }
 

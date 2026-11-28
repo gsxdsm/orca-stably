@@ -2,6 +2,10 @@
   "$comment": "Every .web.* sibling the Route A web build resolves ahead of its native file. One entry per documented React Native Web gap; config/scripts/mobile-web-app-web-overrides.test.mjs fails on an unlisted one, a listed file that is gone, or one with no native sibling.",
   "overrides": [
     {
+      "file": "src/notifications/reply/notification-reply-response.web.ts",
+      "reason": "The native app shell handles system notification actions and failed-reply drafts. Host-served pages receive navigation through their existing bridge and must not load the background sender."
+    },
+    {
       "file": "src/session/native-chat/composer/field/MobileNativeChatComposerAllocation.web.tsx",
       "reason": "The shipping host page measures the active editor's real chrome and menu reservation against the lower chat allocation, preserving native field sizing outside that DOM layout. Geometry consumers stay isolated from menu and queue rows."
     },
@@ -172,10 +176,6 @@
     {
       "file": "src/platform/media-picking/media-picker.web.ts",
       "reason": "expo-image-picker and expo-document-picker are native modules whose import runs a codegen lookup that throws in a browser, and the route manifest imports every route, so one of them in a page closure takes the whole bundle down rather than one picker. This one asks the shell through native.media.pick, reads the bytes back a chunk at a time over native.media.read because a picked image reaches 18 MiB raw against an 8 MiB reply ceiling, and releases every handle it was handed, including the ones its caller never took. The pasteboard is not here: clipboard.web.ts owns it on both platforms and reaches the same verbs for an image."
-    },
-    {
-      "file": "src/components/host-connection/AuthFailedBannerActions.web.tsx",
-      "reason": "The auth-failed banner offers Retry, Re-pair and Remove, and on the page only Re-pair works. /pair-scan sits outside the page's route root of app/h (config/scripts/mobile-web-app/mobile-web-app-route-manifest.mjs:6), so route-handoff.web.ts:207 hands the push to the shell, which opens the native scan screen and returns to the same page document on Back. Retry and Remove are inert here: forceReconnect is null (client-context.web.tsx:45, read through host-client-hooks.ts:88) and removal refuses (page-host-removal-refusal.ts). The banner is reachable on the page because the shell forwards the native client's state (mobile-web-shell/bridge-host.ts:301) and auth-failed is in the wire enum (bridge/protocol/bridge-connection-snapshot.ts). So this one renders Re-pair as native does and one line naming the app for reconnect and removal."
     },
     {
       "file": "src/files/preview/documents/use-html-preview-link-grant.web.ts",

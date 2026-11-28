@@ -1,32 +1,16 @@
-import * as Notifications from 'expo-notifications'
-import { Platform } from 'react-native'
-import { translate } from '../i18n/mobile-i18n'
+import type * as Notifications from 'expo-notifications'
+import { parseExecutionHostId } from '../../../src/shared/execution-host/execution-host'
+import { sha256 } from '../../../src/shared/hashing/sha256'
+import { loadHosts } from '../host-catalog/host-store'
+import { readNativeNotificationData } from '../notifications/payload-identity/native-notification-data'
+import { resolveHostIdForFingerprint } from '../notifications/payload-identity/push-host-fingerprint'
+import { readOrcaPushPayload } from '../notifications/payload-identity/push-payload'
+import { openHostLogicalClient } from '../transport/connection/host-logical-client'
+import { scopeRpcClientToExecutionHost } from '../worktree/execution-hosts/execution-host-scoped-rpc-client'
+import { agentPromptListPending, agentPromptRespond } from './watch-agent-prompt-operations'
 
-export const WATCH_PROMPT_CATEGORY = 'orca.prompt'
-
-const APPROVE_ACTION = 'approve'
-const DENY_ACTION = 'deny'
-const REPLY_ACTION = 'reply'
-
-export type WatchPromptResponseInput = {
-  actionIdentifier: string
-  userText?: string
-  notification: {
-    request: {
-      identifier: string
-      content: {
-        categoryIdentifier?: string | null
-        data?: unknown
-      }
-    }
-  }
-}
-
-export type WatchPromptAction =
-  | { type: 'respond'; hostId: string; promptId: string; optionId: string }
-  | { type: 'reply'; hostId: string; sessionKey: string; text: string }
-
-type PromptOption = { optionId: string; role: 'approve' | 'approve-always' | 'deny' | 'other' }
+import { MOBILE_PUSH_PROMPT_CATEGORY } from '../../../src/shared/notifications/mobile-push-contract'
+import { APPROVE_WATCH_PROMPT_ACTION, DENY_WATCH_PROMPT_ACTION } from './watch-prompt-category'
 
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -34,139 +18,97 @@ function record(value: unknown): Record<string, unknown> | null {
     : null
 }
 
-function text(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
-
-function payload(data: unknown): Record<string, unknown> {
-  const root = record(data) ?? {}
-  const orca = record(root.orca) ?? {}
-  return { ...orca, ...root }
-}
-
-function categoryOf(input: WatchPromptResponseInput): string | null {
-  if (input.notification.request.content.categoryIdentifier === WATCH_PROMPT_CATEGORY) {
-    return WATCH_PROMPT_CATEGORY
-  }
-  return payload(input.notification.request.content.data).category === WATCH_PROMPT_CATEGORY
-    ? WATCH_PROMPT_CATEGORY
-    : null
-}
-
-function optionsOf(data: unknown): PromptOption[] {
-  const prompt = record(payload(data).prompt)
-  if (!prompt || !Array.isArray(prompt.options)) {
-    return []
-  }
-  const options: PromptOption[] = []
-  for (const option of prompt.options) {
-    const row = record(option)
-    const optionId = text(row?.optionId)
-    const role = row?.role
-    if (
-      optionId &&
-      (role === 'approve' || role === 'approve-always' || role === 'deny' || role === 'other')
-    ) {
-      options.push({ optionId, role })
-    }
-  }
-  return options
-}
-
-export function isWatchPromptResponse(input: WatchPromptResponseInput): boolean {
-  return (
-    input.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER &&
-    categoryOf(input) === WATCH_PROMPT_CATEGORY
-  )
-}
-
-export function readWatchPromptAction(input: WatchPromptResponseInput): WatchPromptAction | null {
-  if (!isWatchPromptResponse(input)) {
-    return null
-  }
-  const data = payload(input.notification.request.content.data)
-  const hostId = text(data.hostId)
-  const prompt = record(data.prompt)
-  const promptId = text(prompt?.promptId)
-  const options = optionsOf(input.notification.request.content.data)
-  const sessionKey =
-    text(data.sessionKey) ??
-    (hostId && text(data.paneKey) ? `${hostId}|term|${text(data.paneKey)}` : null)
-  const matched = options.find((option) => option.optionId === input.actionIdentifier)
-  if (matched && hostId && promptId) {
-    return { type: 'respond', hostId, promptId, optionId: matched.optionId }
-  }
-  if (input.actionIdentifier === APPROVE_ACTION || input.actionIdentifier === DENY_ACTION) {
-    const role = input.actionIdentifier === APPROVE_ACTION ? 'approve' : 'deny'
-    const option =
-      options.find((item) => item.role === role) ??
-      (role === 'approve' ? options.find((item) => item.role === 'approve-always') : undefined)
-    if (hostId && promptId && option) {
-      return { type: 'respond', hostId, promptId, optionId: option.optionId }
-    }
-    return null
-  }
-  const reply = input.userText?.trim()
-  if (input.actionIdentifier === REPLY_ACTION && hostId && sessionKey && reply) {
-    return { type: 'reply', hostId, sessionKey, text: reply.slice(0, 2000) }
-  }
-  return null
-}
-
-let handler: ((response: WatchPromptResponseInput) => void) | null = null
-let queued: WatchPromptResponseInput | null = null
-
-export function setWatchPromptResponseHandler(
-  next: ((response: WatchPromptResponseInput) => void) | null
-): () => void {
-  handler = next
-  if (next && queued) {
-    const pending = queued
-    queued = null
-    next(pending)
-  }
-  return () => {
-    if (handler === next) {
-      handler = null
-    }
-  }
-}
-
-export function dispatchWatchPromptResponse(input: WatchPromptResponseInput): boolean {
-  if (!isWatchPromptResponse(input)) {
+async function respondToWatchPrompt(
+  response: Notifications.NotificationResponse
+): Promise<boolean> {
+  const role = response.actionIdentifier
+  if (role !== APPROVE_WATCH_PROMPT_ACTION && role !== DENY_WATCH_PROMPT_ACTION) {
     return false
   }
-  if (handler) {
-    handler(input)
-  } else {
-    queued = input
+  const request = response.notification.request
+  const data = readNativeNotificationData(request)
+  const root = record(data)
+  const alert = record(root?.orca) ?? root
+  if (
+    request.content.categoryIdentifier !== MOBILE_PUSH_PROMPT_CATEGORY &&
+    alert?.category !== MOBILE_PUSH_PROMPT_CATEGORY
+  ) {
+    return false
   }
-  return true
+
+  const payload = readOrcaPushPayload(data)
+  let promptData = alert?.prompt
+  if (typeof promptData === 'string') {
+    promptData = JSON.parse(promptData)
+  }
+  const prompt = record(promptData)
+  const promptId = prompt?.promptId
+  if (
+    !payload ||
+    payload.kind === 'dismiss' ||
+    typeof promptId !== 'string' ||
+    !Array.isArray(prompt?.options)
+  ) {
+    return false
+  }
+  const options: unknown[] = prompt.options
+  const optionId = options.map(record).find((option) => option?.role === role)?.optionId
+  if (typeof optionId !== 'string' || !optionId) {
+    return false
+  }
+
+  const hosts = await loadHosts()
+  const hostId = resolveHostIdForFingerprint(payload.hostFingerprint, hosts)
+  const host = hosts.find((candidate) => candidate.id === hostId)
+  const executionHost = parseExecutionHostId(payload.executionHost)
+  if (!host || (payload.executionHost && !executionHost)) {
+    return false
+  }
+  const pairedClient = openHostLogicalClient(host, () => {})
+  const client =
+    executionHost?.kind === 'runtime'
+      ? scopeRpcClientToExecutionHost(pairedClient, executionHost.id)
+      : pairedClient
+  try {
+    const pending = agentPromptListPending.interpret(
+      await agentPromptListPending.request(
+        client,
+        {},
+        { timeoutMs: 5_000, budgetSpansConnect: true }
+      )
+    )
+    const live = pending?.prompts.find((candidate) => candidate.promptId === promptId)
+    if (
+      live?.kind !== 'permission' ||
+      (payload.worktreeId && live.worktreeId !== payload.worktreeId) ||
+      !live.options.some((option) => option.optionId === optionId && option.role === role)
+    ) {
+      return false
+    }
+    const digest = sha256(
+      new TextEncoder().encode(
+        JSON.stringify([payload.hostFingerprint, request.identifier, promptId, optionId])
+      )
+    )
+    const clientOperationId =
+      'watch-prompt-' + Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('')
+    const result = agentPromptRespond.interpret(
+      await agentPromptRespond.request(
+        client,
+        {
+          promptId,
+          optionId,
+          clientOperationId
+        },
+        { timeoutMs: 17_000, budgetSpansConnect: true }
+      )
+    )
+    return result?.ok === true
+  } finally {
+    pairedClient.close()
+  }
 }
 
-export async function ensureWatchPromptCategory(): Promise<void> {
-  if (Platform.OS === 'web') {
-    return
-  }
-  await Notifications.setNotificationCategoryAsync(WATCH_PROMPT_CATEGORY, [
-    {
-      identifier: APPROVE_ACTION,
-      buttonTitle: translate('notifications.watchPrompt.approve', 'Approve'),
-      options: { opensAppToForeground: true }
-    },
-    {
-      identifier: DENY_ACTION,
-      buttonTitle: translate('notifications.watchPrompt.deny', 'Deny'),
-      options: { isDestructive: true, opensAppToForeground: true }
-    },
-    {
-      identifier: REPLY_ACTION,
-      buttonTitle: translate('notifications.watchPrompt.reply', 'Reply'),
-      textInput: {
-        submitButtonTitle: translate('notifications.watchPrompt.send', 'Send'),
-        placeholder: translate('notifications.watchPrompt.placeholder', 'Message')
-      },
-      options: { opensAppToForeground: true }
-    }
-  ])
+export function dispatchWatchPromptResponse(response: Notifications.NotificationResponse): void {
+  void respondToWatchPrompt(response).catch(() => {})
 }

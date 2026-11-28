@@ -1,5 +1,9 @@
 import { startAndroidForegroundPushPresentation } from '../src/notifications/foreground-delivery/android-foreground-push'
 import { registerPushDismissalTask } from '../src/notifications/dismissal/push-background-dismissal'
+import {
+  handleNotificationReply,
+  restoreNotificationReplyDraft
+} from '../src/notifications/reply/notification-reply-response'
 import { readNativeNotificationData } from '../src/notifications/payload-identity/native-notification-data'
 import {
   notificationViewingOfRoute,
@@ -11,10 +15,9 @@ import { Stack, useGlobalSearchParams, usePathname } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import * as SplashScreen from 'expo-splash-screen'
 import * as Notifications from 'expo-notifications'
-import { colors } from '../src/theme/mobile-theme'
 import { startMobileAppearance } from '../src/theme/mobile-appearance'
-import { themedStyleSheet } from '../src/theme/themed-styles'
-import { useMobileColorScheme } from '../src/theme/use-mobile-color-scheme'
+import { themedStyleSheet, useThemedStyles } from '../src/theme/themed-styles'
+import { useMobileColorScheme, useMobileColors } from '../src/theme/use-mobile-color-scheme'
 import { OrcaLogo } from '../src/components/icons/OrcaLogo'
 import { RpcClientProvider } from '../src/transport/connection/client-context'
 import { OrcaQueryProvider } from '../src/query/orca-query-provider'
@@ -28,10 +31,7 @@ import {
 import { startPushTokenSync } from '../src/notifications/push-registration'
 import { ensureDesktopNotificationChannel } from '../src/notifications/foreground-delivery/desktop-notification-channel'
 import { WatchGatewayHost } from '../src/watch/watch-gateway-host'
-import {
-  dispatchWatchPromptResponse,
-  ensureWatchPromptCategory
-} from '../src/watch/watch-prompt-actions'
+import { dispatchWatchPromptResponse } from '../src/watch/watch-prompt-actions'
 import { loadHostCatalog } from '../src/host-catalog/host-store'
 import { usePairingLinks } from '../src/navigation/use-pairing-links'
 import { readWorkspaceRouteExecutionHost } from '../src/navigation/route-param-reader'
@@ -42,6 +42,7 @@ import { AppMoveScreen } from '../src/app-move/AppMoveScreen'
 import { SideSafeArea } from '../src/layout/side-safe-area'
 import { BotLinkRouter } from '../src/bots/BotLinkRouter'
 import { SideRailProvider } from '../src/layout/side-rail'
+import { SessionListLongPressProvider } from '../src/navigation/session-list-long-press'
 import { useFollowDeviceUiLocale } from '../src/i18n/use-follow-device-ui-locale'
 import { startMobileUiLanguage } from '../src/i18n/ui-language-preference'
 import { subscribeMobileUiLanguage } from '../src/i18n/mobile-i18n'
@@ -58,11 +59,9 @@ const languageReady = startMobileUiLanguage()
 
 // Create orca-desktop channel at boot: background FCM can arrive before socket subscription, and Android drops unknown-channel pushes.
 void ensureDesktopNotificationChannel().catch(() => {})
-void ensureWatchPromptCategory().catch(() => {})
-// Channel names and watch action titles show in system UI; rename them in the active language.
+// Channel names show in Android settings; rename them in the active language.
 subscribeMobileUiLanguage(() => {
   void ensureDesktopNotificationChannel().catch(() => {})
-  void ensureWatchPromptCategory().catch(() => {})
 })
 void registerPushDismissalTask().catch(() => {})
 
@@ -75,6 +74,8 @@ Notifications.setNotificationHandler({
 const handledNotificationIds = new Set<string>()
 
 export default function RootLayout() {
+  const colors = useMobileColors()
+  const styles = useThemedStyles(stylesSheet)
   const colorScheme = useMobileColorScheme()
   useFollowDeviceUiLocale()
   const pathname = usePathname()
@@ -146,6 +147,10 @@ export default function RootLayout() {
     }
 
     async function handleNotificationResponse(response: Notifications.NotificationResponse) {
+      if (await handleNotificationReply(response)) {
+        clearLastNotificationResponse()
+        return
+      }
       if (response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) {
         dispatchWatchPromptResponse(response)
         clearLastNotificationResponse()
@@ -166,6 +171,7 @@ export default function RootLayout() {
       }
 
       const target = await getNavigationTarget(response.notification)
+      await restoreNotificationReplyDraft(readNativeNotificationData(response.notification.request))
       clearLastNotificationResponse()
       if (disposed) {
         return
@@ -207,56 +213,62 @@ export default function RootLayout() {
         <View style={styles.root} onLayout={onNavigatorLayout}>
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
           <SideRailProvider>
-            <SideSafeArea>
-              <Stack
-                screenOptions={{
-                  headerStyle: { backgroundColor: colors.bgPanel },
-                  headerTintColor: colors.textPrimary,
-                  headerTitleStyle: { fontSize: 16, fontWeight: '600' },
-                  contentStyle: { backgroundColor: colors.bgBase },
-                  headerShadowVisible: false
-                  // Leave orientation unset: react-native-screens overrides rotation lock even for default; Android manifest fullUser honors the user’s setting.
-                }}
-              >
-                <Stack.Screen
-                  name="index"
-                  options={{
-                    headerShown: false,
-                    headerTitle: () => <OrcaLogo size={22} />
+            <SessionListLongPressProvider>
+              <SideSafeArea>
+                <Stack
+                  screenOptions={{
+                    headerStyle: { backgroundColor: colors.bgPanel },
+                    headerTintColor: colors.textPrimary,
+                    headerTitleStyle: { fontSize: 16, fontWeight: '600' },
+                    contentStyle: { backgroundColor: colors.bgBase },
+                    headerShadowVisible: false,
+                    fullScreenGestureEnabled: true
+                    // Leave orientation unset: react-native-screens overrides rotation lock even for default; Android manifest fullUser honors the user’s setting.
                   }}
-                />
-                <Stack.Screen name="pair-scan" options={{ headerShown: false }} />
-                <Stack.Screen name="pair" options={{ headerShown: false }} />
-                <Stack.Screen name="pair-confirm" options={{ headerShown: false }} />
-                <Stack.Screen
-                  name="mobile-onboarding"
-                  options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }}
-                />
-                <Stack.Screen name="settings" options={{ headerShown: false }} />
-                <Stack.Screen name="appearance-settings" options={{ headerShown: false }} />
-                <Stack.Screen name="terminal-settings" options={{ headerShown: false }} />
-                <Stack.Screen name="native-chat-settings" options={{ headerShown: false }} />
-                <Stack.Screen name="browser-settings" options={{ headerShown: false }} />
-                <Stack.Screen name="voice-settings" options={{ headerShown: false }} />
-                <Stack.Screen name="notifications" options={{ headerShown: false }} />
-                <Stack.Screen name="troubleshoot" options={{ headerShown: false }} />
-                <Stack.Screen name="connection-log" options={{ headerShown: false }} />
-                <Stack.Screen name="about" options={{ headerShown: false }} />
-                <Stack.Screen name="h" options={{ headerShown: false }} />
-                <Stack.Screen
-                  name="new-workspace"
-                  options={{
-                    headerShown: false,
-                    // Draws nothing of its own: the drawer is the page's, over Home.
-                    presentation: 'transparentModal',
-                    animation: 'none',
-                    contentStyle: { backgroundColor: 'transparent' }
-                  }}
-                />
-              </Stack>
-            </SideSafeArea>
-            {/* Last, so its waiting drawer sits above whatever screen the link landed on. */}
-            <BotLinkRouter />
+                >
+                  <Stack.Screen
+                    name="index"
+                    options={{
+                      headerShown: false,
+                      headerTitle: () => <OrcaLogo size={22} />
+                    }}
+                  />
+                  <Stack.Screen name="pair-scan" options={{ headerShown: false }} />
+                  <Stack.Screen name="pair" options={{ headerShown: false }} />
+                  <Stack.Screen name="pair-confirm" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="mobile-onboarding"
+                    options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }}
+                  />
+                  <Stack.Screen name="settings" options={{ headerShown: false }} />
+                  <Stack.Screen name="appearance-settings" options={{ headerShown: false }} />
+                  <Stack.Screen name="terminal-settings" options={{ headerShown: false }} />
+                  <Stack.Screen name="terminal-font-settings" options={{ headerShown: false }} />
+                  <Stack.Screen name="terminal-keys" options={{ headerShown: false }} />
+                  <Stack.Screen name="native-chat-settings" options={{ headerShown: false }} />
+                  <Stack.Screen name="browser-settings" options={{ headerShown: false }} />
+                  <Stack.Screen name="voice-settings" options={{ headerShown: false }} />
+                  <Stack.Screen name="notifications" options={{ headerShown: false }} />
+                  <Stack.Screen name="troubleshoot" options={{ headerShown: false }} />
+                  <Stack.Screen name="troubleshoot-issue" options={{ headerShown: false }} />
+                  <Stack.Screen name="connection-log" options={{ headerShown: false }} />
+                  <Stack.Screen name="about" options={{ headerShown: false }} />
+                  <Stack.Screen name="h" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="new-workspace"
+                    options={{
+                      headerShown: false,
+                      // Draws nothing of its own: the drawer is the page's, over Home.
+                      presentation: 'transparentModal',
+                      animation: 'none',
+                      contentStyle: { backgroundColor: 'transparent' }
+                    }}
+                  />
+                </Stack>
+              </SideSafeArea>
+              {/* Last, so its waiting drawer sits above whatever screen the link landed on. */}
+              <BotLinkRouter />
+            </SessionListLongPressProvider>
           </SideRailProvider>
           {isRetiredGithubAndroidApp ? <AppMoveScreen /> : null}
         </View>
@@ -265,7 +277,7 @@ export default function RootLayout() {
   )
 }
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet((colors) => ({
   root: {
     flex: 1,
     backgroundColor: colors.bgBase

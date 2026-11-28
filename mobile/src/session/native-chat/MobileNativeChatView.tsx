@@ -18,12 +18,10 @@ import {
 import { MobileNativeChatOpenSubagentProvider } from './input/mobile-native-chat-open-subagent'
 import { type NativeScrollEvent, type NativeSyntheticEvent, View } from 'react-native'
 import { MobileNativeChatSendErrorBanner } from './status/MobileNativeChatSendErrorBanner'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
 import { MobileNativeChatInputLockStatus } from './composer/field/MobileNativeChatInputLockStatus'
-import { useMobileColorScheme } from '../../theme/use-mobile-color-scheme'
-import { styles } from './mobile-native-chat-view-styles'
+import { stylesSheet } from './mobile-native-chat-view-styles'
 import { MobileNativeChatComposerMenuHost } from './composer/menus/MobileNativeChatComposerMenuHost'
 import { MobileNativeChatEmptyStateView } from './transcript/viewport/MobileNativeChatEmptyStateView'
 import { mobileNativeChatListFooter } from './transcript/viewport/mobile-native-chat-list-footer'
@@ -38,7 +36,6 @@ import { useMobileNativeChatTurnDisclosure } from './transcript/turn-state/use-m
 import { mobileNativeChatComposerPlaceholder } from './composer/field/use-mobile-native-chat-input-lease'
 import { MobileNativeChatLiveLine } from './transcript/messages/MobileNativeChatLiveLine'
 import { MobileNativeChatAwaitingInputRow } from './transcript/messages/MobileNativeChatAwaitingInputRow'
-import { MobileNativeChatFloatingControls } from './lower-region/MobileNativeChatFloatingControls'
 import { MobileNativeChatDraftComposer } from './composer/MobileNativeChatDraftComposer'
 import { MobileNativeChatPromptCard } from './input/prompts/MobileNativeChatPromptCard'
 import { useMobileNativeChatWorkerApprovalSlot } from './input/prompts/MobileNativeChatWorkerApproval'
@@ -53,6 +50,11 @@ import {
   type ComposerTrayProps
 } from './composer/menus/use-mobile-native-chat-composer-tray'
 import { MobileNativeChatScrollRootsBoundary } from './transcript/viewport/MobileNativeChatScrollRootsBoundary'
+import { useChatBottomFit } from './composer/use-chat-bottom-fit'
+import { DuoRailComposerTop, MobileNativeChatJumpControls } from '../duo-rail-jump-controls'
+import { MobileEdgeFade } from '../../components/list/MobileEdgeFade'
+import { useMobileColors } from '../../theme/use-mobile-color-scheme'
+import { useMobileNativeChatPreviousStops } from './transcript/use-mobile-native-chat-previous-stops'
 import { MobileNativeChatActivityBar } from './input/MobileNativeChatActivityBar'
 import { useMobileNativeChatSubagentTranscript } from './input/use-mobile-native-chat-subagent-transcript'
 import { MobileNativeChatRowList } from './transcript/MobileNativeChatRowList'
@@ -63,6 +65,7 @@ import { MobileNativeChatQueueAbovePromptContext } from './lower-region/mobile-n
 import { MobileNativeChatPromptStrip } from './input/prompts/MobileNativeChatPromptStrip'
 import { MobileNativeChatOfflineQueue } from './input/queued-messages/MobileNativeChatOfflineQueue'
 import { useMobileNativeChatOfflineQueue } from './composer/delivery/use-mobile-native-chat-offline-sends'
+import { useThemedStyles } from '../../theme/themed-styles'
 
 export type { MobileNativeChatInputLockReason } from './mobile-native-chat-view-props'
 
@@ -101,6 +104,7 @@ export function MobileNativeChatView({
   onLoadEarlier,
   onSend,
   sendSurfaceId,
+  sessionId = null,
   getSendCompletionGeneration,
   getComposerEditGeneration,
   pending,
@@ -156,12 +160,12 @@ export function MobileNativeChatView({
   onOpenFile,
   keyboardInset = 0
 }: Props): React.JSX.Element {
-  useMobileColorScheme()
+  const styles = useThemedStyles(stylesSheet)
+  const colors = useMobileColors()
   const t = useMobileTranslation()
-  const insets = useSafeAreaInsets()
-  const bottomPad = keyboardInset > 0 ? keyboardInset + insets.bottom : insets.bottom
+  const { bottomPad, composerFit, transcriptInset } = useChatBottomFit(keyboardInset)
   const rootStyle = [styles.root, { paddingBottom: bottomPad }]
-  const { fontScale, pinchGesture } = useMobileNativeChatPinchGesture()
+  const { fontScale, pinchGesture, pinchAnchor } = useMobileNativeChatPinchGesture()
   const subagent = useMobileNativeChatSubagentTranscript({
     messages,
     folded,
@@ -196,7 +200,7 @@ export function MobileNativeChatView({
     hasItems: data.length > 0,
     scopeKey: transcriptScopeKey
   })
-  const { jumpToTail, recordScrollMetrics, scrollMayLoadEarlier } = tail
+  const { jumpToTail, recordScrollMetrics, scrollMayLoadEarlier, jumpToPreviousMessage } = tail
 
   // Lock only terminal-backed Send: it can answer an agent prompt, while drafting is harmless and structured sends queue.
   const promptShown = !collapsedPrompt && (ask ?? permission ?? question) != null
@@ -223,8 +227,8 @@ export function MobileNativeChatView({
     [offlineQueue.send, onClearSendError, jumpToTail]
   )
 
-  // A bot card's answer goes to the agent as if typed.
-  const sendFromCard = useCallback((text: string) => handleSend(text), [handleSend])
+  // A bot card's answer: a card answer on hosts that take one, else typed.
+  const sendFromCard = useMemo(() => ({ typed: handleSend, sessionId }), [handleSend, sessionId])
   const drawReplyCard = useCallback(
     (card: NativeChatDirectiveBotCard) =>
       mobileNativeChatOtherBotCard(card, {
@@ -317,16 +321,18 @@ export function MobileNativeChatView({
     />
   ) : null
 
-  const header = mobileNativeChatListHeader(historyHasMore, historyOlderPages, loadEarlier)
+  const header = mobileNativeChatListHeader(historyHasMore, historyOlderPages, loadEarlier, styles)
   // Changing text size, face or spacing relays out every row, so preserve the page’s reading anchor.
   const layoutKey = `${fontScale}:${font}:${lineSpacing}`
+  useMobileNativeChatPreviousStops(tail, turns, rowKeys.keyOf, layoutKey)
   const mailRows = mobileWaitingAgentMailRows(tray.waitingAgentMail, fontScale, tail.viewport)
   const footer = mobileNativeChatListFooter(liveStatus, turns.waitingRows, renderItem, mailRows)
-  const emptyState = mobileNativeChatEmptyState(status, agent, error, sessionLive, clearing)
+  const emptyState = mobileNativeChatEmptyState(status, agent, t, error, sessionLive, clearing)
   const suppressEmptyState = subagent.focusedId != null && !readFailedFinally
 
   const composerPlaceholder = mobileNativeChatComposerPlaceholder(
     offlineQueue.lockReason,
+    t,
     turnIndicator?.afterStop
   )
   const workerApproval = useMobileNativeChatWorkerApprovalSlot(
@@ -376,7 +382,7 @@ export function MobileNativeChatView({
         {...{ permission, onRespondPermission, question, onAnswerQuestion, onCollapsePrompt }}
         {...{ onAnswerInTerminal, collapsedPrompt, notice }}
       />
-      <View style={promptOwnsInput ? styles.hidden : undefined}>
+      <DuoRailComposerTop keyboardInset={keyboardInset} hidden={promptOwnsInput}>
         <MobileNativeChatActivityBar
           list={subagent.taskList}
           subagents={subagent.subagents}
@@ -386,6 +392,7 @@ export function MobileNativeChatView({
           onFocusSubagent={subagent.onFocusSubagent}
         />
         <MobileNativeChatDraftComposer
+          {...composerFit}
           draftScopeKey={composerScopeKey}
           structured={structuredActivityUi ? structured : null}
           draftKey={draftKey}
@@ -404,7 +411,7 @@ export function MobileNativeChatView({
           {...{ filePaths, onNeedFiles, fileReference, skillDiscovery, onNeedSkills }}
           stop={canStop ? { onStop, held: turnIndicator?.stopRequestInFlight === true } : null}
         />
-      </View>
+      </DuoRailComposerTop>
     </>
   )
 
@@ -423,7 +430,7 @@ export function MobileNativeChatView({
         ) : firstScreen ? (
           <MobileBotFirstScreen firstScreen={firstScreen} after={mailRows} />
         ) : (
-          <GestureHandlerRootView style={styles.listWrap}>
+          <GestureHandlerRootView style={[styles.listWrap, transcriptInset]}>
             <MobileNativeChatDisclosureContext.Provider value={disclosures}>
               <MobileNativeChatOpenSubagentProvider onOpen={subagent.onFocusSubagent}>
                 <MobileBotCardSendContext.Provider value={sendFromCard}>
@@ -455,6 +462,7 @@ export function MobileNativeChatView({
                           roots={disclosures.roots}
                           contentContainerStyle={styles.listContent}
                           pinchGesture={pinchGesture}
+                          pinchAnchor={pinchAnchor}
                         />
                       </MobileWorkerApprovalReceiptsContext>
                     </MobileNativeChatScrollRootsBoundary>
@@ -462,9 +470,14 @@ export function MobileNativeChatView({
                 </MobileBotCardSendContext.Provider>
               </MobileNativeChatOpenSubagentProvider>
             </MobileNativeChatDisclosureContext.Provider>
-            <MobileNativeChatFloatingControls
+            {/* Drawn here, not by the jump controls, so the fades stay while the jumps sit in the Duo rail. */}
+            <MobileEdgeFade edge="top" color={colors.chatCanvas} />
+            <MobileEdgeFade edge="bottom" color={colors.chatCanvas} />
+            <MobileNativeChatJumpControls
               showJumpToTail={tail.showJumpToTail}
               onJumpToTail={jumpToTail}
+              showPreviousMessage={tail.showPreviousMessage}
+              onJumpToPrevious={jumpToPreviousMessage}
             />
           </GestureHandlerRootView>
         )}

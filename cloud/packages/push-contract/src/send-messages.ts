@@ -53,10 +53,22 @@ export const PushNotificationSchema = z
       .max(2048)
       .regex(/^runtime:[^|\s]+$/)
       .optional(),
-    category: z.literal('orca.prompt').optional(),
+    category: z.enum(['orca.prompt', 'orca.reply']).optional(),
+    replyTarget: z.discriminatedUnion('type', [
+      z.object({ type: z.literal('terminal'), terminal: z.string().min(1).max(2048), expectedIncarnationId: z.string().min(1).max(2048) }).strict(),
+      z.object({ type: z.literal('chat'), sessionId: z.string().min(1).max(256) }).strict(),
+        z.object({ type: z.literal('bot-item'), itemUid: z.string().min(1).max(256) }).strict(),
+        z.object({ type: z.literal('group'), groupId: z.string().min(1).max(256) }).strict()
+    ]).optional(),
     prompt: PushPromptSchema.optional()
   })
   .strict()
+  .refine((n) => n.replyTarget === undefined ||
+    ((n.kind === undefined || n.kind === 'alert') && Boolean(n.worktreeId && n.paneKey) &&
+      (n.category === 'orca.reply' || n.category === 'orca.prompt')),
+    { message: 'reply requires a chat alert and category' })
+  .refine((n) => n.category !== 'orca.reply' || n.replyTarget !== undefined,
+    { message: 'reply category requires a target' })
   .refine(
     (notification) => notification.kind !== 'dismiss' || Boolean(notification.notificationId),
     { message: 'dismiss requires notificationId' }
