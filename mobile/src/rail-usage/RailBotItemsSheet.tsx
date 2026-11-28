@@ -4,10 +4,7 @@ import { Inbox, ListFilter } from 'lucide-react-native'
 import { BOT_ITEM_GROUP_IDS, type BotItemGroupId } from '../../../src/shared/bots/bot-item-groups'
 import type { BotItem } from '../../../src/shared/bots/bot-items'
 import { botItemWalkOf } from '../../../src/shared/bots/bot-item-walk'
-import { botHomeWorktreeId } from '../bots/host-bots-read'
 import { mobileBotAvatarSource } from '../bots/host-bot-row-facts'
-import { openBotItemFile } from '../bots/items/bot-item-file-open'
-import { MobileBotItemPage } from '../bots/items/MobileBotItemPage'
 import { MobileBotItemRow } from '../bots/items/MobileBotItemRow'
 import type { BotItemSheet } from '../bots/items/MobileBotItemSheets'
 import {
@@ -31,13 +28,17 @@ import { NavBarButton } from '../components/nav-bar/NavBarButton'
 import { SheetHeader } from '../components/nav-bar/SheetHeader'
 import { useNow } from '../hooks/use-now'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { useRouteHandoff } from '../navigation/route-handoff'
 import { spacing } from '../theme/mobile-theme'
 import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
+import { RailBotItemPage } from './RailBotItemPage'
 import { RailBotItemsFilter } from './RailBotItemsFilter'
 import { TargetHostGatesProvider, TargetItemSheetsHost } from './RailBotItemTargetHost'
 import { useRailBotItemOpeners } from './rail-bot-item-openers'
-import type { RailBotsSource } from './rail-bot-targets'
+import {
+  rememberedRailTarget,
+  singleNullClientHostName,
+  type RailBotsSource
+} from './rail-bot-targets'
 import { useRailBotItems } from './use-rail-bot-items'
 
 type SheetPage = 'filter' | `item:${string}`
@@ -54,7 +55,6 @@ export function RailBotItemsSheet({
 }): React.JSX.Element {
   const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
-  const router = useRouteHandoff()
   const pager = useOptionPager<SheetPage>()
   const { forget } = pager
   const { message, showToast } = useTransientToast()
@@ -62,6 +62,7 @@ export function RailBotItemsSheet({
   const [boxHeight, setBoxHeight] = useState(0)
   const now = useNow(60_000, visible)
   const showingRef = useRef<{ visible: boolean; item: string | null }>({ visible, item: null })
+  const targetKeyByUid = useRef(new Map<string, string>())
   const openers = useRailBotItemOpeners({ onClose, showToast })
 
   useEffect(() => {
@@ -86,6 +87,8 @@ export function RailBotItemsSheet({
     isUnseen,
     allRead,
     failed,
+    targetFailed,
+    unavailable,
     error,
     filterOn,
     clearFilter,
@@ -103,8 +106,10 @@ export function RailBotItemsSheet({
     opened: visible
   })
 
-  const openChat = (item: BotItem): void =>
-    openers.openChat(ownerOf.get(item.uid), item.chat.id, item.chat.kind === 'home')
+  const openChat = (item: BotItem): void => {
+    const target = rememberedRailTarget(item.uid, ownerOf, targets, targetKeyByUid.current)
+    openers.openChat(target ?? undefined, item.chat.id, item.chat.kind === 'home')
+  }
 
   const showOwners = targets.length > 1
   const askTargets = new Map(asks.map(({ ask, target }) => [ask.key, target]))
@@ -139,7 +144,9 @@ export function RailBotItemsSheet({
     BOT_ITEM_GROUP_IDS.every((id) => groups[id].length === 0) &&
     closedTotal === 0
   ) {
-    body = filterOn ? (
+    body = unavailable ? (
+      <MobileOfflineState hostName={singleNullClientHostName(shownTargets)} />
+    ) : filterOn ? (
       <MobileNoMatchState
         message={
           needsYouOnly
@@ -164,13 +171,25 @@ export function RailBotItemsSheet({
           unseen={isUnseen(item)}
           checked={null}
           now={now}
-          disabled={failed}
+          disabled={owner ? targetFailed(owner) : failed}
           owner={
             showOwners && owner
               ? { name: owner.bot.name, avatar: mobileBotAvatarSource(owner.bot) }
               : undefined
           }
-          onPress={() => walk.open(item, botItemWalkOf(groups, groups.closed.length, item.uid))}
+          onPress={() => {
+            const section = botItemWalkOf(groups, groups.closed.length, item.uid)
+            // Next can land on a neighbor a refresh has already dropped from the loaded page.
+            if (section) {
+              for (const uid of section.uids) {
+                const walkOwner = ownerOf.get(uid)
+                if (walkOwner) {
+                  targetKeyByUid.current.set(uid, walkOwner.key)
+                }
+              }
+            }
+            walk.open(item, section)
+          }}
           onLongPress={() => setSheet({ kind: 'row', item })}
         />
       )
@@ -206,7 +225,11 @@ export function RailBotItemsSheet({
               }}
               items={groups.needs_you}
               now={now}
-              disabled={failed}
+              disabled={shownTargets.every(targetFailed)}
+              askDisabled={(ask) => {
+                const target = askTargets.get(ask.key)
+                return target ? targetFailed(target) : failed
+              }}
               renderItem={(item) => row(item, id)}
               onOpenAsk={(ask) => {
                 const target = askTargets.get(ask.key)
@@ -222,6 +245,7 @@ export function RailBotItemsSheet({
                 })
               }}
               client={shownTargets[0]?.client ?? null}
+              clientOf={(ask) => askTargets.get(ask.key)?.client ?? null}
               onSkipFailed={showToast}
             />
           ) : (
@@ -290,7 +314,7 @@ export function RailBotItemsSheet({
   const page = pager.page
   const shownItem = page?.startsWith('item:') ? walk.shown(page.slice('item:'.length)) : null
   const itemUid = shownItem?.uid ?? null
-  const itemTarget = itemUid ? (ownerOf.get(itemUid) ?? null) : null
+  const itemTarget = rememberedRailTarget(itemUid, ownerOf, targets, targetKeyByUid.current)
 
   useEffect(() => {
     showingRef.current = { visible, item: itemUid }
@@ -298,8 +322,10 @@ export function RailBotItemsSheet({
 
   const sheetItemUid =
     sheet === null ? null : 'item' in sheet ? sheet.item.uid : (sheet.items[0]?.uid ?? null)
-  const sheetTarget =
-    (sheetItemUid ? ownerOf.get(sheetItemUid) : null) ?? itemTarget ?? targets[0] ?? null
+  // A sheet item stays on its owner. Another target's client would move or snooze it on the wrong host.
+  const sheetTarget = sheetItemUid
+    ? (ownerOf.get(sheetItemUid) ?? null)
+    : (itemTarget ?? targets[0] ?? null)
 
   const pageNode =
     page === 'filter' ? (
@@ -315,43 +341,27 @@ export function RailBotItemsSheet({
         onDone={pager.close}
       />
     ) : shownItem && itemTarget ? (
-      <TargetHostGatesProvider target={itemTarget}>
-        <MobileBotItemPage
-          key={shownItem.uid}
-          {...shownItem}
-          client={itemTarget.client}
-          hostKey={itemTarget.hostKey}
-          hostId={itemTarget.pairedHostId}
-          bot={itemTarget.bot}
-          showToast={showToast}
-          reads={reads}
-          online={itemTarget.online}
-          hostName={itemTarget.hostName}
-          onBack={pager.close}
-          setSheet={setSheet}
-          onOpenChat={openChat}
-          onOpenWorker={(worker) => {
-            const from = itemUid
-            openers.openWorker(
-              itemTarget,
-              worker,
-              () => showingRef.current.visible && showingRef.current.item === from
-            )
-          }}
-          onOpenFile={(path) =>
-            openBotItemFile({
-              path,
-              router,
-              hostId: itemTarget.pairedHostId,
-              worktreeId: botHomeWorktreeId(itemTarget.bot),
-              t,
-              toast: showToast,
-              onRequestClose: onClose
-            })
-          }
-          onCommentBoxHeight={setBoxHeight}
-        />
-      </TargetHostGatesProvider>
+      <RailBotItemPage
+        shown={shownItem}
+        target={itemTarget}
+        reads={reads}
+        showToast={showToast}
+        onBack={pager.close}
+        setSheet={setSheet}
+        onOpenChat={(chatItem) =>
+          openers.openChat(itemTarget, chatItem.chat.id, chatItem.chat.kind === 'home')
+        }
+        onClose={onClose}
+        onCommentBoxHeight={setBoxHeight}
+        onOpenWorker={(worker) => {
+          const from = itemUid
+          openers.openWorker(
+            itemTarget,
+            worker,
+            () => showingRef.current.visible && showingRef.current.item === from
+          )
+        }}
+      />
     ) : null
 
   return (
