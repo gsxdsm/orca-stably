@@ -12,7 +12,6 @@ import { readAgentPaneForeground } from './agent-pane-foreground-read'
 import { isShellProcess } from '../../../../shared/agent-status/process/shell-process-detection'
 import type { RuntimePtyWorktreeRecord } from '../../terminal/records/runtime-terminal-state-records'
 import { terminalMcpPanes } from '../../../mcp-servers/terminal/terminal-mcp-panes'
-import { currentTerminalMcpFingerprints } from '../../../mcp-servers/terminal/terminal-mcp-launch'
 import type { TerminalMcpPaneLaunch } from '../../../mcp-servers/terminal/terminal-mcp-launch'
 
 type StaleTerminal = {
@@ -52,7 +51,12 @@ export abstract class OrcaRuntimeWithMcpStaleTerminals extends OrcaRuntimeWithAn
         live.push({ pty, pane })
       }
     }
+    if (live.length === 0) {
+      return []
+    }
     // A pane's workspace and agent decide which servers it would get now.
+    const { currentTerminalMcpFingerprints } =
+      await import('../../../mcp-servers/terminal/terminal-mcp-launch')
     const current = await currentTerminalMcpFingerprints(live.map(({ pane }) => pane))
     const changed = live.filter(({ pane }) => {
       const now = current.get(pane) ?? null
@@ -158,6 +162,8 @@ export abstract class OrcaRuntimeWithMcpStaleTerminals extends OrcaRuntimeWithAn
           }
           const live = await this.mcpTerminalSession(current, agent)
           // An unreadable list gives no replacement config, so the agent keeps running as it is.
+          const { currentTerminalMcpFingerprints } =
+            await import('../../../mcp-servers/terminal/terminal-mcp-launch')
           const now = (await currentTerminalMcpFingerprints([pane])).get(pane) ?? null
           return (
             live?.providerSession.id === session!.providerSession.id &&
