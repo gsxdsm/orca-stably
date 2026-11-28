@@ -55,9 +55,12 @@ export function getDevInstanceIdentity(
   env: NodeJS.ProcessEnv = process.env
 ): DevInstanceIdentity {
   if (!isDev) {
+    const appName = process.resourcesPath?.includes('Orca Dev.app')
+      ? `${BASE_APP_NAME} Dev`
+      : BASE_APP_NAME
     return {
-      name: BASE_APP_NAME,
-      appName: BASE_APP_NAME,
+      name: appName,
+      appName,
       isDev: false,
       devLabel: null,
       devBranch: null,

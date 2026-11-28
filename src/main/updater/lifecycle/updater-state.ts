@@ -44,7 +44,11 @@ export function isAutoUpdateDisabled(): boolean {
     return true
   }
   const appName = app.getName().toLowerCase()
-  return appName === 'orca-dev' || appName === 'orca dev'
+  return (
+    appName === 'orca-dev' ||
+    appName === 'orca dev' ||
+    process.resourcesPath.includes('Orca Dev.app')
+  )
 }
 
 export function isPendingTeamRestart(status: UpdateStatus): boolean {
