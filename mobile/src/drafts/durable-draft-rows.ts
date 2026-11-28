@@ -32,6 +32,7 @@ export type DurableDraftRow = {
   /** Reads the row once per page; later calls wait for every earlier read and write. */
   load: () => Promise<void>
   save: (timing: 'immediate' | 'deferred') => void
+  persist: () => Promise<boolean>
 }
 
 type Row = {
@@ -233,6 +234,14 @@ export function durableDraftRow(key: string, owner: DurableDraftRowOwner): Durab
       key,
       state: () => row.state,
       load: () => enqueue(row, () => load(row)),
+      persist: async () => {
+        if (row.timer !== null) {
+          clearTimeout(row.timer)
+          row.timer = null
+        }
+        await enqueue(row, () => write(row, false))
+        return row.state === 'loaded' && row.written !== undefined
+      },
       save: (timing) => {
         if (timing === 'immediate') {
           flush(row)
