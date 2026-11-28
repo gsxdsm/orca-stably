@@ -3,6 +3,7 @@ import { useFocusEffect } from 'expo-router'
 import type { AccountsSnapshot } from '../accounts/accounts-snapshot'
 import { useSideRailContent, useSideRailStrip } from '../layout/side-rail'
 import type { BridgeSideStripFree } from '../mobile-web-shell/bridge/page-geometry/bridge-side-strip-cover'
+import type { RailBotsSource } from './rail-bot-targets'
 import { HostRailUsageStack, RailUsageStack } from './RailUsageStack'
 import { RailUsageSpan } from './RailUsageSpan'
 
@@ -35,7 +36,10 @@ export function useShellUsageRail(
 }
 
 /** Fills the rail with `snapshot`'s usage rings while this screen is focused; for list screens that leave the rail free. */
-export function useFocusedUsageRail(snapshot: AccountsSnapshot | null): void {
+export function useFocusedUsageRail(
+  snapshot: AccountsSnapshot | null,
+  bots: RailBotsSource | null = null
+): void {
   const hasStrip = useSideRailStrip() !== null
   // Focus rather than mount: the stack keeps this screen mounted under whatever is pushed over it.
   const [focused, setFocused] = useState(false)
@@ -47,8 +51,10 @@ export function useFocusedUsageRail(snapshot: AccountsSnapshot | null): void {
   )
   const node = useMemo(
     () =>
-      focused && hasStrip && snapshot !== null ? <RailUsageStack snapshot={snapshot} /> : null,
-    [focused, hasStrip, snapshot]
+      focused && hasStrip && snapshot !== null ? (
+        <RailUsageStack snapshot={snapshot} bots={bots} />
+      ) : null,
+    [focused, hasStrip, snapshot, bots]
   )
   useSideRailContent(node)
 }
