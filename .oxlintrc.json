@@ -310,6 +310,32 @@
           {
             "property": "randomUUID",
             "message": "src/shared is compiled into the web bundle, where crypto.randomUUID is missing in non-secure contexts (Remote Web over plain HTTP). Use createNonSecureContextUuid() from 'src/shared/identifiers/non-secure-context-uuid.ts', or import randomUUID from 'node:crypto' in main-only code."
+          },
+          {
+            "object": "RegExp",
+            "property": "escape",
+            "message": "RegExp.escape is missing from the phone app's Hermes engine (mobile/src/platform/hermes-builtin-polyfills.ts lists what is), so it throws in natively-run code. Escape with a character-class replace instead."
+          },
+          {
+            "object": "Uint8Array",
+            "property": "fromBase64",
+            "message": "Uint8Array.fromBase64 is missing from the phone app's Hermes engine (mobile/src/platform/hermes-builtin-polyfills.ts lists what is), so it throws in natively-run code. Use decodeBase64Bytes or atob."
+          },
+          {
+            "object": "Uint8Array",
+            "property": "fromHex",
+            "message": "Uint8Array.fromHex is missing from the phone app's Hermes engine (mobile/src/platform/hermes-builtin-polyfills.ts lists what is), so it throws in natively-run code."
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "WeakRef",
+            "message": "WeakRef is missing from the phone app's Hermes engine (mobile/src/platform/hermes-builtin-polyfills.ts lists what is), so it throws in natively-run code. Hold a strong reference or key a WeakMap instead."
+          },
+          {
+            "name": "Float16Array",
+            "message": "Float16Array is missing from the phone app's Hermes engine (mobile/src/platform/hermes-builtin-polyfills.ts lists what is), so it throws in natively-run code."
           }
         ]
       }
