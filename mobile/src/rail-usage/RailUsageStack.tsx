@@ -7,8 +7,9 @@ import type { UsageProviderKey } from '../composer-usage/agent-usage-provider'
 import { useAccountsSnapshot } from '../composer-usage/accounts-snapshot-store'
 import { ComposerUsageSheet } from '../composer-usage/ComposerUsageSheet'
 import { useResetCountdownNow } from '../composer-usage/use-reset-countdown-now'
-import { colors, spacing } from '../theme/mobile-theme'
-import { themedStyleSheet } from '../theme/themed-styles'
+import { spacing } from '../theme/mobile-theme'
+import { themedStyleSheet, useThemedStyles } from '../theme/themed-styles'
+import { useMobileColors } from '../theme/use-mobile-color-scheme'
 import { useHostClient } from '../transport/connection/host-client-hooks'
 import { DUO_STATUS_RING_DIAMETER, duoStatusGlyphMidX } from '../layout/duo-status-row'
 import { useReservedRegions } from '../layout/reserved-regions'
@@ -34,6 +35,9 @@ const STATUS_COLUMN_SLACK_UNFOLDED = 26
  * dots ~10pt into the slack, leaving the same gap as between rings.
  */
 const FOCUS_ROW_MARGIN = 13
+
+/** The rings in a rail of their own (a tablet's), sized for its larger screen. */
+export const STANDALONE_RING_DIAMETER = 60
 
 /** The host's usage rings for the Duo side rail; empty until it reports a provider. */
 export function HostRailUsageStack({ hostId }: { hostId: string }): React.JSX.Element | null {
@@ -67,10 +71,15 @@ function useStatusColumnLift(atStripTop: boolean): number {
 
 /** A scrolling column of usage rings; a tap opens the usage sheet on that provider, with tabs for the rest. */
 export function RailUsageStack({
-  snapshot
+  snapshot,
+  standalone = false
 }: {
   snapshot: AccountsSnapshot | null
+  /** Centred in its own column rather than on the Duo status glyph's axis. */
+  standalone?: boolean
 }): React.JSX.Element | null {
+  const colors = useMobileColors()
+  const styles = useThemedStyles(stylesSheet)
   const usages = listRailUsage(snapshot)
   // Ticks at each ring's next label change, like the composer bar, so the two flip together.
   const now = useResetCountdownNow(
@@ -83,9 +92,10 @@ export function RailUsageStack({
   const center = useRailRingCenter(strip)
   // The band the rail gives the stack; a chat's composer can leave less than the whole column.
   const [room, setRoom] = useState<number | null>(null)
-  const lift = useStatusColumnLift(useContext(RailBandAtStripTopContext))
+  // A tablet's own rail has no status column to rise into.
+  const lift = useStatusColumnLift(useContext(RailBandAtStripTopContext) && !standalone)
   const fit = railRingStackFit({
-    count: usages.length,
+    count: standalone ? 0 : usages.length,
     room,
     ring: DUO_STATUS_RING_DIAMETER,
     overhang: RING_LABEL_OVERHANG,
@@ -95,7 +105,7 @@ export function RailUsageStack({
     paddingBottom: COLUMN_PADDING_BOTTOM,
     peek: CUT_FADE
   })
-  if (usages.length === 0 || strip === null) {
+  if (usages.length === 0 || (strip === null && !standalone)) {
     return null
   }
   const sheetUsage = usages.find((usage) => usage.provider === shown) ?? usages[0]
@@ -113,11 +123,13 @@ export function RailUsageStack({
           style={fit.height === null ? styles.scroll : { flexGrow: 0, height: fit.height }}
           contentContainerStyle={[
             styles.column,
-            {
-              paddingLeft: center - DUO_STATUS_RING_DIAMETER / 2,
-              gap: fit.gap,
-              paddingBottom: fit.paddingBottom
-            }
+            standalone
+              ? styles.centered
+              : {
+                  paddingLeft: center - DUO_STATUS_RING_DIAMETER / 2,
+                  gap: fit.gap,
+                  paddingBottom: fit.paddingBottom
+                }
           ]}
           showsVerticalScrollIndicator={false}
           // Shown in part, the stack rests on whole rings.
@@ -130,6 +142,7 @@ export function RailUsageStack({
               key={usage.provider}
               usage={usage}
               now={now}
+              diameter={standalone ? STANDALONE_RING_DIAMETER : undefined}
               onPress={() => open(usage.provider)}
             />
           ))}
@@ -156,7 +169,7 @@ const COLUMN_GAP = spacing.md
 const COLUMN_PADDING_TOP = spacing.md
 const COLUMN_PADDING_BOTTOM = spacing.lg
 
-const styles = themedStyleSheet(() => ({
+const stylesSheet = themedStyleSheet(() => ({
   scroll: {
     flex: 1
   },
@@ -164,6 +177,11 @@ const styles = themedStyleSheet(() => ({
   column: {
     alignItems: 'flex-start',
     paddingTop: COLUMN_PADDING_TOP
+  },
+  centered: {
+    alignItems: 'center',
+    gap: spacing.lg,
+    paddingBottom: COLUMN_PADDING_BOTTOM
   },
   cut: {
     position: 'absolute',

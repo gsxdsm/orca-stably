@@ -8650,6 +8650,10 @@
       }
     }
   },
+  "tabletUsageRail": {
+    "collapse": "Hide usage rail",
+    "expand": "Show usage rail"
+  },
   "composerUsage": {
     "meter": {
       "label": "{{provider}} {{window}} usage: {{percent}}% used. Show details",

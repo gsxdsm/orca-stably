@@ -62,6 +62,7 @@ import {
 import { usePageFoldDivision, usePublishedFoldDivision } from './page-geometry/page-fold-division'
 import { usePublishedShellKeyRail, useShellKeyRail } from './terminal-controls/use-shell-key-rail'
 import { useShellUsageRail } from '../rail-usage/use-shell-usage-rail'
+import { TabletUsageRail, useTabletUsageRail } from '../rail-usage/TabletUsageRail'
 import { pageSideStripRoom } from '../rail-usage/side-strip-holder'
 import { useRailRingsDuringChats } from '../rail-usage/rail-rings-during-chats-preference'
 import type { BridgeSideStripFree } from './bridge/page-geometry/bridge-side-strip-cover'
@@ -172,6 +173,7 @@ export function MobileWebShellScreen({
     }, [])
   )
   const strip = useSideRailStrip()
+  const tabletRail = useTabletUsageRail(hostId, pageFold.onShellLayout, !overlay)
   useClaimSideRelease(
     shellFocused &&
       strip !== null &&
@@ -458,8 +460,12 @@ export function MobileWebShellScreen({
         key={state.sessionId}
         ref={bridge.viewRef}
         // Overlays cannot cover the screen beneath; hide their opaque WebView until first paint.
-        style={[styles.shellView, overlay && pageFrame !== 'painted' && styles.unpaintedOverlay]}
-        onLayout={pageFold.onShellLayout}
+        style={[
+          styles.shellView,
+          overlay && pageFrame !== 'painted' && styles.unpaintedOverlay,
+          tabletRail.pageStyle
+        ]}
+        onLayout={tabletRail.onPageLayout}
         generationDirectory={state.generationDirectory}
         sessionId={state.sessionId}
         bridgeEnabled={bridge.bridgeEnabled}
@@ -489,6 +495,7 @@ export function MobileWebShellScreen({
           }
         }}
       />
+      <TabletUsageRail rail={tabletRail} />
       {overlay ? null : <ShellPageCover visible={pageFrame === 'unpainted'} />}
       <ShellDevFacts state={state} droppedBinaryFrames={droppedBinaryFrames} />
     </View>
