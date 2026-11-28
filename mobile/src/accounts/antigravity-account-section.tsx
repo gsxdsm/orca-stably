@@ -5,6 +5,12 @@ import {
   PHONE_PROVIDER_ACCOUNT_SWITCH_RUNTIME_CAPABILITY
 } from '../../../src/shared/remote-runtime/protocol/account-runtime-capabilities'
 import { TUI_AGENT_DISPLAY_NAMES } from '../../../src/shared/agent-launch/catalog/tui-agent-display-names'
+import {
+  collectProviderUsageMeters,
+  hasRenderableProviderUsage,
+  providerUsagePlaceholder,
+  type AccountsSnapshot
+} from './usage/usage-selectors'
 import { MobileAgentIcon } from '../components/icons/MobileAgentIcon'
 import { ListGroup, ListRow, SectionHeader } from '../components/list/ListGroup'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
@@ -18,6 +24,7 @@ import {
 } from './provider-account-operations'
 import { useThemedStyles } from '../theme/themed-styles'
 import { stylesSheet } from './mobile-accounts-screen-styles'
+import { UsageMeterList } from './provider-usage-section'
 
 export type ProviderAccountSwitch = {
   /** The host takes a phone's OpenCode, Devin and Antigravity switches. */
@@ -112,7 +119,14 @@ export function AntigravityAccountSection({
   const t = useMobileTranslation()
   const colors = useMobileColors()
   const styles = useThemedStyles(stylesSheet)
-  if (!state || state.accounts.length === 0) {
+  if (!state) {
+    return null
+  }
+  // With nothing saved yet, still say which login agy is on.
+  const rawEmail = state.currentAccount?.email
+  const currentEmail =
+    state.accounts.length === 0 && typeof rawEmail === 'string' ? rawEmail.trim() || null : null
+  if (state.accounts.length === 0 && currentEmail === null) {
     return null
   }
   const { launchesUse, changed } = antigravityRowNotes(state)
@@ -123,6 +137,13 @@ export function AntigravityAccountSection({
         icon={<MobileAgentIcon agentId="antigravity" size={14} />}
       />
       <ListGroup>
+        {currentEmail !== null ? (
+          <ListRow
+            key="current"
+            title={currentEmail}
+            subtitle={t('accounts.screen.signedIn', 'Signed in on this host')}
+          />
+        ) : null}
         {state.accounts.map((account) => {
           const active = state.activeAccountId === account.id
           // agy on a saved login other than the selection can still be picked, which selects it.
@@ -158,6 +179,45 @@ export function AntigravityAccountSection({
           )}
         </Text>
       ) : null}
+    </View>
+  )
+}
+
+/** Antigravity usage, which only older hosts still publish. */
+export function AntigravityUsageSection({
+  snapshot,
+  now
+}: {
+  snapshot: AccountsSnapshot
+  now: number
+}) {
+  const t = useMobileTranslation()
+  const styles = useThemedStyles(stylesSheet)
+  if (!hasRenderableProviderUsage(snapshot, 'antigravity')) {
+    return null
+  }
+  const limits = snapshot.rateLimits.antigravity ?? null
+  const collected = collectProviderUsageMeters('antigravity', limits)
+  const meters =
+    collected.length > 0 ? collected : [providerUsagePlaceholder('antigravity', limits)]
+  return (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <MobileAgentIcon agentId="antigravity" size={14} />
+        <Text style={styles.sectionHeading}>{t('accounts.screen.antigravity', 'Antigravity')}</Text>
+      </View>
+      <View style={styles.card}>
+        <View style={styles.row}>
+          <View style={styles.rowMain}>
+            <UsageMeterList meters={meters} now={now} />
+            {limits?.error ? (
+              <Text style={styles.errorText} numberOfLines={3}>
+                {limits.error}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+      </View>
     </View>
   )
 }

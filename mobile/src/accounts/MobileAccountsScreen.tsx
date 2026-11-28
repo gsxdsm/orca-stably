@@ -19,8 +19,10 @@ import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { stylesSheet } from './mobile-accounts-screen-styles'
 import { useNow } from '../hooks/use-now'
 import { ClaudeIcon, OpenAIIcon } from '../components/icons/AgentIcons'
+import type { AccountsSnapshot } from './accounts-snapshot'
 import {
   type ProviderKey,
+  MOBILE_USAGE_PROVIDER_IDS,
   getActiveProviderRateLimits,
   getInactiveProviderUsage,
   getSystemDefaultProviderUsage,
@@ -41,6 +43,8 @@ import { NavBar } from '../components/nav-bar/NavBar'
 import { NavBarButton, NavBarButtonOnSheetContext } from '../components/nav-bar/NavBarButton'
 import { ListGroup, SectionHeader, ListRow } from '../components/list/ListGroup'
 import { useRouteHandoff } from '../navigation/route-handoff'
+import { AntigravityUsageSection } from './antigravity-account-section'
+import { ProviderUsageSection } from './provider-usage-section'
 import { useMobileAccountsSnapshot } from './use-mobile-accounts-snapshot'
 import { ProviderAccountSections } from './provider-account-sections'
 import {
@@ -68,8 +72,6 @@ export function MobileAccountsScreen() {
   // Why: shared client per host. See docs/mobile-shared-client-per-host.md.
   const { client, state: connState } = useHostClient(hostId)
   const forceReconnect = useForceReconnect()
-  const connectionInputs = useHostConnectionInputs(hostId)
-  // Seed from the last host read so the subtitle is there on the first frame.
   const [hostName, setHostName] = useState(
     () => peekHosts()?.find((host) => host.id === hostId)?.name ?? ''
   )
@@ -79,6 +81,13 @@ export function MobileAccountsScreen() {
   const [notice, setNotice] = useState<AccountsNotice | null>(null)
   const { message: toastMessage, showToast } = useTransientToast()
 
+  useEffect(() => {
+    setHostError(null)
+    setBusyAccountId(null)
+    setNotice(null)
+  }, [hostId])
+
+  const connectionInputs = useHostConnectionInputs(hostId)
   const accounts = useMobileAccountsSnapshot({
     hostId,
     client,
@@ -372,10 +381,17 @@ export function MobileAccountsScreen() {
             ) : null}
             {renderProviderSection('claude')}
             {renderProviderSection('codex')}
+            <ProviderUsageSection provider="gemini" snapshot={snapshot} now={now} />
+            <AntigravityUsageSection snapshot={snapshot} now={now} />
+            <ProviderUsageSection provider="opencodeGo" snapshot={snapshot} now={now} />
+            <ProviderUsageSection provider="minimax" snapshot={snapshot} now={now} />
+            <ProviderUsageSection provider="grok" snapshot={snapshot} now={now} />
+            <ProviderUsageSection provider="cursor" snapshot={snapshot} now={now} />
+            <ProviderUsageSection provider="zcode" snapshot={snapshot} now={now} />
             <ProviderAccountSections
               client={client}
               live={live}
-              snapshot={snapshot}
+              snapshot={withoutDedicatedUsage(snapshot)}
               now={now}
               reloadKey={providerAccountsReload}
               busyAccountId={busyAccountId}
@@ -409,6 +425,15 @@ export function MobileAccountsScreen() {
       />
     </SafeAreaView>
   )
+}
+
+// Providers with their own usage section stay out of the generic "Other agents" list.
+function withoutDedicatedUsage(snapshot: AccountsSnapshot): AccountsSnapshot {
+  const rateLimits = { ...snapshot.rateLimits }
+  for (const provider of MOBILE_USAGE_PROVIDER_IDS) {
+    rateLimits[provider] = null
+  }
+  return { ...snapshot, rateLimits }
 }
 
 function RefreshingIcon({ color }: { color?: string }) {
