@@ -30,8 +30,6 @@ import { RuntimeAccountController } from '../agent-session/environment/runtime-a
 import { createLazyMobileSpeechOwners } from '../speech/lazy-mobile-speech-owners'
 import { RuntimeProjectHostSetupController } from '../repositories/runtime-project-host-setup-controller'
 import { RuntimeProjectGroupController } from '../repositories/runtime-project-group-controller'
-import { RuntimeRepositoryRegistrationController } from '../repositories/runtime-repository-registration-controller'
-import { RuntimeRepositorySettingsController } from '../repositories/runtime-repository-settings-controller'
 import { RuntimeRepositoryForkBackfill } from '../repositories/runtime-repository-fork-backfill'
 import { RuntimeWorkspaceSessionController } from '../workspaces/session-hosts/runtime-workspace-session-controller'
 import { ClaudeAgentTeamsService } from '../terminal/agent-teams/claude-agent-teams-service'
@@ -311,7 +309,7 @@ export abstract class OrcaRuntimeWithPreservedBranchCleanup extends RuntimeAgent
     this.repositoryCatalogDeps
   )
 
-  protected readonly repositoryRegistrations = new RuntimeRepositoryRegistrationController(
+  protected readonly repositoryRegistrations = new Lazy.LazyRuntimeRepositoryRegistrationController(
     this.repositoryCatalogDeps
   )
 
@@ -319,7 +317,7 @@ export abstract class OrcaRuntimeWithPreservedBranchCleanup extends RuntimeAgent
     this.repositoryCatalogDeps
   )
 
-  protected readonly repositorySettings = new RuntimeRepositorySettingsController({
+  protected readonly repositorySettings = new Lazy.LazyRuntimeRepositorySettingsController({
     ...this.repositoryCatalogDeps,
     resolveRepo: (selector) => this.resolveRepoSelector(selector),
     forgetTerminalTopology: (repoId) => this.terminalTopologyRevisionByRepoId.delete(repoId),

@@ -3,7 +3,10 @@ import type { RuntimeServerEnvironmentCommands } from '../files/server-browse/ru
 import type { RuntimeNestedRepoImport } from '../repositories/runtime-nested-repo-import'
 import type { RuntimeRepositoryCloneController } from '../repositories/runtime-repository-clone-controller'
 import type { RuntimeRepositoryRefQueries } from '../repositories/runtime-repository-ref-queries'
+import type { RuntimeRepositoryRegistrationController } from '../repositories/runtime-repository-registration-controller'
+import type { RuntimeRepositorySettingsController } from '../repositories/runtime-repository-settings-controller'
 import type { RuntimeRepositorySparsePresets } from '../repositories/runtime-repository-sparse-presets'
+import { getDefaultCreateProjectParent } from '../repositories/default-create-project-parent'
 
 function createLazyController<T>(load: () => Promise<T>): () => Promise<T> {
   let promise: Promise<T> | null = null
@@ -128,4 +131,74 @@ export class LazyRuntimeAiVaultCommands {
 
   prepare: RuntimeAiVaultCommands['prepare'] = async (...args) =>
     (await this.load()).prepare(...args)
+}
+
+export class LazyRuntimeRepositoryRegistrationController {
+  private readonly load: () => Promise<RuntimeRepositoryRegistrationController>
+
+  constructor(
+    private readonly deps: ConstructorParameters<typeof RuntimeRepositoryRegistrationController>[0]
+  ) {
+    this.load = createLazyController(async () => {
+      const { RuntimeRepositoryRegistrationController: Ctor } =
+        await import('../repositories/runtime-repository-registration-controller')
+      return new Ctor(deps)
+    })
+  }
+
+  add: RuntimeRepositoryRegistrationController['add'] = async (...args) =>
+    (await this.load()).add(...args)
+
+  create: RuntimeRepositoryRegistrationController['create'] = async (...args) =>
+    (await this.load()).create(...args)
+
+  defaultCreateParent: RuntimeRepositoryRegistrationController['defaultCreateParent'] = () => {
+    const store = this.deps.getStore()
+    if (!store) {
+      throw new Error('runtime_unavailable')
+    }
+    return getDefaultCreateProjectParent(store.getSettings())
+  }
+}
+
+export class LazyRuntimeRepositorySettingsController {
+  private readonly load: () => Promise<RuntimeRepositorySettingsController>
+
+  constructor(
+    private readonly deps: ConstructorParameters<typeof RuntimeRepositorySettingsController>[0]
+  ) {
+    this.load = createLazyController(async () => {
+      const { RuntimeRepositorySettingsController: Ctor } =
+        await import('../repositories/runtime-repository-settings-controller')
+      return new Ctor(deps)
+    })
+  }
+
+  show: RuntimeRepositorySettingsController['show'] = async (...args) =>
+    (await this.load()).show(...args)
+
+  setBaseRef: RuntimeRepositorySettingsController['setBaseRef'] = async (...args) =>
+    (await this.load()).setBaseRef(...args)
+
+  setHidden: RuntimeRepositorySettingsController['setHidden'] = async (...args) =>
+    (await this.load()).setHidden(...args)
+
+  update: RuntimeRepositorySettingsController['update'] = async (...args) =>
+    (await this.load()).update(...args)
+
+  remove: RuntimeRepositorySettingsController['remove'] = async (...args) =>
+    (await this.load()).remove(...args)
+
+  reorder: RuntimeRepositorySettingsController['reorder'] = (orderedIds) => {
+    const store = this.deps.getStore()
+    if (!store?.reorderRepos) {
+      throw new Error('runtime_unavailable')
+    }
+    if (!store.reorderRepos(orderedIds)) {
+      return { status: 'rejected' }
+    }
+    this.deps.invalidateResolvedWorktrees()
+    this.deps.notifyReposChanged()
+    return { status: 'applied' }
+  }
 }

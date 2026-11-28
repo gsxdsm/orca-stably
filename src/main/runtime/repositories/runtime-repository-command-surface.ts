@@ -77,9 +77,15 @@ type RuntimeRepositoryCommandOwners = {
     RuntimeRepositorySparsePresets,
     keyof RuntimeRepositorySparsePresets
   >
-  repositoryRegistrations: RuntimeRepositoryRegistrationController
+  repositoryRegistrations: Pick<
+    RuntimeRepositoryRegistrationController,
+    keyof RuntimeRepositoryRegistrationController
+  >
   repositoryClones: Pick<RuntimeRepositoryCloneController, keyof RuntimeRepositoryCloneController>
-  repositorySettings: RuntimeRepositorySettingsController
+  repositorySettings: Pick<
+    RuntimeRepositorySettingsController,
+    keyof RuntimeRepositorySettingsController
+  >
   repositoryRefQueries: Pick<RuntimeRepositoryRefQueries, keyof RuntimeRepositoryRefQueries>
   hostedReviews: RuntimeHostedReviewSurface
   gitHubRepositoryQueries: RuntimeGitHubRepositoryQuerySurface
