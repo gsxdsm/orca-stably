@@ -116,6 +116,7 @@ export function RailUsageStack({
     count: standalone ? 0 : usages.length,
     room,
     ring: DUO_STATUS_RING_DIAMETER,
+    minRing: DUO_STATUS_RING_DIAMETER * 0.75,
     overhang: RING_LABEL_OVERHANG,
     gap: COLUMN_GAP,
     minGap: MIN_RING_GAP,
@@ -125,6 +126,7 @@ export function RailUsageStack({
     leadingHeight: !standalone && hasItems ? DUO_STATUS_RING_DIAMETER + LEADING_VISUAL_SLACK : 0,
     tightenTop: !standalone && !atStripTop
   })
+  const diameter = fit.diameter ?? DUO_STATUS_RING_DIAMETER
   if (usages.length === 0 || (strip === null && !standalone)) {
     return null
   }
@@ -169,7 +171,7 @@ export function RailUsageStack({
               standalone
                 ? styles.centered
                 : {
-                    paddingLeft: center - DUO_STATUS_RING_DIAMETER / 2,
+                    paddingLeft: center - diameter / 2,
                     paddingTop: hasItems ? 0 : fit.paddingTop,
                     gap: fit.gap,
                     paddingBottom: fit.paddingBottom
@@ -186,7 +188,7 @@ export function RailUsageStack({
                 key={usage.provider}
                 usage={usage}
                 now={now}
-                diameter={standalone ? STANDALONE_RING_DIAMETER : undefined}
+                diameter={standalone ? STANDALONE_RING_DIAMETER : diameter}
                 onPress={() => open(usage.provider)}
               />
             ))}
