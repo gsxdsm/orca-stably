@@ -109,8 +109,8 @@ async function readBotActivity(
   for (const request of access) {
     add(
       `access:${request.requestId}`,
-      translate('watch.needs.connectorAccess', 'Access request from {{name}}', {
-        name: accessRequestPerson(request)
+      translate('bots.needs.access', '{{person}} asked for access', {
+        person: accessRequestPerson(request)
       }),
       request.createdAt
     )
