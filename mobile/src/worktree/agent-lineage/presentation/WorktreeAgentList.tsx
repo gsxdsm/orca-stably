@@ -21,6 +21,27 @@ import { WorktreeAgentRow } from './WorktreeAgentRow'
 import { WorktreeAgentSummary } from './WorktreeAgentSummary'
 import { useSharedNow } from '../../../hooks/use-now'
 import { worktreeAgentChildRows } from '../worktree-agent-child-rows'
+import { FORK_SIDEBAR_SESSIONS_ENABLED } from '../../../../../src/shared/fork-sidebar-sessions-flag'
+
+function parentSessionPress(
+  selectable: boolean,
+  onAgentPress: ((paneKey: string) => void) | undefined,
+  onLongPress: ((paneKey: string) => void) | undefined,
+  onWorkspacePress: (() => void) | undefined
+): ((paneKey: string) => void) | undefined {
+  if (!FORK_SIDEBAR_SESSIONS_ENABLED) {
+    // #37458: a plain row opens its own pane, not the workspace's active tab.
+    return onAgentPress
+  }
+  if (selectable && onAgentPress) {
+    return onAgentPress
+  }
+  if (onLongPress) {
+    return onWorkspacePress
+  }
+  // #37458: a plain row opens its own pane, not the workspace's active tab.
+  return onAgentPress
+}
 
 type Props = {
   agents: RuntimeWorktreeAgentRow[]
@@ -28,9 +49,19 @@ type Props = {
   statusLive?: boolean
   isReadOnly?: boolean
   onAgentPress?: (paneKey: string) => void
+  /** Workspace menu when the row has no session hold. */
   onAgentLongPress?: () => void
   /** The desktop's "Full list" agent activity layout: every row, no summary. */
   fullList?: boolean
+  /** Each session is its own taller target. Off, a long-press on the card still lists every session. */
+  selectable?: boolean
+  /** Pane open from a session tap. Only that session row is filled. */
+  selectedPaneKey?: string | null
+  onLongPress?: (paneKey: string) => void
+  /** Tap on a session row while sessions are not selectable. Opens the workspace, not that session. */
+  onWorkspacePress?: () => void
+  onPressIn?: () => void
+  onPressOut?: () => void
 }
 
 // A parent's direct children: its sub-agent rows, then its spawned lineage agents.
@@ -50,8 +81,17 @@ export function WorktreeAgentList({
   isReadOnly = false,
   onAgentPress,
   onAgentLongPress,
-  fullList = false
+  fullList = false,
+  selectable = false,
+  selectedPaneKey = null,
+  onLongPress,
+  onWorkspacePress,
+  onPressIn,
+  onPressOut
 }: Props) {
+  const hold =
+    (FORK_SIDEBAR_SESSIONS_ENABLED ? onLongPress : undefined) ??
+    (onAgentLongPress ? () => onAgentLongPress() : undefined)
   // Only lists that draw agent times tick, so the rest of the host list skips the 30 s clock.
   const now = useSharedNow(30_000)
   const roots = useMemo(
@@ -79,9 +119,12 @@ export function WorktreeAgentList({
       depth={node.depth + 1}
       now={now}
       unvisited={unvisited}
+      selectable={selectable}
       isReadOnly={isReadOnly}
       onPress={onAgentPress}
-      onLongPress={onAgentLongPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      onLongPress={hold}
     />
   )
 
@@ -125,9 +168,13 @@ export function WorktreeAgentList({
           depth={node.depth}
           now={now}
           unvisited={unvisited}
+          selectable={selectable}
+          selected={selectedPaneKey === node.row.paneKey}
           isReadOnly={isReadOnly}
-          onPress={onAgentPress}
-          onLongPress={onAgentLongPress}
+          onPress={parentSessionPress(selectable, onAgentPress, onLongPress, onWorkspacePress)}
+          onPressIn={onPressIn}
+          onPressOut={onPressOut}
+          onLongPress={hold}
           trailing={
             children.length > 0 ? (
               <WorktreeAgentChildToggle

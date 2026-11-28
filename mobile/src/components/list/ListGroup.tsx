@@ -168,6 +168,8 @@ type ListRowProps = {
   /** A checkbox row that draws its own tick: its state for screen readers. */
   checked?: boolean
   destructive?: boolean
+  /** Title clamp. Absent stays one line. */
+  titleLines?: number
   /** An action, not a setting (e.g. "Open sign-in page"): the title in the accent, like Home's "Pair a desktop". */
   accent?: boolean
   /** Something new to read: the title bolder. */
@@ -205,6 +207,7 @@ export function ListRow({
   selected,
   checked,
   destructive = false,
+  titleLines,
   accent = false,
   strong = false,
   onPress,
@@ -233,7 +236,7 @@ export function ListRow({
           destructive && listRowStyles.titleDestructive,
           accent && listRowStyles.titleAccent
         ]}
-        numberOfLines={wrapTitle ? undefined : 1}
+        numberOfLines={wrapTitle ? undefined : (titleLines ?? 1)}
       >
         {titlePrefix !== undefined ? (
           <Text style={listRowStyles.titlePrefix}>{`${titlePrefix} `}</Text>

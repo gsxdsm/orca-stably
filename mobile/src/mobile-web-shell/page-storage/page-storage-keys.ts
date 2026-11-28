@@ -81,6 +81,8 @@ export const PAGE_STORAGE_EXACT_KEYS = [
   'orca:composerUsageDisplay',
   /** Whether the chat composer's meter sits in its controls row or above the text. */
   'orca:composerUsagePosition',
+  /** Whether a sidebar session row opens that session. */
+  'orca:selectableSidebarSessions',
   /** Whether every Duo chat runs across the status column. */
   'orca:duoChatExpanded',
   /** Terminal font, line spacing and weight. */
@@ -103,6 +105,7 @@ export const NEGOTIATED_PAGE_STORAGE_KEYS = [
   'orca:composerUsageWindow',
   'orca:composerUsageDisplay',
   'orca:composerUsagePosition',
+  'orca:selectableSidebarSessions',
   'orca:duoChatExpanded',
   'orca:terminalFontStyle',
   'orca:nativeChatText',

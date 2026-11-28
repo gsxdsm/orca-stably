@@ -980,7 +980,12 @@
       "status": "Status",
       "handOff": "Hand off",
       "handOffToAgent": "To an agent",
-      "handOffToBot": "To a bot"
+      "handOffToBot": "To a bot",
+      "sessions": "Sessions",
+      "openSession": "Open {{name}}",
+      "closeSessionConfirm": "Close \"{{name}}\"?",
+      "closeSessionMissing": "This session is no longer open.",
+      "closeSessionFailed": "This session could not be closed."
     },
     "workspaceRenameSheet": {
       "title": "Rename Workspace",
@@ -1068,7 +1073,10 @@
       "hideOtherDevicesWorkspaces": "Hide other devices’ workspaces",
       "hideNoBranch": "Hide workspaces with no branch",
       "saving": "Saving…",
-      "stillSaving": "Still saving…"
+      "stillSaving": "Still saving…",
+      "onThisPhone": "On this phone",
+      "selectSessions": "Select sessions",
+      "selectSessionsDetail": "Taller rows you can tap to open that session."
     },
     "hostBottomBar": {
       "workspaceOptions": "Workspace options",
@@ -1863,6 +1871,9 @@
     },
     "diffReviewScreen": {
       "backToDiff": "Back to diff"
+    },
+    "worktreeAgentRow": {
+      "sessionActions": "Actions for {{name}}"
     }
   },
   "pullRequest": {
