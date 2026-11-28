@@ -30,7 +30,6 @@ inline src/main/runtime/push/desktop-push-service.ts
 inline src/main/runtime/push/push-dispatcher.ts
 inline src/main/runtime/rpc/methods/orchestration/messaging/send-methods.ts
 inline src/main/runtime/session-tabs/chat/structured-session-create-support.ts
-inline src/main/runtime/workspaces/process-listing/workspace-process-listing.ts
 inline src/renderer/src/components/native-chat/composer/NativeChatComposerPane.tsx
 inline src/shared/agent-session/agent-session-wire.ts
 inline src/shared/agent-session/journal/agent-session-journal-types.ts
