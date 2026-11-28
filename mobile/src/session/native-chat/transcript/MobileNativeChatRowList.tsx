@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, type ComponentProps, type ReactElement } from 
 import { FlatList, Platform } from 'react-native'
 import type { LegacyComposedGesture } from 'react-native-gesture-handler'
 import { MobileNativeChatPinchZoom } from './viewport/mobile-native-chat-pinch-zoom'
+import type { MobileNativeChatPinchAnchor } from './viewport/mobile-native-chat-pinch-anchor'
 import type { MobileNativeChatRowKeys } from './projection/mobile-native-chat-row-keys'
 import { MobileNativeChatPageList } from './viewport/MobileNativeChatPageList'
 import type { NativeChatMessage } from '../../../../../src/shared/native-chat/native-chat-types'
@@ -46,7 +47,7 @@ type Props = Pick<
   /** With a header, the row below it anchors the native list's visible content. */
   hasHeader: boolean
   pinchGesture: LegacyComposedGesture
-  pinchTarget?: (node: unknown) => void
+  pinchAnchor?: MobileNativeChatPinchAnchor
 }
 
 export function MobileNativeChatRowList(props: Props): ReactElement {
@@ -60,6 +61,7 @@ export function MobileNativeChatRowList(props: Props): ReactElement {
           {...tail.pageListProps}
           {...{ rows, rowKeys, roots, renderItem, runs, contentContainerStyle, layoutKey }}
           {...{ header, footer, emptyStateView, onScroll, onNearTop, itemJump }}
+          pinchAnchor={props.pinchAnchor}
         />
       </MobileNativeChatPinchZoom>
     )

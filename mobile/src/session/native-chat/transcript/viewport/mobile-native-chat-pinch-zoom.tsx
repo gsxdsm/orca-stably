@@ -1,18 +1,32 @@
-import { useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode
+} from 'react'
+import { Platform } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import type { LegacyComposedGesture } from 'react-native-gesture-handler'
 import {
-  clampNativeChatTextSize,
   nativeChatFontScale,
   updateNativeChatTextSettings,
   useNativeChatTextSettingsFollowingShell
 } from '../../preferences/native-chat-text-settings'
+import {
+  createMobileNativeChatPinchAnchor,
+  type MobileNativeChatPinchAnchor
+} from './mobile-native-chat-pinch-anchor'
+import { nativeChatPinchCommitSize, nativeChatPinchLiveSize } from './mobile-native-chat-pinch-size'
 
-// A pinch steps the saved text size in whole points, previews here, and saves once on release for every chat.
-// Each step remeasures the whole list, so frame-level scales would repaint recycled iOS paragraphs with stale clipped content.
+// A pinch resizes the chat text live, then saves the whole-point size once on release for every chat.
+// No CSS scale: a scaled transcript reads as the page zooming, not the text growing.
 export function useMobileNativeChatPinchGesture(): {
   fontScale: number
   pinchGesture: LegacyComposedGesture
+  pinchAnchor: MobileNativeChatPinchAnchor
 } {
   const { size } = useNativeChatTextSettingsFollowingShell()
   const [pinched, setPinched] = useState<number | null>(null)
@@ -22,6 +36,30 @@ export function useMobileNativeChatPinchGesture(): {
   }, [size])
   const live = useRef<number | null>(null)
   const pinchBase = useRef(size)
+  const [preview] = useState(createMobileNativeChatPinchAnchor)
+  const frame = useRef<number | null>(null)
+  const dropFrame = (): void => {
+    if (frame.current !== null) {
+      cancelAnimationFrame(frame.current)
+      frame.current = null
+    }
+  }
+  // Web draws at most one size per frame, marking the text under the fingers just before it rewraps.
+  const show = (next: number): void => {
+    if (Platform.OS !== 'web') {
+      setPinched(next)
+      return
+    }
+    if (frame.current === null) {
+      frame.current = requestAnimationFrame(() => {
+        frame.current = null
+        if (live.current !== null) {
+          preview.mark()
+          setPinched(live.current)
+        }
+      })
+    }
+  }
   // Run callbacks on JS to access React state safely; simultaneous native scrolling keeps active lists from stealing pinch recognition.
   const pinchGesture = useMemo(
     () =>
@@ -29,26 +67,38 @@ export function useMobileNativeChatPinchGesture(): {
         Gesture.Native(),
         Gesture.Pinch()
           .runOnJS(true)
-          .onStart(() => {
+          .onStart((e) => {
             pinchBase.current = live.current ?? saved.current
+            preview.begin(e.focalX, e.focalY)
           })
           .onUpdate((e) => {
-            live.current = clampNativeChatTextSize(pinchBase.current * e.scale)
-            setPinched(live.current)
+            const next = nativeChatPinchLiveSize(pinchBase.current, e.scale, Platform.OS === 'web')
+            if (next !== live.current) {
+              live.current = next
+              show(next)
+            }
           })
           .onFinalize(() => {
-            const next = live.current
+            dropFrame()
+            const next = nativeChatPinchCommitSize(live.current, saved.current)
             live.current = null
-            if (next !== null && next !== saved.current) {
+            if (next !== null) {
+              preview.mark()
               void updateNativeChatTextSettings({ size: next })
             }
+            preview.end()
             setPinched(null)
           })
       ),
-    []
+    [preview]
   )
+  useEffect(() => dropFrame, [])
+  // The transcript takes the mark as it lays out the new size; drop one no size change drew.
+  useLayoutEffect(() => {
+    preview.settle()
+  })
 
-  return { fontScale: nativeChatFontScale(pinched ?? size), pinchGesture }
+  return { fontScale: nativeChatFontScale(pinched ?? size), pinchGesture, pinchAnchor: preview }
 }
 
 // Web: gesture handler 3 defaults to touch-action: none (froze touch scrolling); auto would let a pinch zoom the page instead of the text.
@@ -63,6 +113,7 @@ export function MobileNativeChatPinchZoom({
   gesture: LegacyComposedGesture
   children: ReactNode
 }) {
+  // No wrapper: the handler must sit on the scroller, as WebKit reads touch-action only up to the nearest scroller.
   return (
     <GestureDetector gesture={gesture} touchAction={PAN_WITHOUT_PAGE_ZOOM} enableContextMenu>
       {children}
