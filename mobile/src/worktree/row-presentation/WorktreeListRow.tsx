@@ -1,14 +1,5 @@
 import { memo } from 'react'
-import {
-  Bell,
-  ChevronDown,
-  ChevronRight,
-  Eye,
-  EyeOff,
-  GitBranch,
-  Pin,
-  PinOff
-} from 'lucide-react-native'
+import { Bell, Eye, EyeOff, GitBranch, Pin, PinOff } from 'lucide-react-native'
 import { Pressable, Text, View } from 'react-native'
 import type { MobileRenderableRepoIcon } from '../../host-screen/host-screen-reply-schema'
 import { triggerMediumImpact } from '../../platform/haptics/haptics'
@@ -50,11 +41,7 @@ import {
   useWorktreeRowSession,
   workspaceCardActivation
 } from '../../components/worktree-session-press'
-
-// Match desktop formatBranchName by hiding refs/heads/ prefix.
-function displayBranch(branch: string): string {
-  return branch.replace(/^refs\/heads\//, '')
-}
+import { WorktreeLineageToggle } from './WorktreeLineageToggle'
 
 type Props = {
   item: Worktree
@@ -123,7 +110,8 @@ function WorktreeListRowComponent({
   const folderMeta =
     item.comment?.trim() || item.path || t('components.worktreeListRow.folder', 'Folder')
   const metaText =
-    view.botFacts?.statusLine ?? (isFolderWorkspace ? folderMeta : displayBranch(item.branch))
+    view.botFacts?.statusLine ??
+    (isFolderWorkspace ? folderMeta : item.branch.replace(/^refs\/heads\//, ''))
   const lineageDepth = Math.max(0, view.lineageDepth ?? 0)
   const indent = projectGroupRowIndent(item, view) + lineageDepth * 18
   const count = view.lineageChildCount ?? 0
@@ -409,33 +397,11 @@ function WorktreeListRowComponent({
               />
             ) : null}
             {count > 0 && onToggleLineage ? (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.lineageToggle,
-                  pressed && styles.lineageTogglePressed
-                ]}
-                hitSlop={LINEAGE_TOGGLE_HIT_SLOP}
-                accessibilityRole="button"
-                accessibilityState={{ expanded: !view.lineageCollapsed }}
-                onPress={(event) => {
-                  event.stopPropagation()
-                  guardDragRelease(() => onToggleLineage({ row: item, view }))()
-                }}
-              >
-                {view.lineageCollapsed ? (
-                  <ChevronRight size={12} color={colors.textSecondary} />
-                ) : (
-                  <ChevronDown size={12} color={colors.textSecondary} />
-                )}
-                <GitBranch size={12} color={colors.textSecondary} />
-                <Text style={styles.lineageToggleText}>
-                  {count === 1
-                    ? t('components.worktreeListRow.children_one', '{{count}} child', { count })
-                    : t('components.worktreeListRow.children_other', '{{count}} children', {
-                        count
-                      })}
-                </Text>
-              </Pressable>
+              <WorktreeLineageToggle
+                count={count}
+                collapsed={Boolean(view.lineageCollapsed)}
+                onPress={guardDragRelease(() => onToggleLineage({ row: item, view }))}
+              />
             ) : null}
           </View>
         </Pressable>
@@ -445,6 +411,3 @@ function WorktreeListRowComponent({
 }
 
 export const WorktreeListRow = memo(WorktreeListRowComponent, areStructurallyEqual)
-
-// Grows the 20 pt pill to a 44 pt target without pushing the row apart.
-const LINEAGE_TOGGLE_HIT_SLOP = { top: 12, bottom: 12, left: 8, right: 8 } as const
