@@ -1,7 +1,10 @@
 import { MOBILE_AGENT_SESSION_RPC_METHODS } from './runtime-rpc-mobile-agent-session-methods'
 import { PAIRED_DESKTOP_METHODS } from './runtime-rpc-mobile-paired-desktop-methods'
 import { MOBILE_BOT_RPC_METHODS } from './runtime-rpc-mobile-bot-methods'
+import { MOBILE_HOST_UPDATE_RPC_METHODS } from './runtime-rpc-mobile-host-update-methods'
 import { MOBILE_MCP_SERVER_RPC_METHODS } from './runtime-rpc-mobile-mcp-server-methods'
+import { MOBILE_ORCA_ACCOUNT_RPC_METHODS } from './runtime-rpc-mobile-orca-account-methods'
+import { MOBILE_PROJECT_RPC_METHODS } from './runtime-rpc-mobile-project-methods'
 import { DEFAULT_SCOPE_HOST_METHODS } from './runtime-rpc-mobile-tracker-methods'
 
 // Execution-host routes follow the configured target; paired-desktop routes stay with the relaying Mac;
@@ -9,22 +12,16 @@ import { DEFAULT_SCOPE_HOST_METHODS } from './runtime-rpc-mobile-tracker-methods
 export type MobileRpcMethodRoute = 'execution-host' | 'paired-desktop' | 'default-scope-host'
 
 export const EXECUTION_HOST_METHODS = [
-  // Signing in/out needs the same power as running commands on the host (workspace).
-  'orcaAccount.selectOrg',
-  'orcaAccount.signIn.cancel',
-  'orcaAccount.signIn.complete',
-  'orcaAccount.signIn.start',
-  'orcaAccount.signIn.wait',
-  'orcaAccount.signOut',
-  'orcaAccount.status',
-  'orcaAccount.subscribe',
-  'orcaAccount.unsubscribe',
+  ...MOBILE_ORCA_ACCOUNT_RPC_METHODS,
   // A relayed phone asks the server itself for its own pairing; the server refuses any other caller.
   'pairing.delegatedMobileDevice.createOffer',
   'ui.getJiraQuickFilters',
   'ui.setJiraQuickFilters',
   'ui.getJiraSavedFilters',
   'ui.mutateJiraSavedFilters',
+  // Saved agy accounts belong to the host whose chats run agy.
+  'accounts.antigravityList',
+  'accounts.antigravitySelect',
   'agent.launch',
   'agent.launchReplay',
   // Agent ids, chat records and transcripts live on the host that runs the agent.
@@ -38,6 +35,7 @@ export const EXECUTION_HOST_METHODS = [
   'agentTeams.tmuxCompat',
   ...MOBILE_BOT_RPC_METHODS,
   ...MOBILE_MCP_SERVER_RPC_METHODS,
+  ...MOBILE_HOST_UPDATE_RPC_METHODS,
   // A bot chat's Slack thread switch and its posts' Retry, Dismiss and Delete, on the bot's host.
   'connector.slackMirror.set',
   'connector.slackMirror.post',
@@ -117,9 +115,12 @@ export const EXECUTION_HOST_METHODS = [
   // Phone edits of workspace files; the host's disk precondition refuses a save over a newer desktop change.
   'files.writeIfUnchanged',
   'files.writeTerminalArtifact',
-  // A folder row's Delete removes the Orca workspace on its host, as desktop's Remove Workspace does.
-  'folderWorkspace.delete',
-  'folderWorkspace.list',
+  // The Files browser's New Folder, Rename, Duplicate and Delete on the workspace's host; no-clobber, and
+  // owner-fenced like files.createFile. Gated on files.mobile-explorer-mutations.v1. Delete is permanent.
+  'files.copy',
+  'files.createDir',
+  'files.delete',
+  'files.rename',
   'git.abortMerge',
   'git.abortRebase',
   // Read-only: the delete confirm names ignored files (.env) that removing the worktree would lose.
@@ -243,17 +244,7 @@ export const EXECUTION_HOST_METHODS = [
   'orchestration.workerChatTouch',
   'orchestration.workerAutoClose',
   'orchestration.workerKeepOpen',
-  'projectGroup.list',
-  'project.list',
-  'projectHostSetup.list',
-  'repo.baseRefDefault',
-  'repo.gitAvailable',
-  'repo.hooks',
-  'repo.list',
-  'repo.saveSparsePreset',
-  'repo.searchRefs',
-  'repo.sparsePresets',
-  'repo.update',
+  ...MOBILE_PROJECT_RPC_METHODS,
   'settings.getAgentLaunch',
   // The host that owns the workspace scans its skills.
   'skills.discover',

@@ -73,7 +73,9 @@ export function MobileNativeChatUsageLimitStatus({
   const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const locale = intlLocaleFor(useMobileUiLocale())
-  const { usageLimit, openAccounts } = useContext(MobileNativeChatNoticeContext)
+  const { usageLimit, openAccounts, openAntigravityAccounts } = useContext(
+    MobileNativeChatNoticeContext
+  )
   const failure = readWholeAgentSessionFailureFact(notice.failure)
   const resetsAt = failure?.kind === 'usageLimitReached' ? failure.usageLimit?.resetsAt : undefined
   const actions =
@@ -82,14 +84,19 @@ export function MobileNativeChatUsageLimitStatus({
     usageLimit?.turnItemId === notice.usageLimitTurnItemId
       ? usageLimit
       : null
-  // Continue applies at the cut's own reset, or earlier once the host says the chat moved accounts.
+  // Continue applies at the cut's own reset, or earlier once the host says the chat moved accounts;
+  // a move onto an account itself out of quota waits for that account, even past this reset.
+  const movedOutOfQuota = actions?.limitedAccount !== undefined
   const resetPassed = useResetPassed(
     resetsAt !== undefined && actions?.continueAt !== undefined
-      ? Math.min(resetsAt, actions.continueAt)
+      ? movedOutOfQuota
+        ? actions.continueAt
+        : Math.min(resetsAt, actions.continueAt)
       : resetsAt
   )
   // The line names the reset Orca waits for.
-  const shownAt = actions?.autoContinue ? (actions.continueAt ?? resetsAt) : resetsAt
+  const shownAt =
+    actions?.autoContinue || movedOutOfQuota ? (actions?.continueAt ?? resetsAt) : resetsAt
   const shownPassed = useResetPassed(shownAt)
   if (failure?.kind !== 'usageLimitReached') {
     return null
@@ -103,7 +110,11 @@ export function MobileNativeChatUsageLimitStatus({
     t,
     locale
   )
-  const switchAccount = actions?.canSwitchAccount ? (openAccounts ?? null) : null
+  const switchAccount = actions?.antigravityAccounts
+    ? (openAntigravityAccounts ?? null)
+    : actions?.canSwitchAccount
+      ? (openAccounts ?? null)
+      : null
   const continueNow = actions && resetPassed ? actions.continueNow : null
   if (!status && !switchAccount && !continueNow) {
     return null
