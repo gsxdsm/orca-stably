@@ -11,6 +11,7 @@ import { ClaudeRuntimeAuthService } from '../../claude-accounts/runtime-auth-ser
 import { ClaudeAccountService } from '../../claude-accounts/service'
 import { getInitialCodexRateLimitTarget } from '../../rate-limits/providers/codex/codex-rate-limit-target'
 import { getInitialClaudeRateLimitTarget } from '../../rate-limits/providers/claude/claude-rate-limit-target'
+import { UsageLastGoodStore } from '../../rate-limits/usage-last-good/usage-last-good-store'
 import { resolveKimiHome } from '../../kimi/kimi-runtime-home'
 import { resolveLocalAccountUsageTarget } from '../../../shared/agent-accounts/local-account-runtime'
 import { resolveCodexRateLimitHomeUnlessStopped } from '../../rate-limits/providers/codex/codex-rate-limit-wsl-home-gate'
@@ -96,6 +97,13 @@ export function createProviderAccountServices(
     resolveKimiHome(resolveLocalAccountUsageTarget(store.getSettings()))
   )
   rateLimits.setClaudeFetchTarget(getInitialClaudeRateLimitTarget(store.getSettings()))
+  void rateLimits.setUsageLastGoodStore(
+    new UsageLastGoodStore(
+      hasAppEnvironment()
+        ? join(getAppEnvironment().getPath('userData'), 'orca-usage-last-good.json')
+        : null
+    )
+  )
   const syncAccountRuntimeTargets = createAccountRuntimeTargetSettingsSync(
     rateLimits,
     store.getSettings()
