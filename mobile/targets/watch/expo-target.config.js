@@ -10,7 +10,8 @@ module.exports = (config) => {
   writeInfoPlist(__dirname, [
     ['OrcaAppGroup', `group.${bundleId}`],
     ['WKCompanionAppBundleIdentifier', bundleId],
-    ['WKRunsIndependentlyOfCompanionApp', false]
+    ['WKRunsIndependentlyOfCompanionApp', false],
+    ['CFBundleURLTypes', [{ CFBundleURLSchemes: ['orca-watch'] }]]
   ])
   return {
     type: 'watch',
