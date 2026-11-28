@@ -213,6 +213,8 @@ export type AcpDialect = {
   listedSelection?: StructuredAgentListedSelection
   /** Native thinking choices remain valid across models; the agent clamps unsupported levels. */
   clampsUnlistedEffort?: true
+  /** session/load answered, but this body means the session is gone. */
+  loadedSessionMissing?(response: AcpLoadedSessionBody): boolean
   /** Opt-in because advertising forms changes agent behaviour; requests use the generic handlers. */
   clientCapabilities?: Pick<ClientCapabilities, 'elicitation' | '_meta'>
   /** Requests that name no session; they belong to the chat's own. */
@@ -286,6 +288,13 @@ export type AcpDialect = {
   thinkingConfigId?: string
   /** This agent's mode values, mapped to Orca's Build/Plan interaction mode. */
   interactionModes?: Readonly<Record<AgentSessionInteractionMode, string>>
+}
+
+export type AcpLoadedSessionBody = {
+  modes?: unknown
+  models?: unknown
+  configOptions?: unknown
+  _meta?: unknown
 }
 
 export type AcpChildStops = { subagents: boolean; backgroundTasks: boolean }

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: send, hold and hand-back share one hook so unconfirmed-send ordering stays one behavior surface. */
 import { useCallback, type MutableRefObject } from 'react'
 import type { RpcClient } from '../../../../transport/rpc/rpc-client-contract'
 import {
@@ -23,13 +24,17 @@ import {
   acquireMobileNativeChatTerminalWrite,
   releaseMobileNativeChatTerminalWrite
 } from '../../composer/delivery/mobile-native-chat-terminal-write-lock'
-import type { MobileNativeChatSendOrigin } from './mobile-native-chat-pending-echo'
+import {
+  discardOptimisticMobileNativeChatSend,
+  type MobileNativeChatSendOrigin
+} from './mobile-native-chat-pending-echo'
+import type { MobileNativeChatLaunchDraftSeed } from '../../composer/drafts/use-mobile-native-chat-launch-draft-seed'
+import { buildNativeChatPasteBytes } from '../../../../../../src/shared/native-chat/input/composer/native-chat-paste-bytes'
 import {
   UNCONFIRMED_SEND_MESSAGE,
   UNCONFIRMED_SEND_RESTORED_MESSAGE
 } from '../../composer/delivery/use-mobile-native-chat-unconfirmed-sends'
-import type { MobileNativeChatLaunchDraftSeed } from '../../composer/drafts/use-mobile-native-chat-launch-draft-seed'
-import { buildNativeChatPasteBytes } from '../../../../../../src/shared/native-chat/input/composer/native-chat-paste-bytes'
+import { retryHeldHermesSubmit } from '../../mobile-hermes-held-submit'
 
 export type MobileNativeChatMessageSend = {
   send: (text: string, images?: string[]) => Promise<boolean>
@@ -65,7 +70,13 @@ export function useMobileNativeChatMessageSend(args: {
     text: string,
     options?: { preserveConversationCommands?: boolean }
   ) => void
-  acceptSend: (origin: MobileNativeChatSendOrigin, text: string, images?: string[]) => void
+  acceptSend: (
+    origin: MobileNativeChatSendOrigin,
+    text: string,
+    images?: string[],
+    allowWaiting?: boolean
+  ) => string | void
+  discardPendingSend?: (id: string) => void
   holdUnconfirmedSend: (
     origin: MobileNativeChatSendOrigin,
     text: string,
@@ -86,6 +97,7 @@ export function useMobileNativeChatMessageSend(args: {
     clearDraftForSend,
     restoreRejectedDraft,
     acceptSend,
+    discardPendingSend,
     holdUnconfirmedSend,
     onSendError
   } = args
@@ -111,29 +123,42 @@ export function useMobileNativeChatMessageSend(args: {
         onSendError('Message not sent (disconnected)')
         return 'rejected'
       }
+      const owner = nativeChatSendTextOwner(intent, syncComposer ? restoreRejectedDraft : null)
+      const skillOrigin = owner.skillOrigin ?? readMobileNativeChatSkillOrigin(origin.draftKey)
+      const classification = classifyMobileNativeChatSend(agent, text, skillOrigin)
+      const optimisticId =
+        agent === 'hermes' && classification === 'chat'
+          ? acceptSend(origin, text, images, true)
+          : undefined
       // Heal orphaned input before clearing draft; failed heals preserve typing, and heal/text spend the same action deadline.
-      const deadline = sharedDeadline ?? openMobileNativeChatSendBudget()
+      const deadline = sharedDeadline ?? openMobileNativeChatSendBudget(agent)
       const healArgs = {
         client,
         terminal: handle,
         deviceToken: deviceTokenRef.current,
         deadline
       }
-      if (!(await healMobileNativeChatStaleInput(healArgs))) {
+      let inFlightId: string | null = null
+      const reject = (restoreDraft: boolean): 'rejected' => {
+        settleMobileNativeChatInFlightSend(inFlightId)
+        discardOptimisticMobileNativeChatSend(optimisticId, discardPendingSend)
+        if (restoreDraft && syncComposer) {
+          restoreRejectedDraft(origin, draftText)
+        }
         onSendError('Message not sent')
         return 'rejected'
       }
+      if (!(await healMobileNativeChatStaleInput(healArgs))) {
+        return reject(false)
+      }
       // A picked skill leading the draft is chat, as on desktop; read it before the clear forgets it.
-      const owner = nativeChatSendTextOwner(intent, syncComposer ? restoreRejectedDraft : null)
-      const skillOrigin = owner.skillOrigin ?? readMobileNativeChatSkillOrigin(origin.draftKey)
       // Clear optimistically before slow/lost acknowledgements; only definite rejection restores the draft.
       if (syncComposer) {
         clearDraftForSend(origin, draftText)
       }
       const seededLaunchDraft = readSeededLaunchDraftSeed()
-      const classification = classifyMobileNativeChatSend(agent, text, skillOrigin)
       // Saved in the same write as the clear, so a kill before the outcome cannot lose the text.
-      const inFlightId = owner.owned
+      inFlightId = owner.owned
         ? beginMobileNativeChatInFlightSend(origin, 'terminal', draftText, {
             command: classification !== 'chat',
             intent
@@ -161,12 +186,7 @@ export function useMobileNativeChatMessageSend(args: {
             : {})
         })
         if (!cleared) {
-          if (syncComposer) {
-            restoreRejectedDraft(origin, draftText)
-          }
-          settleMobileNativeChatInFlightSend(inFlightId)
-          onSendError('Message not sent')
-          return 'rejected'
+          return reject(true)
         }
       }
       const mobileClient = deviceTokenRef.current
@@ -219,14 +239,22 @@ export function useMobileNativeChatMessageSend(args: {
       }
       settleMobileNativeChatInFlightSend(inFlightId, outcome === 'rejected' ? 'kept' : 'sent')
       if (outcome === 'rejected') {
-        if (syncComposer) {
-          restoreRejectedDraft(origin, draftText)
-        }
-        onSendError('Message not sent')
-        return 'rejected'
+        return reject(true)
+      }
+      if (agent === 'hermes' && classification === 'chat') {
+        await retryHeldHermesSubmit({
+          client,
+          terminal: handle,
+          text: text,
+          deadline,
+          deviceToken: deviceTokenRef.current,
+          isCurrent: () => handleRef.current === handle && agentRef.current === 'hermes'
+        })
       }
       if (classification === 'chat') {
-        acceptSend(origin, text, images)
+        if (!optimisticId) {
+          acceptSend(origin, text, images)
+        }
       } else if (recordControlSend) {
         // The session-option catalog can recognize controls omitted from the
         // autocomplete catalog (for example Claude `/model` and `/fast`).
@@ -242,6 +270,7 @@ export function useMobileNativeChatMessageSend(args: {
       client,
       commandSendRef,
       deviceTokenRef,
+      discardPendingSend,
       enabled,
       handleRef,
       holdUnconfirmedSend,

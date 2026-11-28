@@ -10,6 +10,8 @@ import {
   resolveMobileTerminalChatContinuation
 } from '../native-chat/history/mobile-terminal-chat-continuation-actions'
 import { continueMobileTerminalInChat } from '../mobile-terminal-chat-continuation'
+import { HERMES_TRANSCRIPT_RUNTIME_CAPABILITY } from '../../../../src/shared/native-chat/native-chat-hermes-capability'
+import { useMobileStructuredChatLaunch } from '../use-mobile-structured-chat-launch'
 
 /** The tapped terminal tab's actions: chat view, display size, rename, clear, close. */
 export function MobileTerminalTabActionSheet({
@@ -22,6 +24,10 @@ export function MobileTerminalTabActionSheet({
   const workerActions = useMobileAllowAutoCloseActions(
     controller.client,
     actionTarget && { terminal: actionTarget.handle }
+  )
+  const structuredChat = useMobileStructuredChatLaunch(
+    controller.client,
+    controller.hostCapabilities
   )
   const terminalTabs = sessionTabs.filter((tab) => tab.type === 'terminal')
   const targetTab = actionTarget && terminalTabs.find((tab) => tab.terminal === actionTarget.handle)
@@ -48,6 +54,12 @@ export function MobileTerminalTabActionSheet({
         tabs: terminalTabs,
         isTabChatView: controller.nativeChatController.isTabChatView,
         nativeChatTranscriptIsLocalReadable: controller.nativeChatTranscriptIsLocalReadable,
+        hermesOverlaySupported:
+          controller.hostCapabilities?.includes(HERMES_TRANSCRIPT_RUNTIME_CAPABILITY) === true,
+        structuredAgents: structuredChat?.registeredAgents ?? [],
+        hostAgentIdentity: controller.terminals.find(
+          (terminal) => terminal.handle === actionTarget?.handle
+        )?.agentIdentity,
         onDismiss: () => setActionTarget(null),
         onToggleChat: controller.toggleTabChatView,
         chatContinuationActions,

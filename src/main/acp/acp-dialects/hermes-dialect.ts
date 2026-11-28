@@ -89,6 +89,14 @@ function decisionRequest(method: string, params: unknown): AcpRequestPresentatio
 }
 
 export const HERMES_ACP_DIALECT: AcpDialect = {
+  // Gateway reasoning effort is session-wide, so one menu applies to every model.
+  clampsUnlistedEffort: true,
+  // The ACP library turns a missing load (None) into {}. A real load always includes modes.
+  loadedSessionMissing: (response) =>
+    response.modes == null &&
+    response.models == null &&
+    response.configOptions == null &&
+    response._meta == null,
   normalizeToolUpdate,
   // Titles are `<tool>: <preview>`; the preview is the call's input, not its name.
   toolName: (update) => (update.title ? TOOL_TITLE.exec(update.title)?.[1] : undefined),

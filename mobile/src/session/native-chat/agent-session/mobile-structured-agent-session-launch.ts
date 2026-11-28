@@ -1,6 +1,6 @@
 import { agentSessionForkSourceFailureWords } from '../../../../../src/shared/agent-session/failures/agent-session-failure-copy'
 import { sayMobileAgentSessionFailure } from './agent-session-failure-copy'
-import type { TuiAgent } from '../../../../../src/shared/agent-launch/catalog/tui-agent'
+import type { StructuredAgentId } from '../../../../../src/shared/agent-session/lifecycle/provider-handles/agent-session-provider-handle'
 import type {
   AgentSessionAttachResult,
   AgentSessionMutationResult
@@ -53,6 +53,11 @@ export type MobileStructuredAgentLaunchResult =
   | { kind: 'failed'; message: string; refusal?: AgentSessionRefusalReference }
   | { kind: 'unknown'; message: string }
 
+function agentLabel(agent: string): string {
+  const names: Record<string, string> = TUI_AGENT_DISPLAY_NAMES
+  return names[agent] ?? agent
+}
+
 /** What `agentSession.create` alone can answer; only the createSupport probe yields `unsupported`. */
 type MobileStructuredAgentCreateResult = Exclude<
   MobileStructuredAgentLaunchResult,
@@ -73,7 +78,7 @@ export type MobileStructuredResumePreflight = {
 }
 
 function createParamsFor(
-  agent: TuiAgent,
+  agent: StructuredAgentId,
   worktree: string,
   source: CreateSource,
   tabPlacement: StructuredAgentSessionCreateParams['tabPlacement']
@@ -88,22 +93,25 @@ function createParamsFor(
   })
 }
 
-function unknownCreateResult(agent: TuiAgent, error: unknown): MobileStructuredAgentCreateResult {
+function unknownCreateResult(
+  agent: StructuredAgentId,
+  error: unknown
+): MobileStructuredAgentCreateResult {
   const message = error instanceof Error ? error.message.trim() : ''
   return { kind: 'unknown', message: message || unconfirmedMessage(agent) }
 }
 
-function unconfirmedMessage(agent: TuiAgent): string {
-  return `The ${TUI_AGENT_DISPLAY_NAMES[agent]} chat result could not be confirmed.`
+function unconfirmedMessage(agent: StructuredAgentId): string {
+  return `The ${agentLabel(agent)} chat result could not be confirmed.`
 }
 
-function failedMessage(agent: TuiAgent): string {
-  return `Could not open ${TUI_AGENT_DISPLAY_NAMES[agent]} chat.`
+function failedMessage(agent: StructuredAgentId): string {
+  return `Could not open ${agentLabel(agent)} chat.`
 }
 
 // Only definitive refusal permits failure/fallback; uncertain creates may already own a session and must not create a sibling.
 function classifyCreateRefusal(
-  agent: TuiAgent,
+  agent: StructuredAgentId,
   code: string,
   message: string,
   refusal?: AgentSessionRefusalReference,
@@ -123,7 +131,7 @@ function classifyCreateRefusal(
 async function createSupportRefusal(
   client: RpcClient,
   worktree: string,
-  agent: TuiAgent,
+  agent: StructuredAgentId,
   resumeFrom?: MobileStructuredResumePreflight
 ): Promise<Extract<MobileStructuredAgentLaunchResult, { kind: 'unsupported' }> | null> {
   let supportResponse
@@ -176,7 +184,7 @@ async function createSupportRefusal(
 export async function createMobileStructuredAgentSession(
   client: RpcClient,
   worktreeId: string,
-  agent: TuiAgent
+  agent: StructuredAgentId
 ): Promise<MobileStructuredAgentLaunchResult> {
   const worktree = `id:${worktreeId}`
   return (
@@ -189,7 +197,7 @@ export async function createMobileStructuredAgentSession(
 export function preflightMobileStructuredAgentResume(
   client: RpcClient,
   worktreeId: string,
-  agent: TuiAgent,
+  agent: StructuredAgentId,
   resumeFrom: MobileStructuredResumePreflight
 ): Promise<Extract<MobileStructuredAgentLaunchResult, { kind: 'unsupported' }> | null> {
   return createSupportRefusal(client, `id:${worktreeId}`, agent, resumeFrom)
@@ -200,7 +208,7 @@ export function preflightMobileStructuredAgentResume(
 export function resumeMobileStructuredAgentSession(
   client: RpcClient,
   worktreeId: string,
-  agent: TuiAgent,
+  agent: StructuredAgentId,
   resumeFrom: StructuredAgentSessionResumeSource | undefined,
   tabPlacement?: StructuredAgentSessionCreateParams['tabPlacement']
 ): Promise<MobileStructuredAgentCreateResult> {
@@ -217,7 +225,7 @@ export function resumeMobileStructuredAgentSession(
 export function forkMobileStructuredAgentSession(
   client: RpcClient,
   worktreeId: string,
-  agent: TuiAgent,
+  agent: StructuredAgentId,
   forkFrom: StructuredAgentSessionForkSource,
   /** Sent only to a host advertising create placement; the replay keeps it. */
   tabPlacement?: StructuredAgentSessionCreateParams['tabPlacement']
@@ -234,7 +242,7 @@ export function forkMobileStructuredAgentSession(
 async function requestStructuredAgentSessionCreate(
   client: RpcClient,
   worktree: string,
-  agent: TuiAgent,
+  agent: StructuredAgentId,
   source: CreateSource = {},
   tabPlacement?: StructuredAgentSessionCreateParams['tabPlacement']
 ): Promise<MobileStructuredAgentCreateResult> {
@@ -304,7 +312,7 @@ async function requestStructuredAgentSessionCreate(
         message:
           agentSessionForkSourceFailureWords(
             result.refusal.message,
-            TUI_AGENT_DISPLAY_NAMES[agent],
+            agentLabel(agent),
             sayMobileAgentSessionFailure
           ) ?? result.refusal.message
       }

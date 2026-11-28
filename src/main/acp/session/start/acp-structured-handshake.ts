@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the fork's additions sit beside upstream's in this owner after the upstream merge. */
 import { withStructuredHistoryInvocation } from '../../../native-chat/agent-session-wire/acquisition/structured-agent-session-history-invocation'
 import { retryAcpRequest } from '../../protocol/acp-request-retry'
 import { observeAcpForkSupport } from '../../capabilities/acp-fork-support'
@@ -97,7 +98,10 @@ export async function initializeAcpStructuredSession(
   const setup = {
     authMethodId,
     authMethodUnavailableMessage: spec.authMethodUnavailableMessage,
-    resumePreference: spec.resumePreference
+    resumePreference: spec.resumePreference,
+    ...(spec.dialect.loadedSessionMissing
+      ? { loadedSessionMissing: spec.dialect.loadedSessionMissing }
+      : {})
   }
   const resume = launch.resume
   let started: Awaited<ReturnType<AcpStructuredConnection['start']>> | null = null

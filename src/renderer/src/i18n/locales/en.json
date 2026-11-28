@@ -22283,6 +22283,7 @@
       "editDeliveryNotice": "Edit",
       "addSelectionToChat": "Add to chat",
       "messageNotSent": "Message not sent",
+      "deliveryUnconfirmed": "Delivery unconfirmed — check chat before retrying",
       "messageSending": "Sending…",
       "userMessage": {
         "showFull": "Show full message",
@@ -26256,7 +26257,8 @@
         "agentNotRun": "Orca could not run the chat-name agent.",
         "noAgentAvailable": "No chat-name agent can run in this workspace.",
         "grokFailed": "Grok could not name this chat. Try generating the name again.",
-        "antigravityFailed": "Antigravity could not name this chat. Try generating the name again."
+        "antigravityFailed": "Antigravity could not name this chat. Try generating the name again.",
+        "hermesFailed": "Hermes could not name this chat. Try generating the name again."
       }
     }
   },

@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- Why: the chat controller keeps send, queue and crew wiring in one hook so ordering stays one behavior surface. */
 import { asyncQuestionSourceScope } from '../../../../src/shared/native-chat/input/native-chat-ask'
 import { useCallback, useLayoutEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import type { RpcClient } from '../../transport/rpc/rpc-client-contract'
@@ -15,9 +16,10 @@ import type { MobileNativeChatController } from './mobile-native-chat-controller
 import { useMobileBridgeChatPromptWrites } from './input/prompts/use-mobile-bridge-chat-prompt-writes'
 import { useMobileNativeChatActiveResolution } from './conversation/use-mobile-native-chat-active-resolution'
 import { useMobileNativeChatPromptController } from './input/prompts/use-mobile-native-chat-prompt-controller'
-import { nativeChatPendingSendPlacement } from '../../../../src/shared/native-chat/transcript/pending-sends/native-chat-pending-sends'
+import { placeNativeChatPendingSends } from '../../../../src/shared/native-chat/transcript/pending-sends/native-chat-pending-sends'
 import { mobileNativeChatScopeKey } from './conversation/mobile-native-chat-scope-key'
 import { useMobileNativeChatCiResultLines } from './preferences/use-mobile-native-chat-ci-result-lines'
+import { useMobileTerminalChatQueue } from './use-mobile-terminal-chat-queue'
 
 export function useMobileNativeChatController(args: {
   itemLink?: Parameters<typeof useMobileNativeChatSessionLane>[0]['itemLink']
@@ -31,6 +33,7 @@ export function useMobileNativeChatController(args: {
   activeHandleRef: MutableRefObject<string | null>
   deviceTokenRef: MutableRefObject<string | null>
   nativeChatTranscriptIsLocalReadable: boolean
+  hostCapabilities?: readonly string[] | null
   nativeChatInputLeaseReady: boolean
   /** Live socket state; the lease collapses on disconnect but one render later. */
   connState: ConnectionState
@@ -102,6 +105,7 @@ export function useMobileNativeChatController(args: {
     clearDraftForSend,
     restoreRejectedDraft,
     acceptSend,
+    discardPendingSend,
     holdUnconfirmedSend
   } = useMobileNativeChatDrafts({
     hostId,
@@ -156,8 +160,15 @@ export function useMobileNativeChatController(args: {
     onSendResolved
   })
 
+  const { enabled: terminalQueueEnabled, ...terminalQueue } = useMobileTerminalChatQueue({
+    ...args,
+    terminal: activeHandleRef.current,
+    enabled: !activeChatStructured && activeChatAgent === 'hermes' && inputSendable,
+    appendText: appendComposerText
+  })
   const terminalTurn = useMobileNativeChatTerminalTurn({
     status: nativeChatStatus,
+    terminalActivity: terminalQueue.activity,
     resolution: activeChatResolution,
     session: activeChatStructured ? null : nativeChatSession,
     latestPendingId: chatPending.at(-1)?.id ?? null,
@@ -169,11 +180,7 @@ export function useMobileNativeChatController(args: {
   const activeTurn = activeChatStructured ? structuredNativeChat : terminalTurn
   const workingEpoch = terminalTurn.workingEpoch
   const placedChatPending = useMemo(
-    () =>
-      chatPending.map((entry) => ({
-        ...entry,
-        pendingSend: nativeChatPendingSendPlacement(entry, workingEpoch)
-      })),
+    () => placeNativeChatPendingSends(chatPending, workingEpoch),
     [chatPending, workingEpoch]
   )
   const captureTerminalSendOrigin = useCallback(
@@ -204,10 +211,16 @@ export function useMobileNativeChatController(args: {
     clearDraftForSend,
     restoreRejectedDraft,
     acceptSend,
+    discardPendingSend,
     holdUnconfirmedSend,
     onSendError
   })
 
+  const terminalQueueSend = terminalQueue.bindSend(
+    captureTerminalSendOrigin,
+    clearDraftForSend,
+    handleNativeChatSendWithOutcome
+  )
   const structuredSend = useMobileStructuredNativeChatSendBridge({
     agent: activeChatResolution?.agent,
     sessionCommands: nativeChatLane.sessionCommands.commands,
@@ -288,11 +301,13 @@ export function useMobileNativeChatController(args: {
     nativeChatActionablePromptIds: structuredNativeChat.actionablePromptIds,
     nativeChatCommandRefusalCauses: structuredNativeChat.commandRefusalCauses,
     nativeChatCanStop: activeChatStructured ? structuredNativeChat.canStop : terminalTurn.isWorking,
-    nativeChatSendFollowUp: activeChatStructured ? structuredNativeChat.sendFollowUp : null,
+    nativeChatSendFollowUp: activeChatStructured
+      ? structuredNativeChat.sendFollowUp
+      : terminalQueue.sendFollowUp,
     nativeChatStreamingText: terminalTurn.streamingText,
     ...prompts,
     handleNativeChatStop: activeChatStructured ? structuredNativeChat.cancel : terminalTurn.stop,
-    nativeChatQueued: structuredNativeChat.queued,
+    nativeChatQueued: terminalQueueEnabled ? terminalQueue.controls : structuredNativeChat.queued,
     nativeChatBackgroundTasks: activeChatStructured ? structuredNativeChat.backgroundTasks : null,
     nativeChatContextUsage: activeChatStructured ? structuredNativeChat.contextUsage : null,
     nativeChatInterruptedContinue: activeChatStructured
@@ -303,10 +318,16 @@ export function useMobileNativeChatController(args: {
     nativeChatAccountUsage: activeChatStructured ? structuredNativeChat.accountUsage : null,
     nativeChatRewind: activeChatStructured ? structuredNativeChat.rewind : undefined,
     ...workspaceCatalog,
-    handleNativeChatSend: activeChatStructured ? structuredSend.send : handleNativeChatSend,
+    handleNativeChatSend: activeChatStructured
+      ? structuredSend.send
+      : terminalQueueEnabled
+        ? terminalQueueSend.send
+        : handleNativeChatSend,
     handleNativeChatSendWithOutcome: activeChatStructured
       ? structuredSend.sendWithOutcome
-      : handleNativeChatSendWithOutcome,
+      : terminalQueueEnabled
+        ? terminalQueueSend.sendWithOutcome
+        : handleNativeChatSendWithOutcome,
     readSeededLaunchDraft,
     nativeChatSessionOptions,
     ...nativeChatLane.controllerFields,

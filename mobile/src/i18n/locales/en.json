@@ -2834,11 +2834,15 @@
       "emptyTitle": "Start a chat with {{agent}}",
       "errorTitle": "Could not load conversation",
       "errorMessage": "The conversation couldn’t be read. The terminal view still works.",
-      "defaultAgentLabel": "the agent"
+      "defaultAgentLabel": "the agent",
+      "hermesStartingTitle": "Connecting to Hermes…",
+      "hermesStartingSubtitle": "The conversation will appear when Hermes is ready."
     },
     "nativeChatToggleAction": {
       "switchToTerminalView": "Switch to terminal",
-      "switchToChatView": "Switch to chat"
+      "switchToChatView": "Switch to chat",
+      "terminalCannotSwitchToChat": "Can't switch this {{agent}} terminal to Chat",
+      "startNewChatSession": "Start a new session with Chat UI on"
     },
     "prSidebarState": {
       "loadFailed": "Unable to load pull request"

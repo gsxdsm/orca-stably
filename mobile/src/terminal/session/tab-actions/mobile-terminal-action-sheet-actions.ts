@@ -14,6 +14,9 @@ export function getMobileTerminalActionSheetActions<
   tabs: readonly Tab[]
   isTabChatView: (tabId: string) => boolean
   nativeChatTranscriptIsLocalReadable: boolean
+  hermesOverlaySupported?: boolean
+  structuredAgents?: readonly string[]
+  hostAgentIdentity?: string | null
   onDismiss: () => void
   onToggleChat: (tabId: string) => void
   /** Continue in chat, for a terminal whose conversation a chat can take over. */
@@ -43,6 +46,9 @@ export function getMobileTerminalActionSheetActions<
       tabs: args.tabs,
       isTabChatView: args.isTabChatView,
       nativeChatTranscriptIsLocalReadable: args.nativeChatTranscriptIsLocalReadable,
+      hermesOverlaySupported: args.hermesOverlaySupported,
+      structuredAgents: args.structuredAgents,
+      hostAgentIdentity: args.hostAgentIdentity,
       onClose: args.onDismiss,
       onToggle: args.onToggleChat,
       t

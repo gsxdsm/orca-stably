@@ -33,10 +33,25 @@ export const TERMINAL_SETTINGS_STORAGE_KEYS = [
   'orca:usagePercentageDisplay'
 ] as const
 
+// Native Settings writes Chat UI after the page primes; a later refresh must copy it.
+export const NATIVE_PAGE_STORAGE_REFRESH_KEYS = [
+  ...TERMINAL_SHORTCUT_STORAGE_KEYS,
+  'orca:defaultSessionView'
+] as const
+
+export function isNativePagePreferenceKey(key: string): boolean {
+  return NATIVE_PAGE_STORAGE_REFRESH_KEYS.some((item) => item === key)
+}
+
+// Off is the string 'terminal'. An omitted refresh is an older shell that did not copy this key, not a cleared setting.
+export function pageRefreshKeepsStoredValue(key: string): boolean {
+}
+
 // Terminal settings, Chat UI, the device-wide Duo chat width, and the pinched chat text size.
 export const LIVE_PAGE_STORAGE_KEYS = [
   ...TERMINAL_SETTINGS_STORAGE_KEYS,
-  'orca:duoChatExpanded'
+  'orca:defaultSessionView',
+  'orca:duoChatExpanded',
 ] as const
 
 export const PAGE_STORAGE_EXACT_KEYS = [

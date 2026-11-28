@@ -1,4 +1,5 @@
 import type { NativeChatMessage } from '../../../../../shared/native-chat/native-chat-types'
+import { NATIVE_CHAT_TERMINAL_QUEUE_METHODS } from './native-chat-terminal-queue'
 import { recordMobileViewOpened } from '../../../../telemetry/mobile-client-telemetry'
 import type {
   NativeChatTranscriptFrame,
@@ -90,6 +91,7 @@ function resumeIndex(
 }
 
 export const NATIVE_CHAT_METHODS = [
+  ...NATIVE_CHAT_TERMINAL_QUEUE_METHODS,
   defineMethod({
     name: 'nativeChat.readSession',
     permission: 'workspace',

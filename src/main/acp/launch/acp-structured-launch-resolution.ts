@@ -50,6 +50,7 @@ import { noteManagedServerUse } from '../../node-runtime/managed-runtime-release
 import type { AcpInstructionsLaunch } from './acp-instructions'
 import { acpInstructionsWithVisuals, visualsByInstructions } from './acp-visuals-instructions'
 import { withAcpToolFreeFolder } from '../session/acp-tool-free-run'
+import { assertAcpDependency } from '../../hermes/hermes-acp-preflight'
 import { withoutCallerIdentity } from '../../runtime/agent-session/environment/structured-session-child-env'
 
 /** The environment a launch's process gets; see `AcpLaunchSpec.sharedToolProcess`. */
@@ -210,6 +211,7 @@ export function acpStructuredLaunchPart(
       })
     noteManagedServerUse(spec.agent, spec.managedRuntime, version)
     const cwd = await basis.launchDirectory()
+    await assertAcpDependency(spec.agent, { program: command, prefixArgs, cwd, env })
     const visuals = spec.skillRoots || visualsByInstructions(spec) ? await basis.visuals() : null
     const linked = await basis.linkedSkills()
     // Only a folder with skills: these agents read it once, so a later link reaches them as a list.
