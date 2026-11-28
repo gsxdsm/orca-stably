@@ -14,7 +14,7 @@ export type ChatWidthToggle = { expanded: boolean; onToggle: () => void }
 export function useChatBottomFit(keyboardInset: number): {
   bottomPad: number
   composerFit: { fitScreenCorners: boolean; widthToggle: ChatWidthToggle | null }
-  /** Collapsed, the transcript keeps clear of the column; the composer keeps its width. */
+  /** Collapsed, the transcript and above-composer trays keep clear of the column; the composer keeps its width. */
   transcriptInset: ViewStyle | null
 } {
   const insets = useSafeAreaInsets()

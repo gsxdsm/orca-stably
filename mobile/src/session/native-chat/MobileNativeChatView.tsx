@@ -312,17 +312,19 @@ export function MobileNativeChatView({
   // The queue sits above a shown prompt card in a closed box, rather than tucking into the composer.
   const lowerContent = (
     <>
-      <MobileNativeChatPromptStrip prompt={collapsedPrompt ?? workerApproval.strip} />
-      <MobileNativeChatInputLockStatus
-        lockReason={offlineQueue.lockReason}
-        waitingText={composerPlaceholder}
-        hostOutage={hostOutage}
-      />
-      <MobileNativeChatSendErrorBanner message={banner} onDismiss={onDismissSendError} />
-      <MobileNativeChatQueueAbovePromptContext value={promptShown}>
-        {trayContent}
-        <MobileNativeChatOfflineQueue queue={offlineQueue} />
-      </MobileNativeChatQueueAbovePromptContext>
+      <View style={transcriptInset}>
+        <MobileNativeChatPromptStrip prompt={collapsedPrompt ?? workerApproval.strip} />
+        <MobileNativeChatInputLockStatus
+          lockReason={offlineQueue.lockReason}
+          waitingText={composerPlaceholder}
+          hostOutage={hostOutage}
+        />
+        <MobileNativeChatSendErrorBanner message={banner} onDismiss={onDismissSendError} />
+        <MobileNativeChatQueueAbovePromptContext value={promptShown}>
+          {trayContent}
+          <MobileNativeChatOfflineQueue queue={offlineQueue} />
+        </MobileNativeChatQueueAbovePromptContext>
+      </View>
       {workerApproval.card}
       <MobileNativeChatPromptCard
         key={promptKey ?? undefined}
