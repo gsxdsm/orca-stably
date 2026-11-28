@@ -36,6 +36,9 @@ enum WatchOutcomeCopy {
     if reply.ok {
       return "Sent ✓"
     }
+    if reply.reason == "unknown" {
+      return "Delivery unconfirmed. Check the chat before sending again."
+    }
     if let detail = reply.detail, !detail.isEmpty {
       return detail
     }
@@ -119,7 +122,7 @@ enum WatchActions {
     if !session.canSend {
       return .rejected("Can't reply")
     }
-    if text.isEmpty || text.count > 2000 {
+    if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || text.utf16.count > 2000 {
       return .rejected("Invalid")
     }
     return .send(.send(id: nextId, sessionKey: session.key, text: text))
@@ -129,13 +132,14 @@ enum WatchActions {
     if reply.ok, let replacement = reply.snapshot {
       return replacement
     }
-    guard reply.ok, command.type == "respond", let promptId = command.promptId else {
+    guard reply.ok, command.type == "respond", let promptId = command.promptId,
+          let hostId = command.hostId else {
       return snapshot
     }
     var next = snapshot
-    next.prompts.removeAll { $0.promptId == promptId }
+    next.prompts.removeAll { $0.hostId == hostId && $0.promptId == promptId }
     next.sessions = next.sessions.map { session in
-      guard session.pendingPromptId == promptId else {
+      guard session.hostId == hostId && session.pendingPromptId == promptId else {
         return session
       }
       var copy = session

@@ -19,7 +19,7 @@ struct PromptSheet: View {
               .font(.caption2)
               .foregroundStyle(palette.mutedForeground)
           }
-          if model.confirmOptionId != nil {
+          if model.isConfirming(prompt) {
             confirm(prompt)
           } else {
             options(prompt)
@@ -37,22 +37,31 @@ struct PromptSheet: View {
       .frame(maxWidth: .infinity, alignment: .leading)
     }
     .background(palette.background)
+    .onDisappear { model.cancelConfirm() }
   }
 
   private func options(_ prompt: WatchPrompt) -> some View {
     ForEach(prompt.options, id: \.optionId) { option in
-      Button(option.label) { model.choose(prompt: prompt, option: option) }
+      Button(buttonTitle(option, prompt: prompt)) { model.choose(prompt: prompt, option: option) }
         .buttonStyle(style(for: option.role))
         .disabled(model.busy)
     }
   }
 
+  private func buttonTitle(_ option: WatchPromptOption, prompt: WatchPrompt) -> String {
+    guard prompt.kind == "permission" else { return option.label }
+    switch option.role {
+    case .approve: return "Allow once"
+    case .approveAlways, .deny, .other: return option.label
+    }
+  }
+
   private func confirm(_ prompt: WatchPrompt) -> some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text("Allow this every time?")
+      Text("Confirm permission scope")
         .font(.headline)
         .foregroundStyle(palette.foreground)
-      Button("Allow always") { model.confirmAlways(prompt: prompt) }
+      Button(model.confirmationTitle(for: prompt)) { model.confirmAlways(prompt: prompt) }
         .buttonStyle(OrcaWideButtonStyle(fill: palette.primary, ink: palette.primaryForeground))
         .disabled(model.busy)
       Button("Cancel") { model.cancelConfirm() }

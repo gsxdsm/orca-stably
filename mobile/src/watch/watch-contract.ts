@@ -10,6 +10,7 @@ const watchFailureReason = z.enum([
   'stale',
   'not_found',
   'rejected',
+  'unknown',
   'unavailable',
   'phone_unavailable',
   'invalid'

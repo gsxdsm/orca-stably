@@ -8,9 +8,10 @@ final class WatchSessionModel: ObservableObject {
   @Published var phase: String?
   @Published var outcome: String?
   @Published var selectedKey: String?
-  @Published var confirmOptionId: String?
   @Published var showingPrompt = false
-  @Published var draft = ""
+  @Published private var drafts: [String: String] = [:]
+  @Published private var replyOutcomes: [String: String] = [:]
+  @Published private var confirmation: (prompt: WatchPrompt, optionId: String)?
   @Published var busy = false
   @Published private(set) var now: Date
 
@@ -38,9 +39,12 @@ final class WatchSessionModel: ObservableObject {
     self.cache = cache
     self.send = send
     self.nextId = nextId
-    self.selectedKey = snapshot?.sessions.first { $0.pendingPromptId != nil }?.key
-    if launch.screen == .confirm {
-      self.confirmOptionId = "always"
+    let selectedKey = snapshot?.sessions.first { $0.pendingPromptId != nil }?.key
+    self.selectedKey = selectedKey
+    if launch.screen == .confirm,
+       let prompt = snapshot?.prompts.first(where: { $0.sessionKey == selectedKey }),
+       let option = prompt.options.first(where: { $0.role == .approveAlways }) {
+      self.confirmation = (prompt, option.optionId)
     }
     if launch.screenshot, let generatedAt = snapshot?.generatedAt {
       self.now = Date(timeIntervalSince1970: Double(generatedAt + 180_000) / 1000)
@@ -105,7 +109,9 @@ final class WatchSessionModel: ObservableObject {
     guard let promptId = session.pendingPromptId else {
       return nil
     }
-    return snapshot?.prompts.first { $0.promptId == promptId }
+    return snapshot?.prompts.first {
+      $0.hostId == session.hostId && $0.sessionKey == session.key && $0.promptId == promptId
+    }
   }
 
   var groups: [(title: String, sessions: [WatchSession])] {
@@ -144,65 +150,93 @@ final class WatchSessionModel: ObservableObject {
     guard !busy, !screenshot else {
       return
     }
-    Task { await perform(.refresh(id: nextId())) }
+    perform(.refresh(id: nextId()))
   }
 
   func choose(prompt: WatchPrompt, option: WatchPromptOption) {
-    guard !busy else {
+    guard !busy, session(prompt.sessionKey).flatMap({ self.prompt(for: $0) }) == prompt else {
       return
     }
     switch WatchActions.respond(prompt: prompt, option: option, nextId: nextId()) {
     case .needsConfirm(let optionId):
-      confirmOptionId = optionId
+      confirmation = (prompt, optionId)
       showingPrompt = true
     case .rejected(let reason):
       outcome = reason
     case .send(let command):
-      Task { await perform(command) }
+      perform(command)
     }
   }
 
   func confirmAlways(prompt: WatchPrompt) {
-    guard let optionId = confirmOptionId, !busy else {
+    guard let confirmation, isConfirming(prompt), !busy,
+          session(prompt.sessionKey).flatMap({ self.prompt(for: $0) }) == prompt else {
       return
     }
-    let command = WatchActions.confirm(prompt: prompt, optionId: optionId, nextId: nextId())
-    Task { await perform(command) }
+    perform(WatchActions.confirm(prompt: prompt, optionId: confirmation.optionId, nextId: nextId()))
+  }
+
+  func isConfirming(_ prompt: WatchPrompt) -> Bool {
+    confirmation?.prompt == prompt
+  }
+
+  func confirmationTitle(for prompt: WatchPrompt) -> String {
+    prompt.options.first { $0.optionId == confirmation?.optionId }?.label ?? "Confirm"
   }
 
   func cancelConfirm() {
-    confirmOptionId = nil
+    confirmation = nil
+  }
+
+  func draft(for sessionKey: String) -> Binding<String> {
+    Binding(get: { self.drafts[sessionKey] ?? "" }, set: { self.drafts[sessionKey] = $0 })
+  }
+
+  func replyOutcome(for sessionKey: String?) -> String? {
+    if screenshot {
+      return outcome
+    }
+    return sessionKey.flatMap { replyOutcomes[$0] }
   }
 
   func sendDraft(session: WatchSession) {
-    submit(session: session, text: draft)
+    let text = drafts[session.key] ?? ""
+    submit(session: session, text: text, clearsDraft: true)
   }
 
   func quickReply(session: WatchSession, text: String) {
-    submit(session: session, text: text)
+    guard !busy else { return }
+    if drafts[session.key, default: ""].isEmpty {
+      drafts[session.key] = text
+    }
+    submit(session: session, text: text, clearsDraft: drafts[session.key] == text)
   }
 
   func openOnPhone(session: WatchSession) {
     guard !busy, !screenshot else {
       return
     }
-    Task { await perform(.openOnPhone(id: nextId(), sessionKey: session.key)) }
+    perform(.openOnPhone(id: nextId(), sessionKey: session.key))
   }
 
   func dictate(_ text: String, session: WatchSession) {
-    draft = text
-    submit(session: session, text: text)
+    drafts[session.key] = text
+    sendDraft(session: session)
   }
 
-  private func submit(session: WatchSession, text: String) {
+  private func submit(session: WatchSession, text: String, clearsDraft: Bool) {
     guard !busy else {
       return
     }
-    switch WatchActions.sendText(session: session, text: text, nextId: nextId()) {
+    guard let current = self.session(session.key) else {
+      replyOutcomes[session.key] = "Session ended"
+      return
+    }
+    switch WatchActions.sendText(session: current, text: text, nextId: nextId()) {
     case .rejected(let reason):
-      outcome = reason
+      replyOutcomes[session.key] = reason
     case .send(let command):
-      Task { await perform(command) }
+      perform(command, draftToClear: clearsDraft ? text : nil)
     case .needsConfirm:
       break
     }
@@ -217,11 +251,30 @@ final class WatchSessionModel: ObservableObject {
     )
   }
 
-  private func perform(_ command: WatchCommand) async {
+  private func perform(_ command: WatchCommand, draftToClear: String? = nil) {
     busy = true
-    let reply = await client.perform(command)
+    Task {
+      let reply = await client.perform(command)
+      finish(command, reply: reply, draftToClear: draftToClear)
+    }
+  }
+
+  private func finish(_ command: WatchCommand, reply: WatchReply, draftToClear: String?) {
     busy = false
-    outcome = WatchOutcomeCopy.text(for: reply)
+    if command.type == "send", let key = command.sessionKey {
+      replyOutcomes[key] = WatchOutcomeCopy.text(for: reply)
+      if reply.ok, let draftToClear, drafts[key] == draftToClear {
+        drafts.removeValue(forKey: key)
+      }
+    } else if command.type == "respond" || !reply.ok {
+      outcome = WatchOutcomeCopy.text(for: reply)
+    }
+    if command.type == "respond" {
+      confirmation = nil
+      if reply.ok {
+        showingPrompt = false
+      }
+    }
     guard reply.ok else {
       return
     }
@@ -232,13 +285,6 @@ final class WatchSessionModel: ObservableObject {
       snapshot = next
       cache.write(next)
       WidgetCenter.shared.reloadTimelines(ofKind: "OrcaNeedsInput")
-    }
-    if command.type == "send" {
-      draft = ""
-    }
-    if command.type == "respond" {
-      confirmOptionId = nil
-      showingPrompt = false
     }
   }
 }

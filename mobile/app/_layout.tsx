@@ -28,10 +28,8 @@ import {
 import { startPushTokenSync } from '../src/notifications/push-registration'
 import { ensureDesktopNotificationChannel } from '../src/notifications/foreground-delivery/desktop-notification-channel'
 import { WatchGatewayHost } from '../src/watch/watch-gateway-host'
-import {
-  dispatchWatchPromptResponse,
-  ensureWatchPromptCategory
-} from '../src/watch/watch-prompt-actions'
+import { dispatchWatchPromptResponse } from '../src/watch/watch-prompt-actions'
+import { ensureWatchPromptCategory } from '../src/watch/watch-prompt-category'
 import { loadHostCatalog } from '../src/host-catalog/host-store'
 import { usePairingLinks } from '../src/navigation/use-pairing-links'
 import { readWorkspaceRouteExecutionHost } from '../src/navigation/route-param-reader'

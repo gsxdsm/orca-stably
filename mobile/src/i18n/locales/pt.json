@@ -2010,11 +2010,8 @@
       "silentName": "Notificações silenciosas do Orca"
     },
     "watchPrompt": {
-      "approve": "Aprovar",
-      "deny": "Recusar",
-      "placeholder": "Mensagem",
-      "reply": "Responder",
-      "send": "Enviar"
+      "approve": "Permitir uma vez",
+      "deny": "Recusar"
     },
     "notificationDeliverySection": {
       "footer": "Os tipos de alerta seguem as configurações de notificação de cada desktop pareado. As notificações são pausadas após 7 dias sem usar este app; abra-o e reconecte-se para retomá-las.",

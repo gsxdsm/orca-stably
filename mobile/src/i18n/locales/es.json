@@ -1861,11 +1861,8 @@
       "silentName": "Notificaciones silenciosas de Orca"
     },
     "watchPrompt": {
-      "approve": "Aprobar",
-      "deny": "Denegar",
-      "placeholder": "Mensaje",
-      "reply": "Responder",
-      "send": "Enviar"
+      "approve": "Permitir una vez",
+      "deny": "Denegar"
     },
     "notificationDeliverySection": {
       "footer": "Los tipos de alerta dependen de la configuración de notificaciones de cada escritorio emparejado. Las notificaciones se pausan tras 7 días sin usar esta aplicación; ábrela y vuelve a conectarte para reanudarlas.",

@@ -17,6 +17,8 @@ final class PhoneWatchTransport: NSObject, WCSessionDelegate {
   func send(_ command: WatchCommand) async -> WatchReply {
     let payload = command.plist()
     let commandId = command.id
+    let mutates = command.type == "send" || command.type == "respond"
+    let unconfirmed = WatchReply(v: 1, id: commandId, ok: false, reason: "unknown")
     return await withCheckedContinuation { continuation in
       let gate = ResumeOnce()
       let finish: (WatchReply) -> Void = { reply in
@@ -27,11 +29,16 @@ final class PhoneWatchTransport: NSObject, WCSessionDelegate {
         return
       }
       WCSession.default.sendMessage(payload, replyHandler: { message in
-        let reply = WatchReply.decode(message: message)
-          ?? WatchReply(v: 1, id: commandId, ok: false, reason: "invalid")
+        guard let reply = WatchReply.decode(message: message), reply.id == commandId else {
+          finish(mutates ? unconfirmed : WatchReply(v: 1, id: commandId, ok: false, reason: "invalid"))
+          return
+        }
         finish(reply)
-      }, errorHandler: { _ in
-        finish(WatchTransportFailure.reply(id: commandId))
+      }, errorHandler: { error in
+        let code = (error as? WCError)?.code
+        let failedBeforeDelivery = code == .notReachable || code == .sessionNotActivated
+          || code == .deviceNotPaired || code == .companionAppNotInstalled
+        finish(mutates && !failedBeforeDelivery ? unconfirmed : WatchTransportFailure.reply(id: commandId))
       })
     }
   }

@@ -1861,11 +1861,8 @@
       "silentName": "Notifications silencieuses Orca"
     },
     "watchPrompt": {
-      "approve": "Approuver",
-      "deny": "Refuser",
-      "placeholder": "Message",
-      "reply": "Répondre",
-      "send": "Envoyer"
+      "approve": "Autoriser une fois",
+      "deny": "Refuser"
     },
     "notificationDeliverySection": {
       "footer": "Les types d'alertes suivent les paramètres de notification de chaque ordinateur appairé. Les notifications sont suspendues après 7 jours sans utilisation de cette application ; ouvrez-la et reconnectez-vous pour les réactiver.",

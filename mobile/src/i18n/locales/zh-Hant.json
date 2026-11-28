@@ -1808,11 +1808,8 @@
       "silentName": "Orca 靜音通知"
     },
     "watchPrompt": {
-      "approve": "核准",
-      "deny": "拒絕",
-      "placeholder": "訊息",
-      "reply": "回覆",
-      "send": "傳送"
+      "approve": "僅允許一次",
+      "deny": "拒絕"
     },
     "notificationDeliverySection": {
       "footer": "通知類型依各台已配對電腦的通知設定而定。若連續 7 天未使用此應用程式，通知將暫停；開啟應用程式並重新連線即可恢復。",

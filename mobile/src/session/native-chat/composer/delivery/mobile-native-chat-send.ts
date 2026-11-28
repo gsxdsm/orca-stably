@@ -30,6 +30,7 @@ type MobileNativeChatSendArgs = {
   terminal: string
   text: string
   enter?: boolean
+  agentPrompt?: true
   resolvedLaunchDraft?: { text: string; createdAt: number }
   mobileClient?: MobileTerminalClient
   // Share this deadline across all heal/paste/text or selector writes in one user action.
@@ -132,6 +133,7 @@ export async function sendMobileNativeChatMessageWithOutcome(
         terminal: args.terminal,
         text: args.text,
         enter: args.enter ?? true,
+        ...(args.agentPrompt ? { agentPrompt: true as const } : {}),
         ...(args.requireWriteSettlement ? { requireWriteSettlement: true as const } : {}),
         ...(args.requireStartupDialog !== undefined
           ? { requireStartupDialog: args.requireStartupDialog }
