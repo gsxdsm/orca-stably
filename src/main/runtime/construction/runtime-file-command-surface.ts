@@ -4,17 +4,19 @@ import type {
   RuntimeFileReadsSurface,
   RuntimeFileSearchSurface
 } from '../files/lazy-runtime-file-commands'
-import type { RuntimeTerminalArtifacts } from '../terminal/artifacts/terminal-artifacts'
-import type { RuntimeStagedFileSaves } from '../files/staged-file-save-commands'
+import type {
+  RuntimeStagedFileSavesSurface,
+  RuntimeTerminalArtifactsSurface,
+  RuntimeTerminalPathResolverSurface
+} from '../files/lazy-runtime-file-transfer-commands'
 import type { RuntimeFileWatches } from '../files/watch/file-watches'
-import type { RuntimeTerminalPathResolver } from '../terminal/terminal-path-resolver'
 
 export type RuntimeFileCommandSurface = RuntimeFileSearchSurface &
   RuntimeFileAccessSurface &
   RuntimeFileReadsSurface &
-  Pick<RuntimeTerminalPathResolver, 'resolveTerminalPath'> &
+  Pick<RuntimeTerminalPathResolverSurface, 'resolveTerminalPath'> &
   Pick<
-    RuntimeTerminalArtifacts,
+    RuntimeTerminalArtifactsSurface,
     | 'readTerminalArtifactFile'
     | 'readTerminalArtifactPreview'
     | 'statTerminalArtifact'
@@ -23,18 +25,18 @@ export type RuntimeFileCommandSurface = RuntimeFileSearchSurface &
     | 'revokeTerminalFileGrantsForClient'
   > &
   Pick<RuntimeFileWatches, 'readFileExplorerDir' | 'watchFileExplorer'> &
-  RuntimeFileMutationsSurface & { readonly stagedFileSaves: RuntimeStagedFileSaves }
+  RuntimeFileMutationsSurface & { readonly stagedFileSaves: RuntimeStagedFileSavesSurface }
 
 export function installRuntimeFileCommandSurface(
   target: RuntimeFileCommandSurface,
   fileSearch: RuntimeFileSearchSurface,
-  terminalArtifacts: RuntimeTerminalArtifacts,
+  terminalArtifacts: RuntimeTerminalArtifactsSurface,
   fileAccess: RuntimeFileAccessSurface,
   fileReads: RuntimeFileReadsSurface,
   fileMutations: RuntimeFileMutationsSurface,
-  stagedFileSaveCommands: RuntimeStagedFileSaves,
+  stagedFileSaveCommands: RuntimeStagedFileSavesSurface,
   fileWatches: RuntimeFileWatches,
-  terminalPaths: RuntimeTerminalPathResolver
+  terminalPaths: RuntimeTerminalPathResolverSurface
 ): void {
   Object.assign(target, {
     listMobileFiles: fileSearch.listMobileFiles.bind(fileSearch),

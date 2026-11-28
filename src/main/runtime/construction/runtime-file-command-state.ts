@@ -25,10 +25,12 @@ import {
   LazyRuntimeFileReads,
   LazyRuntimeFileSearch
 } from '../files/lazy-runtime-file-commands'
-import { RuntimeTerminalArtifacts } from '../terminal/artifacts/terminal-artifacts'
-import { RuntimeStagedFileSaves } from '../files/staged-file-save-commands'
+import {
+  LazyRuntimeStagedFileSaves,
+  LazyRuntimeTerminalArtifacts,
+  LazyRuntimeTerminalPathResolver
+} from '../files/lazy-runtime-file-transfer-commands'
 import { RuntimeFileWatches } from '../files/watch/file-watches'
-import { RuntimeTerminalPathResolver } from '../terminal/terminal-path-resolver'
 import type { RuntimeFileCommandHost } from '../files/file-command-host'
 
 export abstract class OrcaRuntimeWithFileCommands extends OrcaRuntimeWithPreservedBranchCleanup {
@@ -148,7 +150,9 @@ export abstract class OrcaRuntimeWithFileCommands extends OrcaRuntimeWithPreserv
 
   protected readonly fileSearch = new LazyRuntimeFileSearch(this.runtimeFileCommandHost)
 
-  protected readonly terminalArtifacts = new RuntimeTerminalArtifacts(this.runtimeFileCommandHost)
+  protected readonly terminalArtifacts = new LazyRuntimeTerminalArtifacts(
+    this.runtimeFileCommandHost
+  )
 
   protected readonly fileAccess = new LazyRuntimeFileAccess(this.runtimeFileCommandHost)
 
@@ -156,13 +160,13 @@ export abstract class OrcaRuntimeWithFileCommands extends OrcaRuntimeWithPreserv
 
   protected readonly fileMutations = new LazyRuntimeFileMutations(this.runtimeFileCommandHost)
 
-  protected readonly stagedFileSaveCommands = new RuntimeStagedFileSaves(
+  protected readonly stagedFileSaveCommands = new LazyRuntimeStagedFileSaves(
     this.runtimeFileCommandHost
   )
 
   protected readonly fileWatches = new RuntimeFileWatches(this.runtimeFileCommandHost)
 
-  protected readonly terminalPaths = new RuntimeTerminalPathResolver(
+  protected readonly terminalPaths = new LazyRuntimeTerminalPathResolver(
     this.runtimeFileCommandHost,
     this.terminalArtifacts
   )
