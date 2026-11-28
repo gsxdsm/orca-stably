@@ -23,6 +23,11 @@ import {
   type NotificationPushCoverageRequest
 } from '../../../shared/rpc-contract/notifications/notifications-params'
 import type { MobilePushDeliveryMode } from './mobile-push-delivery-policy'
+import type { PushReplyCategoryGate } from './push-reply-category-gate'
+import {
+  NOTIFICATION_REPLY_CATEGORY,
+  type NotificationReplyTarget
+} from '../../../shared/notifications/notification-reply'
 
 const PUSH_RETRY_DELAY_MS = 2_000
 // Split requests at the gateway's per-send limit so extra paired phones still receive notifications.
@@ -42,6 +47,8 @@ type PushDispatcherOptions = {
   /** Absent, or a gate that has not seen support, keeps today's notification bytes. */
   promptCategory?: Pick<PushPromptCategoryGate, 'allows' | 'refresh'>
   promptFor?: (event: MobileNotificationEvent) => MobilePushPrompt | null
+  replyFor?: (event: MobileNotificationEvent) => NotificationReplyTarget | null
+  replyCategory?: Pick<PushReplyCategoryGate, 'allows' | 'refresh'>
   coverage?: ExecutionHostPushCoverage
 }
 
@@ -67,6 +74,8 @@ export class PushDispatcher {
   private readonly scheduleRetry: (run: () => void, delayMs: number) => void
   private readonly promptCategory: PushDispatcherOptions['promptCategory']
   private readonly promptFor: PushDispatcherOptions['promptFor']
+  private readonly replyFor: PushDispatcherOptions['replyFor']
+  private readonly replyCategory: PushDispatcherOptions['replyCategory']
   private readonly coverage: ExecutionHostPushCoverage | undefined
 
   constructor(options: PushDispatcherOptions) {
@@ -75,6 +84,8 @@ export class PushDispatcher {
     this.registry = options.registry
     this.promptCategory = options.promptCategory
     this.promptFor = options.promptFor
+    this.replyFor = options.replyFor
+    this.replyCategory = options.replyCategory
     this.deliveryMode = options.deliveryMode ?? 'full'
     this.scheduleRetry =
       options.scheduleRetry ??
@@ -232,10 +243,19 @@ export class PushDispatcher {
       ...(event.paneKey ? { paneKey: event.paneKey } : {}),
       ...(event.executionHost ? { executionHost: event.executionHost } : {})
     }
+    const withPrompt =
+      content.agentState === 'needs-input' ? this.withPrompt(event, notification) : notification
+    this.replyCategory?.refresh()
+    const replyTarget = this.replyCategory?.allows() ? this.replyFor?.(event) : null
     return {
       targets,
-      notification:
-        content.agentState === 'needs-input' ? this.withPrompt(event, notification) : notification
+      notification: replyTarget
+        ? {
+            ...withPrompt,
+            replyTarget,
+            category: withPrompt.category ?? NOTIFICATION_REPLY_CATEGORY
+          }
+        : withPrompt
     }
   }
 

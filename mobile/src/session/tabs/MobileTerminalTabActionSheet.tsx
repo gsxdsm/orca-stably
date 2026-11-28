@@ -30,7 +30,8 @@ export function MobileTerminalTabActionSheet({
       visible={actionTarget != null}
       {...mobileSessionTabMenuHeader(
         actionTarget && terminalTabs.find((tab) => tab.terminal === actionTarget.handle),
-        controller.terminals
+        controller.terminals,
+        t
       )}
       groupDestructive
       title={actionTarget?.title || t('session.sheets.terminal', 'Terminal')}
@@ -54,7 +55,8 @@ export function MobileTerminalTabActionSheet({
         onClose: (target) => void controller.handleCloseTerminal(target),
         onCloseSessionTab: (tab) => void controller.handleCloseSessionTab(tab),
         bulkCloseActions: controller.bulkCloseActions,
-        workerActions
+        workerActions,
+        t
       })}
       onClose={() => setActionTarget(null)}
     />

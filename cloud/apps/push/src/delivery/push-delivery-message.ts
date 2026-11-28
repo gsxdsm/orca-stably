@@ -12,7 +12,8 @@ export type PushOrcaData = {
   notificationEpoch: string
   source: string
   agentState: string | null
-  category?: 'orca.prompt'
+  category?: 'orca.prompt' | 'orca.reply'
+  replyTarget?: PushNotification['replyTarget']
   prompt?: {
     promptId: string
     options: {
@@ -67,6 +68,7 @@ export function buildPushDelivery(input: {
         ? {}
         : {
             ...(notification.category ? { category: notification.category } : {}),
+            ...(notification.replyTarget ? { replyTarget: notification.replyTarget } : {}),
             ...(notification.prompt ? { prompt: notification.prompt } : {})
           }),
       hostFingerprint,

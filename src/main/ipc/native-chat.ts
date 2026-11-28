@@ -1,5 +1,5 @@
 import { DESKTOP_READ_WINDOW } from '../native-chat/transcript-watching/transcript-watch-contract'
-import { ipcMain } from 'electron'
+import { ipcMain, type IpcMainEvent } from 'electron'
 import type { AgentType } from '../../shared/agent-status/contracts/agent-status-types'
 import type {
   NativeChatMessage,
@@ -12,6 +12,7 @@ import { nativeChatReadSessionBounds } from './native-chat-read-bounds'
 import { readNativeChatTranscriptTail } from '../native-chat/transcript-live-tail'
 import { getStructuredAgentSessionHost } from '../native-chat/agent-session-wire/host/structured-agent-session-registry'
 import { openNativeChatTranscript } from '../native-chat/transcript-discovery/native-chat-open-wake'
+import type { IpcHandleRegistrar } from './lazy-ipc-handle-group'
 import {
   _getNativeChatPendingSubscriptionCountForTest,
   _getNativeChatSenderCleanupCountForTest,
@@ -24,7 +25,8 @@ export { clearNativeChatTranscriptCache }
 export {
   _getNativeChatPendingSubscriptionCountForTest,
   _getNativeChatSenderCleanupCountForTest,
-  clearNativeChatSubscriptions
+  clearNativeChatSubscriptions,
+  teardownSubscription
 }
 
 export type NativeChatReadSessionArgs = {
@@ -106,19 +108,28 @@ export type NativeChatAppendedPayload = {
       }
 }
 
-export function registerNativeChatHandlers(): void {
-  ipcMain.handle('nativeChat:readSession', (_event, args: NativeChatReadSessionArgs) =>
+export function registerNativeChatHandleChannels(ipc: IpcHandleRegistrar = ipcMain): void {
+  ipc.handle('nativeChat:readSession', (_event, args: NativeChatReadSessionArgs) =>
     readSession(args)
   )
-  ipcMain.on('nativeChat:subscribe', (event, args: NativeChatSubscribeArgs) => {
-    void handleSubscribe(event, args)
-  })
-  ipcMain.on('nativeChat:unsubscribe', (event, args: { subscriptionId: string }) => {
-    teardownSubscription(event.sender.id, args.subscriptionId)
-  })
   // Failure output is local-only because paired hosts do not transmit agent output.
-  ipcMain.handle('nativeChat:conversationNameFailureOutput', (_event, sessionId: unknown) => {
+  ipc.handle('nativeChat:conversationNameFailureOutput', (_event, sessionId: unknown) => {
     const naming = getStructuredAgentSessionHost()?.deps.conversationNaming
     return typeof sessionId === 'string' ? (naming?.failureOutput(sessionId) ?? null) : null
+  })
+}
+
+export function handleNativeChatSubscribeEvent(
+  event: IpcMainEvent,
+  args: NativeChatSubscribeArgs
+): void {
+  void handleSubscribe(event, args)
+}
+
+export function registerNativeChatHandlers(): void {
+  registerNativeChatHandleChannels(ipcMain)
+  ipcMain.on('nativeChat:subscribe', handleNativeChatSubscribeEvent)
+  ipcMain.on('nativeChat:unsubscribe', (event, args: { subscriptionId: string }) => {
+    teardownSubscription(event.sender.id, args.subscriptionId)
   })
 }

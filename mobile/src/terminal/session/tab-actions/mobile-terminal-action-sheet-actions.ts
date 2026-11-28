@@ -1,6 +1,6 @@
 import { Eraser, Monitor, Pencil, Smartphone, X } from 'lucide-react-native'
 import type { ActionSheetAction } from '../../../components/sheets/ActionSheetModal'
-import { translate } from '../../../i18n/mobile-i18n'
+import type { Translate } from '../../../i18n/mobile-i18n'
 import type { MobileNativeChatTab } from '../../../session/native-chat/conversation/mobile-native-chat-eligibility'
 import { getMobileNativeChatToggleActions } from '../../../session/native-chat/conversation/mobile-native-chat-toggle-action'
 
@@ -30,8 +30,9 @@ export function getMobileTerminalActionSheetActions<
   bulkCloseActions?: (anchorTabId: string | undefined) => ActionSheetAction[]
   /** Allow Auto-Close, on a worker the user kept open. */
   workerActions?: ActionSheetAction[]
+  t: Translate
 }): ActionSheetAction[] {
-  const { target } = args
+  const { target, t } = args
   if (!target) {
     return []
   }
@@ -47,13 +48,14 @@ export function getMobileTerminalActionSheetActions<
       structuredAgents: args.structuredAgents,
       hostAgentIdentity: args.hostAgentIdentity,
       onClose: args.onDismiss,
-      onToggle: args.onToggleChat
+      onToggle: args.onToggleChat,
+      t
     }),
     {
       id: 'toggleDisplayMode',
       label: phoneMode
-        ? translate('session.terminalActionSheetActions.switchToDesktop', 'Switch to Desktop')
-        : translate('session.terminalActionSheetActions.switchToPhone', 'Switch to Phone'),
+        ? t('session.terminalActionSheetActions.switchToDesktop', 'Switch to desktop')
+        : t('session.terminalActionSheetActions.switchToPhone', 'Switch to phone'),
       icon: phoneMode ? Monitor : Smartphone,
       onPress: () => {
         args.onDismiss()
@@ -62,7 +64,7 @@ export function getMobileTerminalActionSheetActions<
     },
     {
       id: 'rename',
-      label: translate('session.terminalActionSheetActions.rename', 'Rename'),
+      label: t('session.terminalActionSheetActions.rename', 'Rename'),
       icon: Pencil,
       closeBeforePress: true,
       onPress: () => {
@@ -71,7 +73,7 @@ export function getMobileTerminalActionSheetActions<
     },
     {
       id: 'clearTerminal',
-      label: translate('session.terminalActionSheetActions.clearTerminal', 'Clear Terminal'),
+      label: t('session.terminalActionSheetActions.clearTerminal', 'Clear terminal'),
       icon: Eraser,
       onPress: () => {
         args.onDismiss()
@@ -81,7 +83,7 @@ export function getMobileTerminalActionSheetActions<
     ...(args.workerActions ?? []),
     {
       id: 'close',
-      label: translate('session.tabMenu.closeTab', 'Close Tab'),
+      label: t('session.tabMenu.closeTab', 'Close tab'),
       icon: X,
       destructive: true,
       onPress: () => {

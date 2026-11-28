@@ -28,6 +28,7 @@ type MobileTerminalClient = {
 type MobileNativeChatSendArgs = {
   client: RpcClient
   terminal: string
+  expectedIncarnationId?: string
   text: string
   enter?: boolean
   agentPrompt?: true
@@ -131,6 +132,9 @@ export async function sendMobileNativeChatMessageWithOutcome(
       args.client,
       {
         terminal: args.terminal,
+        ...(args.expectedIncarnationId
+          ? { expectedIncarnationId: args.expectedIncarnationId }
+          : {}),
         text: args.text,
         enter: args.enter ?? true,
         ...(args.agentPrompt ? { agentPrompt: true as const } : {}),

@@ -19,6 +19,8 @@ import { desktopPushPrompt } from './desktop-push-prompt'
 import { PushGatewayClient } from './push-gateway-client'
 import type { PushPromptCategoryGate } from './push-prompt-category-gate'
 import { PushRegisterThrottle } from './push-register-throttle'
+import { notificationReplyTarget } from './notification-reply-target'
+import { PushReplyCategoryGate } from './push-reply-category-gate'
 import {
   readMobilePushDeliveryMode,
   type MobilePushDeliveryMode
@@ -83,6 +85,8 @@ export class DesktopPushService {
       deliveryMode: this.deliveryMode,
       promptCategory: prompt.gate,
       promptFor: prompt.promptFor,
+      replyFor: (event) => notificationReplyTarget(this.runtime, event),
+      replyCategory: new PushReplyCategoryGate(() => client.readReplyCategory()),
       coverage: options.coverage
     })
     this.badgeSync = new PushBadgeSync({ client, registry, runtime: options.runtime })
