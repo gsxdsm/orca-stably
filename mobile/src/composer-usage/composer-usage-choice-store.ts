@@ -1,13 +1,14 @@
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { persistMirrored } from '../storage/mirrored-storage-keys'
+import { useShellStorage } from '../platform/shell-storage/shell-storage'
+import { persistMirrored, subscribeMirroredKey } from '../storage/mirrored-storage-keys'
 
 export type ComposerUsageChoiceStore<T extends string> = {
   set: (next: T) => void
   use: () => T
 }
 
-/** One device-wide composer meter choice, persisted under `key` and shared by every reader. */
+/** One device-wide usage preference, persisted under `key` and kept live across native and page views. */
 export function createComposerUsageChoiceStore<T extends string>(
   key: string,
   normalize: (raw: string | null | undefined) => T,
@@ -43,6 +44,14 @@ export function createComposerUsageChoiceStore<T extends string>(
     }
   }
 
+  // A page's toggle lands in the native mirror; adopt it immediately so rail rings and Settings stay in step.
+  subscribeMirroredKey(key, (raw, source) => {
+    if (source === 'page') {
+      revision += 1
+      publish(normalize(raw))
+    }
+  })
+
   // Re-read when the first reader mounts: the page's storage arrives with each init, after module load.
   const subscribe = (listener: () => void): (() => void) => {
     listeners.add(listener)
@@ -64,6 +73,15 @@ export function createComposerUsageChoiceStore<T extends string>(
         .then(() => persistMirrored(key, next))
         .catch((error: unknown) => console.warn(`${name} could not be saved`, error))
     },
-    use: () => useSyncExternalStore(subscribe, read, read)
+    use: () => {
+      // A page rereads storage whenever the native shell republishes after a Settings or rail-sheet change.
+      const shellStorage = useShellStorage()
+      useEffect(() => {
+        if (shellStorage !== null) {
+          void reload()
+        }
+      }, [shellStorage])
+      return useSyncExternalStore(subscribe, read, read)
+    }
   }
 }

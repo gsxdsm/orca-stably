@@ -122,7 +122,7 @@ export function ComposerUsageSheet({ visible, onClose, usage, snapshot }: Props)
             now={now}
           />
         ) : null}
-        <ComposerUsageWindowPicker windows={active.windows} />
+        <ComposerUsageWindowPicker windows={active.windows} onChange={() => setWindowId(null)} />
         <ComposerUsageDisplayPicker />
         <ComposerUsagePositionPicker />
       </View>

@@ -118,11 +118,13 @@ describe('Antigravity mobile usage surfaces', () => {
       'Claude/GPT weekly'
     ])
 
-    // Rail ring includes Antigravity and picks Weekly when present.
+    // Rail ring includes Antigravity and follows the 5-hour / weekly toggle.
     const rail = listRailUsage(snapshot)
     expect(rail.map((entry) => entry.provider)).toEqual(['antigravity'])
-    expect(pickRailUsageWindow(rail[0]!.windows)?.kind).toBe('weekly')
-    expect(pickRailUsageWindow(rail[0]!.windows)?.window.usedPercent).toBe(48)
+    expect(pickRailUsageWindow(rail[0]!.windows, 'session')?.kind).toBe('session')
+    expect(pickRailUsageWindow(rail[0]!.windows, 'session')?.window.usedPercent).toBe(35)
+    expect(pickRailUsageWindow(rail[0]!.windows, 'weekly')?.kind).toBe('weekly')
+    expect(pickRailUsageWindow(rail[0]!.windows, 'weekly')?.window.usedPercent).toBe(48)
 
     // Unified pop-up maps Antigravity to the antigravity vector agent logo and reads its history.
     expect(RAIL_USAGE_PROVIDER_AGENT.antigravity).toBe('antigravity')
@@ -153,6 +155,9 @@ describe('Antigravity mobile usage surfaces', () => {
     const rail = listRailUsage(snapshot)
     expect(rail).toHaveLength(1)
     expect(rail[0]!.notice).toBe(ANTIGRAVITY_NO_USAGE_YET_NOTICE)
-    expect(pickRailUsageWindow(rail[0]!.windows)?.window.usedPercent).toBe(0)
+    expect(pickRailUsageWindow(rail[0]!.windows, 'session')?.kind).toBe('session')
+    expect(pickRailUsageWindow(rail[0]!.windows, 'session')?.window.usedPercent).toBe(0)
+    expect(pickRailUsageWindow(rail[0]!.windows, 'weekly')?.kind).toBe('weekly')
+    expect(pickRailUsageWindow(rail[0]!.windows, 'weekly')?.window.usedPercent).toBe(0)
   })
 })

@@ -9,6 +9,7 @@ import {
 } from '../composer-usage/agent-usage-provider'
 import { composerUsageMeterReadout } from '../composer-usage/composer-usage-meter-readout'
 import { useComposerUsageDisplay } from '../composer-usage/composer-usage-display-preference'
+import { useComposerUsageWindow } from '../composer-usage/composer-usage-window-preference'
 import { computeUsagePace, usagePaceMarkerPercent } from '../composer-usage/usage-window-pace'
 import { usagePaceColor } from '../composer-usage/usage-pace-color'
 import { usageResetLabel } from '../composer-usage/usage-reset-label'
@@ -113,9 +114,10 @@ export function RailUsageRing({
   const styles = useThemedStyles(stylesSheet)
   const t = useMobileTranslation()
   const display = useComposerUsageDisplay()
+  const choice = useComposerUsageWindow()
   // "3d 2h" when it fits inside the ring, else its largest unit ("3d", "5h", "40m").
   const [fullLabelWidth, setFullLabelWidth] = useState<number | null>(null)
-  const entry = pickRailUsageWindow(usage.windows)
+  const entry = pickRailUsageWindow(usage.windows, choice)
   if (!entry) {
     return null
   }

@@ -31,7 +31,11 @@ export const TERMINAL_SETTINGS_STORAGE_KEYS = [
   'orca:nativeChatText',
   'orca:chatHardwareEnterToSend',
   /** Used or remaining on usage bars, so an open Accounts page follows Settings. */
-  'orca:usagePercentageDisplay'
+  'orca:usagePercentageDisplay',
+  /** Composer & rail usage meter window, display and position, so open chats follow Settings and the rail sheet. */
+  'orca:composerUsageWindow',
+  'orca:composerUsageDisplay',
+  'orca:composerUsagePosition'
 ] as const
 
 // Native Settings writes Chat UI after the page primes; a later refresh must copy it.

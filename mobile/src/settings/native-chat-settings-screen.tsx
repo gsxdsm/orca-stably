@@ -187,10 +187,10 @@ export default function NativeChatSettingsScreen({ onBack }: { onBack?: () => vo
         </SettingsSection>
 
         <SettingsSection
-          title={t('settings.nativeChatSettingsScreen.composerUsageHeading', 'COMPOSER USAGE')}
+          title={t('settings.nativeChatSettingsScreen.composerUsageHeading', 'USAGE METERS')}
           footer={t(
             'settings.nativeChatSettingsScreen.composerUsageDescription',
-            'Chat and agent terminal composers show your agent plan as used or left. Tap the meter for every window, reset times and pace.'
+            'Chat and agent terminal composers, and the side rail rings, show your chosen window as used or left. Tap a meter or ring for every window, reset times and pace.'
           )}
         >
           <ComposerUsageWindowPicker inSettings />

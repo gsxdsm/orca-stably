@@ -139,18 +139,24 @@ export function readUsageWindowHistory(
   return series ? [...series.samples].sort((a, b) => a.at - b.at) : []
 }
 
-// Fall back to the other standard window, then whatever the provider reports (monthly-only plans).
+// Fall back to the other standard window, then the window closest to its limit (monthly or bucket-only plans).
 export function pickComposerUsageWindow(
   windows: readonly UsageWindowEntry[],
   choice: ComposerUsageWindowChoice
 ): UsageWindowEntry | null {
   const other = choice === 'session' ? 'weekly' : 'session'
-  return (
-    windows.find((entry) => entry.kind === choice) ??
-    windows.find((entry) => entry.kind === other) ??
-    windows[0] ??
-    null
-  )
+  const standard =
+    windows.find((entry) => entry.kind === choice) ?? windows.find((entry) => entry.kind === other)
+  if (standard) {
+    return standard
+  }
+  let tightest: UsageWindowEntry | null = null
+  for (const entry of windows) {
+    if (!tightest || entry.window.usedPercent > tightest.window.usedPercent) {
+      tightest = entry
+    }
+  }
+  return tightest
 }
 
 /** The 5-hour vs weekly choice. Hidden unless this usage includes a 5-hour window to switch to. */
