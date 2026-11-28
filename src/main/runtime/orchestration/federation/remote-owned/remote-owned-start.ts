@@ -37,14 +37,15 @@ import {
   refuseTaskOfClosedPairing
 } from '../../db/remote-owned/remote-placement-hold'
 import { openRemoteRunLink } from '../../db/remote-owned/remote-run-links'
+import { attemptHereRetriedOnServer, withQuestionLeftHere } from './remote-owned-local-retry'
 import { callRemoteOwnedServer } from './remote-owned-calls'
 import { resolveCrossMachineChildParent } from '../cross-machine-child-parent'
 import { remoteForwardKey } from './remote-forward-caller'
 import { resolveDispatchCreator } from '../../../rpc/methods/orchestration/runs/dispatch-creator'
 import {
+  answeredWorktreeId,
   errorData,
   failedBeforeSending,
-  answeredWorktreeId,
   inServerTerms,
   serverNeverAnswered
 } from './remote-owned-answers'
@@ -152,9 +153,10 @@ export async function startRemoteOwnedWorker(
       { effectsApplied: false }
     )
   }
+  const db = runtime.getOrchestrationDb()
+  const attemptHere = attemptHereRetriedOnServer(db, startParams.retryOf)
   const { params, coordinator, bindRun, helperCreator, taskDeps, existingTask, withRun } =
     await prepareWorkerStart(startParams, ctx)
-  const db = runtime.getOrchestrationDb()
   const server = await runtime.resolveOrchestrationWorkerServer(params.on!)
   const launch = await prepareRemoteOwnedRetryLaunch(params, server.name, () =>
     serverSupports(runtime, server, ORCHESTRATION_WORKER_LAUNCH_PREFERENCES_RUNTIME_CAPABILITY)
@@ -175,11 +177,12 @@ export async function startRemoteOwnedWorker(
   const link = openRemoteRunLink(db, run.id, server, (handle, type) =>
     runtime.notifyMessageArrived(handle, type)
   )
-  const { task, nothingSent } = reserveRemotePlacement(db, {
+  const { task, nothingSent, sendAttempt } = reserveRemotePlacement(db, {
     link,
     taskId,
     requestKey: forward.key,
     retryOf: params.retryOf,
+    retriesAttemptHere: attemptHere !== undefined,
     creator: resolveDispatchCreator(runtime, params.from, ctx.orchestrationCaller),
     create: existingTask
       ? undefined
@@ -195,7 +198,7 @@ export async function startRemoteOwnedWorker(
   })
   // Its queue has a reader from the start, so mail sent before the answer still comes home.
   runtime.ensureOrchestrationFederationRelay(run.id)
-  const options = serverStartOptions(launch.params)
+  const { retryOf: _retryOf, ...options } = serverStartOptions(launch.params)
   // Read before the wait: the server cannot tell a bot's worker from a person's, and the
   // coordinator's own Dispatch may settle while the server starts this one.
   const keepOpenByDefault = coordinatorKeepOpenByDefault(
@@ -211,8 +214,8 @@ export async function startRemoteOwnedWorker(
   const baseParams = {
     ...options,
     // A retry names the server's existing Task, whose ordinary retry checks refuse a spec.
-    ...(params.retryOf
-      ? { task: task.id }
+    ...(params.retryOf && !attemptHere
+      ? { retryOf: params.retryOf, task: task.id }
       : { spec: task.spec, ...(task.task_title ? { taskTitle: task.task_title } : {}) }),
     adoptTaskId: task.id,
     ...(crossStoreParent ? { crossStoreParent } : {}),
@@ -237,14 +240,16 @@ export async function startRemoteOwnedWorker(
     receipt = called.result
     retryWarning = called.droppedWarning ?? retryWarning
   } catch (error) {
-    settleUnansweredStart(runtime, {
-      conversationId: link.conversation_id,
+    settleUnansweredStart(
+      runtime,
+      link.conversation_id,
       taskId,
+      forward.key,
       error,
-      key: forward.key,
-      createdByStart: !existingTask,
-      nothingSent
-    })
+      !existingTask,
+      nothingSent,
+      sendAttempt
+    )
     throw nameRefusingComputer(inServerTerms(error, { server: server.name, forward }), server.name)
   }
   const started = StartedOnServer.safeParse(receipt)
@@ -281,7 +286,7 @@ export async function startRemoteOwnedWorker(
     inServerTerms(receipt, { server: server.name, forward }),
     retryWarning
   )
-  return withRun(
+  const placed = withRun(
     answer && typeof answer === 'object'
       ? {
           ...answer,
@@ -294,38 +299,31 @@ export async function startRemoteOwnedWorker(
         }
       : answer
   )
+  return withQuestionLeftHere(attemptHere, params.forQuestion, placed)
 }
 
 /** What a start's failure says about its reservation: adopt the Dispatch it names, keep it for the server's queue to answer, or free it. */
 function settleUnansweredStart(
   runtime: OrcaRuntimeService,
-  start: {
-    conversationId: string
-    taskId: string
-    key: string
-    error: unknown
-    createdByStart: boolean
-    nothingSent: boolean
-  }
+  conversationId: string,
+  taskId: string,
+  key: string,
+  error: unknown,
+  createdByStart: boolean,
+  nothingSent: boolean,
+  sendAttempt: number
 ): void {
   const db = runtime.getOrchestrationDb()
-  const data = errorData(start.error)
+  const data = errorData(error)
   const named = typeof data?.dispatchId === 'string' ? data.dispatchId : undefined
-  // An unknown outcome stays reserved: the queue item for any Dispatch the server created adopts it.
   const outcomeUnknown =
-    (start.error instanceof OrchestrationError && start.error.code === 'operation_unknown') ||
-    (serverNeverAnswered(start.error) && data?.effectsApplied !== false)
+    (error instanceof OrchestrationError && error.code === 'operation_unknown') ||
+    (serverNeverAnswered(error) && data?.effectsApplied !== false)
   if (named) {
-    recordRemoteStart(db, {
-      conversationId: start.conversationId,
-      taskId: start.taskId,
-      dispatchId: named,
-      requestKey: start.key
-    })
+    recordRemoteStart(db, { conversationId, taskId, dispatchId: named, requestKey: key })
   } else if (!outcomeUnknown) {
-    // The server's ordinary start refused it, which a start that had launched answers with a receipt.
-    releaseRemotePlacement(db, start.taskId, start.key, { createdByStart: start.createdByStart })
-  } else if (start.nothingSent && failedBeforeSending(start.error)) {
-    markRemotePlacementNeverSent(db, start.taskId, start.key)
+    releaseRemotePlacement(db, taskId, key, { createdByStart })
+  } else if (nothingSent && failedBeforeSending(error)) {
+    markRemotePlacementNeverSent(db, taskId, key, sendAttempt)
   }
 }
