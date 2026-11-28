@@ -21,7 +21,10 @@ vi.mock('expo-notifications', () => ({
   }
 }))
 vi.mock('expo-task-manager', () => ({ defineTask: () => {}, isAvailableAsync: async () => false }))
-vi.mock('./notification-reply-response', () => ({ handleNotificationReply: async () => true }))
+vi.mock('./notification-reply-response', () => ({
+  handleNotificationReply: async () => true,
+  recoverInterruptedNotificationReplies: async () => {}
+}))
 vi.mock('./notification-reply-native', () => ({ pendingNativeReplies: async () => [] }))
 vi.mock('../../i18n/mobile-i18n', () => ({
   translate: (_key: string, text: string) => (native.translated ? `Translated ${text}` : text),
